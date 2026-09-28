@@ -22,7 +22,7 @@ def test_fetch_negotiates_and_caches(tmp_path: Path):
         second = fetch_celex("32024R1689", cache_dir=tmp_path, client=client)
     assert first == second == b"<html/>"
     assert len(calls) == 1
-    assert str(calls[0].url) == "http://publications.europa.eu/resource/celex/32024R1689"
+    assert str(calls[0].url) == "https://publications.europa.eu/resource/celex/32024R1689"
     assert calls[0].headers["accept"] == "application/xhtml+xml"
     assert calls[0].headers["accept-language"] == "eng"
 
@@ -35,9 +35,9 @@ def test_refresh_bypasses_cache(tmp_path: Path):
         return httpx.Response(200, content=b"x")
 
     with _client(handler) as client:
-        fetch("http://publications.europa.eu/resource/x", cache_dir=tmp_path, client=client)
+        fetch("https://publications.europa.eu/resource/x", cache_dir=tmp_path, client=client)
         fetch(
-            "http://publications.europa.eu/resource/x",
+            "https://publications.europa.eu/resource/x",
             cache_dir=tmp_path,
             client=client,
             refresh=True,

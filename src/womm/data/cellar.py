@@ -14,7 +14,7 @@ import httpx
 
 from womm.config import REPO_ROOT
 
-CELLAR_BASE = "http://publications.europa.eu/resource"
+CELLAR_BASE = "https://publications.europa.eu/resource"
 DEFAULT_CACHE_DIR = REPO_ROOT / ".cache" / "cellar"
 XHTML = "application/xhtml+xml"
 
@@ -73,6 +73,10 @@ def fetch(
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(response.content)
     return response.content
+
+
+def sha256(body: bytes) -> str:
+    return hashlib.sha256(body).hexdigest()
 
 
 def fetch_celex(celex: str, **kwargs) -> bytes:

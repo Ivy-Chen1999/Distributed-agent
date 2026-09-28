@@ -24,7 +24,7 @@ from pathlib import Path
 import yaml
 
 from womm.data import parse_proposal, parse_regulation
-from womm.data.cellar import fetch, fetch_celex
+from womm.data.cellar import celex_url, fetch, sha256
 from womm.data.fixtures import (
     DEFAULT_FIXTURE_DIR,
     Crosswalk,
@@ -66,7 +66,7 @@ FINAL = VersionSpec(
 # celex/52021PC0206 answers HTTP 300; DOC_1 is the proposal with its explanatory memorandum
 # (DOC_3 holds the annexes, not used yet). celex/32024R1689 answers 200 directly.
 PROPOSAL_URL = (
-    "http://publications.europa.eu/resource/cellar/"
+    "https://publications.europa.eu/resource/cellar/"
     "e0649735-a372-11eb-9585-01aa75ed71a1.0001.03/DOC_1"
 )
 
@@ -267,17 +267,40 @@ def write_fixture(
     (out_dir / "scenarios.yaml").write_text(header + body, encoding="utf-8")
 
 
+def check_downloads(path: Path, bodies: dict[str, bytes], *, accept: bool) -> None:
+    """Pin each upstream document by sha256 so a changed or tampered download fails loudly."""
+    pinned = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    current = {url: sha256(body) for url, body in bodies.items()}
+    changed = sorted(u for u, h in current.items() if u in pinned and pinned[u] != h)
+    if changed and not accept:
+        raise FixtureError(
+            f"upstream documents changed since the fixture was pinned: {changed}; "
+            "rerun with --accept-upstream-changes after reviewing the new text"
+        )
+    path.write_text(json.dumps({**pinned, **current}, indent=2, sort_keys=True) + "\n")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--out", type=Path, default=DEFAULT_FIXTURE_DIR)
     parser.add_argument("--refresh", action="store_true", help="ignore the download cache")
+    parser.add_argument(
+        "--accept-upstream-changes",
+        action="store_true",
+        help="accept downloads whose sha256 differs from downloads.json",
+    )
     args = parser.parse_args(argv)
 
     crosswalk = load_crosswalk(args.out / "crosswalk.yaml")
     scenarios = build_scenarios(crosswalk)
 
-    proposal_root = parse_proposal.parse_document(fetch(PROPOSAL_URL, refresh=args.refresh))
-    final_root = parse_regulation.parse_document(fetch_celex(FINAL.celex, refresh=args.refresh))
+    bodies = {
+        PROPOSAL_URL: fetch(PROPOSAL_URL, refresh=args.refresh),
+        celex_url(FINAL.celex): fetch(celex_url(FINAL.celex), refresh=args.refresh),
+    }
+    check_downloads(args.out / "downloads.json", bodies, accept=args.accept_upstream_changes)
+    proposal_root = parse_proposal.parse_document(bodies[PROPOSAL_URL])
+    final_root = parse_regulation.parse_document(bodies[celex_url(FINAL.celex)])
 
     built = []
     sources: list[Source] = []

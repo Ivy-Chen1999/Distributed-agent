@@ -190,8 +190,12 @@ async def record_langsmith_experiment(
         return scores[i].model_dump(mode="json")
 
     def metrics(outputs: dict) -> dict:
-        keys = ("coverage", "omissions_addressed", "grounding", "latency_s", "tokens", "cost_usd")
-        return {"results": [{"key": k, "score": outputs.get(k)} for k in keys]}
+        keys = ("coverage", "omissions_addressed", "grounding", "latency_s", "cost_usd")
+        results = [{"key": k, "score": outputs.get(k)} for k in keys]
+        # LangSmith feedback scores are capped at +/-99999.9999, so tokens go in as thousands.
+        tokens = outputs.get("tokens")
+        results.append({"key": "ktokens", "score": None if tokens is None else tokens / 1000})
+        return {"results": results}
 
     def summary(outputs: list[dict]) -> dict:
         agg = aggregate([CaseScore.model_validate(o) for o in outputs if o])
