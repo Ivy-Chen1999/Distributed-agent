@@ -28,6 +28,8 @@ class Settings:
     openai_api_key: str | None
     anthropic_api_key: str | None
     api_token: str | None
+    typesafe_api_key: str | None = None
+    jev_model: str = "jev-latest"
 
     def require_langsmith(self) -> str:
         if not self.langsmith_api_key:
@@ -59,4 +61,6 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
         openai_api_key=opt("OPENAI_API_KEY"),
         anthropic_api_key=opt("ANTHROPIC_API_KEY"),
         api_token=opt("WOMM_API_TOKEN"),
+        typesafe_api_key=opt("TYPESAFE_API_KEY"),
+        jev_model=opt("WOMM_JEV_MODEL") or "jev-latest",
     )
