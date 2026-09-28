@@ -15,7 +15,7 @@ scenarios:
   - ai_act/high_risk/data_governance
   - ai_act/high_risk/technical_documentation
   - ai_act/high_risk/record_keeping
-  - ai_act/high_risk/transparency_to_users
+  - ai_act/high_risk/transparency_information
   - ai_act/high_risk/human_oversight
   - ai_act/high_risk/accuracy_robustness_cybersecurity
   - ai_act/high_risk/provider_obligations
@@ -34,3 +34,15 @@ scenarios:
   - ai_act/innovation/sme_measures
   - ai_act/penalties/penalties
   ia_reference: SWD(2021) 84 Part 1, section 6.1.4 (SME test)
+- scenario_id: demo_penalties_amended
+  kind: demo
+  description: Proposal -> adopted Regulation for provider obligations (Art 16 -> 16), SME measures (Art
+    55 -> 62) and penalties (Art 71 -> 99). Shows the provision-level diff across renumbering; not scored
+    against the impact assessment.
+  before_version: com2021_206
+  after_version: reg2024_1689
+  provision_keys:
+  - ai_act/high_risk/provider_obligations
+  - ai_act/innovation/sme_measures
+  - ai_act/penalties/penalties
+  ia_reference: null

@@ -3,7 +3,13 @@ from pathlib import Path
 
 import pytest
 
-from womm.data.fixtures import DEFAULT_FIXTURE_DIR, FixtureError, load_fixture, validate_fixture
+from womm.data.fixtures import (
+    DEFAULT_FIXTURE_DIR,
+    FixtureError,
+    load_crosswalk,
+    load_fixture,
+    validate_fixture,
+)
 from womm.models.regulation import Scenario
 
 
@@ -116,3 +122,53 @@ def test_broken_scenarios_file_fails_load(tmp_path: Path):
 def test_missing_fixture_dir_fails(tmp_path: Path):
     with pytest.raises(FixtureError, match="no proposal.json"):
         load_fixture(tmp_path)
+
+
+def test_demo_scenario_diffs_renumbered_articles(fixture):
+    s = fixture.scenario("demo_penalties_amended")
+    assert (s.kind, s.before_version, s.after_version) == ("demo", "com2021_206", "reg2024_1689")
+    before, after = fixture.scenario_versions(s.scenario_id)
+    assert before is not None
+    assert [p.provision_key for p in before.provisions] == [
+        p.provision_key for p in after.provisions
+    ]
+    old, new = (
+        before.by_key()["ai_act/penalties/penalties"],
+        after.by_key()["ai_act/penalties/penalties"],
+    )
+    assert (old.article, new.article) == ("71", "99")
+    assert new.source_id == "reg2024_1689/art_99"
+    assert old.text != new.text
+    ids = [src.source_id for src in fixture.scenario_sources(s.scenario_id)]
+    assert "com2021_206/art_71" in ids and "reg2024_1689/art_99" in ids
+
+
+def test_crosswalk_maps_renumbered_articles_to_one_key():
+    cw = load_crosswalk(DEFAULT_FIXTURE_DIR / "crosswalk.yaml")
+    assert cw.key_for("com2021_206", "71") == cw.key_for("reg2024_1689", "99")
+    assert cw.key_for("com2021_206", "71") == "ai_act/penalties/penalties"
+    assert cw.article_for("ai_act/innovation/sme_measures", "reg2024_1689") == "62"
+
+
+def test_crosswalk_covers_every_fixture_provision(fixture):
+    cw = load_crosswalk(DEFAULT_FIXTURE_DIR / "crosswalk.yaml")
+    for v in fixture.regulation.versions:
+        for p in v.provisions:
+            assert cw.key_for(v.version_id, p.article) == p.provision_key
+
+
+def test_scenario_article_missing_from_crosswalk_fails_naming_it():
+    cw = load_crosswalk(DEFAULT_FIXTURE_DIR / "crosswalk.yaml")
+    with pytest.raises(FixtureError, match=r"'demo_x'.*Art 100 of reg2024_1689"):
+        cw.resolve("demo_x", "reg2024_1689", ["99", "100"])
+
+
+def test_crosswalk_rejects_article_mapped_twice(tmp_path: Path):
+    path = tmp_path / "crosswalk.yaml"
+    path.write_text(
+        "entries:\n"
+        "- {provision_key: a, articles: {v1: '1'}}\n"
+        "- {provision_key: b, articles: {v1: '1'}}\n"
+    )
+    with pytest.raises(FixtureError, match="mapped to both"):
+        load_crosswalk(path)

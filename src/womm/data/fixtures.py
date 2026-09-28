@@ -4,18 +4,22 @@ Files:
 - ``proposal.json`` (and optionally ``final.json``): a Regulation holding one or more versions
 - ``sources.json``: list[Source], the only texts experts may cite (R9)
 - ``scenarios.yaml``: ``{"scenarios": list[Scenario]}``
+- ``crosswalk.yaml``: hand-maintained ``{"entries": list[CrosswalkEntry]}`` mapping each stable
+  provision key to its article number in every version (build input, not needed at runtime)
 """
 
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
-from pydantic import ValidationError
+from pydantic import Field, ValidationError
 
 from womm.config import REPO_ROOT
+from womm.models.base import StrictModel
 from womm.models.regulation import Provision, Regulation, RegulationVersion, Scenario, Source
 
 DEFAULT_FIXTURE_DIR = REPO_ROOT / "data" / "fixtures" / "ai_act"
@@ -24,6 +28,58 @@ VERSION_FILES = ("proposal.json", "final.json")
 
 class FixtureError(ValueError):
     """The fixture files are missing, malformed or inconsistent."""
+
+
+class CrosswalkEntry(StrictModel):
+    provision_key: str = Field(min_length=1)
+    articles: dict[str, str] = Field(
+        min_length=1, description="version_id -> article number as printed in that version"
+    )
+
+
+@dataclass(frozen=True)
+class Crosswalk:
+    entries: tuple[CrosswalkEntry, ...]
+
+    def __post_init__(self) -> None:
+        keys = [e.provision_key for e in self.entries]
+        if len(set(keys)) != len(keys):
+            raise FixtureError("duplicate provision_key in crosswalk")
+        seen: dict[tuple[str, str], str] = {}
+        for e in self.entries:
+            for version, article in e.articles.items():
+                other = seen.setdefault((version, article), e.provision_key)
+                if other != e.provision_key:
+                    raise FixtureError(
+                        f"{version} Art {article} mapped to both {other!r} and {e.provision_key!r}"
+                    )
+
+    def key_for(self, version_id: str, article: str) -> str:
+        for e in self.entries:
+            if e.articles.get(version_id) == article:
+                return e.provision_key
+        raise FixtureError(f"Art {article} of {version_id} is not in the crosswalk")
+
+    def article_for(self, provision_key: str, version_id: str) -> str | None:
+        for e in self.entries:
+            if e.provision_key == provision_key:
+                return e.articles.get(version_id)
+        raise FixtureError(f"provision key {provision_key!r} is not in the crosswalk")
+
+    def resolve(self, scenario_id: str, version_id: str, articles: Iterable[str]) -> list[str]:
+        """Provision keys for a scenario's articles; fails naming the scenario and article."""
+        try:
+            return [self.key_for(version_id, a) for a in articles]
+        except FixtureError as exc:
+            raise FixtureError(f"scenario {scenario_id!r}: {exc}") from None
+
+
+def load_crosswalk(path: Path) -> Crosswalk:
+    try:
+        raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        return Crosswalk(tuple(CrosswalkEntry.model_validate(e) for e in raw.get("entries", [])))
+    except (OSError, yaml.YAMLError, ValidationError) as exc:
+        raise FixtureError(f"cannot load crosswalk {path}: {exc}") from exc
 
 
 @dataclass(frozen=True)
@@ -98,6 +154,8 @@ def validate_fixture(fixture: Fixture) -> None:
             )
         if s.kind == "evaluation" and s.before_version is not None:
             raise FixtureError(f"evaluation scenario {s.scenario_id!r} must have no before_version")
+        if s.kind == "demo" and s.before_version is None:
+            raise FixtureError(f"demo scenario {s.scenario_id!r} needs a before_version")
 
 
 def _read_json(path: Path):

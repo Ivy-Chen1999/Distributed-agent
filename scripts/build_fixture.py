@@ -2,9 +2,11 @@
 
     uv run python scripts/build_fixture.py [--refresh]
 
-Downloads COM(2021) 206 (proposal + explanatory memorandum, Cellar DOC_1), keeps only the
-articles used by scenarios, strips impact-assessment material from the memorandum and writes
-proposal.json, sources.json and scenarios.yaml. Downloads are cached in .cache/cellar/.
+Downloads COM(2021) 206 (proposal + explanatory memorandum, Cellar DOC_1) and Regulation (EU)
+2024/1689, keeps only the articles used by scenarios (resolved to stable provision keys through
+the hand-maintained crosswalk.yaml), strips impact-assessment material from the memorandum and
+writes proposal.json, final.json, sources.json and scenarios.yaml. Downloads are cached in
+.cache/cellar/.
 
 No text from the impact assessment SWD(2021) 84 is ever written here: scenarios only carry a
 section reference (``ia_reference``) so the golden cases (evals/golden/) can be aligned.
@@ -16,52 +18,57 @@ import argparse
 import datetime as dt
 import json
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
 
-from womm.data.cellar import fetch
-from womm.data.fixtures import DEFAULT_FIXTURE_DIR, Fixture, validate_fixture
-from womm.data.parse_proposal import (
-    Article,
-    MemorandumSection,
-    parse_articles,
-    parse_document,
-    parse_memorandum,
-    strip_sections,
+from womm.data import parse_proposal, parse_regulation
+from womm.data.cellar import fetch, fetch_celex
+from womm.data.fixtures import (
+    DEFAULT_FIXTURE_DIR,
+    Crosswalk,
+    Fixture,
+    FixtureError,
+    load_crosswalk,
+    validate_fixture,
 )
+from womm.data.parse_proposal import Article, MemorandumSection, strip_sections
 from womm.models.regulation import Provision, Regulation, RegulationVersion, Scenario, Source
 
+
+@dataclass(frozen=True)
+class VersionSpec:
+    version_id: str
+    label: str
+    celex: str
+    date: dt.date
+    status: str
+    out_file: str
+
+
+PROPOSAL = VersionSpec(
+    "com2021_206",
+    "COM(2021) 206",
+    "52021PC0206",
+    dt.date(2021, 4, 21),
+    "proposal",
+    "proposal.json",
+)
+FINAL = VersionSpec(
+    "reg2024_1689",
+    "Regulation (EU) 2024/1689",
+    "32024R1689",
+    dt.date(2024, 6, 13),
+    "adopted",
+    "final.json",
+)
 # celex/52021PC0206 answers HTTP 300; DOC_1 is the proposal with its explanatory memorandum
-# (DOC_3 holds the annexes, not used yet).
-PROPOSAL_CELEX = "52021PC0206"
+# (DOC_3 holds the annexes, not used yet). celex/32024R1689 answers 200 directly.
 PROPOSAL_URL = (
     "http://publications.europa.eu/resource/cellar/"
     "e0649735-a372-11eb-9585-01aa75ed71a1.0001.03/DOC_1"
 )
-PROPOSAL_VERSION = "com2021_206"
-PROPOSAL_DATE = dt.date(2021, 4, 21)
-PROPOSAL_LABEL = "COM(2021) 206"
-
-# Proposal article -> provision key. Keys name the legal concept, not the number, so the final
-# Regulation (EU) 2024/1689 maps onto them through crosswalk.yaml (e.g. Art 71 -> Art 99).
-PROPOSAL_KEYS: dict[str, str] = {
-    "8": "ai_act/high_risk/compliance_with_requirements",
-    "9": "ai_act/high_risk/risk_management",
-    "10": "ai_act/high_risk/data_governance",
-    "11": "ai_act/high_risk/technical_documentation",
-    "12": "ai_act/high_risk/record_keeping",
-    "13": "ai_act/high_risk/transparency_to_users",
-    "14": "ai_act/high_risk/human_oversight",
-    "15": "ai_act/high_risk/accuracy_robustness_cybersecurity",
-    "16": "ai_act/high_risk/provider_obligations",
-    "17": "ai_act/high_risk/quality_management_system",
-    "43": "ai_act/high_risk/conformity_assessment",
-    "53": "ai_act/innovation/regulatory_sandboxes",
-    "54": "ai_act/innovation/sandbox_personal_data",
-    "55": "ai_act/innovation/sme_measures",
-    "71": "ai_act/penalties/penalties",
-}
 
 # Explanatory memorandum sections removed before the text becomes a citable source (R9, R24).
 # The golden cases are scored against SWD(2021) 84, so anything that restates its findings would
@@ -82,10 +89,11 @@ MEMORANDUM_STRIP = {
     "Proportionality",
     "Budgetary implications",
 }
-
 # Top-level memorandum section number -> readable source_id suffix.
 MEMORANDUM_SLUGS = {"1": "context", "2": "legal_basis", "5": "other_elements"}
 
+# ``articles`` are article numbers in ``after_version``; they become provision keys through
+# crosswalk.yaml.
 SCENARIOS: list[dict] = [
     {
         "scenario_id": "eval_provider_compliance_costs",
@@ -97,7 +105,7 @@ SCENARIOS: list[dict] = [
             "administrative burdens?"
         ),
         "before_version": None,
-        "after_version": PROPOSAL_VERSION,
+        "after_version": PROPOSAL.version_id,
         "articles": ["8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "43"],
         "ia_reference": "SWD(2021) 84 Part 1, section 6.1.3 (costs and administrative burdens)",
     },
@@ -110,9 +118,22 @@ SCENARIOS: list[dict] = [
             "start-ups affected?"
         ),
         "before_version": None,
-        "after_version": PROPOSAL_VERSION,
+        "after_version": PROPOSAL.version_id,
         "articles": ["53", "54", "55", "71"],
         "ia_reference": "SWD(2021) 84 Part 1, section 6.1.4 (SME test)",
+    },
+    {
+        "scenario_id": "demo_penalties_amended",
+        "kind": "demo",
+        "description": (
+            "Proposal -> adopted Regulation for provider obligations (Art 16 -> 16), SME "
+            "measures (Art 55 -> 62) and penalties (Art 71 -> 99). Shows the provision-level "
+            "diff across renumbering; not scored against the impact assessment."
+        ),
+        "before_version": PROPOSAL.version_id,
+        "after_version": FINAL.version_id,
+        "articles": ["16", "62", "99"],
+        "ia_reference": None,
     },
 ]
 
@@ -121,46 +142,62 @@ def article_source_id(version_id: str, article: str) -> str:
     return f"{version_id}/art_{article}"
 
 
-def build_proposal(doc: bytes) -> tuple[RegulationVersion, list[Source]]:
-    root = parse_document(doc)
-    articles: dict[str, Article] = {a.number: a for a in parse_articles(root)}
-    used = sorted({a for s in SCENARIOS for a in s["articles"]}, key=int)
+def build_scenarios(crosswalk: Crosswalk) -> list[Scenario]:
+    out = []
+    for raw in SCENARIOS:
+        data = {k: v for k, v in raw.items() if k != "articles"}
+        data["provision_keys"] = crosswalk.resolve(
+            raw["scenario_id"], raw["after_version"], raw["articles"]
+        )
+        out.append(Scenario.model_validate(data))
+    return out
 
-    unknown = [a for a in used if a not in PROPOSAL_KEYS]
-    if unknown:
-        raise SystemExit(f"scenario articles without a provision key: {unknown}")
-    missing = [a for a in used if a not in articles]
-    if missing:
-        raise SystemExit(f"articles not found in {PROPOSAL_LABEL}: {missing}")
 
+def keys_needed(scenarios: list[Scenario], version_id: str) -> list[str]:
+    """Keys of every scenario that reads ``version_id``, in first-use order."""
+    keys: dict[str, None] = {}
+    for s in scenarios:
+        if version_id in (s.before_version, s.after_version):
+            keys.update(dict.fromkeys(s.provision_keys))
+    return list(keys)
+
+
+def build_version(
+    spec: VersionSpec,
+    articles: list[Article],
+    keys: list[str],
+    crosswalk: Crosswalk,
+) -> tuple[RegulationVersion, list[Source]]:
+    by_number = {a.number: a for a in articles}
     provisions, sources = [], []
-    for number in used:
-        art = articles[number]
-        sid = article_source_id(PROPOSAL_VERSION, number)
+    for key in keys:
+        number = crosswalk.article_for(key, spec.version_id)
+        if number is None:
+            continue  # provision absent from this version (added or deleted)
+        if number not in by_number:
+            raise FixtureError(f"{key!r}: Art {number} not found in {spec.label}")
+        art = by_number[number]
+        sid = article_source_id(spec.version_id, number)
         provisions.append(
             Provision(
-                provision_key=PROPOSAL_KEYS[number],
-                article=number,
-                paragraph=None,
-                text=art.text,
-                source_id=sid,
+                provision_key=key, article=number, paragraph=None, text=art.text, source_id=sid
             )
         )
         sources.append(
             Source(
                 source_id=sid,
-                title=f"{PROPOSAL_LABEL}, Article {number}: {art.title}",
+                title=f"{spec.label}, Article {number}: {art.title}",
                 kind="provision",
                 text=art.text,
             )
         )
-
-    sources.extend(memorandum_sources(parse_memorandum(root)))
+    provisions.sort(key=lambda p: int(p.article))
+    sources.sort(key=lambda s: int(s.source_id.rsplit("_", 1)[1]))
     version = RegulationVersion(
-        version_id=PROPOSAL_VERSION,
-        date=PROPOSAL_DATE,
-        status="proposal",
-        source=PROPOSAL_CELEX,
+        version_id=spec.version_id,
+        date=spec.date,
+        status=spec.status,
+        source=spec.celex,
         provisions=provisions,
     )
     return version, sources
@@ -186,9 +223,9 @@ def memorandum_sources(sections: list[MemorandumSection]) -> list[Source]:
         slug = MEMORANDUM_SLUGS.get(number, f"section_{number}")
         sources.append(
             Source(
-                source_id=f"{PROPOSAL_VERSION}/memorandum/{slug}",
+                source_id=f"{PROPOSAL.version_id}/memorandum/{slug}",
                 title=(
-                    f"{PROPOSAL_LABEL}, Explanatory memorandum, "
+                    f"{PROPOSAL.label}, Explanatory memorandum, "
                     f"{top.number} {top.heading.capitalize()}"
                 ),
                 kind="memorandum",
@@ -199,27 +236,23 @@ def memorandum_sources(sections: list[MemorandumSection]) -> list[Source]:
     return sources
 
 
-def build_scenarios(version: RegulationVersion) -> list[Scenario]:
-    key_of = {p.article: p.provision_key for p in version.provisions}
-    out = []
-    for raw in SCENARIOS:
-        data = {k: v for k, v in raw.items() if k != "articles"}
-        data["provision_keys"] = [key_of[a] for a in raw["articles"]]
-        out.append(Scenario.model_validate(data))
-    return out
+def _dump_json(path: Path, payload) -> None:
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
 def write_fixture(
-    out_dir: Path, regulation: Regulation, sources: list[Source], scenarios: list[Scenario]
+    out_dir: Path,
+    versions: list[tuple[VersionSpec, RegulationVersion]],
+    sources: list[Source],
+    scenarios: list[Scenario],
 ) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
-
-    def dump_json(name: str, payload) -> None:
-        text = json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
-        (out_dir / name).write_text(text, encoding="utf-8")
-
-    dump_json("proposal.json", regulation.model_dump(mode="json"))
-    dump_json("sources.json", [s.model_dump(mode="json") for s in sources])
+    for spec, version in versions:
+        reg = Regulation(
+            regulation_id="ai_act", title="Artificial Intelligence Act", versions=[version]
+        )
+        _dump_json(out_dir / spec.out_file, reg.model_dump(mode="json"))
+    _dump_json(out_dir / "sources.json", [s.model_dump(mode="json") for s in sources])
     header = (
         "# Generated by scripts/build_fixture.py; edit SCENARIOS there, then rebuild.\n"
         "# ia_reference only points at the SWD(2021) 84 section used by the golden case;\n"
@@ -240,26 +273,45 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--refresh", action="store_true", help="ignore the download cache")
     args = parser.parse_args(argv)
 
-    version, sources = build_proposal(fetch(PROPOSAL_URL, refresh=args.refresh))
+    crosswalk = load_crosswalk(args.out / "crosswalk.yaml")
+    scenarios = build_scenarios(crosswalk)
+
+    proposal_root = parse_proposal.parse_document(fetch(PROPOSAL_URL, refresh=args.refresh))
+    final_root = parse_regulation.parse_document(fetch_celex(FINAL.celex, refresh=args.refresh))
+
+    built = []
+    sources: list[Source] = []
+    for spec, articles in (
+        (PROPOSAL, parse_proposal.parse_articles(proposal_root)),
+        (FINAL, parse_regulation.parse_articles(final_root)),
+    ):
+        version, version_sources = build_version(
+            spec, articles, keys_needed(scenarios, spec.version_id), crosswalk
+        )
+        built.append((spec, version))
+        sources.extend(version_sources)
+    sources.extend(memorandum_sources(parse_proposal.parse_memorandum(proposal_root)))
+
     regulation = Regulation(
         regulation_id="ai_act",
         title="Artificial Intelligence Act",
-        versions=[version],
+        versions=[v for _, v in built],
     )
-    scenarios = build_scenarios(version)
     validate_fixture(
         Fixture(
-            regulation,
-            {s.source_id: s for s in sources},
-            {s.scenario_id: s for s in scenarios},
+            regulation, {s.source_id: s for s in sources}, {s.scenario_id: s for s in scenarios}
         )
     )
-    write_fixture(args.out, regulation, sources, scenarios)
+    write_fixture(args.out, built, sources, scenarios)
 
-    by_key = version.by_key()
+    by_version = {v.version_id: v.by_key() for _, v in built}
     for s in scenarios:
-        chars = sum(len(by_key[k].text) for k in s.provision_keys)
-        print(f"{s.scenario_id}: {len(s.provision_keys)} provisions, {chars} chars")
+        counts = []
+        for vid in (s.before_version, s.after_version):
+            if vid:
+                chars = sum(len(by_version[vid][k].text) for k in s.provision_keys)
+                counts.append(f"{vid}={chars}")
+        print(f"{s.scenario_id}: {len(s.provision_keys)} provisions, chars {', '.join(counts)}")
     memo = [s for s in sources if s.kind == "memorandum"]
     print(f"memorandum sources: {[s.source_id for s in memo]}")
     print(f"stripped: {memo[0].stripped_sections if memo else []}")
@@ -268,4 +320,7 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except FixtureError as exc:
+        sys.exit(f"fixture build failed: {exc}")
