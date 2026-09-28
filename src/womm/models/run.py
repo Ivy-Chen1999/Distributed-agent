@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 from enum import StrEnum
 
 from pydantic import BaseModel, Field
@@ -62,3 +63,14 @@ class RunResult(BaseModel):
     usage: list[CallUsage] = Field(default_factory=list)
     error: str | None = None
     synthesis_error: str | None = None
+
+
+class RunEvent(BaseModel):
+    """Node lifecycle event for live progress (R35): the run page's agent graph reads these."""
+
+    run_id: str
+    seq: int
+    node: str
+    event: str = Field(description="'started' | 'finished' | 'failed'")
+    payload: dict = Field(default_factory=dict)
+    at: dt.datetime = Field(default_factory=lambda: dt.datetime.now(dt.UTC))

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 
 from langgraph.graph import END, START, StateGraph
@@ -14,13 +15,14 @@ from womm.data.fixtures import Fixture
 from womm.decisions.service import DecisionService
 from womm.diff import diff_versions
 from womm.graph.assemble import assemble_node
+from womm.graph.events import task_event
 from womm.graph.experts import make_expert_node
 from womm.graph.planner import planner_node
 from womm.graph.router import dispatch, expert_node_name, router_node
 from womm.graph.state import RIAState, WommContext
 from womm.graph.synthesis import all_experts_failed, synthesis_node, validate_node
 from womm.llm.base import LLMBackend
-from womm.models.run import CodeIdentity, GroundingStats, RunResult, RunStatus
+from womm.models.run import CodeIdentity, GroundingStats, RunEvent, RunResult, RunStatus
 from womm.models.system_version import SystemVersion, load_system_version
 
 
@@ -83,7 +85,10 @@ async def run_scenario(
     run_id: str | None = None,
     repo_root: Path = REPO_ROOT,
     tags: list[str] | None = None,
+    on_event: Callable[[RunEvent], Awaitable[None]] | None = None,
 ) -> RunResult:
+    """Run one scenario. `on_event` receives node started/finished/failed events as they
+    happen (for live progress); the RunResult is returned when the graph finishes."""
     run_id = run_id or f"run_{uuid.uuid4()}"
     scenario = fixture.scenario(scenario_id)
     before, after = fixture.scenario_versions(scenario_id)
@@ -92,9 +97,12 @@ async def run_scenario(
 
     ctx = WommContext(sv=sv, backends=backends, decisions=decisions, repo_root=repo_root)
     graph = build_graph(sv)
-    final = await graph.ainvoke(
+    final: dict = {}
+    seq = 0
+    async for mode, chunk in graph.astream(
         {"run_id": run_id, "scenario_id": scenario_id, "diff": diff, "sources": sources},
         context=ctx,
+        stream_mode=["tasks", "values"],
         config={
             "run_name": f"womm:{scenario_id}",
             "tags": ["womm", *(tags or [])],
@@ -108,7 +116,12 @@ async def run_scenario(
             },
             "max_concurrency": sv.spec.max_parallel_llm_calls + 2,
         },
-    )
+    ):
+        if mode == "values":
+            final = chunk
+        elif on_event is not None:
+            seq += 1
+            await on_event(task_event(run_id, seq, chunk))
 
     dossier = final["dossier"]
     validation = final.get("validation")

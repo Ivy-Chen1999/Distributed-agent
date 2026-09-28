@@ -233,3 +233,32 @@ async def test_duplicate_impact_ids_and_disagreement_ids(run):
     assert [i.impact_id for i in d.impacts] == ["I1"]
     assert d.disagreements == []
     assert [f.finding_id for f in d.unprocessed] == [ids["fiscal"]]
+
+
+async def test_run_events_stream(fixture):
+    from womm.graph.build import run_scenario
+    from womm.llm.fake import FakeBackend
+    from womm.models.run import CodeIdentity
+
+    ids = _ids_by_agent(None)
+    script = good_script(_synth_all([ids["legal"], ids["fiscal"]]))
+    script["expert/fiscal"] = [LLMError("timeout", "t")]
+    events = []
+
+    async def collect(e):
+        events.append(e)
+
+    await run_scenario(
+        "eval_sme_impacts", sv=fake_sv(), fixture=fixture,
+        backends={"fake": FakeBackend(script)}, decisions=StubDecisionService(),
+        code_identity=CodeIdentity(git_sha="t", dirty=False), run_id="run_test",
+        on_event=collect,
+    )  # fmt: skip
+    assert [e.seq for e in events] == list(range(1, len(events) + 1))
+    by = {(e.node, e.event): e for e in events}
+    assert ("planner", "started") in by and ("assemble", "finished") in by
+    assert by[("router", "finished")].payload["dispatched"] == ["legal", "fiscal", "stakeholder"]
+    assert by[("expert_fiscal", "finished")].payload["failures"] == {"fiscal": "timeout"}
+    assert by[("expert_legal", "finished")].payload["findings"] == {"legal": 1}
+    assert by[("validate", "finished")].payload["grounding"]["total"] == 2
+    assert by[("assemble", "finished")].payload["status"] == "degraded"
