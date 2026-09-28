@@ -1,0 +1,18 @@
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: womm
+      POSTGRES_PASSWORD: womm
+      POSTGRES_DB: womm
+    ports:
+      - "55432:5432"
+    volumes:
+      - womm-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U womm"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+volumes:
+  womm-pg:
