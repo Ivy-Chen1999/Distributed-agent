@@ -20,9 +20,9 @@ from dotenv import load_dotenv
 from pydantic import ValidationError
 
 from womm.backends import prepare_backends
-from womm.config import REPO_ROOT, load_settings
+from womm.config import REPO_ROOT, ConfigError, load_settings
 from womm.data.fixtures import FixtureError, load_fixture
-from womm.decisions.stub import StubDecisionService
+from womm.decisions.factory import make_decision_service
 from womm.eval.golden import GoldenError, load_all_golden
 from womm.eval.run_eval import (
     BaselineRefused,
@@ -125,7 +125,7 @@ async def cmd_run(args: argparse.Namespace) -> int:
         sv=sv,
         fixture=fixture,
         backends=backends,
-        decisions=StubDecisionService(),
+        decisions=make_decision_service(sv, load_settings()),
         code_identity=code_identity(cli_version),
     )
     runs_dir = Path(args.runs_dir)
@@ -160,7 +160,7 @@ async def cmd_eval(args: argparse.Namespace) -> int:
         sv=sv,
         fixture=load_fixture(),
         backends=backends,
-        decisions=StubDecisionService(),
+        decisions=make_decision_service(sv, load_settings()),
         code=code_identity(cli_version),
         judge_prompt=sv.prompt_text(sv.spec.judge),
         repetitions=args.repetitions,
@@ -275,7 +275,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         return asyncio.run(HANDLERS[args.cmd](args))
-    except (UsageError, FixtureError, GoldenError, BaselineRefused) as exc:
+    except (UsageError, FixtureError, GoldenError, BaselineRefused, ConfigError) as exc:
         info(f"error: {exc}")
         return EXIT_USAGE
     except (FileNotFoundError, ValidationError, yaml.YAMLError) as exc:

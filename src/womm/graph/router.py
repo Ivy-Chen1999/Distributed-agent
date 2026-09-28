@@ -21,14 +21,23 @@ async def router_node(state: RIAState, runtime: Runtime[WommContext]) -> dict:
     ctx = runtime.context
     if ctx.sv.spec.router.mode == "off":
         return {"dispatched": [e.id for e in ctx.sv.spec.experts]}
-    context = (
-        f"Scenario {state['scenario_id']}: {len(state['diff'].changes)} changed provisions: "
-        + ", ".join(state["diff"].keys())
-    )
+    context = router_state(state)
     records: list[DecisionRecord] = await ctx.decisions.expert_relevance(
         ctx.sv.spec.experts, context, ctx.sv
     )
     return {"decisions": records, "dispatched": selected_experts(ctx, records)}
+
+
+def router_state(state: RIAState) -> str:
+    """What the decider sees: the changed provisions (key, change kind, article, opening text)
+    and the planner's focus areas. Full texts stay out to keep the bounded decision cheap."""
+    lines = [f"Scenario {state['scenario_id']}: {len(state['diff'].changes)} changed provisions."]
+    for c in state["diff"].changes:
+        p = c.after or c.before
+        lines.append(f"- [{c.kind}] {c.provision_key} (Art {p.article}): {p.text[:300]}")
+    focus = state.get("focus")
+    lines.append("Planner focus areas:\n" + (focus.render() if focus else "(none)"))
+    return "\n".join(lines)
 
 
 def selected_experts(ctx: WommContext, records: list[DecisionRecord]) -> list[str]:

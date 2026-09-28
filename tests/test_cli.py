@@ -136,3 +136,19 @@ def test_backend_auth_error_exit_code(fake_version, tmp_path, capsys, monkeypatc
 def test_missing_system_version_file(tmp_path, capsys):
     code = cli.main(["run", "eval_sme_impacts", "--system-version", str(tmp_path / "no.yaml")])
     assert code == cli.EXIT_USAGE and "invalid configuration" in capsys.readouterr().err
+
+
+def test_jev_version_without_key_is_usage_error(tmp_path, capsys, use_script, monkeypatch):
+    spec = yaml.safe_load(DEFAULT_SYSTEM_VERSION.read_text())
+    for role in ("planner", "synthesis", "judge"):
+        spec[role]["backend"] = "fake"
+    for e in spec["experts"]:
+        e["role"]["backend"] = "fake"
+    spec["router"]["decider"] = "jev"
+    path = tmp_path / "jev.yaml"
+    path.write_text(yaml.safe_dump(spec))
+    monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
+    use_script({})
+    code = cli.main(["run", "eval_sme_impacts", "--system-version", str(path),
+                     "--runs-dir", str(tmp_path)])  # fmt: skip
+    assert code == cli.EXIT_USAGE and "TYPESAFE_API_KEY" in capsys.readouterr().err

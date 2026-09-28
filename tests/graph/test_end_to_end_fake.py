@@ -262,3 +262,19 @@ async def test_run_events_stream(fixture):
     assert by[("expert_legal", "finished")].payload["findings"] == {"legal": 1}
     assert by[("validate", "finished")].payload["grounding"]["total"] == 2
     assert by[("assemble", "finished")].payload["status"] == "degraded"
+
+
+async def test_router_sees_diff_summary_and_focus(run):
+    from womm.graph.router import router_state
+
+    seen = {}
+
+    class Spy(StubDecisionService):
+        async def expert_relevance(self, experts, context, sv):
+            seen["context"] = context
+            return await super().expert_relevance(experts, context, sv)
+
+    await run(good_script(_synth_all([_ids_by_agent(None)["legal"]])), decisions=Spy())
+    ctx = seen["context"]
+    assert K55 in ctx and "(Art 55)" in ctx and "How are SMEs affected?" in ctx
+    assert router_state.__doc__
