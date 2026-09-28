@@ -1777,6 +1777,7 @@ dependencies = [
     { name = "langsmith" },
     { name = "lxml" },
     { name = "pydantic" },
+    { name = "python-dotenv" },
     { name = "pyyaml" },
     { name = "uvicorn" },
 ]
@@ -1800,6 +1801,7 @@ requires-dist = [
     { name = "langsmith", specifier = ">=0.14,<1" },
     { name = "lxml", specifier = ">=5" },
     { name = "pydantic", specifier = ">=2.13,<3" },
+    { name = "python-dotenv", specifier = ">=1.2.3" },
     { name = "pyyaml", specifier = ">=6" },
     { name = "uvicorn", specifier = ">=0.35" },
 ]

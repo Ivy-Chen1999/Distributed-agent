@@ -4,13 +4,23 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 import os
 import sys
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 from womm.config import REPO_ROOT, load_settings
 from womm.data.fixtures import load_fixture
 from womm.decisions.stub import StubDecisionService
+from womm.eval.golden import load_all_golden
+from womm.eval.run_eval import (
+    BaselineRefused,
+    evaluate_cases,
+    record_langsmith_experiment,
+    write_report,
+)
 from womm.graph.build import run_scenario
 from womm.identity import code_identity
 from womm.llm.base import LLMBackend, get_backend
@@ -103,6 +113,50 @@ async def cmd_selfcheck(args: argparse.Namespace) -> int:
     return 0
 
 
+async def cmd_eval(args: argparse.Namespace) -> int:
+    sv = load_system_version(Path(args.system_version), REPO_ROOT)
+    cases = load_all_golden()
+    if args.case:
+        cases = [c for c in cases if c.case_id in args.case]
+        if not cases:
+            print(f"no golden case matches {args.case}")
+            return 2
+    backends, cli_version = await prepare_backends(sv, skip_self_check=args.skip_self_check)
+    try:
+        report = await evaluate_cases(
+            cases,
+            sv=sv,
+            fixture=load_fixture(),
+            backends=backends,
+            decisions=StubDecisionService(),
+            code=code_identity(cli_version),
+            judge_prompt=sv.prompt_text(sv.spec.judge, REPO_ROOT),
+            repetitions=args.repetitions,
+            baseline=args.baseline,
+            runs_dir=RUNS_DIR,
+        )
+    except BaselineRefused as exc:
+        print(exc)
+        return 2
+    path = write_report(report, RUNS_DIR)
+    print(json.dumps(report.summary, indent=2) if report.summary else f"ABORTED: {report.aborted}")
+    for s in report.scores:
+        print(
+            f"  {s.case_id}: {s.outcome} coverage={s.coverage} "
+            f"omissions={s.omissions_addressed} grounding={s.grounding}"
+            + (f" error={s.error or s.judge_error}" if (s.error or s.judge_error) else "")
+        )
+    print(f"report {path.relative_to(REPO_ROOT)}")
+    if not args.local and load_settings().langsmith_api_key:
+        from langsmith import Client
+
+        name = await record_langsmith_experiment(
+            report, load_all_golden(), Client(), prefix=f"womm-{sv.spec.name}"
+        )
+        print(f"LangSmith experiment: {name}")
+    return 0 if report.summary else 1
+
+
 def cmd_scenarios(_: argparse.Namespace) -> int:
     for s in load_fixture().scenarios.values():
         print(f"{s.scenario_id:34} {s.kind:10} {len(s.provision_keys):2} provisions")
@@ -110,6 +164,7 @@ def cmd_scenarios(_: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    load_dotenv(REPO_ROOT / ".env", override=False)
     settings = load_settings()
     parser = argparse.ArgumentParser(prog="womm")
     parser.add_argument("--system-version", default=str(settings.system_version_path))
@@ -117,13 +172,19 @@ def main(argv: list[str] | None = None) -> int:
     p_run = sub.add_parser("run", help="run one scenario through the RIA pipeline")
     p_run.add_argument("scenario")
     p_run.add_argument("--skip-self-check", action="store_true", help="dev only")
+    p_eval = sub.add_parser("eval", help="run golden cases and score them")
+    p_eval.add_argument("--case", action="append", help="case_id to run (repeatable)")
+    p_eval.add_argument("--repetitions", type=int, default=1)
+    p_eval.add_argument("--baseline", action="store_true", help="tag as a baseline experiment")
+    p_eval.add_argument("--local", action="store_true", help="do not record in LangSmith")
+    p_eval.add_argument("--skip-self-check", action="store_true", help="dev only")
     sub.add_parser("selfcheck", help="verify backend auth and claude_code isolation")
     sub.add_parser("scenarios", help="list fixture scenarios")
     args = parser.parse_args(argv)
 
     if args.cmd == "scenarios":
         return cmd_scenarios(args)
-    handler = {"run": cmd_run, "selfcheck": cmd_selfcheck}[args.cmd]
+    handler = {"run": cmd_run, "eval": cmd_eval, "selfcheck": cmd_selfcheck}[args.cmd]
     return asyncio.run(handler(args))
 
 

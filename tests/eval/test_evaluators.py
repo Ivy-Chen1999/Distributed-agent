@@ -1,0 +1,95 @@
+import pytest
+
+from womm.eval.evaluators import JudgeOutput, aggregate, score_case
+from womm.eval.golden import load_all_golden
+from womm.llm.base import LLMError
+from womm.llm.fake import FakeBackend
+from womm.models.dossier import DossierImpact, ImpactDossier
+from womm.models.findings import ExpertFailure
+from womm.models.run import CodeIdentity, GroundingStats, RunResult, RunStatus
+from womm.models.system_version import RoleConfig
+
+CASE = next(c for c in load_all_golden() if c.case_id.startswith("case_02"))
+ROLE = RoleConfig(backend="fake", model="m", prompt="prompts/judge_coverage.md")
+
+
+def _run(status=RunStatus.succeeded, impacts=1, failures=(), error=None) -> RunResult:
+    dossier = ImpactDossier(
+        run_id="r", scenario_id=CASE.scenario_id, status="succeeded", system_version="sv",
+        impacts=[DossierImpact(impact_id=f"I{i}", summary="s", findings=[], merged=True)
+                 for i in range(impacts)],
+    )  # fmt: skip
+    return RunResult(
+        run_id="r", scenario_id=CASE.scenario_id, status=status, system_version="sv",
+        code_identity=CodeIdentity(git_sha="x", dirty=False), dossier=dossier,
+        failures=list(failures), grounding=GroundingStats(passed=3, total=4), error=error,
+    )  # fmt: skip
+
+
+def _judge(covered: int) -> JudgeOutput:
+    return JudgeOutput(
+        expected=[
+            {"expected_id": e.expected_id, "covered": i < covered, "impact_id": None,
+             "justification": "j"}
+            for i, e in enumerate(CASE.expected_impacts)
+        ],
+        omissions=[
+            {"omission_id": o.omission_id, "addressed": True, "impact_id": None,
+             "justification": "j"}
+            for o in CASE.important_omissions
+        ],
+    )  # fmt: skip
+
+
+async def test_coverage_fraction():
+    backend = FakeBackend({"judge": [_judge(covered=2)]})
+    score, _ = await score_case(CASE, _run(), backend, ROLE, "p")
+    assert score.outcome == "scored"
+    assert score.coverage == pytest.approx(2 / len(CASE.expected_impacts))
+    assert score.omissions_addressed == 1.0
+    assert score.grounding == 0.75
+
+
+async def test_judge_failure_gives_null_not_zero():
+    backend = FakeBackend({"judge": [LLMError("schema_invalid", "bad", attempts=3)]})
+    score, _ = await score_case(CASE, _run(), backend, ROLE, "p")
+    assert score.outcome == "scored"
+    assert score.coverage is None and score.judge_error
+
+
+async def test_judge_skipping_ids_gives_null():
+    partial = _judge(covered=1)
+    partial.expected = partial.expected[:1]
+    score, _ = await score_case(CASE, _run(), FakeBackend({"judge": [partial]}), ROLE, "p")
+    assert score.coverage is None and score.judge_error == "judge skipped ids"
+
+
+async def test_auth_failure_is_errored_and_excluded():
+    run = _run(status=RunStatus.failed, error="planner failed: [auth] Not logged in")
+    score, _ = await score_case(CASE, run, FakeBackend({}), ROLE, "p")
+    assert score.outcome == "errored"
+    agg = aggregate([score])
+    assert agg["scored"] == 0 and agg["coverage"] is None and agg["partial"]
+
+
+async def test_all_experts_infra_failure_is_errored():
+    fails = [ExpertFailure(agent=a, error_kind="timeout", message="t") for a in "abc"]
+    run = _run(status=RunStatus.failed, failures=fails)
+    score, _ = await score_case(CASE, run, FakeBackend({}), ROLE, "p")
+    assert score.outcome == "errored"
+
+
+async def test_quality_failure_scores_zero():
+    fails = [ExpertFailure(agent=a, error_kind="schema_invalid", message="t") for a in "abc"]
+    run = _run(status=RunStatus.failed, failures=fails, impacts=0)
+    score, _ = await score_case(CASE, run, FakeBackend({}), ROLE, "p")
+    assert (score.outcome, score.coverage) == ("scored", 0.0)
+
+
+def test_aggregate_skips_none():
+    from womm.eval.evaluators import CaseScore
+
+    a = CaseScore(case_id="a", scenario_id="s", outcome="scored", coverage=0.5, grounding=1.0)
+    b = CaseScore(case_id="b", scenario_id="s", outcome="scored", coverage=None, grounding=0.5)
+    agg = aggregate([a, b])
+    assert agg["coverage"] == 0.5 and agg["grounding"] == 0.75 and agg["partial"]

@@ -1,0 +1,199 @@
+case_id: case_01_provider_compliance_costs
+scenario_id: eval_provider_compliance_costs
+ia_reference: >-
+  SWD(2021) 84 final, Part 1 §6.1.3 "Compliance costs and administrative burdens" (preferred
+  option 3+, i.e. the option 3 requirements for high-risk AI), with cost details from Part 2
+  Annex 3 (Table 5) and Annex 4 (analytical methods).
+notes: >-
+  Hand-written paraphrase of the IA; no IA text is copied verbatim. Only the option 3 / 3+
+  figures are used, since that is the option the proposal implements; the IA's figures for
+  options 1, 2 and 4 are left out. All euro amounts are the IA's estimates for an average AI
+  application whose development is assumed to cost about EUR 170 000 (Standard Cost Model,
+  EUR 32/hour). Human oversight and user record-keeping costs are included because Art 14 and
+  Art 12 (inside the scenario) create the capabilities users operate; the matching user duties
+  in Art 29 are outside the scenario. Left out because the provisions driving them are outside
+  the scenario: costs for public authorities (§6.2, Annex 3 Table 5: 1-25 FTE per Member State,
+  5 FTE at EU level; Titles VI-VIII), EU database registration (Art 51/60), post-market
+  monitoring and incident reporting (Art 61-62) and the verification costs of codes of conduct
+  (option 3+, Art 69). The IA gives no separate figure for the risk management system (Art 9);
+  Annex 4 counts risk assessment and risk testing under the data cost item, which is why E01
+  cites Art 9 as well as Art 10.
+expected_impacts:
+  - expected_id: c01_e01
+    affected_actor: Providers (suppliers) of high-risk AI systems
+    mechanism: >-
+      Data and data governance requirements, together with risk assessment and testing for
+      safety and fundamental-rights risks (e.g. assessing data availability, collecting
+      sufficiently broad and representative datasets to avoid discrimination, anonymisation
+      or synthetic data).
+    impact: >-
+      One-off compliance cost of at most about EUR 2 763 per AI application for an average
+      process in a normally efficient firm.
+    provision_keys:
+      - ai_act/high_risk/data_governance
+      - ai_act/high_risk/risk_management
+    ia_section: SWD(2021) 84 Part 1 §6.1.3 (Table 8); Part 2 Annex 4
+  - expected_id: c01_e02
+    affected_actor: Providers (suppliers) of high-risk AI systems
+    mechanism: >-
+      Drawing up technical documentation and keeping records/logs (training and test dataset
+      records, documentation of programming, training and validation methods, system
+      capabilities and limitations), and making them available to authorities on request.
+    impact: >-
+      Administrative burden of at most about EUR 4 390 per AI product; in practice requires a
+      well-trained data officer with legal knowledge, a cost that can be shared across products.
+    provision_keys:
+      - ai_act/high_risk/technical_documentation
+      - ai_act/high_risk/record_keeping
+      - ai_act/high_risk/provider_obligations
+    ia_section: SWD(2021) 84 Part 1 §6.1.3 (Table 8); Part 2 Annex 4
+  - expected_id: c01_e03
+    affected_actor: Providers (suppliers) of high-risk AI systems
+    mechanism: >-
+      Transparency and provision of information to users (intended purpose, capabilities and
+      limitations, expected accuracy, risks, instructions including required human oversight).
+    impact: >-
+      Administrative burden of at most about EUR 3 627 per AI application (only familiarisation
+      with and fulfilment of the information obligations is costed); the IA notes it may also
+      require design changes to make systems explainable and transparent.
+    provision_keys:
+      - ai_act/high_risk/transparency_information
+    ia_section: SWD(2021) 84 Part 1 §6.1.3 (Table 8); Part 2 Annex 4
+  - expected_id: c01_e04
+    affected_actor: Providers (suppliers) of high-risk AI systems following standard business procedures
+    mechanism: >-
+      Cumulative one-off cost of meeting the requirements for each new high-risk AI system,
+      reduced by measures firms would take anyway (the business-as-usual factor, roughly one
+      third) and a learning curve.
+    impact: >-
+      Theoretical maximum of about EUR 10 000 per AI application, adjusted to about two thirds,
+      i.e. on average EUR 6 000-7 000 per application by 2025, roughly 4-5% of an assumed
+      EUR 170 000 development cost; the share is much smaller when AI is embedded in hardware.
+    provision_keys:
+      - ai_act/high_risk/compliance_with_requirements
+      - ai_act/high_risk/provider_obligations
+    ia_section: SWD(2021) 84 Part 1 §6.1.3; Part 2 Annex 3 (Table 5) and Annex 4
+  - expected_id: c01_e05
+    affected_actor: Providers of high-risk AI systems that do not follow state-of-the-art business procedures
+    mechanism: >-
+      Accuracy and robustness requirements (accuracy metrics, tests against adversarial
+      examples and model flaws, external and real-world testing).
+    impact: >-
+      Additional compliance cost of about EUR 10 733 per AI application for such substandard
+      operators; for providers already ensuring their product works, this cost is treated as
+      zero and is excluded from the average estimate.
+    provision_keys:
+      - ai_act/high_risk/accuracy_robustness_cybersecurity
+    ia_section: SWD(2021) 84 Part 1 §6.1.3 (Table 8a); Part 2 Annex 4
+  - expected_id: c01_e06
+    affected_actor: Users (deployers) of high-risk AI systems
+    mechanism: >-
+      Systems must be designed for effective human oversight during use, with oversight
+      measures identified by the provider to be implemented by the user (monitoring, ability
+      to intervene or stop, guarding against automation bias).
+    impact: >-
+      Recurring operating cost for the user, where oversight is appropriate for the use case,
+      of about EUR 5 000-8 000 per year (around 0.1 FTE; the underlying study estimates
+      EUR 7 764). This cost falls on users, not suppliers, and is excluded from the supplier
+      totals.
+    provision_keys:
+      - ai_act/high_risk/human_oversight
+    ia_section: SWD(2021) 84 Part 1 §6.1.3 (Table 8b, Table 9 note); Part 2 Annex 3 (Table 5)
+  - expected_id: c01_e07
+    affected_actor: Users (deployers) of high-risk AI systems
+    mechanism: >-
+      Automatic logging capabilities that providers must build into high-risk AI systems.
+    impact: >-
+      Documentation costs for users are negligible because they mostly rely on in-built
+      functions such as use logs installed by the provider.
+    provision_keys:
+      - ai_act/high_risk/record_keeping
+    ia_section: SWD(2021) 84 Part 1 §6.1.3 and §6.1.4
+  - expected_id: c01_e08
+    affected_actor: >-
+      Providers whose high-risk AI systems require third-party conformity assessment (AI safety
+      components of products, remote biometric identification in publicly accessible spaces)
+    mechanism: >-
+      Quality management system that must be adapted to the AI requirements and audited by a
+      notified body as part of third-party conformity assessment.
+    impact: >-
+      Initial QMS audit costs EUR 1 000-2 000 per day, with the number of days depending on
+      the number of employees; yearly re-audits take less time and cost less; costs are lower
+      when existing standards are used. The IA assumes these firms already operate a QMS, so no
+      QMS set-up cost is counted for an average company.
+    provision_keys:
+      - ai_act/high_risk/quality_management_system
+      - ai_act/high_risk/conformity_assessment
+    ia_section: SWD(2021) 84 Part 1 §6.1.3 (verification costs); Part 2 Annex 3 (Table 5) and Annex 4
+  - expected_id: c01_e09
+    affected_actor: >-
+      Providers of high-risk AI systems subject to third-party conformity assessment, and
+      notified bodies
+    mechanism: >-
+      Notified-body review of each product's technical documentation to verify compliance
+      before placing on the market; other high-risk systems use internal-control conformity
+      assessment.
+    impact: >-
+      One to two and a half days of review per product, about EUR 3 000-7 500, i.e. 2-5% of an
+      assumed EUR 170 000 development cost (a much smaller share for embedded AI). Because only
+      a subset (taken as about 5% of AI applications) needs third-party assessment, aggregate
+      verification costs are estimated at around EUR 100 million by 2025.
+    provision_keys:
+      - ai_act/high_risk/conformity_assessment
+    ia_section: SWD(2021) 84 Part 1 §6.1.3 (verification costs, Table 9)
+  - expected_id: c01_e10
+    affected_actor: Providers of high-risk AI systems in the EU (aggregate)
+    mechanism: >-
+      Requirements apply only to high-risk applications, estimated at 5-15% of all AI
+      applications, against a maximum of about EUR 3 billion if all AI investment (upper
+      estimate EUR 65 billion in 2025) bore 4-5% compliance costs.
+    impact: >-
+      Maximum aggregate compliance and administrative costs of EUR 100-500 million by 2025,
+      likely lower in practice because firms supplying high-risk applications would take
+      above-average precautions (e.g. data representativeness) regardless of the law.
+    provision_keys:
+      - ai_act/high_risk/compliance_with_requirements
+      - ai_act/high_risk/provider_obligations
+    ia_section: SWD(2021) 84 Part 1 §6.1.3 (Table 9)
+important_omissions:
+  - omission_id: c01_o01
+    description: >-
+      The scale of the fixed costs relative to the regulated application must be stated: about
+      EUR 6 000-7 000 per system is roughly 4-5% of an assumed EUR 170 000 development cost
+      (2-5% more for third-party verification), and these costs recur for every new
+      application, so providers cannot spread them the way they spread one-off
+      familiarisation costs.
+    provision_keys:
+      - ai_act/high_risk/compliance_with_requirements
+      - ai_act/high_risk/provider_obligations
+      - ai_act/high_risk/conformity_assessment
+    source: >-
+      RSB opinion (Annex 1.3), first submission, findings (3) and what to improve (4); response
+      in SWD(2021) 84 Part 1 §6.1.3
+  - omission_id: c01_o02
+    description: >-
+      Human oversight cost falls on users as a recurring operating cost (about EUR 5 000-8 000
+      per year), not on providers as a one-off cost; an assessment that attributes all
+      compliance cost to providers misallocates who bears what.
+    provision_keys:
+      - ai_act/high_risk/human_oversight
+    source: SWD(2021) 84 Part 1 §6.1.3 (Table 8b, Table 9 note); Part 2 Annex 4
+  - omission_id: c01_o03
+    description: >-
+      Estimates are theoretical maxima: costs are zero for requirements a provider already
+      meets, business-as-usual practices cut them by about one third, and robustness/accuracy
+      costs arise only for providers not following state-of-the-art procedures.
+    provision_keys:
+      - ai_act/high_risk/compliance_with_requirements
+      - ai_act/high_risk/accuracy_robustness_cybersecurity
+    source: >-
+      SWD(2021) 84 Part 1 §6.1.3; Part 2 Annex 4 (business-as-usual factor, deviations from the
+      support study), added in response to the RSB second-submission request on cost methodology
+  - omission_id: c01_o04
+    description: >-
+      Third-party conformity assessment (with QMS audit and notified-body documentation review)
+      applies only to a subset of high-risk systems; the rest use internal-control assessment,
+      which keeps aggregate verification costs to around EUR 100 million.
+    provision_keys:
+      - ai_act/high_risk/conformity_assessment
+    source: SWD(2021) 84 Part 1 §6.1.3 (verification costs, Table 9)
