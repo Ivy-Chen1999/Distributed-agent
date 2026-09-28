@@ -55,6 +55,8 @@ class CaseScore(BaseModel):
 def infra_error(run: RunResult) -> str | None:
     """Return a reason when the run failed for infrastructure reasons (excluded from aggregates)."""
     kinds = {f.error_kind for f in run.failures}
+    if run.synthesis_error and any(f"[{k}]" in run.synthesis_error for k in INFRA_ERRORS):
+        return f"synthesis failed with an infrastructure error: {run.synthesis_error}"
     # Match LLMError's '[kind]' tag: bare substrings like 'auth' also occur in 'authority'.
     if (
         run.status == RunStatus.failed
@@ -97,11 +99,12 @@ def judge_input(case: GoldenCase, run: RunResult) -> str:
 
 
 def _complete(case: GoldenCase, out: JudgeOutput) -> bool:
-    want_e = {e.expected_id for e in case.expected_impacts}
-    want_o = {o.omission_id for o in case.important_omissions}
-    return {v.expected_id for v in out.expected} == want_e and {
-        v.omission_id for v in out.omissions
-    } == want_o
+    """Exactly one verdict per id: duplicates would skew the fractions."""
+    got_e = sorted(v.expected_id for v in out.expected)
+    got_o = sorted(v.omission_id for v in out.omissions)
+    return got_e == sorted(e.expected_id for e in case.expected_impacts) and got_o == sorted(
+        o.omission_id for o in case.important_omissions
+    )
 
 
 async def score_case(

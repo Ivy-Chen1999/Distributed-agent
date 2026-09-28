@@ -61,3 +61,4 @@ class RunResult(BaseModel):
     grounding: GroundingStats = Field(default_factory=GroundingStats)
     usage: list[CallUsage] = Field(default_factory=list)
     error: str | None = None
+    synthesis_error: str | None = None

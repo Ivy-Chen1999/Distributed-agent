@@ -121,7 +121,7 @@ async def evaluate_cases(
 
 
 def _hit_rate_limit(run: RunResult, score: CaseScore) -> bool:
-    texts = [run.error or "", score.error or "", score.judge_error or ""]
+    texts = [run.error or "", run.synthesis_error or "", score.error or "", score.judge_error or ""]
     return any(f.error_kind == "rate_limit" for f in run.failures) or any(
         "[rate_limit]" in t for t in texts
     )
@@ -174,7 +174,7 @@ async def record_langsmith_experiment(
     """Record an already computed report as a LangSmith experiment (no re-running)."""
     from langsmith import aevaluate
 
-    sync_dataset(client, cases)
+    dataset = sync_dataset(client, cases)
     by_case: dict[str, list[CaseScore]] = {}
     for s in report.scores:
         by_case.setdefault(s.case_id, []).append(s)
@@ -207,10 +207,17 @@ async def record_langsmith_experiment(
             ]
         }
 
+    # Only the cases this report actually scored: a --case subset, or golden cases deleted
+    # locally but still in the dataset, must not show up as errored rows.
+    examples = [
+        ex
+        for ex in client.list_examples(dataset_id=dataset.id)
+        if (ex.metadata or {}).get("case_id") in by_case
+    ]
     reps = report.metadata.get("repetitions", 1)
     results = await aevaluate(
         target,
-        data=DATASET_NAME,
+        data=examples,
         evaluators=[metrics],
         summary_evaluators=[summary],
         experiment_prefix=prefix,

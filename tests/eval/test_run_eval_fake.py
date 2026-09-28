@@ -156,3 +156,27 @@ async def test_langsmith_recording_marks_aborted_as_partial(fixture, monkeypatch
     assert seen["metadata"]["partial"] is True
     assert seen["metadata"]["aborted"].startswith("rate_limit")
     assert {r["key"] for r in seen["metrics"]["results"]} >= {"coverage", "grounding"}
+
+
+async def test_synthesis_rate_limit_aborts(fixture):
+    script = _script()
+    script["synthesis"] = [LLMError("rate_limit", "usage limit reached")]
+    report = await _evaluate(fixture, script)
+    assert report.aborted and report.summary is None
+
+
+async def test_langsmith_data_only_scored_cases(fixture, monkeypatch):
+    import langsmith
+
+    from womm.eval.run_eval import record_langsmith_experiment
+
+    report = await _evaluate(fixture, _script())
+    seen = {}
+
+    async def fake_aevaluate(target, **kw):
+        seen["cases"] = [ex.metadata["case_id"] for ex in kw["data"]]
+        return type("R", (), {"experiment_name": "exp"})()
+
+    monkeypatch.setattr(langsmith, "aevaluate", fake_aevaluate)
+    await record_langsmith_experiment(report, load_all_golden(), _FakeClient(), prefix="t")
+    assert seen["cases"] == [CASE.case_id]

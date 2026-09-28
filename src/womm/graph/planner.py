@@ -51,4 +51,6 @@ async def planner_node(state: RIAState, runtime: Runtime[WommContext]) -> dict:
             "fatal_error": f"planner failed: {exc}",
             "usage": [exc.usage] if exc.usage else [],
         }
+    except Exception as exc:  # noqa: BLE001 - a backend bug must fail the run, not crash it
+        return {"fatal_error": f"planner failed: [process_error] {type(exc).__name__}: {exc}"}
     return {"focus": plan.restrict_to(set(state["diff"].keys())), "usage": [usage]}

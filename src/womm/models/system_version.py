@@ -67,10 +67,18 @@ class SystemVersion(BaseModel):
     spec: SystemVersionSpec
     version_id: str
     prompt_hashes: dict[str, str]
+    prompts: dict[str, str] = Field(
+        default_factory=dict,
+        description="Prompt texts snapshotted at load time, so edits during a long run cannot "
+        "make the prompts actually sent diverge from version_id.",
+    )
     source_path: str | None = None
 
-    def prompt_text(self, role: RoleConfig, repo_root: Path) -> str:
-        return (repo_root / role.prompt).read_text(encoding="utf-8")
+    def prompt_text(self, role: RoleConfig) -> str:
+        try:
+            return self.prompts[role.prompt]
+        except KeyError:
+            raise KeyError(f"prompt {role.prompt!r} is not part of {self.version_id}") from None
 
 
 def _sha(data: bytes) -> str:
@@ -81,11 +89,14 @@ def build_system_version(
     spec: SystemVersionSpec, repo_root: Path, source_path: str | None = None
 ) -> SystemVersion:
     prompt_hashes: dict[str, str] = {}
+    prompts: dict[str, str] = {}
     for role in spec.roles().values():
         path = repo_root / role.prompt
         if not path.is_file():
             raise FileNotFoundError(f"prompt file not found: {role.prompt}")
-        prompt_hashes[role.prompt] = _sha(path.read_bytes())[:16]
+        data = path.read_bytes()
+        prompt_hashes[role.prompt] = _sha(data)[:16]
+        prompts[role.prompt] = data.decode("utf-8")
 
     canonical = json.dumps(
         {"spec": spec.model_dump(mode="json"), "prompts": dict(sorted(prompt_hashes.items()))},
@@ -96,6 +107,7 @@ def build_system_version(
         spec=spec,
         version_id=f"sv_{_sha(canonical.encode())[:12]}",
         prompt_hashes=prompt_hashes,
+        prompts=prompts,
         source_path=source_path,
     )
 

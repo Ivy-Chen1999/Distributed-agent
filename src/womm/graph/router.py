@@ -20,7 +20,7 @@ def expert_node_name(expert_id: str) -> str:
 async def router_node(state: RIAState, runtime: Runtime[WommContext]) -> dict:
     ctx = runtime.context
     if ctx.sv.spec.router.mode == "off":
-        return {}
+        return {"dispatched": [e.id for e in ctx.sv.spec.experts]}
     context = (
         f"Scenario {state['scenario_id']}: {len(state['diff'].changes)} changed provisions: "
         + ", ".join(state["diff"].keys())
@@ -28,17 +28,21 @@ async def router_node(state: RIAState, runtime: Runtime[WommContext]) -> dict:
     records: list[DecisionRecord] = await ctx.decisions.expert_relevance(
         ctx.sv.spec.experts, context, ctx.sv
     )
-    return {"decisions": records}
+    return {"decisions": records, "dispatched": selected_experts(ctx, records)}
+
+
+def selected_experts(ctx: WommContext, records: list[DecisionRecord]) -> list[str]:
+    """Shadow/off: every expert. Active: the relevant ones (all, if none is relevant)."""
+    ids = [e.id for e in ctx.sv.spec.experts]
+    if ctx.sv.spec.router.mode != "active":
+        return ids
+    relevant = {
+        d.subject
+        for d in records
+        if d.decision_point == "router.relevance" and d.decision != "not_relevant"
+    }
+    return [i for i in ids if i in relevant] or ids
 
 
 def dispatch(state: RIAState, runtime: Runtime[WommContext]) -> list[Send]:
-    ctx = runtime.context
-    experts = ctx.sv.spec.experts
-    if ctx.sv.spec.router.mode == "active":
-        relevant = {
-            d.subject
-            for d in state.get("decisions", [])
-            if d.decision_point == "router.relevance" and d.decision != "not_relevant"
-        }
-        experts = [e for e in experts if e.id in relevant] or experts
-    return [Send(expert_node_name(e.id), state) for e in experts]
+    return [Send(expert_node_name(i), state) for i in state["dispatched"]]

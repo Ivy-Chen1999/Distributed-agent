@@ -130,7 +130,7 @@ async def cmd_eval(args: argparse.Namespace) -> int:
             backends=backends,
             decisions=StubDecisionService(),
             code=code_identity(cli_version),
-            judge_prompt=sv.prompt_text(sv.spec.judge, REPO_ROOT),
+            judge_prompt=sv.prompt_text(sv.spec.judge),
             repetitions=args.repetitions,
             baseline=args.baseline,
             runs_dir=RUNS_DIR,

@@ -12,6 +12,7 @@ from __future__ import annotations
 from langgraph.runtime import Runtime
 
 from womm.graph.state import RIAState, WommContext
+from womm.graph.synthesis import dispatched_ids
 from womm.models.dossier import (
     DiscardedFinding,
     DossierImpact,
@@ -73,7 +74,12 @@ def assemble(state: RIAState, sv_id: str, expert_ids: list[str]) -> ImpactDossie
 
     accounted: set[str] = set()
     impacts: list[DossierImpact] = []
+    seen_labels: set[str] = set()
     for imp in plan.impacts:
+        if imp.impact_id in seen_labels:
+            notes.append(f"duplicate impact_id {imp.impact_id} from synthesis; later one dropped")
+            continue
+        seen_labels.add(imp.impact_id)
         ids = [fid for fid in dict.fromkeys(imp.finding_ids) if usable(fid, imp.impact_id)]
         ids = [fid for fid in ids if fid not in accounted]
         if not ids:
@@ -93,7 +99,7 @@ def assemble(state: RIAState, sv_id: str, expert_ids: list[str]) -> ImpactDossie
     chains = [c for c in plan.chains if all(i in impact_ids for i in c.impact_ids)]
     disagreements = []
     for d in plan.disagreements:
-        ids = [fid for fid in d.finding_ids if fid in supported]
+        ids = [fid for fid in dict.fromkeys(d.finding_ids) if fid in supported]
         if len(ids) >= 2:
             disagreements.append(d.model_copy(update={"finding_ids": ids}))
 
@@ -131,4 +137,4 @@ def assemble(state: RIAState, sv_id: str, expert_ids: list[str]) -> ImpactDossie
 
 async def assemble_node(state: RIAState, runtime: Runtime[WommContext]) -> dict:
     sv = runtime.context.sv
-    return {"dossier": assemble(state, sv.version_id, [e.id for e in sv.spec.experts])}
+    return {"dossier": assemble(state, sv.version_id, dispatched_ids(state, runtime))}

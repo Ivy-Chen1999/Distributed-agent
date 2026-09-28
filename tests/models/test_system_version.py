@@ -59,3 +59,10 @@ def test_duplicate_expert_ids_rejected(tmp_path):
     spec["experts"] = spec["experts"] * 2
     with pytest.raises(ValueError, match="duplicate expert ids"):
         load_system_version(_write(tmp_path, spec), tmp_path)
+
+
+def test_prompt_snapshot_survives_file_edits(tmp_path):
+    p = _write(tmp_path, _spec())
+    sv = load_system_version(p, tmp_path)
+    (tmp_path / "prompts" / "p.md").write_text("edited during a run")
+    assert sv.prompt_text(sv.spec.planner) == "You are a planner."

@@ -104,3 +104,17 @@ async def test_schema_error_mentioning_authority_is_not_infra():
     )
     score, _ = await score_case(CASE, run, FakeBackend({}), ROLE, "p")
     assert (score.outcome, score.coverage) == ("scored", 0.0)
+
+
+async def test_duplicate_judge_verdicts_give_null():
+    out = _judge(covered=len(CASE.expected_impacts))
+    out.expected = out.expected[:-1] + [out.expected[0]]
+    score, _ = await score_case(CASE, _run(), FakeBackend({"judge": [out]}), ROLE, "p")
+    assert score.coverage is None
+
+
+async def test_synthesis_auth_failure_is_errored():
+    run = _run(status=RunStatus.degraded)
+    run.synthesis_error = "[auth] Not logged in"
+    score, _ = await score_case(CASE, run, FakeBackend({}), ROLE, "p")
+    assert score.outcome == "errored"

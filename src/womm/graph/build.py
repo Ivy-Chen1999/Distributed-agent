@@ -125,4 +125,5 @@ async def run_scenario(
         grounding=validation.report.grounding if validation else GroundingStats(),
         usage=[u for u in final.get("usage", []) if u is not None],
         error=final.get("fatal_error"),
+        synthesis_error=final.get("synthesis_error"),
     )

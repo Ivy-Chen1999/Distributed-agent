@@ -24,8 +24,13 @@ async def validate_node(state: RIAState, runtime: Runtime[WommContext]) -> dict:
 
 
 def all_experts_failed(state: RIAState, runtime: Runtime[WommContext]) -> bool:
+    """True when every dispatched expert failed (in active mode, only a subset is dispatched)."""
     failures = state.get("failures", {})
-    return all(e.id in failures for e in runtime.context.sv.spec.experts)
+    return all(i in failures for i in dispatched_ids(state, runtime))
+
+
+def dispatched_ids(state: RIAState, runtime: Runtime[WommContext]) -> list[str]:
+    return state.get("dispatched") or [e.id for e in runtime.context.sv.spec.experts]
 
 
 async def synthesis_node(state: RIAState, runtime: Runtime[WommContext]) -> dict:
@@ -46,5 +51,10 @@ async def synthesis_node(state: RIAState, runtime: Runtime[WommContext]) -> dict
             "synthesis": None,
             "synthesis_error": str(exc),
             "usage": [exc.usage] if exc.usage else [],
+        }
+    except Exception as exc:  # noqa: BLE001 - degrade to unmerged findings instead of crashing
+        return {
+            "synthesis": None,
+            "synthesis_error": f"[process_error] {type(exc).__name__}: {exc}",
         }
     return {"synthesis": plan, "usage": [usage]}

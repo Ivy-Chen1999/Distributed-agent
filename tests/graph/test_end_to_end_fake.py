@@ -188,3 +188,48 @@ async def test_fabricated_quote_elsewhere_in_other_source_rejected(run):
                                                      "with priority access")]}]  # fmt: skip
     result, _ = await run(script)
     assert any(q.finding_id == ids["fiscal"] for q in result.dossier.open_questions)
+
+
+async def test_active_router_all_dispatched_fail_is_failed(run):
+    decisions = StubDecisionService(
+        {"fiscal": ("not_relevant", 0.1), "stakeholder": ("not_relevant", 0.1)}
+    )
+    script = good_script()
+    script["expert/legal"] = [LLMError("timeout", "t")]
+    result, backend = await run(script, decisions=decisions, sv=fake_sv(router_mode="active"))
+    assert {c.agent for c in backend.calls if c.role_name == "expert"} == {"legal"}
+    assert result.status == RunStatus.failed
+
+
+async def test_planner_non_llm_exception_fails_run(run):
+    script = good_script()
+    script["planner"] = [RuntimeError("backend bug")]
+    result, _ = await run(script)
+    assert result.status == RunStatus.failed and "process_error" in result.error
+
+
+async def test_synthesis_non_llm_exception_degrades(run):
+    script = good_script()
+    script["synthesis"] = [RuntimeError("backend bug")]
+    result, _ = await run(script)
+    assert result.status == RunStatus.degraded
+    assert "process_error" in result.synthesis_error
+
+
+async def test_duplicate_impact_ids_and_disagreement_ids(run):
+    ids = _ids_by_agent(None)
+    synth = {
+        "impacts": [
+            {"impact_id": "I1", "summary": "a", "finding_ids": [ids["legal"]]},
+            {"impact_id": "I1", "summary": "b", "finding_ids": [ids["fiscal"]]},
+        ],
+        "chains": [],
+        "disagreements": [{"finding_ids": [ids["legal"], ids["legal"]], "note": "self"}],
+        "open_questions": [],
+        "discarded": [],
+    }
+    result, _ = await run(good_script(synth))
+    d = result.dossier
+    assert [i.impact_id for i in d.impacts] == ["I1"]
+    assert d.disagreements == []
+    assert [f.finding_id for f in d.unprocessed] == [ids["fiscal"]]

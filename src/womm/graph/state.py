@@ -38,6 +38,7 @@ class RIAState(TypedDict, total=False):
     sources: dict[str, Source]
     focus: Any  # FocusPlan; typed loosely to avoid an import cycle with planner.py
     decisions: Annotated[list[DecisionRecord], operator.add]
+    dispatched: list[str]  # experts the router actually sent work to
     board: Annotated[dict[str, list[ImpactFinding]], merge_slots]
     failures: Annotated[dict[str, ExpertFailure], merge_slots]
     usage: Annotated[list[CallUsage], operator.add]
@@ -68,4 +69,4 @@ class WommContext:
             ) from None
 
     def prompt(self, role: RoleConfig) -> str:
-        return self.sv.prompt_text(role, self.repo_root)
+        return self.sv.prompt_text(role)
