@@ -19,6 +19,7 @@ import yaml
 from dotenv import load_dotenv
 from pydantic import ValidationError
 
+from womm.backends import prepare_backends
 from womm.config import REPO_ROOT, load_settings
 from womm.data.fixtures import FixtureError, load_fixture
 from womm.decisions.stub import StubDecisionService
@@ -31,8 +32,8 @@ from womm.eval.run_eval import (
 )
 from womm.graph.build import run_scenario
 from womm.identity import code_identity
-from womm.llm.base import LLMBackend, LLMError, get_backend
-from womm.llm.claude_code import ClaudeCodeBackend, IsolationCheckFailed, SelfCheckReport
+from womm.llm.base import LLMError
+from womm.llm.claude_code import IsolationCheckFailed
 from womm.models.run import RunResult, RunStatus
 from womm.models.system_version import SystemVersion, load_system_version
 
@@ -84,30 +85,6 @@ def _stamp() -> str:
 
 def _load_sv(args: argparse.Namespace) -> SystemVersion:
     return load_system_version(Path(args.system_version), REPO_ROOT)
-
-
-async def prepare_backends(
-    sv: SystemVersion, *, skip_self_check: bool = False
-) -> tuple[dict[str, LLMBackend], str | None, SelfCheckReport | None]:
-    """Instantiate each backend the version uses. claude_code must pass its isolation
-    self-check first (fail closed)."""
-    settings = load_settings()
-    roles = sv.spec.roles().values()
-    backends: dict[str, LLMBackend] = {}
-    cli_version = None
-    report = None
-    for name in sorted({r.backend for r in roles}):
-        if name == "claude_code":
-            cc = ClaudeCodeBackend(max_concurrency=sv.spec.max_parallel_llm_calls)
-            cli_version = await cc.cli_version()
-            if not skip_self_check:
-                model = next(r.model for r in roles if r.backend == "claude_code")
-                report = await cc.self_check(model)
-                info(f"claude_code isolation self-check passed ({report.cli_version})")
-            backends[name] = cc
-        else:
-            backends[name] = get_backend(name, settings)
-    return backends, cli_version, report
 
 
 def summarize(result: RunResult) -> str:
