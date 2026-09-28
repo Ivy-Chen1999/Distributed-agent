@@ -118,3 +118,26 @@ async def test_synthesis_auth_failure_is_errored():
     run.synthesis_error = "[auth] Not logged in"
     score, _ = await score_case(CASE, run, FakeBackend({}), ROLE, "p")
     assert score.outcome == "errored"
+
+
+def test_noise_and_failure_records():
+    from womm.eval.evaluators import CaseScore, failure_records, noise
+
+    judge = _judge(covered=1)
+    scores = [
+        CaseScore(case_id="c", scenario_id="s", outcome="scored", coverage=0.4, grounding=1.0,
+                  omissions_addressed=1.0, judge=judge, expert_failures={"fiscal": "timeout"}),
+        CaseScore(case_id="c", scenario_id="s", outcome="scored", coverage=0.8, grounding=0.8,
+                  omissions_addressed=1.0),
+        CaseScore(case_id="c", scenario_id="s", outcome="errored", error="[auth]"),
+    ]  # fmt: skip
+    n = noise(scores)["c"]["coverage"]
+    assert (
+        n["n"] == 2
+        and n["mean"] == pytest.approx(0.6)
+        and n["stdev"] == pytest.approx(0.2828, 1e-3)
+    )
+    cats = sorted(r["category"] for r in failure_records(scores))
+    assert cats == ["expert_timeout", "low_coverage", "low_grounding", "missed_expected_impacts"]
+    missed = next(r for r in failure_records(scores) if r["category"] == "missed_expected_impacts")
+    assert len(missed["detail"]["expected_ids"]) == len(CASE.expected_impacts) - 1

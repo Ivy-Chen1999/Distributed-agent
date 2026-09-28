@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from womm.eval.golden import GoldenCase
 from womm.llm.base import LLMBackend, LLMError
@@ -39,6 +39,8 @@ class JudgeOutput(StrictModel):
 class CaseScore(BaseModel):
     case_id: str
     scenario_id: str
+    run_id: str | None = None
+    expert_failures: dict[str, str] = Field(default_factory=dict)
     outcome: Literal["scored", "errored"]
     error: str | None = None
     run_status: str | None = None
@@ -118,6 +120,8 @@ async def score_case(
         case_id=case.case_id,
         scenario_id=case.scenario_id,
         outcome="scored",
+        run_id=run.run_id,
+        expert_failures={f.agent: f.error_kind for f in run.failures},
         run_status=run.status.value,
         latency_s=sum(u.latency_s for u in run.usage),
         tokens=sum(u.input_tokens + u.output_tokens for u in run.usage),
@@ -144,6 +148,57 @@ async def score_case(
     cov = sum(v.covered for v in out.expected) / len(out.expected)
     om = sum(v.addressed for v in out.omissions) / len(out.omissions) if out.omissions else None
     return base.model_copy(update={"coverage": cov, "omissions_addressed": om, "judge": out}), usage
+
+
+def noise(scores: list[CaseScore]) -> dict[str, dict]:
+    """Run-to-run spread per case and metric over repetitions (R34); errored runs excluded."""
+    import statistics
+
+    out: dict[str, dict] = {}
+    for case_id in dict.fromkeys(s.case_id for s in scores):
+        runs = [s for s in scores if s.case_id == case_id and s.outcome == "scored"]
+        per_metric = {}
+        for metric in ("coverage", "omissions_addressed", "grounding"):
+            vals = [getattr(s, metric) for s in runs if getattr(s, metric) is not None]
+            per_metric[metric] = {
+                "n": len(vals),
+                "mean": statistics.fmean(vals) if vals else None,
+                "stdev": statistics.stdev(vals) if len(vals) > 1 else None,
+                "min": min(vals) if vals else None,
+                "max": max(vals) if vals else None,
+            }
+        out[case_id] = per_metric
+    return out
+
+
+# Loose v0 defaults; v1 planning sets real thresholds from R34 noise data.
+FAILURE_THRESHOLDS = {"coverage": 0.6, "omissions_addressed": 0.5, "grounding": 0.9}
+
+
+def failure_records(scores: list[CaseScore]) -> list[dict]:
+    """R14b: what went wrong per scored case, for Failure Memory. Errored (infrastructure) cases
+    are not quality failures and are skipped."""
+    records = []
+    for s in scores:
+        if s.outcome != "scored":
+            continue
+        base = {"case_id": s.case_id, "scenario_id": s.scenario_id, "run_id": s.run_id}
+        for metric, floor in FAILURE_THRESHOLDS.items():
+            value = getattr(s, metric)
+            if value is not None and value < floor:
+                records.append(base | {"category": f"low_{metric}", "agent": None,
+                                       "detail": {"value": value, "threshold": floor}})  # fmt: skip
+        if s.judge_error:
+            records.append(base | {"category": "judge_error", "agent": None,
+                                   "detail": {"error": s.judge_error[:500]}})  # fmt: skip
+        if s.judge:
+            missed = [v.expected_id for v in s.judge.expected if not v.covered]
+            if missed:
+                records.append(base | {"category": "missed_expected_impacts", "agent": None,
+                                       "detail": {"expected_ids": missed}})  # fmt: skip
+        for agent, kind in s.expert_failures.items():
+            records.append(base | {"category": f"expert_{kind}", "agent": agent, "detail": {}})
+    return records
 
 
 def aggregate(scores: list[CaseScore]) -> dict:

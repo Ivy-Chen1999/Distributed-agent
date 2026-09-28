@@ -1,0 +1,12 @@
+.git
+.venv
+.env
+.env.*
+.cache
+.claude
+runs
+evals
+tests
+docs
+brainstorm
+**/__pycache__

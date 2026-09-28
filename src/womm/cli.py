@@ -27,6 +27,7 @@ from womm.eval.golden import GoldenError, load_all_golden
 from womm.eval.run_eval import (
     BaselineRefused,
     evaluate_cases,
+    persist_failures,
     record_langsmith_experiment,
     write_report,
 )
@@ -175,6 +176,10 @@ async def cmd_eval(args: argparse.Namespace) -> int:
         )
         report.metadata["langsmith_experiment"] = name
         info(f"LangSmith experiment: {name}")
+    settings = load_settings()
+    if settings.database_url and not report.aborted:
+        n = await persist_failures(report, settings.database_url)
+        info(f"recorded {n} failure record(s) in Postgres")
     path = write_report(report, Path(args.runs_dir))
 
     lines = [json.dumps(report.summary, indent=2) if report.summary else "ABORTED"]

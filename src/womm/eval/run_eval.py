@@ -14,7 +14,7 @@ from typing import Any
 
 from womm.data.fixtures import Fixture
 from womm.decisions.service import DecisionService
-from womm.eval.evaluators import CaseScore, aggregate, score_case
+from womm.eval.evaluators import CaseScore, aggregate, failure_records, noise, score_case
 from womm.eval.golden import GoldenCase, check_against_fixture
 from womm.graph.build import run_scenario
 from womm.llm.base import LLMBackend
@@ -48,6 +48,8 @@ class EvalReport:
                 "metadata": self.metadata,
                 "aborted": self.aborted,
                 "summary": self.summary,
+                "noise": noise(self.scores) if self.metadata.get("repetitions", 1) > 1 else None,
+                "failures": failure_records(self.scores),
                 "run_ids": self.run_ids,
                 "scores": [s.model_dump(mode="json") for s in self.scores],
             },
@@ -130,6 +132,26 @@ def _hit_rate_limit(run: RunResult, score: CaseScore) -> bool:
 def _save_run(runs_dir: Path, run: RunResult) -> None:
     runs_dir.mkdir(parents=True, exist_ok=True)
     (runs_dir / f"{run.run_id}.json").write_text(run.model_dump_json(indent=2))
+
+
+async def persist_failures(report: EvalReport, database_url: str) -> int:
+    """Write R14b failure records to Postgres; returns how many were written."""
+    from womm.api.db import Database
+
+    records = failure_records(report.scores)
+    db = Database(database_url)
+    await db.open()
+    try:
+        await db.migrate()
+        for r in records:
+            await db.record_failure(
+                system_version=report.system_version,
+                git_sha=report.metadata.get("git_sha"),
+                **r,
+            )
+    finally:
+        await db.close()
+    return len(records)
 
 
 def write_report(report: EvalReport, runs_dir: Path) -> Path:
