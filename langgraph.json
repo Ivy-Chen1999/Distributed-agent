@@ -1,0 +1,7 @@
+{
+  "dependencies": ["."],
+  "graphs": {
+    "womm": "./src/womm/graph/build.py:make_graph"
+  },
+  "env": ".env"
+}
