@@ -1,0 +1,39 @@
+# Hand-maintained provision-key crosswalk (R1): one stable key per legal concept, with the
+# article number it carries in each version. scripts/build_fixture.py resolves scenario
+# articles through this file, so a scenario article missing here fails the build.
+#   com2021_206  = Commission proposal COM(2021) 206 (CELEX 52021PC0206)
+#   reg2024_1689 = Regulation (EU) 2024/1689 as adopted (CELEX 32024R1689)
+# Covers only articles used by scenarios. Article titles were checked against both texts.
+entries:
+  - provision_key: ai_act/high_risk/compliance_with_requirements
+    articles: {com2021_206: "8", reg2024_1689: "8"}
+  - provision_key: ai_act/high_risk/risk_management
+    articles: {com2021_206: "9", reg2024_1689: "9"}
+  - provision_key: ai_act/high_risk/data_governance
+    articles: {com2021_206: "10", reg2024_1689: "10"}
+  - provision_key: ai_act/high_risk/technical_documentation
+    articles: {com2021_206: "11", reg2024_1689: "11"}
+  - provision_key: ai_act/high_risk/record_keeping
+    articles: {com2021_206: "12", reg2024_1689: "12"}
+  # Proposal: "... information to users"; final: "... information to deployers".
+  - provision_key: ai_act/high_risk/transparency_information
+    articles: {com2021_206: "13", reg2024_1689: "13"}
+  - provision_key: ai_act/high_risk/human_oversight
+    articles: {com2021_206: "14", reg2024_1689: "14"}
+  - provision_key: ai_act/high_risk/accuracy_robustness_cybersecurity
+    articles: {com2021_206: "15", reg2024_1689: "15"}
+  - provision_key: ai_act/high_risk/provider_obligations
+    articles: {com2021_206: "16", reg2024_1689: "16"}
+  - provision_key: ai_act/high_risk/quality_management_system
+    articles: {com2021_206: "17", reg2024_1689: "17"}
+  - provision_key: ai_act/high_risk/conformity_assessment
+    articles: {com2021_206: "43", reg2024_1689: "43"}
+  - provision_key: ai_act/innovation/regulatory_sandboxes
+    articles: {com2021_206: "53", reg2024_1689: "57"}
+  - provision_key: ai_act/innovation/sandbox_personal_data
+    articles: {com2021_206: "54", reg2024_1689: "59"}
+  # Proposal: "Measures for small-scale providers and users"; final: "... in particular SMEs".
+  - provision_key: ai_act/innovation/sme_measures
+    articles: {com2021_206: "55", reg2024_1689: "62"}
+  - provision_key: ai_act/penalties/penalties
+    articles: {com2021_206: "71", reg2024_1689: "99"}
