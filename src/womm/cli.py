@@ -120,13 +120,14 @@ async def cmd_run(args: argparse.Namespace) -> int:
     sv = _load_sv(args)
     fixture = load_fixture()
     fixture.scenario(args.scenario)  # fail fast on an unknown scenario, before the self-check
+    decisions = make_decision_service(sv, load_settings())  # config errors before LLM spend
     backends, cli_version, _ = await prepare_backends(sv, skip_self_check=args.skip_self_check)
     result = await run_scenario(
         args.scenario,
         sv=sv,
         fixture=fixture,
         backends=backends,
-        decisions=make_decision_service(sv, load_settings()),
+        decisions=decisions,
         code_identity=code_identity(cli_version),
     )
     runs_dir = Path(args.runs_dir)
@@ -155,32 +156,41 @@ async def cmd_eval(args: argparse.Namespace) -> int:
         if unknown:
             raise UsageError(f"unknown golden case(s): {unknown}")
         cases = [c for c in cases if c.case_id in args.case]
+    settings = load_settings()
+    decisions = make_decision_service(sv, settings)  # config errors before LLM spend
     backends, cli_version, _ = await prepare_backends(sv, skip_self_check=args.skip_self_check)
     report = await evaluate_cases(
         cases,
         sv=sv,
         fixture=load_fixture(),
         backends=backends,
-        decisions=make_decision_service(sv, load_settings()),
+        decisions=decisions,
         code=code_identity(cli_version),
         judge_prompt=sv.prompt_text(sv.spec.judge),
         repetitions=args.repetitions,
         baseline=args.baseline,
         runs_dir=Path(args.runs_dir),
     )
-    if not args.local and load_settings().langsmith_api_key:
-        from langsmith import Client
-
-        name = await record_langsmith_experiment(
-            report, cases, Client(), prefix=f"womm-{sv.spec.name}"
-        )
-        report.metadata["langsmith_experiment"] = name
-        info(f"LangSmith experiment: {name}")
-    settings = load_settings()
-    if settings.database_url and not report.aborted:
-        n = await persist_failures(report, settings.database_url)
-        info(f"recorded {n} failure record(s) in Postgres")
+    # The report is written first, so a failing side effect below can never lose the results.
     path = write_report(report, Path(args.runs_dir))
+    if not args.local and settings.langsmith_api_key:
+        try:
+            from langsmith import Client
+
+            name = await record_langsmith_experiment(
+                report, cases, Client(), prefix=f"womm-{sv.spec.name}"
+            )
+            report.metadata["langsmith_experiment"] = name
+            info(f"LangSmith experiment: {name}")
+        except Exception as exc:  # noqa: BLE001
+            info(f"warning: LangSmith recording failed: {type(exc).__name__}: {exc}")
+    if settings.database_url and not report.aborted:
+        try:
+            n = await persist_failures(report, settings.database_url)
+            info(f"recorded {n} failure record(s) in Postgres")
+        except Exception as exc:  # noqa: BLE001
+            info(f"warning: failure records not stored: {type(exc).__name__}: {exc}")
+    path.write_text(report.to_json())  # now including the experiment name, if recorded
 
     lines = [json.dumps(report.summary, indent=2) if report.summary else "ABORTED"]
     for s in report.scores:

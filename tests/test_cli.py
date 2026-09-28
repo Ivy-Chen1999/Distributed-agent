@@ -29,7 +29,7 @@ def fake_version(tmp_path):
 @pytest.fixture
 def use_script(monkeypatch):
     def install(script):
-        async def fake_prepare(sv, *, skip_self_check=False):
+        async def fake_prepare(sv, *, skip_self_check=False, settings=None):
             return {"fake": FakeBackend(script)}, None, None
 
         monkeypatch.setattr(cli, "prepare_backends", fake_prepare)
@@ -113,7 +113,7 @@ def test_eval_baseline_on_dirty_tree_refused(
 def test_selfcheck_failure_reports_json(tmp_path, capsys, monkeypatch):
     report = SelfCheckReport(passed=False, flags=["--tools", ""], problems=["canary leaked"])
 
-    async def failing(sv, *, skip_self_check=False):
+    async def failing(sv, *, skip_self_check=False, settings=None):
         raise IsolationCheckFailed(report)
 
     monkeypatch.setattr(cli, "prepare_backends", failing)
@@ -125,7 +125,7 @@ def test_selfcheck_failure_reports_json(tmp_path, capsys, monkeypatch):
 
 
 def test_backend_auth_error_exit_code(fake_version, tmp_path, capsys, monkeypatch):
-    async def not_logged_in(sv, *, skip_self_check=False):
+    async def not_logged_in(sv, *, skip_self_check=False, settings=None):
         raise LLMError("auth", "Not logged in")
 
     monkeypatch.setattr(cli, "prepare_backends", not_logged_in)
@@ -152,3 +152,23 @@ def test_jev_version_without_key_is_usage_error(tmp_path, capsys, use_script, mo
     code = cli.main(["run", "eval_sme_impacts", "--system-version", str(path),
                      "--runs-dir", str(tmp_path)])  # fmt: skip
     assert code == cli.EXIT_USAGE and "TYPESAFE_API_KEY" in capsys.readouterr().err
+
+
+def test_eval_report_survives_failing_side_effects(fake_version, tmp_path, capsys, use_script,
+                                                   monkeypatch):  # fmt: skip
+    use_script(_script())
+
+    async def boom(*a, **k):
+        raise RuntimeError("side effect down")
+
+    monkeypatch.setattr(cli, "record_langsmith_experiment", boom)
+    monkeypatch.setattr(cli, "persist_failures", boom)
+    monkeypatch.setenv("LANGSMITH_API_KEY", "x")
+    monkeypatch.setenv("DATABASE_URL", "postgresql://nowhere/db")
+    code = cli.main(
+        _args(fake_version, tmp_path, "eval", "--case", "case_02_sme_impacts", "--json")
+    )
+    out = capsys.readouterr()
+    assert code == cli.EXIT_OK
+    assert "LangSmith recording failed" in out.err and "failure records not stored" in out.err
+    assert list((tmp_path / "runs").glob("eval_*.json"))

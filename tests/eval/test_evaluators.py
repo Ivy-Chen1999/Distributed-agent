@@ -141,3 +141,11 @@ def test_noise_and_failure_records():
     assert cats == ["expert_timeout", "low_coverage", "low_grounding", "missed_expected_impacts"]
     missed = next(r for r in failure_records(scores) if r["category"] == "missed_expected_impacts")
     assert len(missed["detail"]["expected_ids"]) == len(CASE.expected_impacts) - 1
+
+
+def test_failure_records_judge_error():
+    from womm.eval.evaluators import CaseScore, failure_records
+
+    s = CaseScore(case_id="c", scenario_id="s", outcome="scored", judge_error="judge skipped ids")
+    (r,) = failure_records([s])
+    assert r["category"] == "judge_error" and r["detail"]["error"] == "judge skipped ids"

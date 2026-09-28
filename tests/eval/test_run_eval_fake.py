@@ -180,3 +180,10 @@ async def test_langsmith_data_only_scored_cases(fixture, monkeypatch):
     monkeypatch.setattr(langsmith, "aevaluate", fake_aevaluate)
     await record_langsmith_experiment(report, load_all_golden(), _FakeClient(), prefix="t")
     assert seen["cases"] == [CASE.case_id]
+
+
+async def test_report_json_includes_noise_and_failures(fixture):
+    single = json.loads((await _evaluate(fixture, _script())).to_json())
+    assert single["noise"] is None and isinstance(single["failures"], list)
+    double = json.loads((await _evaluate(fixture, _script(reps=2), repetitions=2)).to_json())
+    assert double["noise"][CASE.case_id]["coverage"]["n"] == 2

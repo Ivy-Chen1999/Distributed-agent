@@ -11,11 +11,12 @@ from contextlib import asynccontextmanager
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
+from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
 from womm.api.db import Database
-from womm.api.jobs import JobRunner
+from womm.api.jobs import JobRunner, QueueFull
 from womm.backends import prepare_backends
 from womm.config import REPO_ROOT, ConfigError, Settings, load_settings
 from womm.data.fixtures import Fixture, FixtureError, load_fixture
@@ -24,6 +25,7 @@ from womm.identity import code_identity
 from womm.llm.base import LLMBackend
 from womm.models.system_version import SystemVersion, load_system_version
 
+MIN_TOKEN_LENGTH = 16
 FINISHED = {"succeeded", "degraded", "failed", "no_changes"}
 WITH_DOSSIER = {"succeeded", "degraded", "no_changes"}
 
@@ -47,10 +49,15 @@ def create_app(
     fixture: Fixture | None = None,
     backends: dict[str, LLMBackend] | None = None,
     max_concurrent_runs: int = 2,
+    max_pending_runs: int = 20,
+    orphan_stale_after_s: float = 120.0,
+    heartbeat_s: float = 30.0,
 ) -> FastAPI:
     settings = settings or load_settings()
-    if not settings.api_token:
-        raise ConfigError("WOMM_API_TOKEN must be set to run the API")
+    if not settings.api_token or len(settings.api_token) < MIN_TOKEN_LENGTH:
+        raise ConfigError(
+            f"WOMM_API_TOKEN must be set to a random value of at least {MIN_TOKEN_LENGTH} chars"
+        )
     if not settings.database_url:
         raise ConfigError("DATABASE_URL must be set to run the API")
     sv = sv or load_system_version(settings.system_version_path, REPO_ROOT)
@@ -61,13 +68,13 @@ def create_app(
         db = Database(settings.database_url)
         await db.open()
         await db.migrate()
-        orphans = await db.reconcile_orphans()
+        orphans = await db.reconcile_orphans(orphan_stale_after_s)
         await db.upsert_system_version(sv)
         runner_backends, cli_version = backends, None
         backend_error = None
         if runner_backends is None:
             try:
-                runner_backends, cli_version, _ = await prepare_backends(sv)
+                runner_backends, cli_version, _ = await prepare_backends(sv, settings=settings)
             except Exception as exc:  # noqa: BLE001 - serve /health and report the problem
                 runner_backends, backend_error = {}, f"{type(exc).__name__}: {exc}"
         app.state.db = db
@@ -76,8 +83,10 @@ def create_app(
         app.state.runner = JobRunner(
             db=db, sv=sv, fixture=fixture, backends=runner_backends,
             decisions=make_decision_service(sv, settings), code=code_identity(cli_version),
-            max_concurrent_runs=max_concurrent_runs,
+            max_concurrent_runs=max_concurrent_runs, max_pending_runs=max_pending_runs,
+            heartbeat_s=heartbeat_s, stale_after_s=orphan_stale_after_s,
         )  # fmt: skip
+        app.state.runner.start()
         try:
             yield
         finally:
@@ -100,12 +109,13 @@ def create_app(
     auth = [Depends(require_token)]
 
     @app.get("/health")
-    async def health(request: Request) -> dict:
-        return {
-            "status": "ok",
-            "system_version": sv.version_id,
-            "backend_ready": request.app.state.backend_error is None,
-        }
+    async def health(request: Request) -> JSONResponse:
+        """503 while backends are unavailable, so a deploy that cannot run anything is not
+        promoted by the platform health check."""
+        ready = request.app.state.backend_error is None
+        body = {"status": "ok" if ready else "degraded", "system_version": sv.version_id,
+                "backend_ready": ready}  # fmt: skip
+        return JSONResponse(body, status_code=200 if ready else 503)
 
     @app.get("/scenarios", dependencies=auth)
     async def scenarios() -> list[dict]:
@@ -119,6 +129,8 @@ def create_app(
             run_id = await request.app.state.runner.submit(body.scenario_id)
         except FixtureError as exc:
             raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from None
+        except QueueFull as exc:
+            raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, str(exc)) from None
         return RunAccepted(run_id=run_id, status="queued")
 
     @app.get("/runs/{run_id}", dependencies=auth)

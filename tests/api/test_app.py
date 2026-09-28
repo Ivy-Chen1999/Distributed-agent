@@ -13,7 +13,7 @@ from womm.llm.fake import FakeBackend
 from ..graph.conftest import fake_sv, good_script
 from .test_db import synthesis_all
 
-TOKEN = "test-token"
+TOKEN = "test-token-0123456789"
 AUTH = {"Authorization": f"Bearer {TOKEN}"}
 
 
@@ -22,6 +22,7 @@ def _settings(database_url, token=TOKEN):
 
 
 def _client(database_url, script, **kw):
+    kw.setdefault("orphan_stale_after_s", 0)
     app = create_app(
         _settings(database_url), sv=fake_sv(), fixture=load_fixture(),
         backends={"fake": FakeBackend(script)}, **kw,
@@ -91,13 +92,14 @@ def test_failed_run_has_no_dossier(database_url):
 def test_backend_unavailable_returns_503(database_url, monkeypatch):
     import womm.api.app as app_mod
 
-    async def broken(sv, *, skip_self_check=False):
+    async def broken(sv, *, skip_self_check=False, settings=None):
         raise LLMError("auth", "no API key")
 
     monkeypatch.setattr(app_mod, "prepare_backends", broken)
     app = create_app(_settings(database_url), sv=fake_sv(), fixture=load_fixture())
     with TestClient(app) as c:
-        assert c.get("/health").json()["backend_ready"] is False
+        health = c.get("/health")
+        assert health.status_code == 503 and health.json()["backend_ready"] is False
         r = c.post("/runs", json={"scenario_id": "eval_sme_impacts"}, headers=AUTH)
         assert r.status_code == 503 and "no API key" in r.json()["detail"]
 
@@ -119,3 +121,24 @@ def test_restart_reconciles_orphans(database_url):
     with _client(database_url, {}) as c:
         body = c.get("/runs/run_orphan", headers=AUTH).json()
         assert (body["status"], body["error_kind"]) == ("failed", "orphaned")
+
+
+def test_short_token_refused(database_url):
+    with pytest.raises(ConfigError, match="at least"):
+        create_app(_settings(database_url, token="short"))
+
+
+def test_queue_full_returns_429(database_url):
+    from .test_jobs import BlockingBackend
+
+    app = create_app(
+        _settings(database_url), sv=fake_sv(), fixture=load_fixture(),
+        backends={"fake": BlockingBackend()}, max_pending_runs=1,
+    )  # fmt: skip
+    with TestClient(app) as c:
+        assert (
+            c.post("/runs", json={"scenario_id": "eval_sme_impacts"}, headers=AUTH).status_code
+            == 202
+        )
+        r = c.post("/runs", json={"scenario_id": "eval_sme_impacts"}, headers=AUTH)
+        assert r.status_code == 429

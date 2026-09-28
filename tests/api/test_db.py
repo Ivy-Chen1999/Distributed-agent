@@ -11,7 +11,7 @@ async def test_migrate_is_idempotent(database_url):
     database = Database(database_url)
     await database.open()
     try:
-        assert await database.migrate() == ["001_init"]
+        assert await database.migrate() == ["001_init", "002_run_ownership"]
         assert await database.migrate() == []
     finally:
         await database.close()
@@ -33,7 +33,8 @@ async def test_reconcile_orphans(db):
     await db.mark_running("running")
     await db.create_run("done", "s", "sv")
     await db.mark_failed("done", "timeout", "x")
-    assert await db.reconcile_orphans() == 2
+    assert await db.reconcile_orphans(stale_after_s=60) == 0  # fresh heartbeats: still owned
+    assert await db.reconcile_orphans(stale_after_s=0) == 2
     run = await db.get_run("running")
     assert (run["status"], run["error_kind"]) == ("failed", "orphaned")
     assert (await db.get_run("done"))["error_kind"] == "timeout"

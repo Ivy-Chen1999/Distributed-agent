@@ -16,6 +16,6 @@ RUN uv sync --frozen --no-dev
 
 RUN useradd --create-home womm
 USER womm
-ENV PATH="/app/.venv/bin:$PATH"
+ENV PATH="/app/.venv/bin:$PATH" WOMM_SYSTEM_VERSION=system_versions/v0.1-api.yaml
 EXPOSE 8000
 CMD ["sh", "-c", "uvicorn --factory womm.api.app:create_app --host 0.0.0.0 --port ${PORT:-8000}"]

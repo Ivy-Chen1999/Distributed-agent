@@ -23,10 +23,14 @@ ACTIVE = (RunStatus.queued.value, RunStatus.running.value)
 
 
 class Database:
-    def __init__(self, url: str, *, min_size: int = 1, max_size: int = 5) -> None:
+    def __init__(
+        self, url: str, *, min_size: int = 1, max_size: int = 5, statement_timeout_ms: int = 30_000
+    ) -> None:
+        # A statement timeout keeps one stuck query from pinning a pool connection forever.
         self.pool = AsyncConnectionPool(
             url, min_size=min_size, max_size=max_size, open=False,
-            kwargs={"row_factory": dict_row, "autocommit": True},
+            kwargs={"row_factory": dict_row, "autocommit": True,
+                    "options": f"-c statement_timeout={statement_timeout_ms}"},
         )  # fmt: skip
 
     async def open(self) -> None:
@@ -39,13 +43,14 @@ class Database:
         """Apply pending migrations; returns the ones applied now. Safe to run repeatedly."""
         applied_now = []
         async with self.pool.connection() as conn:
-            await conn.execute(
-                "CREATE TABLE IF NOT EXISTS schema_migrations ("
-                " version text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())"
-            )
-            # Serialize concurrent starters (e.g. two replicas booting at once).
+            # Serialize concurrent starters (e.g. two replicas booting at once), including the
+            # bookkeeping table's creation.
             await conn.execute("SELECT pg_advisory_lock(727001)")
             try:
+                await conn.execute(
+                    "CREATE TABLE IF NOT EXISTS schema_migrations ("
+                    " version text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())"
+                )
                 rows = await (
                     await conn.execute("SELECT version FROM schema_migrations")
                 ).fetchall()
@@ -76,40 +81,61 @@ class Database:
 
     # ------------------------------------------------------------------ runs
 
-    async def create_run(self, run_id: str, scenario_id: str, system_version: str) -> None:
+    # Status transitions only move forward: queued -> running -> terminal. Every update is
+    # guarded, so a late write (e.g. cancellation after save, or a reconcile race) can never
+    # overwrite a terminal status. Each returns whether the transition happened.
+
+    async def create_run(
+        self, run_id: str, scenario_id: str, system_version: str, instance_id: str | None = None
+    ) -> None:
         async with self.pool.connection() as conn:
             await conn.execute(
-                "INSERT INTO runs (run_id, scenario_id, status, system_version)"
-                " VALUES (%s, %s, %s, %s)",
-                (run_id, scenario_id, RunStatus.queued.value, system_version),
+                "INSERT INTO runs (run_id, scenario_id, status, system_version, instance_id,"
+                " heartbeat_at) VALUES (%s, %s, %s, %s, %s, now())",
+                (run_id, scenario_id, RunStatus.queued.value, system_version, instance_id),
             )
 
-    async def mark_running(self, run_id: str) -> None:
+    async def mark_running(self, run_id: str) -> bool:
         async with self.pool.connection() as conn:
-            await conn.execute(
-                "UPDATE runs SET status = %s, started_at = now() WHERE run_id = %s",
-                (RunStatus.running.value, run_id),
+            cur = await conn.execute(
+                "UPDATE runs SET status = %s, started_at = now(), heartbeat_at = now()"
+                " WHERE run_id = %s AND status = %s",
+                (RunStatus.running.value, run_id, RunStatus.queued.value),
             )
+            return cur.rowcount == 1
 
-    async def mark_failed(self, run_id: str, error_kind: str, error: str) -> None:
+    async def mark_failed(self, run_id: str, error_kind: str, error: str) -> bool:
         async with self.pool.connection() as conn:
-            await conn.execute(
+            cur = await conn.execute(
                 "UPDATE runs SET status = %s, error_kind = %s, error = %s, finished_at = now()"
-                " WHERE run_id = %s",
-                (RunStatus.failed.value, error_kind, error[:2000], run_id),
+                " WHERE run_id = %s AND status = ANY(%s)",
+                (RunStatus.failed.value, error_kind, error[:2000], run_id, list(ACTIVE)),
             )
+            return cur.rowcount == 1
 
-    async def save_result(self, result: RunResult) -> None:
-        """Store the finished run and its decision records in one transaction."""
+    async def heartbeat(self, instance_id: str) -> int:
+        async with self.pool.connection() as conn:
+            cur = await conn.execute(
+                "UPDATE runs SET heartbeat_at = now() WHERE instance_id = %s AND status = ANY(%s)",
+                (instance_id, list(ACTIVE)),
+            )
+            return cur.rowcount
+
+    async def save_result(self, result: RunResult) -> bool:
+        """Store the finished run and its decision records in one transaction. Returns False
+        (and stores nothing) when the run is no longer active, e.g. reconciled as orphaned."""
         async with self.pool.connection() as conn, conn.transaction():
-            await conn.execute(
+            cur = await conn.execute(
                 "UPDATE runs SET status = %s, error = %s, finished_at = now(), result = %s"
-                " WHERE run_id = %s",
+                " WHERE run_id = %s AND status = ANY(%s)",
                 (result.status.value, result.error,
-                 Jsonb(json.loads(result.model_dump_json())), result.run_id),
+                 Jsonb(json.loads(result.model_dump_json())), result.run_id, list(ACTIVE)),
             )  # fmt: skip
+            if cur.rowcount != 1:
+                return False
             for d in result.decisions:
                 await self._insert_decision(conn, result.run_id, d)
+            return True
 
     @staticmethod
     async def _insert_decision(conn: Any, run_id: str, d: DecisionRecord) -> None:
@@ -126,14 +152,16 @@ class Database:
             cur = await conn.execute("SELECT * FROM runs WHERE run_id = %s", (run_id,))
             return await cur.fetchone()
 
-    async def reconcile_orphans(self) -> int:
-        """At startup: runs left queued/running by a previous process can never finish."""
+    async def reconcile_orphans(self, stale_after_s: float = 120.0) -> int:
+        """Fail active runs whose owner stopped heartbeating (process died or was redeployed).
+        Runs of live instances keep fresh heartbeats and are left alone."""
         async with self.pool.connection() as conn:
             cur = await conn.execute(
                 "UPDATE runs SET status = %s, error_kind = 'orphaned',"
-                " error = 'process restarted before the run finished', finished_at = now()"
-                " WHERE status = ANY(%s)",
-                (RunStatus.failed.value, list(ACTIVE)),
+                " error = 'owner stopped before the run finished', finished_at = now()"
+                " WHERE status = ANY(%s)"
+                " AND coalesce(heartbeat_at, created_at) < now() - make_interval(secs => %s)",
+                (RunStatus.failed.value, list(ACTIVE), stale_after_s),
             )
             return cur.rowcount
 
@@ -174,7 +202,8 @@ class Database:
         async with self.pool.connection() as conn:
             await conn.execute(
                 "INSERT INTO failures (run_id, case_id, scenario_id, agent, category, detail,"
-                " system_version, git_sha) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                " system_version, git_sha) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"
+                " ON CONFLICT DO NOTHING",
                 (run_id, case_id, scenario_id, agent, category, Jsonb(detail or {}),
                  system_version, git_sha),
             )  # fmt: skip
