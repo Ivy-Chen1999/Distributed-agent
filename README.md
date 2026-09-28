@@ -31,13 +31,40 @@ claude /login          # the claude_code backend uses your local Claude Code sub
 ## Usage
 
 ```bash
-uv run womm scenarios                       # list fixture scenarios
-uv run womm selfcheck                       # auth + claude_code isolation self-check
+uv run womm scenarios --json                # list fixture scenarios
+uv run womm selfcheck --json                # auth + claude_code isolation self-check
 uv run womm run eval_sme_impacts            # one run; writes runs/<run_id>.json
 uv run womm eval --baseline                 # golden cases -> scores + LangSmith experiment
-uv run womm eval --case case_02_sme_impacts --local
+uv run womm eval --case case_02_sme_impacts --repetitions 3   # run-to-run noise (R34)
 uv run langgraph dev                        # LangGraph Studio (graph view)
 ```
+
+Every command accepts `--json` (data on stdout, diagnostics on stderr) and `--system-version`.
+Exit codes: 0 ok, 1 run failed / eval aborted, 2 bad input, 3 backend error, 4 run degraded
+(`womm --help` lists them). With `DATABASE_URL` set, `womm eval` also writes failure records
+(R14b) to Postgres.
+
+## API (v0.1)
+
+```bash
+docker-compose up -d                        # local Postgres on :55432
+export DATABASE_URL=postgresql://womm:womm@localhost:55432/womm WOMM_API_TOKEN=dev-token
+uv run uvicorn --factory womm.api.app:create_app --port 8000
+```
+
+| Endpoint | Auth | Purpose |
+|---|---|---|
+| `GET /health` | none | liveness, system version, whether backends are ready |
+| `GET /scenarios` | bearer | fixture scenarios |
+| `POST /runs` `{"scenario_id": ...}` | bearer | start a background run (202, UUID run id) |
+| `GET /runs/{id}` | bearer | status, per-node states, error; Impact Dossier once finished |
+| `GET /runs/{id}/events?after=N` | bearer | node started/finished/failed events, in order |
+
+The app refuses to start without `WOMM_API_TOKEN` and `DATABASE_URL`. Runs execute in-process
+(at most 2 at a time); runs interrupted by a restart are marked `failed` / `orphaned` on the next
+start. The `Dockerfile` / `railway.json` build the same app; deployed versions must use the `api`
+backend (`system_versions/v0.1-api.yaml`, needs `OPENAI_API_KEY`), since the Claude Code
+subscription is local only.
 
 ## LLM backends
 
@@ -64,7 +91,7 @@ never shown to the agents.
 ## Tests
 
 ```bash
-uv run pytest -q                 # unit + fake end-to-end tests
+uv run pytest -q                 # unit + fake end-to-end tests (+ Postgres tests if it is up)
 uv run pytest -m live -q         # real claude CLI calls
 uv run ruff check src tests scripts
 ```
