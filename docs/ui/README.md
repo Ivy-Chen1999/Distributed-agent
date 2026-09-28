@@ -1,19 +1,23 @@
-# UI 数据接口（demo 前端）
+# UI data contract (demo frontend)
 
-页面需求见 `docs/brainstorms/2026-09-28-womm-phased-requirements.md` 中的 R35 / R36。
+Page requirements: R35 / R36 in `docs/brainstorms/2026-09-28-womm-phased-requirements.md`.
+Design prompt for design tools: `docs/ui/design-prompt.md`.
 
-- `schema/*.schema.json`：由后端 Pydantic 模型自动导出，是字段的唯一依据。重新生成：`uv run python scripts/export_ui_contract.py`
-- `sample_run.json`：一次运行的示例数据，内容是虚构的，可以直接当 mock 用
+- `schema/*.schema.json`: exported from the backend Pydantic models; the single source of truth for
+  field names. Regenerate with `uv run python scripts/export_ui_contract.py`.
+- `sample_run.json`: one example run. The content is illustrative (only the quotes are real AI Act
+  text); use it as mock data. It will be replaced with a real run once the pipeline (U7) works.
 
-## 页面与字段对应
+## Page-to-field mapping
 
-| 页面 | 数据来源 | 关键字段 |
+| Page | Data source | Key fields |
 |---|---|---|
-| 运行页：结构图与节点状态 | v0.1 的 `GET /runs/{id}` 与 `/events`（U11）；在此之前用 `status` + `decisions` | `status`、`decisions[].subject / decision / probability / mode`（shadow 标记）、`board[].agent`（按专家区分颜色） |
-| Impact Dossier 页 | `dossier` | `impacts[].summary`、`impacts[].findings[]`（溯源链：`provision_key` → `mechanism` → `evidence[].quote` → `evidence[].source_id`）、`confidence`、`disagreements`（并排展示）、`open_questions`、`failed_experts`、`chains` |
-| 评估页（v1） | LangSmith 实验 | 待定 |
-| 进化页（v1） | SystemVersion 谱系 | 待定 |
+| Run page: agent graph and node status | v0.1 `GET /runs/{id}` and `/events` (U11); until then `status` + `decisions` | `status`, `decisions[].subject / decision / probability / mode` (shadow tag), `board[].agent` (colour per expert) |
+| Impact Dossier page | `dossier` | `impacts[].summary`, `impacts[].findings[]` (provenance chain: `provision_key` → `mechanism` → `evidence[].quote` → `evidence[].source_id`), `confidence`, `disagreements` (side by side), `open_questions`, `failed_experts`, `chains` |
+| Evaluation page (v1) | LangSmith experiments | TBD |
+| Evolution page (v1) | SystemVersion lineage | TBD |
 
-状态取值：`queued`、`running`、`succeeded`、`degraded`（部分专家失败或 Synthesis 失败）、`failed`、`no_changes`。每个页面都要有加载中、空数据、出错三种状态。
+Status values: `queued`, `running`, `succeeded`, `degraded` (some experts failed, or synthesis
+failed), `failed`, `no_changes`. Every page needs loading, empty and error states.
 
-注意：Impact Dossier 里的文字由 LLM 生成，渲染时必须转义，不能当 HTML 插入。
+Note: Impact Dossier text is LLM-generated. Render it as escaped plain text, never as HTML.

@@ -1,6 +1,6 @@
 # UI Design Prompt — WOMM demo frontend
 
-> 直接复制下面 "Prompt" 部分到设计工具（Claude Design / v0 / Figma AI 等）。字段名与 `docs/ui/schema/*.json`、`docs/ui/sample_run.json` 一致，生成的页面可直接接 mock 数据。
+> Copy the "Prompt" section below into a design tool (Claude Design, v0, Figma AI, etc.). Field names match `docs/ui/schema/*.json` and `docs/ui/sample_run.json`, so generated pages can use the mock data directly.
 
 ---
 
