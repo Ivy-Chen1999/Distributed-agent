@@ -1,0 +1,120 @@
+{
+  "$defs": {
+    "Provision": {
+      "additionalProperties": false,
+      "properties": {
+        "provision_key": {
+          "description": "Stable across versions; renumbered articles keep the same key.",
+          "minLength": 1,
+          "title": "Provision Key",
+          "type": "string"
+        },
+        "article": {
+          "description": "Article number as printed in this version, e.g. '71'.",
+          "title": "Article",
+          "type": "string"
+        },
+        "paragraph": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Paragraph number within the article, if any.",
+          "title": "Paragraph"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "source_id": {
+          "description": "Source record this provision's text comes from.",
+          "title": "Source Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "provision_key",
+        "article",
+        "paragraph",
+        "text",
+        "source_id"
+      ],
+      "title": "Provision",
+      "type": "object"
+    },
+    "RegulationVersion": {
+      "additionalProperties": false,
+      "properties": {
+        "version_id": {
+          "title": "Version Id",
+          "type": "string"
+        },
+        "date": {
+          "format": "date",
+          "title": "Date",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "proposal",
+            "amended",
+            "adopted",
+            "consolidated"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "source": {
+          "description": "CELEX number or URL of the published text.",
+          "title": "Source",
+          "type": "string"
+        },
+        "provisions": {
+          "items": {
+            "$ref": "#/$defs/Provision"
+          },
+          "title": "Provisions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "version_id",
+        "date",
+        "status",
+        "source",
+        "provisions"
+      ],
+      "title": "RegulationVersion",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "regulation_id": {
+      "title": "Regulation Id",
+      "type": "string"
+    },
+    "title": {
+      "title": "Title",
+      "type": "string"
+    },
+    "versions": {
+      "items": {
+        "$ref": "#/$defs/RegulationVersion"
+      },
+      "title": "Versions",
+      "type": "array"
+    }
+  },
+  "required": [
+    "regulation_id",
+    "title",
+    "versions"
+  ],
+  "title": "Regulation",
+  "type": "object"
+}
