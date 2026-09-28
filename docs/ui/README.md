@@ -5,8 +5,9 @@ Design prompt for design tools: `docs/ui/design-prompt.md`.
 
 - `schema/*.schema.json`: exported from the backend Pydantic models; the single source of truth for
   field names. Regenerate with `uv run python scripts/export_ui_contract.py`.
-- `sample_run.json`: one example run. The content is illustrative (only the quotes are real AI Act
-  text); use it as mock data. It will be replaced with a real run once the pipeline (U7) works.
+- `sample_run.json`: a real run of scenario `eval_sme_impacts` (AI Act proposal Art 53-55, 71) on
+  the claude_code backend. Use it as mock data. Router decisions come from the stub decider
+  (probability is null until Jev is wired in, U8).
 
 ## Page-to-field mapping
 
