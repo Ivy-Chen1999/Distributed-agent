@@ -34,8 +34,11 @@ async def test_live_tiny_call_and_isolation_self_check():
     cfg = RoleConfig(backend="claude_code", model=MODEL, prompt="-", timeout_s=120)
     t = time.monotonic()
     obj, usage = await backend.call(
-        "live", "Answer with the requested structured data only.",
-        "What is the capital of France?", Capital, cfg,
+        "live",
+        "Answer with the requested structured data only.",
+        "What is the capital of France?",
+        Capital,
+        cfg,
     )
     print(f"call: {obj!r} usage={usage.model_dump()} wall={time.monotonic() - t:.2f}s")
     assert obj.capital.lower() == "paris"

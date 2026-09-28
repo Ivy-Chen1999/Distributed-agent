@@ -177,8 +177,14 @@ async def test_schema_retry_succeeds_on_second_attempt(cli):
 
 
 async def test_cli_structured_output_error_subtype_is_schema_invalid(cli):
-    bad = json.dumps({"type": "result", "subtype": "error_max_structured_output_retries",
-                      "is_error": True, "result": ""})
+    bad = json.dumps(
+        {
+            "type": "result",
+            "subtype": "error_max_structured_output_retries",
+            "is_error": True,
+            "result": "",
+        }
+    )
     cli.responses = [(bad, "", 1)]
     with pytest.raises(LLMError) as ei:
         await ClaudeCodeBackend().call("planner", "s", "u", Answer, cfg(max_retries=1))
@@ -246,8 +252,12 @@ async def test_argv_isolation_flags_stdin_and_temp_cwd(cli):
     assert argv[i + 1] == ""
     i = argv.index("--setting-sources")
     assert argv[i + 1] == ""
-    for flag in ("--strict-mcp-config", "--no-session-persistence", "--restricted",
-                 "--disable-slash-commands"):
+    for flag in (
+        "--strict-mcp-config",
+        "--no-session-persistence",
+        "--restricted",
+        "--disable-slash-commands",
+    ):
         assert flag in argv
     assert "--bare" not in argv
     assert argv[argv.index("--output-format") + 1] == "json"
@@ -309,8 +319,13 @@ def test_child_env_is_allowlisted():
     for k in ("PATH", "HOME", "USER", "LANG", "LC_ALL", "TMPDIR", "SHELL"):
         assert env[k] == LEAKY_ENV[k]
     assert env["TERM"] == "dumb"
-    forbidden = [k for k in env if k.startswith(("ANTHROPIC", "LANGSMITH", "CC_LANGSMITH",
-                                                 "OPENAI", "TRACE_TO", "CLAUDECODE", "AWS"))]
+    forbidden = [
+        k
+        for k in env
+        if k.startswith(
+            ("ANTHROPIC", "LANGSMITH", "CC_LANGSMITH", "OPENAI", "TRACE_TO", "CLAUDECODE", "AWS")
+        )
+    ]
     assert forbidden == []
     assert "CLAUDE_CODE_SESSION_ID" not in env and "CLAUDE_CODE_MESSAGING_SOCKET" not in env
 
@@ -321,8 +336,15 @@ async def test_subprocess_env_strips_secrets_from_real_parent_env(cli, monkeypat
     cli.responses = [result_payload({"name": "Bob", "score": 1})]
     await ClaudeCodeBackend().call("planner", "s", "u", Answer, cfg())
     env = cli.procs[0].kwargs["env"]
-    for k in ("ANTHROPIC_API_KEY", "LANGSMITH_API_KEY", "LANGSMITH_TRACING",
-              "CC_LANGSMITH_API_KEY", "TRACE_TO_LANGSMITH", "OPENAI_API_KEY", "CLAUDECODE"):
+    for k in (
+        "ANTHROPIC_API_KEY",
+        "LANGSMITH_API_KEY",
+        "LANGSMITH_TRACING",
+        "CC_LANGSMITH_API_KEY",
+        "TRACE_TO_LANGSMITH",
+        "OPENAI_API_KEY",
+        "CLAUDECODE",
+    ):
         assert k not in env
     assert env["HOME"] == "/Users/x"
 
@@ -354,11 +376,7 @@ async def test_timeout_kills_process_group_without_orphans(tmp_path):
     pidfile = tmp_path / "pids"
     script = tmp_path / "fake-claude"
     script.write_text(
-        "#!/bin/sh\n"
-        f"echo $$ > '{pidfile}'\n"
-        "sleep 60 &\n"
-        f"echo $! >> '{pidfile}'\n"
-        "wait\n"
+        f"#!/bin/sh\necho $$ > '{pidfile}'\nsleep 60 &\necho $! >> '{pidfile}'\nwait\n"
     )
     script.chmod(script.stat().st_mode | stat.S_IEXEC)
     backend = ClaudeCodeBackend(executable=str(script))
@@ -425,8 +443,7 @@ async def test_self_check_passes_on_clean_stream(cli):
         ({"memory_paths": {"auto": "/Users/x/.claude/projects/p/memory/"}}, "no_memory"),
         ({"tools": ["Bash", "Read"]}, "no_tools"),
         ({"mcp_servers": [{"name": "github", "status": "connected"}]}, "no_mcp_servers"),
-        ({"plugins": [{"name": "ecc", "source": "everything-claude-code@ecc"}]},
-         "no_user_plugins"),
+        ({"plugins": [{"name": "ecc", "source": "everything-claude-code@ecc"}]}, "no_user_plugins"),
         ({"apiKeySource": "ANTHROPIC_API_KEY"}, "subscription_auth"),
     ],
 )

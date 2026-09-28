@@ -101,6 +101,7 @@ class ApiBackend(LLMBackend):
         if not isinstance(out, dict):  # include_raw=False style runnable
             return out, usage
         if out.get("parsing_error") is not None or out.get("parsed") is None:
-            raise OutputInvalid(f"structured output parsing failed: {out.get('parsing_error')}",
-                                usage=usage)
+            raise OutputInvalid(
+                f"structured output parsing failed: {out.get('parsing_error')}", usage=usage
+            )
         return out["parsed"], usage

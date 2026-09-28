@@ -212,9 +212,9 @@ class SelfCheckReport:
 
 class IsolationCheckFailed(LLMError):
     def __init__(self, report: SelfCheckReport) -> None:
-        super().__init__("process_error", "isolation self-check failed: " + "; ".join(
-            report.problems
-        ))
+        super().__init__(
+            "process_error", "isolation self-check failed: " + "; ".join(report.problems)
+        )
         self.report = report
 
 
@@ -233,8 +233,9 @@ def check_init_event(events: list[dict[str, Any]]) -> tuple[dict[str, bool], lis
     """Inspect a stream-json event list for isolation leaks."""
     checks: dict[str, bool] = {}
     problems: list[str] = []
-    init = next((e for e in events if e.get("type") == "system" and e.get("subtype") == "init"),
-                None)
+    init = next(
+        (e for e in events if e.get("type") == "system" and e.get("subtype") == "init"), None
+    )
     if init is None:
         return {"init_event": False}, ["no init event in stream"], {}
     checks["init_event"] = True
@@ -261,8 +262,15 @@ def check_init_event(events: list[dict[str, Any]]) -> tuple[dict[str, bool], lis
     expect("no_hooks", not hooks, f"hook events {sorted(set(map(str, hooks)))}")
     observed = {
         k: init.get(k)
-        for k in ("tools", "mcp_servers", "memory_paths", "apiKeySource", "model",
-                  "claude_code_version", "permissionMode")
+        for k in (
+            "tools",
+            "mcp_servers",
+            "memory_paths",
+            "apiKeySource",
+            "model",
+            "claude_code_version",
+            "permissionMode",
+        )
     }
     observed["plugins"] = plugins
     observed["skills_count"] = len(skills)
@@ -402,8 +410,9 @@ class ClaudeCodeBackend(LLMBackend):
         argv = self.build_argv(model=model, system_prompt=system_prompt, schema_json=schema_json)
         run = await self._run_cli(argv, user_content, timeout_s)
         payload = parse_result(run.stdout)
-        usage = CallUsage(role=role_name, agent=agent, backend=self.name, model=model,
-                          latency_s=run.elapsed_s)
+        usage = CallUsage(
+            role=role_name, agent=agent, backend=self.name, model=model, latency_s=run.elapsed_s
+        )
         if payload is not None:
             inp, outp, cost = usage_from_payload(payload)
             usage = usage.model_copy(
@@ -424,9 +433,11 @@ class ClaudeCodeBackend(LLMBackend):
     async def cli_version(self) -> str | None:
         with contextlib.suppress(Exception):
             proc = await asyncio.create_subprocess_exec(
-                self.executable, "--version",
+                self.executable,
+                "--version",
                 env=build_child_env(self._parent_env),
-                stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
             )
             out, _ = await asyncio.wait_for(proc.communicate(), timeout=30)
             return out.decode().strip() or None
@@ -447,12 +458,18 @@ class ClaudeCodeBackend(LLMBackend):
         report = SelfCheckReport(passed=False, flags=list(self.isolation_flags))
         report.cli_version = await self.cli_version()
 
-        cfg = RoleConfig(backend="claude_code", model=model, prompt="-", timeout_s=timeout_s,
-                         max_retries=0)
+        cfg = RoleConfig(
+            backend="claude_code", model=model, prompt="-", timeout_s=timeout_s, max_retries=0
+        )
         t = time.monotonic()
         try:
-            await self.call("self_check", "Reply with the requested JSON only.",
-                            'Return {"ok": true}.', _Pong, cfg)
+            await self.call(
+                "self_check",
+                "Reply with the requested JSON only.",
+                'Return {"ok": true}.',
+                _Pong,
+                cfg,
+            )
         except LLMError as exc:
             report.checks["auth_preflight"] = False
             report.problems.append(f"auth_preflight: {exc}")

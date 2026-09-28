@@ -61,8 +61,11 @@ def make(steps):
 def raw(parsed=None, error=None, in_tok=12, out_tok=5):
     msg = AIMessage(
         content="",
-        usage_metadata={"input_tokens": in_tok, "output_tokens": out_tok,
-                        "total_tokens": in_tok + out_tok},
+        usage_metadata={
+            "input_tokens": in_tok,
+            "output_tokens": out_tok,
+            "total_tokens": in_tok + out_tok,
+        },
     )
     return {"raw": msg, "parsed": parsed, "parsing_error": error}
 

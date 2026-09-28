@@ -122,8 +122,8 @@ class LLMBackend(ABC):
 
 
 def _add_usage(a: CallUsage, b: CallUsage) -> CallUsage:
-    cost = None if a.cost_usd is None and b.cost_usd is None else (a.cost_usd or 0) + (
-        b.cost_usd or 0
+    cost = (
+        None if a.cost_usd is None and b.cost_usd is None else (a.cost_usd or 0) + (b.cost_usd or 0)
     )
     return a.model_copy(
         update={
