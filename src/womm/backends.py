@@ -5,7 +5,7 @@ from __future__ import annotations
 import sys
 
 from womm.config import Settings, load_settings
-from womm.llm.base import LLMBackend, get_backend
+from womm.llm.base import LLMBackend, LLMError, get_backend
 from womm.llm.claude_code import ClaudeCodeBackend, SelfCheckReport
 from womm.models.system_version import SystemVersion
 
@@ -34,5 +34,24 @@ async def prepare_backends(
                 info(f"claude_code isolation self-check passed ({report.cli_version})")
             backends[name] = cc
         else:
+            if name == "api":
+                check_api_keys(sv, settings)
             backends[name] = get_backend(name, settings)
     return backends, cli_version, report
+
+
+PROVIDER_KEYS = {"openai": "openai_api_key", "anthropic": "anthropic_api_key"}
+
+
+def check_api_keys(sv: SystemVersion, settings: Settings) -> None:
+    """Fail at startup, not at the first LLM call, when a provider key is missing."""
+    missing = set()
+    for role in sv.spec.roles().values():
+        if role.backend != "api" or ":" not in role.model:
+            continue
+        provider = role.model.split(":", 1)[0]
+        attr = PROVIDER_KEYS.get(provider)
+        if attr and not getattr(settings, attr):
+            missing.add(attr.upper())
+    if missing:
+        raise LLMError("auth", f"api backend needs {', '.join(sorted(missing))}")
