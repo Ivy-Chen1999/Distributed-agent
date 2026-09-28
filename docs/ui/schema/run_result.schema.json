@@ -1,0 +1,676 @@
+{
+  "$defs": {
+    "CallUsage": {
+      "properties": {
+        "role": {
+          "title": "Role",
+          "type": "string"
+        },
+        "agent": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Agent"
+        },
+        "backend": {
+          "title": "Backend",
+          "type": "string"
+        },
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "input_tokens": {
+          "default": 0,
+          "title": "Input Tokens",
+          "type": "integer"
+        },
+        "output_tokens": {
+          "default": 0,
+          "title": "Output Tokens",
+          "type": "integer"
+        },
+        "cost_usd": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cost Usd"
+        },
+        "latency_s": {
+          "default": 0.0,
+          "title": "Latency S",
+          "type": "number"
+        }
+      },
+      "required": [
+        "role",
+        "backend",
+        "model"
+      ],
+      "title": "CallUsage",
+      "type": "object"
+    },
+    "CodeIdentity": {
+      "properties": {
+        "git_sha": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Git Sha"
+        },
+        "dirty": {
+          "title": "Dirty",
+          "type": "boolean"
+        },
+        "claude_cli_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Claude Cli Version"
+        }
+      },
+      "required": [
+        "git_sha",
+        "dirty"
+      ],
+      "title": "CodeIdentity",
+      "type": "object"
+    },
+    "DecisionRecord": {
+      "properties": {
+        "decision_point": {
+          "description": "e.g. 'router.relevance'",
+          "title": "Decision Point",
+          "type": "string"
+        },
+        "subject": {
+          "description": "What the decision is about, e.g. the expert id.",
+          "title": "Subject",
+          "type": "string"
+        },
+        "input_summary": {
+          "title": "Input Summary",
+          "type": "string"
+        },
+        "decision": {
+          "description": "e.g. 'relevant', 'not_relevant', 'error'",
+          "title": "Decision",
+          "type": "string"
+        },
+        "probability": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Probability"
+        },
+        "mode": {
+          "enum": [
+            "off",
+            "shadow",
+            "active"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "decider": {
+          "enum": [
+            "jev",
+            "stub"
+          ],
+          "title": "Decider",
+          "type": "string"
+        },
+        "system_version": {
+          "title": "System Version",
+          "type": "string"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error"
+        },
+        "truncated": {
+          "default": false,
+          "title": "Truncated",
+          "type": "boolean"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "decision_point",
+        "subject",
+        "input_summary",
+        "decision",
+        "probability",
+        "mode",
+        "decider",
+        "system_version"
+      ],
+      "title": "DecisionRecord",
+      "type": "object"
+    },
+    "Disagreement": {
+      "additionalProperties": false,
+      "properties": {
+        "finding_ids": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 2,
+          "title": "Finding Ids",
+          "type": "array"
+        },
+        "note": {
+          "title": "Note",
+          "type": "string"
+        }
+      },
+      "required": [
+        "finding_ids",
+        "note"
+      ],
+      "title": "Disagreement",
+      "type": "object"
+    },
+    "DiscardedFinding": {
+      "properties": {
+        "finding": {
+          "$ref": "#/$defs/ImpactFinding"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "finding",
+        "reason"
+      ],
+      "title": "DiscardedFinding",
+      "type": "object"
+    },
+    "DossierImpact": {
+      "properties": {
+        "impact_id": {
+          "title": "Impact Id",
+          "type": "string"
+        },
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        },
+        "findings": {
+          "items": {
+            "$ref": "#/$defs/ImpactFinding"
+          },
+          "title": "Findings",
+          "type": "array"
+        },
+        "merged": {
+          "description": "False when synthesis failed and findings are listed as-is.",
+          "title": "Merged",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "impact_id",
+        "summary",
+        "findings",
+        "merged"
+      ],
+      "title": "DossierImpact",
+      "type": "object"
+    },
+    "Evidence": {
+      "properties": {
+        "evidence_id": {
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "source_id": {
+          "title": "Source Id",
+          "type": "string"
+        },
+        "quote": {
+          "title": "Quote",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "source_id",
+        "quote"
+      ],
+      "title": "Evidence",
+      "type": "object"
+    },
+    "ExpertFailure": {
+      "properties": {
+        "agent": {
+          "title": "Agent",
+          "type": "string"
+        },
+        "error_kind": {
+          "enum": [
+            "auth",
+            "rate_limit",
+            "timeout",
+            "schema_invalid",
+            "process_error"
+          ],
+          "title": "Error Kind",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "attempts": {
+          "default": 1,
+          "title": "Attempts",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "agent",
+        "error_kind",
+        "message"
+      ],
+      "title": "ExpertFailure",
+      "type": "object"
+    },
+    "GroundingStats": {
+      "description": "Quote-existence rate (R12): passed evidence items / all evidence items, before synthesis.",
+      "properties": {
+        "passed": {
+          "default": 0,
+          "title": "Passed",
+          "type": "integer"
+        },
+        "total": {
+          "default": 0,
+          "title": "Total",
+          "type": "integer"
+        }
+      },
+      "title": "GroundingStats",
+      "type": "object"
+    },
+    "ImpactChain": {
+      "additionalProperties": false,
+      "properties": {
+        "impact_ids": {
+          "description": "Causal order, e.g. ['I1','I3'].",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 2,
+          "title": "Impact Ids",
+          "type": "array"
+        },
+        "description": {
+          "title": "Description",
+          "type": "string"
+        }
+      },
+      "required": [
+        "impact_ids",
+        "description"
+      ],
+      "title": "ImpactChain",
+      "type": "object"
+    },
+    "ImpactDossier": {
+      "properties": {
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "scenario_id": {
+          "title": "Scenario Id",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "succeeded",
+            "degraded",
+            "failed",
+            "no_changes"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "system_version": {
+          "title": "System Version",
+          "type": "string"
+        },
+        "impacts": {
+          "items": {
+            "$ref": "#/$defs/DossierImpact"
+          },
+          "title": "Impacts",
+          "type": "array"
+        },
+        "chains": {
+          "items": {
+            "$ref": "#/$defs/ImpactChain"
+          },
+          "title": "Chains",
+          "type": "array"
+        },
+        "disagreements": {
+          "items": {
+            "$ref": "#/$defs/Disagreement"
+          },
+          "title": "Disagreements",
+          "type": "array"
+        },
+        "open_questions": {
+          "items": {
+            "$ref": "#/$defs/OpenQuestion"
+          },
+          "title": "Open Questions",
+          "type": "array"
+        },
+        "discarded": {
+          "items": {
+            "$ref": "#/$defs/DiscardedFinding"
+          },
+          "title": "Discarded",
+          "type": "array"
+        },
+        "unprocessed": {
+          "description": "Supported findings synthesis did not account for.",
+          "items": {
+            "$ref": "#/$defs/ImpactFinding"
+          },
+          "title": "Unprocessed",
+          "type": "array"
+        },
+        "failed_experts": {
+          "items": {
+            "$ref": "#/$defs/ExpertFailure"
+          },
+          "title": "Failed Experts",
+          "type": "array"
+        },
+        "notes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Notes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "run_id",
+        "scenario_id",
+        "status",
+        "system_version"
+      ],
+      "title": "ImpactDossier",
+      "type": "object"
+    },
+    "ImpactFinding": {
+      "properties": {
+        "finding_id": {
+          "title": "Finding Id",
+          "type": "string"
+        },
+        "agent": {
+          "title": "Agent",
+          "type": "string"
+        },
+        "provision_key": {
+          "title": "Provision Key",
+          "type": "string"
+        },
+        "affected_actor": {
+          "title": "Affected Actor",
+          "type": "string"
+        },
+        "impact": {
+          "title": "Impact",
+          "type": "string"
+        },
+        "mechanism": {
+          "title": "Mechanism",
+          "type": "string"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "confidence": {
+          "title": "Confidence",
+          "type": "number"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        }
+      },
+      "required": [
+        "finding_id",
+        "agent",
+        "provision_key",
+        "affected_actor",
+        "impact",
+        "mechanism",
+        "evidence",
+        "confidence",
+        "provenance"
+      ],
+      "title": "ImpactFinding",
+      "type": "object"
+    },
+    "OpenQuestion": {
+      "properties": {
+        "question": {
+          "title": "Question",
+          "type": "string"
+        },
+        "finding_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Finding Id"
+        },
+        "reason": {
+          "enum": [
+            "evidence_unresolved",
+            "synthesis"
+          ],
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "question",
+        "reason"
+      ],
+      "title": "OpenQuestion",
+      "type": "object"
+    },
+    "Provenance": {
+      "properties": {
+        "agent": {
+          "title": "Agent",
+          "type": "string"
+        },
+        "system_version": {
+          "title": "System Version",
+          "type": "string"
+        },
+        "prompt_hash": {
+          "title": "Prompt Hash",
+          "type": "string"
+        },
+        "backend": {
+          "title": "Backend",
+          "type": "string"
+        },
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "round": {
+          "default": 1,
+          "title": "Round",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "agent",
+        "system_version",
+        "prompt_hash",
+        "backend",
+        "model"
+      ],
+      "title": "Provenance",
+      "type": "object"
+    },
+    "RunStatus": {
+      "enum": [
+        "queued",
+        "running",
+        "succeeded",
+        "degraded",
+        "failed",
+        "no_changes"
+      ],
+      "title": "RunStatus",
+      "type": "string"
+    }
+  },
+  "properties": {
+    "run_id": {
+      "title": "Run Id",
+      "type": "string"
+    },
+    "scenario_id": {
+      "title": "Scenario Id",
+      "type": "string"
+    },
+    "status": {
+      "$ref": "#/$defs/RunStatus"
+    },
+    "system_version": {
+      "title": "System Version",
+      "type": "string"
+    },
+    "code_identity": {
+      "$ref": "#/$defs/CodeIdentity"
+    },
+    "dossier": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ImpactDossier"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "board": {
+      "items": {
+        "$ref": "#/$defs/ImpactFinding"
+      },
+      "title": "Board",
+      "type": "array"
+    },
+    "failures": {
+      "items": {
+        "$ref": "#/$defs/ExpertFailure"
+      },
+      "title": "Failures",
+      "type": "array"
+    },
+    "decisions": {
+      "items": {
+        "$ref": "#/$defs/DecisionRecord"
+      },
+      "title": "Decisions",
+      "type": "array"
+    },
+    "grounding": {
+      "$ref": "#/$defs/GroundingStats"
+    },
+    "usage": {
+      "items": {
+        "$ref": "#/$defs/CallUsage"
+      },
+      "title": "Usage",
+      "type": "array"
+    },
+    "error": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Error"
+    }
+  },
+  "required": [
+    "run_id",
+    "scenario_id",
+    "status",
+    "system_version",
+    "code_identity"
+  ],
+  "title": "RunResult",
+  "type": "object"
+}

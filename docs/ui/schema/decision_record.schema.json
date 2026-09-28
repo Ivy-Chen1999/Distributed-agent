@@ -1,0 +1,89 @@
+{
+  "properties": {
+    "decision_point": {
+      "description": "e.g. 'router.relevance'",
+      "title": "Decision Point",
+      "type": "string"
+    },
+    "subject": {
+      "description": "What the decision is about, e.g. the expert id.",
+      "title": "Subject",
+      "type": "string"
+    },
+    "input_summary": {
+      "title": "Input Summary",
+      "type": "string"
+    },
+    "decision": {
+      "description": "e.g. 'relevant', 'not_relevant', 'error'",
+      "title": "Decision",
+      "type": "string"
+    },
+    "probability": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Probability"
+    },
+    "mode": {
+      "enum": [
+        "off",
+        "shadow",
+        "active"
+      ],
+      "title": "Mode",
+      "type": "string"
+    },
+    "decider": {
+      "enum": [
+        "jev",
+        "stub"
+      ],
+      "title": "Decider",
+      "type": "string"
+    },
+    "system_version": {
+      "title": "System Version",
+      "type": "string"
+    },
+    "error": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Error"
+    },
+    "truncated": {
+      "default": false,
+      "title": "Truncated",
+      "type": "boolean"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "decision_point",
+    "subject",
+    "input_summary",
+    "decision",
+    "probability",
+    "mode",
+    "decider",
+    "system_version"
+  ],
+  "title": "DecisionRecord",
+  "type": "object"
+}

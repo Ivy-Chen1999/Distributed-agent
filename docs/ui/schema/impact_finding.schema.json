@@ -1,0 +1,118 @@
+{
+  "$defs": {
+    "Evidence": {
+      "properties": {
+        "evidence_id": {
+          "title": "Evidence Id",
+          "type": "string"
+        },
+        "source_id": {
+          "title": "Source Id",
+          "type": "string"
+        },
+        "quote": {
+          "title": "Quote",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidence_id",
+        "source_id",
+        "quote"
+      ],
+      "title": "Evidence",
+      "type": "object"
+    },
+    "Provenance": {
+      "properties": {
+        "agent": {
+          "title": "Agent",
+          "type": "string"
+        },
+        "system_version": {
+          "title": "System Version",
+          "type": "string"
+        },
+        "prompt_hash": {
+          "title": "Prompt Hash",
+          "type": "string"
+        },
+        "backend": {
+          "title": "Backend",
+          "type": "string"
+        },
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "round": {
+          "default": 1,
+          "title": "Round",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "agent",
+        "system_version",
+        "prompt_hash",
+        "backend",
+        "model"
+      ],
+      "title": "Provenance",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "finding_id": {
+      "title": "Finding Id",
+      "type": "string"
+    },
+    "agent": {
+      "title": "Agent",
+      "type": "string"
+    },
+    "provision_key": {
+      "title": "Provision Key",
+      "type": "string"
+    },
+    "affected_actor": {
+      "title": "Affected Actor",
+      "type": "string"
+    },
+    "impact": {
+      "title": "Impact",
+      "type": "string"
+    },
+    "mechanism": {
+      "title": "Mechanism",
+      "type": "string"
+    },
+    "evidence": {
+      "items": {
+        "$ref": "#/$defs/Evidence"
+      },
+      "title": "Evidence",
+      "type": "array"
+    },
+    "confidence": {
+      "title": "Confidence",
+      "type": "number"
+    },
+    "provenance": {
+      "$ref": "#/$defs/Provenance"
+    }
+  },
+  "required": [
+    "finding_id",
+    "agent",
+    "provision_key",
+    "affected_actor",
+    "impact",
+    "mechanism",
+    "evidence",
+    "confidence",
+    "provenance"
+  ],
+  "title": "ImpactFinding",
+  "type": "object"
+}

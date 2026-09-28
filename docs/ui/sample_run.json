@@ -1,0 +1,281 @@
+{
+  "run_id": "run_3f2a9c1e-example",
+  "scenario_id": "eval_provider_compliance_costs",
+  "status": "degraded",
+  "system_version": "sv_example00001",
+  "code_identity": {
+    "git_sha": "b1c007b",
+    "dirty": false,
+    "claude_cli_version": "2.1.283"
+  },
+  "dossier": {
+    "run_id": "run_3f2a9c1e-example",
+    "scenario_id": "eval_provider_compliance_costs",
+    "status": "degraded",
+    "system_version": "sv_example00001",
+    "impacts": [
+      {
+        "impact_id": "I1",
+        "summary": "Providers must run a documented risk management system, creating recurring cost.",
+        "findings": [
+          {
+            "finding_id": "f_695c7270de07",
+            "agent": "legal",
+            "provision_key": "ai_act/high_risk/risk_management",
+            "affected_actor": "Providers of high-risk AI systems",
+            "impact": "New obligation to operate a documented risk management system",
+            "mechanism": "Article requires a continuous, iterative risk management process",
+            "evidence": [
+              {
+                "evidence_id": "e_7d1ee9bdc784",
+                "source_id": "com2021_206/art_9",
+                "quote": "A risk management system shall be established, implemented, documented and maintained"
+              }
+            ],
+            "confidence": 0.7,
+            "provenance": {
+              "agent": "legal",
+              "system_version": "sv_example00001",
+              "prompt_hash": "ph_example",
+              "backend": "claude_code",
+              "model": "claude-sonnet-5",
+              "round": 1
+            }
+          },
+          {
+            "finding_id": "f_fb624cf3af2b",
+            "agent": "fiscal",
+            "provision_key": "ai_act/high_risk/risk_management",
+            "affected_actor": "Providers of high-risk AI systems",
+            "impact": "Recurring compliance cost for risk management and documentation",
+            "mechanism": "Documented, maintained process implies staff time and tooling",
+            "evidence": [
+              {
+                "evidence_id": "e_f70fe9d08f57",
+                "source_id": "com2021_206/art_9",
+                "quote": "shall be established, implemented, documented and maintained in relation to high-risk AI"
+              }
+            ],
+            "confidence": 0.7,
+            "provenance": {
+              "agent": "fiscal",
+              "system_version": "sv_example00001",
+              "prompt_hash": "ph_example",
+              "backend": "claude_code",
+              "model": "claude-sonnet-5",
+              "round": 1
+            }
+          }
+        ],
+        "merged": true
+      },
+      {
+        "impact_id": "I2",
+        "summary": "SMEs get priority sandbox access, partly offsetting the burden.",
+        "findings": [
+          {
+            "finding_id": "f_4aa496ca8365",
+            "agent": "stakeholder",
+            "provision_key": "ai_act/sme/sandboxes",
+            "affected_actor": "SMEs and start-ups",
+            "impact": "Priority access to regulatory sandboxes partially offsets compliance burden",
+            "mechanism": "Sandbox access lowers cost of testing conformity",
+            "evidence": [
+              {
+                "evidence_id": "e_70f596ab4702",
+                "source_id": "com2021_206/art_55",
+                "quote": "provide small-scale providers and start-ups with priority access to the AI regulatory sandboxes"
+              }
+            ],
+            "confidence": 0.7,
+            "provenance": {
+              "agent": "stakeholder",
+              "system_version": "sv_example00001",
+              "prompt_hash": "ph_example",
+              "backend": "claude_code",
+              "model": "claude-sonnet-5",
+              "round": 1
+            }
+          }
+        ],
+        "merged": true
+      }
+    ],
+    "chains": [
+      {
+        "impact_ids": [
+          "I1",
+          "I2"
+        ],
+        "description": "Compliance cost -> SME mitigation"
+      }
+    ],
+    "disagreements": [
+      {
+        "finding_ids": [
+          "f_fb624cf3af2b",
+          "f_4aa496ca8365"
+        ],
+        "note": "Fiscal sees net burden on SMEs; Stakeholder sees sandboxes as offsetting."
+      }
+    ],
+    "open_questions": [
+      {
+        "question": "Does the conformity assessment cost fall on importers as well?",
+        "finding_id": null,
+        "reason": "evidence_unresolved"
+      }
+    ],
+    "discarded": [],
+    "unprocessed": [],
+    "failed_experts": [
+      {
+        "agent": "workforce",
+        "error_kind": "timeout",
+        "message": "exceeded 240s",
+        "attempts": 3
+      }
+    ],
+    "notes": []
+  },
+  "board": [
+    {
+      "finding_id": "f_695c7270de07",
+      "agent": "legal",
+      "provision_key": "ai_act/high_risk/risk_management",
+      "affected_actor": "Providers of high-risk AI systems",
+      "impact": "New obligation to operate a documented risk management system",
+      "mechanism": "Article requires a continuous, iterative risk management process",
+      "evidence": [
+        {
+          "evidence_id": "e_7d1ee9bdc784",
+          "source_id": "com2021_206/art_9",
+          "quote": "A risk management system shall be established, implemented, documented and maintained"
+        }
+      ],
+      "confidence": 0.7,
+      "provenance": {
+        "agent": "legal",
+        "system_version": "sv_example00001",
+        "prompt_hash": "ph_example",
+        "backend": "claude_code",
+        "model": "claude-sonnet-5",
+        "round": 1
+      }
+    },
+    {
+      "finding_id": "f_fb624cf3af2b",
+      "agent": "fiscal",
+      "provision_key": "ai_act/high_risk/risk_management",
+      "affected_actor": "Providers of high-risk AI systems",
+      "impact": "Recurring compliance cost for risk management and documentation",
+      "mechanism": "Documented, maintained process implies staff time and tooling",
+      "evidence": [
+        {
+          "evidence_id": "e_f70fe9d08f57",
+          "source_id": "com2021_206/art_9",
+          "quote": "shall be established, implemented, documented and maintained in relation to high-risk AI"
+        }
+      ],
+      "confidence": 0.7,
+      "provenance": {
+        "agent": "fiscal",
+        "system_version": "sv_example00001",
+        "prompt_hash": "ph_example",
+        "backend": "claude_code",
+        "model": "claude-sonnet-5",
+        "round": 1
+      }
+    },
+    {
+      "finding_id": "f_4aa496ca8365",
+      "agent": "stakeholder",
+      "provision_key": "ai_act/sme/sandboxes",
+      "affected_actor": "SMEs and start-ups",
+      "impact": "Priority access to regulatory sandboxes partially offsets compliance burden",
+      "mechanism": "Sandbox access lowers cost of testing conformity",
+      "evidence": [
+        {
+          "evidence_id": "e_70f596ab4702",
+          "source_id": "com2021_206/art_55",
+          "quote": "provide small-scale providers and start-ups with priority access to the AI regulatory sandboxes"
+        }
+      ],
+      "confidence": 0.7,
+      "provenance": {
+        "agent": "stakeholder",
+        "system_version": "sv_example00001",
+        "prompt_hash": "ph_example",
+        "backend": "claude_code",
+        "model": "claude-sonnet-5",
+        "round": 1
+      }
+    }
+  ],
+  "failures": [
+    {
+      "agent": "workforce",
+      "error_kind": "timeout",
+      "message": "exceeded 240s",
+      "attempts": 3
+    }
+  ],
+  "decisions": [
+    {
+      "decision_point": "router.relevance",
+      "subject": "legal",
+      "input_summary": "diff: 12 provisions added (high-risk requirements, SME measures)",
+      "decision": "relevant",
+      "probability": 0.97,
+      "mode": "shadow",
+      "decider": "stub",
+      "system_version": "sv_example00001",
+      "error": null,
+      "truncated": false,
+      "created_at": "2026-09-28T15:56:10.731023Z"
+    },
+    {
+      "decision_point": "router.relevance",
+      "subject": "fiscal",
+      "input_summary": "diff: 12 provisions added (high-risk requirements, SME measures)",
+      "decision": "relevant",
+      "probability": 0.88,
+      "mode": "shadow",
+      "decider": "stub",
+      "system_version": "sv_example00001",
+      "error": null,
+      "truncated": false,
+      "created_at": "2026-09-28T15:56:10.731159Z"
+    },
+    {
+      "decision_point": "router.relevance",
+      "subject": "stakeholder",
+      "input_summary": "diff: 12 provisions added (high-risk requirements, SME measures)",
+      "decision": "not_relevant",
+      "probability": 0.35,
+      "mode": "shadow",
+      "decider": "stub",
+      "system_version": "sv_example00001",
+      "error": null,
+      "truncated": false,
+      "created_at": "2026-09-28T15:56:10.731161Z"
+    }
+  ],
+  "grounding": {
+    "passed": 3,
+    "total": 4
+  },
+  "usage": [
+    {
+      "role": "expert",
+      "agent": "legal",
+      "backend": "claude_code",
+      "model": "claude-sonnet-5",
+      "input_tokens": 5200,
+      "output_tokens": 900,
+      "cost_usd": null,
+      "latency_s": 21.4
+    }
+  ],
+  "error": null
+}
