@@ -210,7 +210,12 @@ async def record_langsmith_experiment(
         evaluators=[metrics],
         summary_evaluators=[summary],
         experiment_prefix=prefix,
-        metadata={**report.metadata, "partial": bool(report.summary and report.summary["partial"])},
+        metadata={
+            **report.metadata,
+            "partial": report.aborted is not None
+            or bool(report.summary and report.summary["partial"]),
+            "aborted": report.aborted,
+        },
         num_repetitions=reps,
         max_concurrency=1,
         client=client,

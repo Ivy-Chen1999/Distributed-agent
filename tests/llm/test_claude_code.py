@@ -481,3 +481,21 @@ async def test_self_check_auth_preflight_failure_raises_auth(cli):
         await backend.self_check(MODEL)
     assert ei.value.error_kind == "auth"
     assert backend.isolation_report is not None and not backend.isolation_report.passed
+
+
+async def test_cli_version_ok(cli):
+    cli.responses = [("2.1.283 (Claude Code)\n", "", 0)]
+    assert await cc.ClaudeCodeBackend().cli_version() == "2.1.283 (Claude Code)"
+
+
+async def test_cli_version_timeout_kills_process(cli, monkeypatch):
+    cli.responses = [("x", "", 0)]
+
+    async def timeout(aw, timeout):
+        if asyncio.iscoroutine(aw):
+            aw.close()
+        raise TimeoutError
+
+    monkeypatch.setattr(cc.asyncio, "wait_for", timeout)
+    assert await cc.ClaudeCodeBackend().cli_version() is None
+    assert cli.procs[0].killed

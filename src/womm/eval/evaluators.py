@@ -55,7 +55,12 @@ class CaseScore(BaseModel):
 def infra_error(run: RunResult) -> str | None:
     """Return a reason when the run failed for infrastructure reasons (excluded from aggregates)."""
     kinds = {f.error_kind for f in run.failures}
-    if run.status == RunStatus.failed and run.error and any(k in run.error for k in INFRA_ERRORS):
+    # Match LLMError's '[kind]' tag: bare substrings like 'auth' also occur in 'authority'.
+    if (
+        run.status == RunStatus.failed
+        and run.error
+        and any(f"[{k}]" in run.error for k in INFRA_ERRORS)
+    ):
         return run.error
     if run.status == RunStatus.failed and kinds and kinds <= INFRA_ERRORS:
         return f"all experts failed with infrastructure errors: {sorted(kinds)}"

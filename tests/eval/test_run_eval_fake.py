@@ -130,3 +130,29 @@ def test_sync_dataset_idempotent():
     changed = [cases[0].model_copy(update={"notes": "changed"}), *cases[1:]]
     sync_dataset(client, changed)
     assert client.updated == 1
+
+
+async def test_langsmith_recording_marks_aborted_as_partial(fixture, monkeypatch):
+    import langsmith
+
+    from womm.eval.run_eval import record_langsmith_experiment
+
+    script = _script()
+    script["judge"] = [LLMError("rate_limit", "usage limit reached")]
+    report = await _evaluate(fixture, script)
+    seen = {}
+
+    async def fake_aevaluate(target, **kw):
+        seen.update(kw)
+        seen["row"] = await target({"case_id": CASE.case_id})
+        with pytest.raises(RuntimeError, match="no computed score"):
+            await target({"case_id": CASE.case_id})
+        seen["metrics"] = kw["evaluators"][0](seen["row"])
+        return type("R", (), {"experiment_name": "exp-1"})()
+
+    monkeypatch.setattr(langsmith, "aevaluate", fake_aevaluate)
+    name = await record_langsmith_experiment(report, [CASE], _FakeClient(), prefix="t")
+    assert name == "exp-1"
+    assert seen["metadata"]["partial"] is True
+    assert seen["metadata"]["aborted"].startswith("rate_limit")
+    assert {r["key"] for r in seen["metrics"]["results"]} >= {"coverage", "grounding"}

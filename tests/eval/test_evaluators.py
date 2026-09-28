@@ -93,3 +93,14 @@ def test_aggregate_skips_none():
     b = CaseScore(case_id="b", scenario_id="s", outcome="scored", coverage=None, grounding=0.5)
     agg = aggregate([a, b])
     assert agg["coverage"] == 0.5 and agg["grounding"] == 0.75 and agg["partial"]
+
+
+async def test_schema_error_mentioning_authority_is_not_infra():
+    """'authority' contains 'auth'; only the '[auth]' tag marks an infrastructure error."""
+    run = _run(
+        status=RunStatus.failed,
+        impacts=0,
+        error="planner failed: [schema_invalid] input_value='competent authority shall...'",
+    )
+    score, _ = await score_case(CASE, run, FakeBackend({}), ROLE, "p")
+    assert (score.outcome, score.coverage) == ("scored", 0.0)

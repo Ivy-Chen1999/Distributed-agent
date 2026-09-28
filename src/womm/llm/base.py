@@ -135,7 +135,9 @@ def _add_usage(a: CallUsage, b: CallUsage) -> CallUsage:
     )
 
 
-def get_backend(backend_name: Backend, settings: Settings | None = None, **kwargs: Any):
+def get_backend(
+    backend_name: Backend, settings: Settings | None = None, **kwargs: Any
+) -> LLMBackend:
     """Construct a backend by name. kwargs are passed to the backend constructor."""
     if backend_name == "claude_code":
         from womm.llm.claude_code import ClaudeCodeBackend

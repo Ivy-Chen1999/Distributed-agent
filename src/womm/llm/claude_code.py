@@ -431,7 +431,7 @@ class ClaudeCodeBackend(LLMBackend):
     # ------------------------------------------------------------------ self-check
 
     async def cli_version(self) -> str | None:
-        with contextlib.suppress(Exception):
+        try:
             proc = await asyncio.create_subprocess_exec(
                 self.executable,
                 "--version",
@@ -439,9 +439,14 @@ class ClaudeCodeBackend(LLMBackend):
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
+        except OSError:
+            return None
+        try:
             out, _ = await asyncio.wait_for(proc.communicate(), timeout=30)
-            return out.decode().strip() or None
-        return None
+        except Exception:  # noqa: BLE001 - timeout or I/O error: kill, never leave an orphan
+            await _kill(proc)
+            return None
+        return out.decode().strip() or None
 
     async def self_check(self, model: str, timeout_s: float = 120.0) -> SelfCheckReport:
         """Canary-style isolation check; fail closed.
