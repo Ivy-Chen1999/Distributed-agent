@@ -157,7 +157,7 @@ export function App() {
         const a = await api.ask(runId, q);
         push({ bot: true, text: a.answer, cites: a.cites ?? [], covered: a.covered });
       } catch (e) {
-        push({ bot: true, text: `Could not answer: ${describeError(e)}`, error: true });
+        push({ bot: true, text: `Could not answer: ${describeError(e).replace(/^could not answer:\s*/i, '')}`, error: true });
       } finally {
         setThinking(false);
       }

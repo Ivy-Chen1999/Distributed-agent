@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { App } from './App';
 import { TOKEN_KEY } from './api';
-import { mockApi } from './test/fixtures';
+import { mockApi, system } from './test/fixtures';
 
 let mock: ReturnType<typeof mockApi>;
 
@@ -107,6 +107,15 @@ describe('WOMM Console', () => {
     fireEvent.click(screen.getAllByText('api')[0]);
     expect(screen.getByTestId('staged').textContent).toMatch(/planner → api/);
     expect(screen.getByTestId('staged').textContent).toMatch(/id will differ from sv_44a681965332/);
+  });
+
+  it('renders settings for a system version without a source file', async () => {
+    mock = mockApi({ '/system': () => ({ status: 200, body: { ...system, source_path: null } }) });
+    vi.stubGlobal('fetch', vi.fn(mock.fn));
+    await boot();
+    nav('Settings');
+    expect(screen.getByText('LLM backend per role')).toBeTruthy();
+    expect(screen.getByText(/A content hash of the version spec/)).toBeTruthy();
   });
 
   it('starts a run with staged overrides and reports errors as a toast', async () => {

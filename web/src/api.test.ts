@@ -45,6 +45,13 @@ describe('api client', () => {
     expect(describeError(await api.submit('x').catch((e) => e))).toBe('Run queue is full. Try again when a run finishes.');
   });
 
+  it('shows the API reason for a 502 from the API, and "cannot reach" for a bare proxy 502', async () => {
+    vi.stubGlobal('fetch', respond(502, { detail: 'could not answer: [timeout] model timed out' }));
+    expect(describeError(await api.ask('run_1', 'q').catch((e) => e))).toBe('could not answer: [timeout] model timed out');
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status: 502, statusText: 'Bad Gateway' })));
+    expect(describeError(await api.ask('run_1', 'q').catch((e) => e))).toBe('Cannot reach the WOMM API (502). Is it running?');
+  });
+
   it('reports network failures as status 0', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new TypeError('Failed to fetch'))));
     await expect(api.health()).rejects.toMatchObject({ status: 0 });

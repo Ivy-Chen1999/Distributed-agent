@@ -219,7 +219,8 @@ export interface RoleSpec {
 export interface SystemInfo {
   version_id: string;
   name: string;
-  source_path: string;
+  /** null for versions built in code rather than loaded from a YAML file. */
+  source_path: string | null;
   description?: string;
   roles: Record<string, RoleSpec>;
   experts: { id: string; domain: string; backend: string; model: string }[];
