@@ -128,6 +128,7 @@ def derive_system_version(
     *,
     router_mode: DecisionMode | None = None,
     backends: dict[str, Backend] | None = None,
+    decider: Decider | None = None,
 ) -> SystemVersion:
     """A new SystemVersion from `base` with the router mode and/or per-role backends changed.
     Role keys are those of `SystemVersionSpec.roles()` ("planner", "expert:legal", ...). The
@@ -135,6 +136,8 @@ def derive_system_version(
     data = base.spec.model_dump()
     if router_mode is not None:
         data["router"]["mode"] = router_mode
+    if decider is not None:
+        data["router"]["decider"] = decider
     for role, backend in (backends or {}).items():
         if role in ("planner", "synthesis", "judge"):
             data[role]["backend"] = backend

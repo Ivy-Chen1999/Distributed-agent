@@ -36,7 +36,11 @@ from womm.identity import code_identity
 from womm.llm.base import LLMError
 from womm.llm.claude_code import IsolationCheckFailed
 from womm.models.run import RunResult, RunStatus
-from womm.models.system_version import SystemVersion, load_system_version
+from womm.models.system_version import (
+    SystemVersion,
+    derive_system_version,
+    load_system_version,
+)
 
 EXIT_OK = 0
 EXIT_FAILED = 1  # run failed / eval aborted
@@ -85,7 +89,12 @@ def _stamp() -> str:
 
 
 def _load_sv(args: argparse.Namespace) -> SystemVersion:
-    return load_system_version(Path(args.system_version), REPO_ROOT)
+    sv = load_system_version(Path(args.system_version), REPO_ROOT)
+    decider = getattr(args, "decider", None)
+    if decider and decider != sv.spec.router.decider:
+        sv = derive_system_version(sv, REPO_ROOT, decider=decider)
+        info(f"router decider set to {decider}: derived system version {sv.version_id}")
+    return sv
 
 
 def summarize(result: RunResult) -> str:
@@ -264,12 +273,14 @@ def build_parser() -> argparse.ArgumentParser:
     p_run = sub.add_parser("run", parents=[common], help="run one scenario through the pipeline")
     p_run.add_argument("scenario", help="scenario_id (see `womm scenarios`)")
     p_run.add_argument("--skip-self-check", action="store_true", help="dev only")
+    p_run.add_argument("--decider", choices=["jev", "stub"], help="override the router decider")
     p_eval = sub.add_parser("eval", parents=[common], help="run golden cases and score them")
     p_eval.add_argument("--case", action="append", help="golden case_id to run (repeatable)")
     p_eval.add_argument("--repetitions", type=int, default=1, help="runs per case (noise)")
     p_eval.add_argument("--baseline", action="store_true", help="tag as a baseline experiment")
     p_eval.add_argument("--local", action="store_true", help="do not record in LangSmith")
     p_eval.add_argument("--skip-self-check", action="store_true", help="dev only")
+    p_eval.add_argument("--decider", choices=["jev", "stub"], help="override the router decider")
     sub.add_parser(
         "selfcheck", parents=[common], help="verify backend auth and claude_code isolation"
     )

@@ -174,3 +174,26 @@ def test_eval_report_survives_failing_side_effects(fake_version, tmp_path, capsy
     assert code == cli.EXIT_OK
     assert "LangSmith recording failed" in out.err and "failure records not stored" in out.err
     assert list((tmp_path / "runs").glob("eval_*.json"))
+
+
+def test_decider_override_derives_version(fake_version, tmp_path, capsys, use_script, monkeypatch):
+    monkeypatch.setattr(cli, "load_dotenv", lambda *a, **k: None)
+    monkeypatch.setenv("TYPESAFE_API_KEY", "k")
+    script = _script()
+    del script["judge"]
+    use_script(script)
+
+    async def no_jev_call(self, experts, context, sv):
+        return []
+
+    import womm.decisions.jev as jev
+
+    monkeypatch.setattr(jev.JevDecisionService, "expert_relevance", no_jev_call)
+    base = cli.main(_args(fake_version, tmp_path, "run", "eval_sme_impacts", "--json"))
+    base_sv = json.loads(capsys.readouterr().out)["system_version"]
+    code = cli.main(_args(fake_version, tmp_path, "run", "eval_sme_impacts", "--json",
+                          "--decider", "jev"))  # fmt: skip
+    out = capsys.readouterr()
+    assert base == code == cli.EXIT_OK
+    assert json.loads(out.out)["system_version"] != base_sv
+    assert "router decider set to jev" in out.err
