@@ -121,7 +121,9 @@ export function describeError(e: unknown): string {
     if (e.status === 404) return `Not found: ${e.message}`;
     if (e.status === 409) return e.message || 'This run has no dossier yet.';
     if (e.status === 422) return `Invalid request: ${e.message}`;
-    if (e.status === 502 || e.status === 504) return `Cannot reach the WOMM API (${e.status}). Is it running?`;
+    // A 502/504 with an API error body is the API reporting an upstream (LLM) failure; without
+    // one it comes from a proxy in front of an API that is down.
+    if (e.status === 502 || e.status === 504) return e.message.startsWith(String(e.status)) ? `Cannot reach the WOMM API (${e.status}). Is it running?` : e.message;
     return e.message;
   }
   return e instanceof Error ? e.message : String(e);

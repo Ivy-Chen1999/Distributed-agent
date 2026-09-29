@@ -23,6 +23,8 @@ def _settings(database_url, token=TOKEN):
 
 def _client(database_url, script, **kw):
     kw.setdefault("orphan_stale_after_s", 0)
+    # Independent of whether web/dist has been built locally (e.g. by the e2e suite).
+    kw.setdefault("web_dist", None)
     app = create_app(
         _settings(database_url), sv=fake_sv(), fixture=load_fixture(),
         backends={"fake": FakeBackend(script)}, **kw,

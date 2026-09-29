@@ -59,7 +59,7 @@ export function Settings() {
 
   const staged = C.staged;
   const overrides = overridesFrom(s, staged);
-  const file = s.source_path.split('/').pop() ?? s.source_path;
+  const file = s.source_path ? (s.source_path.split('/').pop() ?? s.source_path) : '—';
   const cli = s.code?.claude_cli_version?.replace(/\s*\(Claude Code\)\s*$/, '');
   const svFacts = [
     { k: 'id', v: s.version_id },
@@ -81,7 +81,7 @@ export function Settings() {
       <div style={{ ...CARD, padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div style={{ fontSize: 16, fontWeight: 600 }}>System version</div>
         <div style={{ fontSize: 13, color: 'var(--n1)', lineHeight: 1.5 }}>
-          A content hash of <span style={{ fontFamily: FONT, ...TABULAR }}>{s.source_path}</span> and every prompt it references.
+          A content hash of {s.source_path ? <span style={{ fontFamily: FONT, ...TABULAR }}>{s.source_path}</span> : 'the version spec'} and every prompt it references.
         </div>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           {svFacts.map((f) => (
