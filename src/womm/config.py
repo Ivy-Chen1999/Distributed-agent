@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_SYSTEM_VERSION = REPO_ROOT / "system_versions" / "v0-baseline.yaml"
+DEFAULT_SYSTEM_VERSION = REPO_ROOT / "system_versions" / "v0.3-candidate.yaml"  # see PROMOTIONS.md
 
 
 class ConfigError(RuntimeError):

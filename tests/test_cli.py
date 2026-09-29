@@ -197,3 +197,21 @@ def test_decider_override_derives_version(fake_version, tmp_path, capsys, use_sc
     assert base == code == cli.EXIT_OK
     assert json.loads(out.out)["system_version"] != base_sv
     assert "router decider set to jev" in out.err
+
+
+def test_eval_json_stdout_is_pure_json_with_langsmith(fake_version, tmp_path, capsys, use_script,
+                                                     monkeypatch):  # fmt: skip
+    use_script(_script())
+
+    async def chatty(*a, **k):
+        print("View the evaluation results for experiment: 'x' at: https://example")
+        return "exp-x"
+
+    monkeypatch.setattr(cli, "record_langsmith_experiment", chatty)
+    monkeypatch.setenv("LANGSMITH_API_KEY", "x")
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    args = _args(fake_version, tmp_path, "eval", "--case", "case_02_sme_impacts", "--json")
+    assert cli.main(args) == cli.EXIT_OK
+    out = capsys.readouterr()
+    assert json.loads(out.out)["metadata"]["langsmith_experiment"] == "exp-x"
+    assert "View the evaluation results" in out.err

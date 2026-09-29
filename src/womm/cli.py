@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 import dataclasses
 import datetime as dt
 import json
@@ -186,9 +187,11 @@ async def cmd_eval(args: argparse.Namespace) -> int:
         try:
             from langsmith import Client
 
-            name = await record_langsmith_experiment(
-                report, cases, Client(), prefix=f"womm-{sv.spec.name}"
-            )
+            # LangSmith prints the experiment link to stdout; stdout is reserved for data.
+            with contextlib.redirect_stdout(sys.stderr):
+                name = await record_langsmith_experiment(
+                    report, cases, Client(), prefix=f"womm-{sv.spec.name}"
+                )
             report.metadata["langsmith_experiment"] = name
             info(f"LangSmith experiment: {name}")
         except Exception as exc:  # noqa: BLE001
