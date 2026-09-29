@@ -108,6 +108,12 @@ def create_app(
 
     auth = [Depends(require_token)]
 
+    @app.get("/livez")
+    async def livez() -> dict:
+        """Liveness only (the process serves HTTP). The platform health check uses this, so a
+        deploy without LLM keys still comes up; /health reports actual readiness."""
+        return {"status": "alive"}
+
     @app.get("/health")
     async def health(request: Request) -> JSONResponse:
         """503 while backends are unavailable, so a deploy that cannot run anything is not

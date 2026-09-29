@@ -29,3 +29,8 @@ def test_blank_values_treated_as_unset():
 def test_missing_langsmith_key_gives_readable_error():
     with pytest.raises(ConfigError, match="LANGSMITH_API_KEY"):
         load_settings({"CC_LANGSMITH_API_KEY": "x"}).require_langsmith()
+
+
+def test_jev_api_key_alias():
+    assert load_settings({"JEV_API_KEY": "k"}).typesafe_api_key == "k"
+    assert load_settings({"TYPESAFE_API_KEY": "a", "JEV_API_KEY": "b"}).typesafe_api_key == "a"

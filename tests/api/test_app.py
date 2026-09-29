@@ -98,6 +98,7 @@ def test_backend_unavailable_returns_503(database_url, monkeypatch):
     monkeypatch.setattr(app_mod, "prepare_backends", broken)
     app = create_app(_settings(database_url), sv=fake_sv(), fixture=load_fixture())
     with TestClient(app) as c:
+        assert c.get("/livez").status_code == 200
         health = c.get("/health")
         assert health.status_code == 503 and health.json()["backend_ready"] is False
         r = c.post("/runs", json={"scenario_id": "eval_sme_impacts"}, headers=AUTH)

@@ -61,6 +61,6 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
         openai_api_key=opt("OPENAI_API_KEY"),
         anthropic_api_key=opt("ANTHROPIC_API_KEY"),
         api_token=opt("WOMM_API_TOKEN"),
-        typesafe_api_key=opt("TYPESAFE_API_KEY"),
+        typesafe_api_key=opt("TYPESAFE_API_KEY") or opt("JEV_API_KEY"),
         jev_model=opt("WOMM_JEV_MODEL") or "jev-latest",
     )
