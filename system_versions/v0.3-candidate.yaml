@@ -1,0 +1,32 @@
+name: v0.3-candidate
+description: >
+  Candidate over v0.2: the expert checklist adds cost recurrence / proportionality and
+  barrier-to-entry checks (v0.2 lost omissions coverage on these). Otherwise as v0.2: experts follow a
+  systematic checklist and report each mechanism separately; synthesis merges only same actor + same
+  mechanism. Planner and judge prompts are unchanged so scores stay comparable.
+planner:
+  backend: claude_code
+  model: claude-sonnet-5
+  prompt: prompts/planner.md
+synthesis:
+  backend: claude_code
+  model: claude-sonnet-5
+  prompt: prompts/v0.3/synthesis.md
+judge:
+  backend: claude_code
+  model: claude-sonnet-5
+  prompt: prompts/judge_coverage.md
+experts:
+  - id: legal
+    domain: legal
+    role: {backend: claude_code, model: claude-sonnet-5, prompt: prompts/v0.3/legal.md}
+  - id: fiscal
+    domain: fiscal
+    role: {backend: claude_code, model: claude-sonnet-5, prompt: prompts/v0.3/fiscal.md}
+  - id: stakeholder
+    domain: stakeholder
+    role: {backend: claude_code, model: claude-sonnet-5, prompt: prompts/v0.3/stakeholder.md}
+router:
+  mode: shadow
+  decider: stub
+max_parallel_llm_calls: 3
