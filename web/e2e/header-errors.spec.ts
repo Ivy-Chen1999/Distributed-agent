@@ -78,6 +78,7 @@ test.describe('errors', () => {
     await openConsole(page);
     const alert = page.getByRole('alert').filter({ hasText: 'Could not load runs' });
     await expect(alert).toContainText('database is down');
+    await expect(page.getByText('No runs yet', { exact: true })).toHaveCount(0);
     fail = false;
     await alert.getByRole('button', { name: 'Retry' }).click();
     await expect(alert).toBeHidden();

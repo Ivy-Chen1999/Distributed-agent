@@ -42,7 +42,7 @@ test('agents list the configured agents, all queued', async ({ page }) => {
     await expect(c).toBeVisible();
     if (id !== 'router') await expect(c).toContainText('Queued');
   }
-  await expect(page.locator('[data-agent="legal"]')).toContainText('prompts/legal.md');
+  await expect(page.locator('[data-agent="legal"]')).toContainText(/prompts\/([\w.-]+\/)?legal\.md/);
 });
 
 test('topology shows the whole graph with nothing started', async ({ page }) => {

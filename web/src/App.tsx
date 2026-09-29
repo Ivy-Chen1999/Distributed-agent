@@ -131,7 +131,15 @@ export function App() {
   const clock = replay.active ? replay.clock : trace.finished ? trace.end : liveClock(trace, now);
   const rv: RunView = { trace, clock, run, system: system.data ?? null, scenario, changesCount: sources.data?.changes.length ?? scenario?.provision_keys.length };
 
-  const runLabel = replay.active ? 'Replaying' : run ? runStatusLabel(run.status, run.error_kind) : runId ? 'Loading' : 'No runs yet';
+  const runLabel = replay.active
+    ? 'Replaying'
+    : run
+      ? runStatusLabel(run.status, run.error_kind)
+      : runId
+        ? 'Loading'
+        : runs.status === 'error'
+          ? 'Runs unavailable'
+          : 'No runs yet';
   const runDot = replay.active || active ? BLUE : run ? (RUN_ST[run.status]?.c ?? '#8A9699') : '#8A9699';
   const running = replay.active || active;
   const clockText = fmtS(clock);

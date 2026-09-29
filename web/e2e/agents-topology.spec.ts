@@ -39,7 +39,7 @@ test('one card per agent with its stats; "Open in topology" selects it', async (
       await expect(stats.nth(1)).toContainText(kTok(tokens));
       await expect(stats.nth(2)).toContainText(/\$\d+\.\d\d/);
       await expect(c).toContainText('claude-sonnet-5');
-      await expect(c).toContainText(/prompts\/\w+\.md/);
+      await expect(c).toContainText(/prompts\/[\w./-]+\.md/);
     }
   }
   for (const id of ids) {

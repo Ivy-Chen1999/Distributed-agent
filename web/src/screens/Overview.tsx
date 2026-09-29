@@ -14,9 +14,10 @@ export function Overview() {
 
   if (!C.runId) {
     if (C.runs.status === 'loading' || C.runs.status === 'idle') return <LoadingCard title="Loading runs" sub="Fetching the latest runs from the WOMM API." />;
+    // When the run list could not be loaded we do not know whether runs exist: show only the error.
+    if (C.runs.status === 'error') return <ErrorCard title="Could not load runs" message={C.runs.error} onRetry={C.reloadRuns} />;
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-        {C.runs.status === 'error' && <ErrorCard title="Could not load runs" message={C.runs.error} onRetry={C.reloadRuns} />}
         <EmptyCard
           title="No runs yet"
           sub="Start a run to see what a regulation change means for whom. Every impact traces back to a provision, a quote and a source."
