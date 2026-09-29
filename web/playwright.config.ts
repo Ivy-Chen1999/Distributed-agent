@@ -21,10 +21,16 @@ export default defineConfig({
   // at a time to keep "the latest run" deterministic.
   fullyParallel: false,
   workers: 1,
-  retries: 0,
+  // One retry on CI: a real bug fails twice; a timing flake is reported as "flaky", not hidden.
+  retries: process.env.CI ? 1 : 0,
   timeout: 90_000,
   expect: { timeout: 15_000 },
-  reporter: [['list'], ['html', { open: 'never', outputFolder: 'playwright-report' }]],
+  reporter: [
+    ['list'],
+    ['html', { open: 'never', outputFolder: 'playwright-report' }],
+    // On GitHub Actions, failures and flakes show up as annotations on the PR.
+    ...(process.env.GITHUB_ACTIONS ? ([['github']] as const) : []),
+  ],
   outputDir: 'test-results',
   globalSetup: LIVE ? undefined : './e2e/global-setup.ts',
   globalTeardown: LIVE ? undefined : './e2e/global-teardown.ts',
