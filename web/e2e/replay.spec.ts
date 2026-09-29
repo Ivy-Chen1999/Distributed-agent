@@ -64,10 +64,13 @@ test('replay at 1×, 2×, 3×, 4× and 8× resets and replays to completion', as
 
 test('stop replay returns to the finished state; the overview "Watch pipeline" starts a replay', async ({ page }) => {
   await finishedRun(page.request, SCENARIOS.sme);
-  // Fake timers: the replay advances only when the test lets the clock run.
+  // Fake timers. install() alone keeps time flowing, so on a slow machine the replay would run
+  // ahead of the assertions: pause the clock before starting the replay, then advance it only
+  // with runFor().
   await page.clock.install();
   await openConsole(page);
   await expect(statusChip(page)).toHaveText('Succeeded');
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 50));
   await page.getByRole('button', { name: 'Watch pipeline' }).click();
   await expect(page.getByRole('button', { name: 'Stop replay' })).toBeVisible();
   await expect(statusChip(page)).toHaveText('Replaying');
