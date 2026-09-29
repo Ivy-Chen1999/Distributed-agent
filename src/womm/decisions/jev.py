@@ -7,10 +7,14 @@ affected expert, with a short '[error_kind] reason' string, so the run continues
 
 from __future__ import annotations
 
+import contextlib
 import re
+import time
 from typing import Any
 
 import httpx
+from langsmith import traceable
+from langsmith.run_helpers import get_current_run_tree
 
 from womm.decisions.service import RELEVANCE_POINT
 from womm.models.decisions import DecisionRecord
@@ -70,8 +74,14 @@ class JevDecisionService:
     ) -> list[DecisionRecord]:
         state, truncated = self.build_state(context)
 
+        meta: dict[str, Any] = {}
+
         def record(expert: ExpertConfig, decision: str, prob: float | None, error: str | None):
             return DecisionRecord(
+                model=meta.get("model"),
+                latency_s=meta.get("latency_s"),
+                input_tokens=meta.get("input_tokens"),
+                output_tokens=meta.get("output_tokens"),
                 decision_point=RELEVANCE_POINT,
                 subject=expert.id,
                 input_summary=state[:500],
@@ -87,7 +97,8 @@ class JevDecisionService:
         if not experts:
             return []
         try:
-            answers = await self._ask(experts, state, sv.spec.router.timeout_s)
+            answers, meta_out = await self._traced_ask(experts, state, sv.spec.router.timeout_s)
+            meta.update(meta_out)
         except Exception as exc:  # never raise: every expert gets an error record
             reason = _describe(exc)
             return [record(e, "error", None, reason) for e in experts]
@@ -104,9 +115,21 @@ class JevDecisionService:
             records.append(record(e, decision, prob, None))
         return records
 
+    async def _traced_ask(
+        self, experts: list[ExpertConfig], state: str, timeout_s: float
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        """The Jev call as its own LangSmith run under the router node: inputs are the state and
+        questions (never the key), outputs the probabilities; usage and latency are recorded."""
+        traced = traceable(
+            run_type="llm",
+            name="jev:router.relevance",
+            metadata={"ls_provider": "typesafe", "ls_model_name": self.model},
+        )(self._ask)
+        return await traced(experts, state, timeout_s)
+
     async def _ask(
         self, experts: list[ExpertConfig], state: str, timeout_s: float
-    ) -> dict[str, Any]:
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
         body = {
             "model": self.model,
             "state": state,
@@ -115,8 +138,10 @@ class JevDecisionService:
             },
         }
         headers = {"Authorization": f"Bearer {self._api_key}"}
+        started = time.monotonic()
         async with httpx.AsyncClient(timeout=timeout_s, transport=self._transport) as client:
             resp = await client.post(self.url, json=body, headers=headers)
+        latency = time.monotonic() - started
         if resp.status_code >= 400:
             raise _HttpError(resp)
         try:
@@ -126,7 +151,15 @@ class JevDecisionService:
         answers = payload.get("answers") if isinstance(payload, dict) else None
         if not isinstance(answers, dict):
             raise _PayloadError("response has no 'answers' object")
-        return answers
+        usage = payload.get("usage") if isinstance(payload.get("usage"), dict) else {}
+        meta = {
+            "model": payload.get("model") or self.model,
+            "latency_s": round(latency, 3),
+            "input_tokens": usage.get("input_tokens"),
+            "output_tokens": usage.get("output_tokens"),
+        }
+        _record_usage(meta)
+        return answers, meta
 
 
 class _HttpError(Exception):
@@ -173,3 +206,13 @@ def _noul(answer: Any) -> float | None:
     if not 0.0 <= value <= 1.0:
         return None
     return value
+
+
+def _record_usage(meta: dict[str, Any]) -> None:
+    """Attach Jev token usage to the current LangSmith run (no-op when tracing is off)."""
+    with contextlib.suppress(Exception):
+        rt = get_current_run_tree()
+        if rt is None:
+            return
+        i, o = meta.get("input_tokens") or 0, meta.get("output_tokens") or 0
+        rt.set(usage_metadata={"input_tokens": i, "output_tokens": o, "total_tokens": i + o})

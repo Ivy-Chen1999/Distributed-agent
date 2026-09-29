@@ -229,3 +229,24 @@ async def test_graph_records_jev_decisions():
     assert {r.decider for r in recs.values()} == {"jev"}
     assert recs["fiscal"].decision == "not_relevant"
     assert recs["fiscal"].mode == "shadow"
+
+
+async def test_records_model_latency_and_usage():
+    body = {
+        "model": "jev-1.13.0",
+        "answers": {e.id: {"type": "noul", "noul": 0.7} for e in SV.spec.experts},
+        "usage": {"input_tokens": 311, "output_tokens": 37},
+    }
+    svc = JevDecisionService("key-123", transport=httpx.MockTransport(
+        lambda r: httpx.Response(200, json=body)))  # fmt: skip
+    recs = await svc.expert_relevance(SV.spec.experts, "state", SV)
+    assert {r.model for r in recs} == {"jev-1.13.0"}
+    assert all(r.input_tokens == 311 and r.output_tokens == 37 for r in recs)
+    assert all(r.latency_s is not None and r.latency_s >= 0 for r in recs)
+
+
+async def test_error_records_have_no_usage():
+    svc = JevDecisionService("key-123", transport=httpx.MockTransport(
+        lambda r: httpx.Response(500, text="boom")))  # fmt: skip
+    recs = await svc.expert_relevance(SV.spec.experts, "state", SV)
+    assert all(r.decision == "error" and r.input_tokens is None for r in recs)

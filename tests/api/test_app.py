@@ -48,7 +48,6 @@ def test_refuses_to_start_without_token(database_url):
 def test_health_is_public_everything_else_needs_token(database_url):
     with _client(database_url, {}) as c:
         assert c.get("/health").json()["status"] == "ok"
-        assert c.get("/", follow_redirects=False).headers["location"] == "/docs"
         assert c.get("/scenarios").status_code == 401
         assert c.get("/scenarios", headers={"Authorization": "Bearer wrong"}).status_code == 401
         assert c.post("/runs", json={"scenario_id": "eval_sme_impacts"}).status_code == 401

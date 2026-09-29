@@ -12,9 +12,19 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from langsmith import traceable
+from langsmith.run_helpers import get_current_run_tree
+
 from womm.data.fixtures import Fixture
 from womm.decisions.service import DecisionService
-from womm.eval.evaluators import CaseScore, aggregate, failure_records, noise, score_case
+from womm.eval.evaluators import (
+    CaseScore,
+    aggregate,
+    calibration,
+    failure_records,
+    noise,
+    score_case,
+)
 from womm.eval.golden import GoldenCase, check_against_fixture
 from womm.graph.build import run_scenario
 from womm.llm.base import LLMBackend
@@ -50,6 +60,7 @@ class EvalReport:
                 "summary": self.summary,
                 "noise": noise(self.scores) if self.metadata.get("repetitions", 1) > 1 else None,
                 "failures": failure_records(self.scores),
+                "calibration": calibration(self.scores),
                 "run_ids": self.run_ids,
                 "scores": [s.model_dump(mode="json") for s in self.scores],
             },
@@ -105,21 +116,56 @@ async def evaluate_cases(
     judge_role = sv.spec.judge
     judge_backend = backends[judge_role.backend]
 
-    for case in cases:
-        for rep in range(repetitions):
-            run = await run_scenario(
-                case.scenario_id, sv=sv, fixture=fixture, backends=backends,
-                decisions=decisions, code_identity=code, tags=["eval", case.case_id],
-            )  # fmt: skip
-            report.run_ids.append(run.run_id)
-            if runs_dir:
-                _save_run(runs_dir, run)
-            score, _ = await score_case(case, run, judge_backend, judge_role, judge_prompt)
-            report.scores.append(score)
-            if _hit_rate_limit(run, score):
-                report.aborted = f"rate_limit during {case.case_id} repetition {rep + 1}"
-                return report
+    async def one_case(case: GoldenCase, rep: int) -> tuple[RunResult, CaseScore]:
+        """One repetition of one case: the pipeline run and its judge call share this trace."""
+        run = await run_scenario(
+            case.scenario_id, sv=sv, fixture=fixture, backends=backends,
+            decisions=decisions, code_identity=code, tags=["eval", case.case_id],
+        )  # fmt: skip
+        score, _ = await score_case(case, run, judge_backend, judge_role, judge_prompt)
+        rt = get_current_run_tree()
+        if rt is not None:
+            score = score.model_copy(update={"trace_id": str(rt.trace_id), "trace_url": _url(rt)})
+        return run, score
+
+    async def all_cases() -> dict:
+        for case in cases:
+            for rep in range(repetitions):
+                traced_case = traceable(
+                    name="womm:eval_case",
+                    run_type="chain",
+                    metadata={
+                        "case_id": case.case_id,
+                        "repetition": rep + 1,
+                        "system_version": sv.version_id,
+                    },  # fmt: skip
+                    tags=["eval", case.case_id],
+                )(one_case)
+                run, score = await traced_case(case, rep)
+                report.run_ids.append(run.run_id)
+                if runs_dir:
+                    _save_run(runs_dir, run)
+                report.scores.append(score)
+                if _hit_rate_limit(run, score):
+                    report.aborted = f"rate_limit during {case.case_id} repetition {rep + 1}"
+                    return {"aborted": report.aborted}
+        return {"summary": report.summary}
+
+    traced_all = traceable(
+        name="womm:eval",
+        run_type="chain",
+        metadata={k: v for k, v in report.metadata.items() if not isinstance(v, dict)},
+        tags=["eval", sv.version_id],
+    )(all_cases)
+    await traced_all()
     return report
+
+
+def _url(rt) -> str | None:
+    try:
+        return rt.get_url()
+    except Exception:  # noqa: BLE001 - tracing off or no client: no link
+        return None
 
 
 def _hit_rate_limit(run: RunResult, score: CaseScore) -> bool:

@@ -141,10 +141,12 @@ class Database:
     async def _insert_decision(conn: Any, run_id: str, d: DecisionRecord) -> None:
         await conn.execute(
             "INSERT INTO decision_records (run_id, decision_point, subject, decision,"
-            " probability, mode, decider, system_version, error, truncated, created_at)"
-            " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            " probability, mode, decider, system_version, error, truncated, created_at,"
+            " model, latency_s, input_tokens, output_tokens)"
+            " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
             (run_id, d.decision_point, d.subject, d.decision, d.probability, d.mode,
-             d.decider, d.system_version, d.error, d.truncated, d.created_at),
+             d.decider, d.system_version, d.error, d.truncated, d.created_at,
+             d.model, d.latency_s, d.input_tokens, d.output_tokens),
         )  # fmt: skip
 
     async def list_runs(self, limit: int = 20) -> list[dict]:

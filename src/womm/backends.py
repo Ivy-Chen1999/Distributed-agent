@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import sys
 
+from langsmith import tracing_context
+
 from womm.config import Settings, load_settings
 from womm.llm.base import LLMBackend, LLMError, get_backend
 from womm.llm.claude_code import ClaudeCodeBackend, SelfCheckReport
@@ -30,7 +32,9 @@ async def prepare_backends(
             cli_version = await cc.cli_version()
             if not skip_self_check:
                 model = next(r.model for r in roles if r.backend == "claude_code")
-                report = await cc.self_check(model)
+                # The isolation probe is plumbing, not a pipeline step: keep it out of traces.
+                with tracing_context(enabled=False):
+                    report = await cc.self_check(model)
                 info(f"claude_code isolation self-check passed ({report.cli_version})")
             backends[name] = cc
         else:

@@ -149,3 +149,46 @@ def test_failure_records_judge_error():
     s = CaseScore(case_id="c", scenario_id="s", outcome="scored", judge_error="judge skipped ids")
     (r,) = failure_records([s])
     assert r["category"] == "judge_error" and r["detail"]["error"] == "judge skipped ids"
+
+
+def test_label_decisions_and_calibration():
+    from womm.eval.evaluators import CaseScore, calibration, label_decisions
+    from womm.models.decisions import DecisionRecord
+    from womm.models.findings import FindingDraft, ImpactFinding, Provenance
+
+    def finding(agent):
+        prov = Provenance(agent=agent, system_version="sv", prompt_hash="p", backend="f", model="m")
+        draft = FindingDraft(provision_key="k", affected_actor="a", impact="i", mechanism="m",
+                             evidence=[], confidence=0.5)  # fmt: skip
+        return ImpactFinding.from_draft(draft, run_id="r", index=0, provenance=prov)
+
+    run = _run()
+    run.dossier.impacts = [
+        DossierImpact(impact_id="I1", summary="s", findings=[finding("legal")], merged=True),
+        DossierImpact(impact_id="I2", summary="s", findings=[finding("fiscal")], merged=True),
+    ]
+    run.decisions = [
+        DecisionRecord(
+            decision_point="router.relevance", subject=a, input_summary="",
+            decision="relevant", probability=p, mode="shadow", decider="jev",
+            system_version="sv",
+        )
+        for a, p in (("legal", 0.9), ("fiscal", 0.8), ("stakeholder", 0.3))
+    ]  # fmt: skip
+    judge = _judge(covered=1)
+    judge.expected[0].impact_id = "I1"  # only I1 (legal) covers an expected impact
+    labels = {d["subject"]: d["relevant"] for d in label_decisions(run, judge)}
+    assert labels == {"legal": True, "fiscal": False, "stakeholder": False}
+
+    s = CaseScore(case_id="c", scenario_id="s", outcome="scored",
+                  decisions=label_decisions(run, judge))  # fmt: skip
+    cal = calibration([s])
+    assert cal["n"] == 3 and cal["base_rate"] == pytest.approx(1 / 3)
+    assert cal["brier"] == pytest.approx(((0.9 - 1) ** 2 + 0.8**2 + 0.3**2) / 3)
+    stub = CaseScore(
+        case_id="c",
+        scenario_id="s",
+        outcome="scored",
+        decisions=[{"subject": "legal", "probability": None, "relevant": True}],
+    )
+    assert calibration([stub]) is None

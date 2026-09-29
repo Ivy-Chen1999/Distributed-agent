@@ -16,6 +16,7 @@ from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.staticfiles import StaticFiles
+from langsmith import tracing_context
 from pydantic import BaseModel, Field
 
 from womm.api.db import Database
@@ -317,8 +318,10 @@ def create_app(
             + "\n\nQuestion: " + body.question
         )  # fmt: skip
         try:
-            out, _ = await backend.call("ask", ASK_PROMPT.read_text(encoding="utf-8"), user,
-                                        AskAnswer, role)  # fmt: skip
+            with tracing_context(metadata={"run_id": run_id, "system_version": sv.version_id},
+                                 tags=["ask"]):  # fmt: skip
+                out, _ = await backend.call("ask", ASK_PROMPT.read_text(encoding="utf-8"), user,
+                                            AskAnswer, role)  # fmt: skip
         except LLMError as exc:
             raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"could not answer: {exc}") from None
         known = _dossier_ids(dossier)

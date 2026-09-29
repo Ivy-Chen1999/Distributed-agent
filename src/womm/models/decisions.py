@@ -22,4 +22,8 @@ class DecisionRecord(BaseModel):
     system_version: str
     error: str | None = None
     truncated: bool = False
+    model: str | None = Field(default=None, description="Decider model version, e.g. jev-1.13.0")
+    latency_s: float | None = None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
     created_at: dt.datetime = Field(default_factory=lambda: dt.datetime.now(dt.UTC))

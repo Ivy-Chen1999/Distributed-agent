@@ -52,6 +52,12 @@ class CaseScore(BaseModel):
     cost_usd: float = 0.0
     judge: JudgeOutput | None = None
     judge_error: str | None = None
+    decisions: list[dict] = Field(
+        default_factory=list,
+        description="Router decisions with a ground-truth relevance label (Jev calibration).",
+    )
+    trace_id: str | None = None
+    trace_url: str | None = None
 
 
 def infra_error(run: RunResult) -> str | None:
@@ -145,9 +151,52 @@ async def score_case(
     if not _complete(case, out):
         return base.model_copy(update={"judge": out, "judge_error": "judge skipped ids"}), usage
 
+    labeled = label_decisions(run, out)
     cov = sum(v.covered for v in out.expected) / len(out.expected)
     om = sum(v.addressed for v in out.omissions) / len(out.omissions) if out.omissions else None
-    return base.model_copy(update={"coverage": cov, "omissions_addressed": om, "judge": out}), usage
+    update = {"coverage": cov, "omissions_addressed": om, "judge": out, "decisions": labeled}
+    return base.model_copy(update=update), usage
+
+
+def label_decisions(run: RunResult, judge: JudgeOutput) -> list[dict]:
+    """Ground truth for router relevance: an expert was relevant when at least one of its
+    supported findings sits in a dossier impact the judge matched to an expected impact."""
+    if not run.dossier:
+        return []
+    covering = {v.impact_id for v in judge.expected if v.covered and v.impact_id}
+    useful_agents = {
+        f.agent for i in run.dossier.impacts if i.impact_id in covering for f in i.findings
+    }
+    return [
+        {"subject": d.subject, "decider": d.decider, "probability": d.probability,
+         "decision": d.decision, "relevant": d.subject in useful_agents}
+        for d in run.decisions if d.decision_point == "router.relevance"
+    ]  # fmt: skip
+
+
+def calibration(scores: list[CaseScore], bins: int = 5) -> dict | None:
+    """Brier score and reliability bins over labeled decisions that carry a probability."""
+    pts = [
+        (d["probability"], 1.0 if d["relevant"] else 0.0)
+        for s in scores if s.outcome == "scored" for d in s.decisions
+        if d.get("probability") is not None
+    ]  # fmt: skip
+    if not pts:
+        return None
+    table = []
+    for b in range(bins):
+        lo, hi = b / bins, (b + 1) / bins
+        in_bin = [(p, y) for p, y in pts if lo <= p < hi or (b == bins - 1 and p == 1.0)]
+        if in_bin:
+            table.append({"bin": f"{lo:.1f}-{hi:.1f}", "n": len(in_bin),
+                          "mean_p": sum(p for p, _ in in_bin) / len(in_bin),
+                          "observed": sum(y for _, y in in_bin) / len(in_bin)})  # fmt: skip
+    return {
+        "n": len(pts),
+        "brier": sum((p - y) ** 2 for p, y in pts) / len(pts),
+        "base_rate": sum(y for _, y in pts) / len(pts),
+        "bins": table,
+    }
 
 
 def noise(scores: list[CaseScore]) -> dict[str, dict]:
