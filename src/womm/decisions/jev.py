@@ -35,10 +35,26 @@ def strip_urls(text: str) -> str:
     return _URL_RE.sub("[url]", text)
 
 
+# What each expert domain analyses, spelled out for the decider. A bare "fiscal specialist" was
+# read as public finance: Jev scored it 0.19-0.49 on cases where it contributed 5 times out of 6.
+# With these glosses it scores ~0.9 there, and still ~0.45 on a governance-only provision.
+DOMAIN_GLOSS = {
+    "legal": "duties, rights, powers, enforcement and institutional effects: who must do what, "
+    "which authorities gain powers",
+    "fiscal": "costs and economic effects: one-off and recurring compliance costs, administrative "
+    "burden, fees, fines and penalties exposure, market entry and cost offsets for businesses and "
+    "public bodies",
+    "stakeholder": "who benefits and who carries the burden: distributional effects across groups "
+    "such as SMEs, large providers, users, affected persons and authorities",
+}
+QUESTION_VERSION = "gloss-v2"
+
+
 def relevance_question(expert: ExpertConfig) -> str:
+    gloss = DOMAIN_GLOSS.get(expert.domain, f"the {expert.domain} domain")
     return (
-        f"Is the {expert.domain} specialist ({expert.id}) needed to assess the impacts of "
-        f"these regulatory changes? The {expert.id} expert covers the {expert.domain} domain."
+        f"Does assessing these regulatory changes need the {expert.id} specialist, who analyses "
+        f"{gloss}?"
     )
 
 
@@ -123,7 +139,11 @@ class JevDecisionService:
         traced = traceable(
             run_type="llm",
             name="jev:router.relevance",
-            metadata={"ls_provider": "typesafe", "ls_model_name": self.model},
+            metadata={
+                "ls_provider": "typesafe",
+                "ls_model_name": self.model,
+                "question_version": QUESTION_VERSION,
+            },  # fmt: skip
         )(self._ask)
         return await traced(experts, state, timeout_s)
 

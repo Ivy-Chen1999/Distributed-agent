@@ -60,7 +60,10 @@ async def test_happy_path_one_request_three_records():
     legal_q = body["questions"]["legal"]
     assert legal_q["type"] == "noul"
     assert legal_q["instructions"] == relevance_question(EXPERTS[0])
-    assert "legal specialist (legal)" in legal_q["instructions"]
+    assert "legal specialist" in legal_q["instructions"]
+    # the domain is spelled out (a bare "fiscal" was read as public finance)
+    fiscal_q = body["questions"]["fiscal"]["instructions"]
+    assert "compliance costs" in fiscal_q and "fines" in fiscal_q
 
     assert [r.subject for r in recs] == ["legal", "fiscal", "stakeholder"]
     assert {r.decider for r in recs} == {"jev"}
