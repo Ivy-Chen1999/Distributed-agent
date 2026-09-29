@@ -32,7 +32,16 @@ test('one real eval_sme_impacts run end to end', async ({ page }) => {
 
   // Wait up to 10 minutes for the run to finish.
   await expect
-    .poll(async () => ((await (await page.request.get(`/runs/${runId}`, { headers: auth })).json()) as { status: string }).status, {
+    .poll(async () => {
+      // A transient network error (e.g. a keep-alive connection closed by the server) is not a
+      // run failure: report it and keep polling.
+      try {
+        const r = await page.request.get(`/runs/${runId}`, { headers: auth });
+        return ((await r.json()) as { status: string }).status;
+      } catch (err) {
+        return `network error: ${(err as Error).message}`;
+      }
+    }, {
       timeout: 10 * 60_000,
       intervals: [5_000],
     })
@@ -46,7 +55,7 @@ test('one real eval_sme_impacts run end to end', async ({ page }) => {
 
   // Dossier on screen.
   await page.locator('aside nav button', { hasText: 'Run detail' }).click();
-  await expect(page.getByRole('tab', { name: new RegExp(`^Impacts${run.dossier.impacts.length}$`) })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('tab', { name: new RegExp(`^Impacts\\s*${run.dossier.impacts.length}$`) })).toBeVisible({ timeout: 30_000 });
 
   // One source quote.
   await page.locator('main button[aria-expanded]').first().click();

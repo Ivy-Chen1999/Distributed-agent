@@ -13,7 +13,7 @@ npm run dev            # http://localhost:5173
 
 The dev server proxies `/runs`, `/scenarios`, `/system`, `/health` and `/livez` to the API on
 `http://localhost:8000` (override with `WOMM_API_URL=http://host:port npm run dev`). Start the API
-from the repo root, for example `uvicorn --factory womm.api.app:create_app --port 8000`.
+from the repo root, for example `uvicorn --factory womm.api.app:create_app --port 8000 --timeout-keep-alive 30`.
 
 On first load the console asks for the bearer token (`WOMM_API_TOKEN`) and keeps it in
 `localStorage` under `womm.token`. A 401 clears it and asks again.

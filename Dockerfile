@@ -28,4 +28,5 @@ RUN useradd --create-home womm
 USER womm
 ENV PATH="/app/.venv/bin:$PATH" WOMM_SYSTEM_VERSION=system_versions/v0.3-api.yaml
 EXPOSE 8000
-CMD ["sh", "-c", "uvicorn --factory womm.api.app:create_app --host 0.0.0.0 --port ${PORT:-8000}"]
+# Keep-alive above typical client poll intervals (the console polls every 1-5s).
+CMD ["sh", "-c", "uvicorn --factory womm.api.app:create_app --host 0.0.0.0 --port ${PORT:-8000} --timeout-keep-alive 30"]

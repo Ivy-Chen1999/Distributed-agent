@@ -49,7 +49,7 @@ Exit codes: 0 ok, 1 run failed / eval aborted, 2 bad input, 3 backend error, 4 r
 ```bash
 docker-compose up -d                        # local Postgres on :55432
 export DATABASE_URL=postgresql://womm:womm@localhost:55432/womm WOMM_API_TOKEN=dev-token
-uv run uvicorn --factory womm.api.app:create_app --port 8000
+uv run uvicorn --factory womm.api.app:create_app --port 8000 --timeout-keep-alive 30
 ```
 
 | Endpoint | Auth | Purpose |
