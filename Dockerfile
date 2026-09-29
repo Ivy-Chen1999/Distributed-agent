@@ -1,5 +1,14 @@
 # WOMM API image (Railway or any container host). The claude_code backend is local-only;
 # deployed system versions must use the `api` backend.
+FROM node:22-slim AS console
+WORKDIR /web
+COPY web/package.json web/package-lock.json ./
+RUN npm ci --no-audit --no-fund
+COPY web/ ./
+# Type checking includes the tests, whose fixture is the sample run in docs/ui.
+COPY docs/ui/sample_run.json /docs/ui/sample_run.json
+RUN npm run build
+
 FROM python:3.13-slim AS base
 COPY --from=ghcr.io/astral-sh/uv:0.9 /uv /usr/local/bin/uv
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never PYTHONUNBUFFERED=1
@@ -12,6 +21,7 @@ COPY src ./src
 COPY prompts ./prompts
 COPY system_versions ./system_versions
 COPY data ./data
+COPY --from=console /web/dist ./web/dist
 RUN uv sync --frozen --no-dev
 
 RUN useradd --create-home womm
