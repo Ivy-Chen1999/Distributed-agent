@@ -120,3 +120,35 @@ def load_system_version(path: Path, repo_root: Path) -> SystemVersion:
     except ValueError:
         rel = str(path)
     return build_system_version(spec, repo_root, source_path=rel)
+
+
+def derive_system_version(
+    base: SystemVersion,
+    repo_root: Path,
+    *,
+    router_mode: DecisionMode | None = None,
+    backends: dict[str, Backend] | None = None,
+) -> SystemVersion:
+    """A new SystemVersion from `base` with the router mode and/or per-role backends changed.
+    Role keys are those of `SystemVersionSpec.roles()` ("planner", "expert:legal", ...). The
+    result is content-addressed like any other version, so its version_id differs."""
+    data = base.spec.model_dump()
+    if router_mode is not None:
+        data["router"]["mode"] = router_mode
+    for role, backend in (backends or {}).items():
+        if role in ("planner", "synthesis", "judge"):
+            data[role]["backend"] = backend
+        elif role.startswith("expert:"):
+            eid = role.split(":", 1)[1]
+            matches = [e for e in data["experts"] if e["id"] == eid]
+            if not matches:
+                raise ValueError(f"unknown expert role {role!r}")
+            matches[0]["role"]["backend"] = backend
+        else:
+            raise ValueError(f"unknown role {role!r}")
+    if data == base.spec.model_dump():
+        return base
+    data["name"] = f"{base.spec.name}+overrides"
+    return build_system_version(
+        SystemVersionSpec.model_validate(data), repo_root, source_path=base.source_path
+    )

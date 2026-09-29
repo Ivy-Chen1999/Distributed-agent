@@ -147,6 +147,21 @@ class Database:
              d.decider, d.system_version, d.error, d.truncated, d.created_at),
         )  # fmt: skip
 
+    async def list_runs(self, limit: int = 20) -> list[dict]:
+        """Newest first, with the summary fields the console's run table needs."""
+        async with self.pool.connection() as conn:
+            cur = await conn.execute(
+                "SELECT run_id, scenario_id, status, system_version, error_kind, created_at,"
+                " started_at, finished_at,"
+                " extract(epoch FROM (finished_at - started_at))::float8 AS duration_s,"
+                " CASE WHEN result->'dossier' IS NOT NULL AND result->'dossier' != 'null'::jsonb"
+                "   THEN jsonb_array_length(result->'dossier'->'impacts') END AS impacts,"
+                " result->'grounding' AS grounding"
+                " FROM runs ORDER BY created_at DESC LIMIT %s",
+                (limit,),
+            )
+            return await cur.fetchall()
+
     async def get_run(self, run_id: str) -> dict | None:
         async with self.pool.connection() as conn:
             cur = await conn.execute("SELECT * FROM runs WHERE run_id = %s", (run_id,))

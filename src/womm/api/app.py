@@ -7,13 +7,16 @@ to start without a token. Run with: `uvicorn --factory womm.api.app:create_app`.
 from __future__ import annotations
 
 import hmac
+import json
 from contextlib import asynccontextmanager
-from typing import Annotated
+from pathlib import Path
+from typing import Annotated, Literal
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from pydantic import BaseModel
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
 
 from womm.api.db import Database
 from womm.api.jobs import JobRunner, QueueFull
@@ -21,22 +24,48 @@ from womm.backends import prepare_backends
 from womm.config import REPO_ROOT, ConfigError, Settings, load_settings
 from womm.data.fixtures import Fixture, FixtureError, load_fixture
 from womm.decisions.factory import make_decision_service
+from womm.diff import diff_versions
 from womm.identity import code_identity
-from womm.llm.base import LLMBackend
-from womm.models.system_version import SystemVersion, load_system_version
+from womm.llm.base import LLMBackend, LLMError
+from womm.models.base import StrictModel
+from womm.models.system_version import (
+    Backend,
+    SystemVersion,
+    derive_system_version,
+    load_system_version,
+)
 
 MIN_TOKEN_LENGTH = 16
+WEB_DIST = REPO_ROOT / "web" / "dist"
+ASK_PROMPT = REPO_ROOT / "prompts" / "ask.md"
 FINISHED = {"succeeded", "degraded", "failed", "no_changes"}
 WITH_DOSSIER = {"succeeded", "degraded", "no_changes"}
 
 
+class RunOverrides(BaseModel):
+    router_mode: Literal["shadow", "active"] | None = None
+    backends: dict[str, Backend] = Field(default_factory=dict)
+
+
 class RunRequest(BaseModel):
     scenario_id: str
+    overrides: RunOverrides | None = None
+
+
+class AskRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=2000)
+
+
+class AskAnswer(StrictModel):
+    answer: str
+    cites: list[str]
+    covered: bool
 
 
 class RunAccepted(BaseModel):
     run_id: str
     status: str
+    system_version: str
 
 
 _bearer = HTTPBearer(auto_error=False)
@@ -52,6 +81,7 @@ def create_app(
     max_pending_runs: int = 20,
     orphan_stale_after_s: float = 120.0,
     heartbeat_s: float = 30.0,
+    web_dist: Path | None = WEB_DIST,
 ) -> FastAPI:
     settings = settings or load_settings()
     if not settings.api_token or len(settings.api_token) < MIN_TOKEN_LENGTH:
@@ -74,10 +104,14 @@ def create_app(
         backend_error = None
         if runner_backends is None:
             try:
-                runner_backends, cli_version, _ = await prepare_backends(sv, settings=settings)
+                runner_backends, cli_version, self_check = await prepare_backends(
+                    sv, settings=settings
+                )
+                app.state.self_check = self_check
             except Exception as exc:  # noqa: BLE001 - serve /health and report the problem
                 runner_backends, backend_error = {}, f"{type(exc).__name__}: {exc}"
         app.state.db = db
+        app.state.self_check = getattr(app.state, "self_check", None)
         app.state.backend_error = backend_error
         app.state.orphans_reconciled = orphans
         app.state.runner = JobRunner(
@@ -108,10 +142,6 @@ def create_app(
 
     auth = [Depends(require_token)]
 
-    @app.get("/", include_in_schema=False)
-    async def root() -> RedirectResponse:
-        return RedirectResponse("/docs")
-
     @app.get("/livez")
     async def livez() -> dict:
         """Liveness only (the process serves HTTP). The platform health check uses this, so a
@@ -135,13 +165,30 @@ def create_app(
     async def submit(body: RunRequest, request: Request) -> RunAccepted:
         if err := request.app.state.backend_error:
             raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, f"backend unavailable: {err}")
+        runner: JobRunner = request.app.state.runner
+        run_sv = sv
+        if body.overrides:
+            unavailable = sorted(set(body.overrides.backends.values()) - set(runner.backends))
+            if unavailable:
+                raise HTTPException(
+                    status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    f"backend(s) {unavailable} not available here; available: "
+                    f"{sorted(runner.backends)}",
+                )
+            try:
+                run_sv = derive_system_version(
+                    sv, REPO_ROOT, router_mode=body.overrides.router_mode,
+                    backends=body.overrides.backends,
+                )  # fmt: skip
+            except ValueError as exc:
+                raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from None
         try:
-            run_id = await request.app.state.runner.submit(body.scenario_id)
+            run_id = await runner.submit(body.scenario_id, run_sv)
         except FixtureError as exc:
             raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from None
         except QueueFull as exc:
             raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, str(exc)) from None
-        return RunAccepted(run_id=run_id, status="queued")
+        return RunAccepted(run_id=run_id, status="queued", system_version=run_sv.version_id)
 
     @app.get("/runs/{run_id}", dependencies=auth)
     async def get_run(run_id: str, request: Request) -> dict:
@@ -164,9 +211,10 @@ def create_app(
             "finished_at": row["finished_at"],
         }
         result = row["result"] or {}
+        out["started_at"] = row["started_at"]
         if row["status"] in FINISHED:
-            out["grounding"] = result.get("grounding")
-            out["decisions"] = result.get("decisions")
+            for key in ("grounding", "decisions", "board", "failures", "usage", "code_identity"):
+                out[key] = result.get(key)
         if row["status"] in WITH_DOSSIER:
             out["dossier"] = result.get("dossier")
         return out
@@ -184,4 +232,144 @@ def create_app(
         return {"run_id": run_id, "events": events, "next_after": events[-1]["seq"] if events
                 else after}  # fmt: skip
 
+    @app.get("/system", dependencies=auth)
+    async def system(request: Request) -> dict:
+        state = request.app.state
+        report = getattr(state, "self_check", None)
+        return {
+            "version_id": sv.version_id,
+            "name": sv.spec.name,
+            "source_path": sv.source_path,
+            "description": sv.spec.description,
+            "roles": {
+                name: {
+                    "backend": r.backend,
+                    "model": r.model,
+                    "prompt": r.prompt,
+                    "prompt_hash": sv.prompt_hashes.get(r.prompt),
+                }
+                for name, r in sv.spec.roles().items()
+            },  # fmt: skip
+            "experts": [
+                {"id": e.id, "domain": e.domain, "backend": e.role.backend, "model": e.role.model}
+                for e in sv.spec.experts
+            ],
+            "router": {"mode": sv.spec.router.mode, "decider": sv.spec.router.decider},
+            "max_parallel_llm_calls": sv.spec.max_parallel_llm_calls,
+            "available_backends": sorted(state.runner.backends),
+            "backend_ready": state.backend_error is None,
+            "backend_error": state.backend_error,
+            "code": state.runner.code.model_dump(),
+            "self_check": (
+                {"passed": report.passed, "checks": report.checks, "problems": report.problems}
+                if report
+                else None
+            ),
+        }
+
+    @app.get("/scenarios/{scenario_id}/sources", dependencies=auth)
+    async def scenario_sources(scenario_id: str) -> dict:
+        try:
+            scenario = fixture.scenario(scenario_id)
+        except FixtureError as exc:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from None
+        before, after = fixture.scenario_versions(scenario_id)
+        diff = diff_versions(before, after, keys=scenario.provision_keys)
+
+        def ref(p):
+            return {"article": p.article, "source_id": p.source_id} if p else None
+
+        return {
+            "scenario_id": scenario_id,
+            "changes": [
+                {
+                    "provision_key": c.provision_key,
+                    "kind": c.kind,
+                    "before": ref(c.before),
+                    "after": ref(c.after),
+                }
+                for c in diff.changes
+            ],  # fmt: skip
+            "sources": [
+                {"source_id": s.source_id, "title": s.title, "kind": s.kind, "text": s.text}
+                for s in fixture.scenario_sources(scenario_id)
+            ],
+        }
+
+    @app.get("/runs", dependencies=auth)
+    async def list_runs(request: Request, limit: Annotated[int, Query(ge=1, le=200)] = 20) -> dict:
+        return {"runs": await request.app.state.db.list_runs(limit)}
+
+    @app.post("/runs/{run_id}/ask", dependencies=auth)
+    async def ask(run_id: str, body: AskRequest, request: Request) -> dict:
+        row = await request.app.state.db.get_run(run_id)
+        if row is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, f"unknown run {run_id}")
+        dossier = (row["result"] or {}).get("dossier")
+        if not dossier or row["status"] not in WITH_DOSSIER:
+            raise HTTPException(status.HTTP_409_CONFLICT, "this run has no impact dossier")
+        role = sv.spec.synthesis
+        backend = request.app.state.runner.backends.get(role.backend)
+        if backend is None:
+            raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "no backend to answer with")
+        user = (
+            "Dossier:\n" + json.dumps(_dossier_for_ask(dossier), ensure_ascii=False)
+            + "\n\nQuestion: " + body.question
+        )  # fmt: skip
+        try:
+            out, _ = await backend.call("ask", ASK_PROMPT.read_text(encoding="utf-8"), user,
+                                        AskAnswer, role)  # fmt: skip
+        except LLMError as exc:
+            raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"could not answer: {exc}") from None
+        known = _dossier_ids(dossier)
+        return {"answer": out.answer, "cites": [c for c in out.cites if c in known],
+                "covered": out.covered}  # fmt: skip
+
+    if web_dist is not None and (web_dist / "index.html").is_file():
+        # The console is a single-page app served from the same origin as the API.
+        app.mount("/", StaticFiles(directory=web_dist, html=True), name="console")
+    else:
+
+        @app.get("/", include_in_schema=False)
+        async def root() -> RedirectResponse:
+            return RedirectResponse("/docs")
+
     return app
+
+
+def _dossier_for_ask(d: dict) -> dict:
+    """Compact dossier for question answering: drop provenance noise, keep ids and quotes."""
+    return {
+        "status": d.get("status"),
+        "impacts": [
+            {
+                "impact_id": i["impact_id"],
+                "summary": i["summary"],
+                "findings": [
+                    {
+                        k: f.get(k)
+                        for k in (
+                            "finding_id",
+                            "agent",
+                            "provision_key",
+                            "affected_actor",
+                            "mechanism",
+                            "impact",
+                        )
+                    }
+                    | {"quotes": [e["quote"] for e in f.get("evidence", [])]}
+                    for f in i.get("findings", [])
+                ],
+            }
+            for i in d.get("impacts", [])
+        ],  # fmt: skip
+        "chains": d.get("chains", []),
+        "disagreements": d.get("disagreements", []),
+        "open_questions": [q.get("question") for q in d.get("open_questions", [])],
+    }
+
+
+def _dossier_ids(d: dict) -> set[str]:
+    ids = {i["impact_id"] for i in d.get("impacts", [])}
+    ids |= {f["finding_id"] for i in d.get("impacts", []) for f in i.get("findings", [])}
+    return ids

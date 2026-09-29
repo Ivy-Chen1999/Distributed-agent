@@ -147,7 +147,9 @@ def test_jev_version_without_key_is_usage_error(tmp_path, capsys, use_script, mo
     spec["router"]["decider"] = "jev"
     path = tmp_path / "jev.yaml"
     path.write_text(yaml.safe_dump(spec))
+    monkeypatch.setattr(cli, "load_dotenv", lambda *a, **k: None)  # ignore the real .env
     monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
+    monkeypatch.delenv("JEV_API_KEY", raising=False)
     use_script({})
     code = cli.main(["run", "eval_sme_impacts", "--system-version", str(path),
                      "--runs-dir", str(tmp_path)])  # fmt: skip
