@@ -60,6 +60,9 @@ uv run uvicorn --factory womm.api.app:create_app --port 8000
 | `GET /runs/{id}` | bearer | status, per-node states, error; Impact Dossier once finished |
 | `GET /runs/{id}/events?after=N` | bearer | node started/finished/failed events, in order |
 
+Deployed: https://womm-api-production.up.railway.app (`railway up --service womm-api` redeploys).
+`GET /livez` is the platform health check (liveness); `/health` is readiness.
+
 The app refuses to start without `WOMM_API_TOKEN` and `DATABASE_URL`. Runs execute in-process
 (at most 2 at a time); runs interrupted by a restart are marked `failed` / `orphaned` on the next
 start. The `Dockerfile` / `railway.json` build the same app; deployed versions must use the `api`
