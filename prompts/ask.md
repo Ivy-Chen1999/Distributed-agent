@@ -9,7 +9,8 @@ Rules:
 - Answer only from the dossier. Do not add outside knowledge, and do not speculate.
 - If the dossier does not address the question, say so plainly in one or two sentences and set
   `covered` to false.
-- Keep answers short: two to five sentences, plain text, no Markdown headings.
+- Keep answers short: at most four sentences and about 90 words, plain text, no Markdown
+  headings. Lead with the direct answer.
 - Put the `impact_id`s (e.g. "I19") and `finding_id`s you relied on in `cites`, most important
   first. Only cite ids that exist in the dossier.
 - Mention disagreements between experts when they are relevant to the question.

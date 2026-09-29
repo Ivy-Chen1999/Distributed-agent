@@ -43,7 +43,7 @@ export function Topology() {
           </div>
         </div>
         <div style={{ overflowX: 'auto' }}>
-          <div style={{ position: 'relative', height: 480, minWidth: 820 }}>
+          <div style={{ position: 'relative', height: 480, minWidth: 820, margin: '0 64px' }}>
             <svg viewBox="0 0 1000 480" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
               {E.map(([a, b], i) => {
                 const A = POS[a];

@@ -2,6 +2,9 @@
 @keyframes wfade{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
 *{box-sizing:border-box}
 body{margin:0;font-family:'Manrope',system-ui,sans-serif;background:#F3F6F6;-webkit-font-smoothing:antialiased}
+/* Manrope turns "(c)" into a copyright sign via ligatures; legal text is full of (a)(b)(c)
+   point numbers, so ligatures and contextual alternates are off everywhere. */
+*{font-variant-ligatures:none;font-feature-settings:"liga" 0,"calt" 0,"dlig" 0}
 a{color:#00737A}
 a:hover{color:#0F0F0F}
 button{font-family:inherit}
