@@ -24,6 +24,17 @@ ACTIVE = (RunStatus.queued.value, RunStatus.running.value)
 _KIND_TAG = re.compile(r"\[(\w+)\]")
 
 
+def _without_nul(value: Any) -> Any:
+    """Postgres jsonb rejects U+0000; LLM output can contain it, so strip it before storing."""
+    if isinstance(value, str):
+        return value.replace("\x00", "")
+    if isinstance(value, list):
+        return [_without_nul(v) for v in value]
+    if isinstance(value, dict):
+        return {_without_nul(k): _without_nul(v) for k, v in value.items()}
+    return value
+
+
 def result_error_kind(result: RunResult) -> str | None:
     """A pipeline-level failure carries its kind as a `[kind]` tag in the error text."""
     if result.status != RunStatus.failed:
@@ -89,6 +100,16 @@ class Database:
                  Jsonb(sv.prompt_hashes)),
             )  # fmt: skip
 
+    async def get_role(self, version_id: str, role: str) -> dict | None:
+        """One role's config from a stored system version (None if unknown)."""
+        async with self.pool.connection() as conn:
+            cur = await conn.execute(
+                "SELECT spec -> %s AS role FROM system_versions WHERE version_id = %s",
+                (role, version_id),
+            )
+            row = await cur.fetchone()
+            return row["role"] if row else None
+
     # ------------------------------------------------------------------ runs
 
     # Status transitions only move forward: queued -> running -> terminal. Every update is
@@ -139,12 +160,14 @@ class Database:
     async def save_result(self, result: RunResult) -> bool:
         """Store the finished run and its decision records in one transaction. Returns False
         (and stores nothing) when the run is no longer active, e.g. reconciled as orphaned."""
+        clean = _without_nul(json.loads(result.model_dump_json()))
+        result = RunResult.model_validate(clean)
         async with self.pool.connection() as conn, conn.transaction():
             cur = await conn.execute(
                 "UPDATE runs SET status = %s, error = %s, error_kind = %s, finished_at = now(),"
                 " result = %s WHERE run_id = %s AND status = ANY(%s)",
                 (result.status.value, result.error, result_error_kind(result),
-                 Jsonb(json.loads(result.model_dump_json())), result.run_id, list(ACTIVE)),
+                 Jsonb(clean), result.run_id, list(ACTIVE)),
             )  # fmt: skip
             if cur.rowcount != 1:
                 return False
@@ -204,8 +227,8 @@ class Database:
             await conn.execute(
                 "INSERT INTO run_events (run_id, seq, node, event, payload, at)"
                 " VALUES (%s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING",
-                (event.run_id, event.seq, event.node, event.event, Jsonb(event.payload),
-                 event.at),
+                (event.run_id, event.seq, event.node, event.event,
+                 Jsonb(_without_nul(event.payload)), event.at),
             )  # fmt: skip
 
     async def list_events(self, run_id: str, after_seq: int = 0, limit: int = 500) -> list[dict]:

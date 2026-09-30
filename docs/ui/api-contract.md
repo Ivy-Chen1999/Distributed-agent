@@ -98,6 +98,6 @@ the `at` timestamps.
 ### `POST /runs/{run_id}/ask`
 Body `{"question": "Who carries the penalty risk?"}` →
 `{"answer": "…", "cites": ["I19", "f_…"], "covered": true}`.
-Answers only from that run's dossier; `covered=false` when the dossier does not address it.
+Answers only from that run's dossier, with that run's synthesis backend when this server has it; `covered=false` when the dossier does not address it.
 409 if the run has no dossier, 429 when 4 questions are already in flight, 502 when the backend
 fails, 504 when no answer arrives within 120 s.

@@ -106,6 +106,35 @@ def test_ask_without_dossier_is_409(database_url):
         assert r.status_code == 409
 
 
+def test_ask_uses_the_runs_own_synthesis_backend(database_url):
+    answer = {"answer": "From the overridden backend.", "cites": [], "covered": True}
+    script = good_script(synthesis_all())
+    api_backend = FakeBackend({"synthesis": script["synthesis"], "ask": [answer]})
+    app = create_app(
+        _settings(database_url), sv=fake_sv(), fixture=load_fixture(), orphan_stale_after_s=0,
+        backends={"fake": FakeBackend(script), "api": api_backend},
+    )  # fmt: skip
+    with TestClient(app) as c:
+        body = {"scenario_id": "eval_sme_impacts", "overrides": {"backends": {"synthesis": "api"}}}
+        run_id = c.post("/runs", headers=AUTH, json=body).json()["run_id"]
+        _wait(c, run_id)
+        r = c.post(f"/runs/{run_id}/ask", headers=AUTH, json={"question": "q"})
+        assert r.status_code == 200 and r.json()["answer"] == "From the overridden backend."
+        assert [call.role_name for call in api_backend.calls] == ["synthesis", "ask"]
+
+
+def test_every_data_route_requires_the_token(database_url):
+    public = {"/health", "/livez", "/", "/docs", "/docs/oauth2-redirect", "/redoc", "/openapi.json"}
+    with _client(database_url, {}) as c:
+        routes = [r for r in c.app.routes if getattr(r, "methods", None) and r.path not in public]
+        assert routes
+        for route in routes:
+            path = route.path.replace("{run_id}", "run_x").replace("{scenario_id}", "s")
+            for method in route.methods - {"HEAD", "OPTIONS"}:
+                r = c.request(method, path, json={})
+                assert r.status_code == 401, f"{method} {route.path} answered {r.status_code}"
+
+
 def test_ask_unknown_run_is_404(database_url):
     with _client(database_url, {}) as c:
         r = c.post("/runs/run_nope/ask", headers=AUTH, json={"question": "q"})

@@ -32,6 +32,7 @@ from womm.llm.base import LLMBackend, LLMError
 from womm.models.base import StrictModel
 from womm.models.system_version import (
     Backend,
+    RoleConfig,
     SystemVersion,
     derive_system_version,
     load_system_version,
@@ -176,7 +177,7 @@ def create_app(
             unavailable = sorted(set(body.overrides.backends.values()) - set(runner.backends))
             if unavailable:
                 raise HTTPException(
-                    status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    status.HTTP_422_UNPROCESSABLE_CONTENT,
                     f"backend(s) {unavailable} not available here; available: "
                     f"{sorted(runner.backends)}",
                 )
@@ -186,7 +187,7 @@ def create_app(
                     backends=body.overrides.backends,
                 )  # fmt: skip
             except ValueError as exc:
-                raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from None
+                raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from None
         try:
             run_id = await runner.submit(body.scenario_id, run_sv)
         except FixtureError as exc:
@@ -313,8 +314,13 @@ def create_app(
         dossier = (row["result"] or {}).get("dossier")
         if not dossier or row["status"] not in WITH_DOSSIER:
             raise HTTPException(status.HTTP_409_CONFLICT, "this run has no impact dossier")
-        role = sv.spec.synthesis
-        backend = request.app.state.runner.backends.get(role.backend)
+        # Answer with the run's own synthesis role (overrides included) when this server can.
+        stored = await request.app.state.db.get_role(row["system_version"], "synthesis")
+        role = RoleConfig.model_validate(stored) if stored else sv.spec.synthesis
+        backends = request.app.state.runner.backends
+        if role.backend not in backends:
+            role = sv.spec.synthesis
+        backend = backends.get(role.backend)
         if backend is None:
             raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "no backend to answer with")
         user = (

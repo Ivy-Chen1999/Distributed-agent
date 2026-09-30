@@ -61,6 +61,14 @@ async def test_failed_result_stores_error_kind(db):
     assert (await db.get_run("r"))["error_kind"] == "auth"
 
 
+async def test_nul_characters_are_stripped_before_storing(db):
+    await db.create_run("r", "s", "sv")
+    await db.mark_running("r")
+    assert await db.save_result(_result(RunStatus.failed, "bad\x00output [timeout]"))
+    row = await db.get_run("r")
+    assert row["result"]["error"] == "badoutput [timeout]" and row["error_kind"] == "timeout"
+
+
 async def test_fake_run_persisted_consistently(db, fixture):  # noqa: F811
     sv = fake_sv()
     await db.upsert_system_version(sv)
