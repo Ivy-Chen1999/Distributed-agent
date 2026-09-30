@@ -7,7 +7,7 @@ import { logLines } from '../model/pipeline';
 import { failedExperts, shortRunId } from '../model/overview';
 import { regulationTitle, scenarioName } from '../model/scenario';
 import { elapsedAt } from '../model/trace';
-import type { ProvisionChange } from '../types';
+import type { ImpactDossier, ProvisionChange } from '../types';
 
 const MONO = { fontFamily: FONT, fontVariantNumeric: 'tabular-nums' } as const;
 
@@ -111,7 +111,7 @@ export function Detail() {
             ))}
           </div>
 
-          {C.tab === 'impacts' && <ImpactsTab changes={changes} />}
+          {C.tab === 'impacts' && <ImpactsTab d={d} changes={changes} />}
 
           {C.tab === 'chains' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -233,9 +233,8 @@ export function EventLog() {
   );
 }
 
-function ImpactsTab({ changes }: { changes: ProvisionChange[] | undefined }) {
+function ImpactsTab({ d, changes }: { d: ImpactDossier; changes: ProvisionChange[] | undefined }) {
   const C = useConsole();
-  const d = C.run!.dossier!;
   const groups = groupImpacts(d, C.group, changes);
   const extra = [
     d.unprocessed.length ? `${d.unprocessed.length} supported finding${d.unprocessed.length === 1 ? '' : 's'} not placed by synthesis` : '',
@@ -330,7 +329,7 @@ function ImpactCard({ im, changes }: { im: ImpactVM; changes: ProvisionChange[] 
                         {!st.quote && <div style={{ fontSize: 13, lineHeight: 1.5, marginTop: 2, fontFamily: st.mono ? FONT : 'inherit', overflowWrap: 'anywhere' }}>{st.v}</div>}
                         {st.quote && (
                           <HButton
-                            onClick={() => C.openSource(st.quote!.sourceId, st.quote!.quote)}
+                            onClick={() => st.quote && C.openSource(st.quote.sourceId, st.quote.quote)}
                             style={{ display: 'block', textAlign: 'left', marginTop: 4, border: '1px solid var(--line)', background: 'var(--card)', borderRadius: 6, padding: '9px 11px', fontSize: 13, lineHeight: 1.5, color: 'var(--ink)', cursor: 'pointer' }}
                             hover={{ borderColor: ACC }}
                           >

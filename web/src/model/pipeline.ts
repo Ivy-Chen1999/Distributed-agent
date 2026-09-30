@@ -1,6 +1,6 @@
 // View-models for the agent graph, board feed, router panel, latency bars, log, agents, topology.
 import type { DecisionRecord, ImpactDossier, ImpactFinding, RoleSpec, RunDetail, RunStatus, Scenario, SystemInfo } from '../types';
-import { AG, AMBER, BLUE, GREEN, RED, ST, ag, fmtS, kTok, statusText, type NodeStatus } from '../design';
+import { AG, AMBER, BLUE, GREEN, RED, ST, ag, fmtS, kTok, kindText, statusText, type NodeStatus } from '../design';
 import { elapsedAt, statusAt, totalsAt, usageFor, type Trace } from './trace';
 import { capitalize, unresolvedIds } from './dossier';
 
@@ -85,7 +85,7 @@ export const RUN_ST: Record<RunStatus, { t: string; c: string }> = {
 };
 
 export function runStatusLabel(status: RunStatus, errorKind?: string | null): string {
-  return status === 'failed' && errorKind ? `Failed · ${errorKind}` : RUN_ST[status]?.t ?? status;
+  return status === 'failed' && errorKind ? `Failed · ${kindText(errorKind)}` : RUN_ST[status]?.t ?? status;
 }
 
 // ---------- graph ----------

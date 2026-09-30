@@ -1,5 +1,6 @@
 // Shared fixtures and helpers for the console e2e specs.
 import { expect, test as base, type APIRequestContext, type Locator, type Page } from '@playwright/test';
+import type { RunDetail, RunEvent } from '../src/types';
 
 export const TOKEN = process.env.WOMM_E2E_TOKEN ?? process.env.WOMM_E2E_LIVE_TOKEN ?? '';
 export const AUTH = { Authorization: `Bearer ${TOKEN}` };
@@ -31,31 +32,8 @@ export function rgb(hex: string): string {
   return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`;
 }
 
-export interface RunDetail {
-  run_id: string;
-  scenario_id: string;
-  status: string;
-  system_version: string;
-  grounding?: { passed: number; total: number } | null;
-  board?: { finding_id: string; agent: string; provision_key: string; evidence: { source_id: string; quote: string }[] }[] | null;
-  failures?: { agent: string; error_kind: string }[] | null;
-  usage?: { role: string; agent?: string | null; input_tokens: number; output_tokens: number; cost_usd?: number | null }[] | null;
-  dossier?: {
-    impacts: { impact_id: string; summary: string; findings: { finding_id: string; agent: string; provision_key: string; affected_actor: string; evidence: { source_id: string; quote: string }[] }[] }[];
-    chains: { impact_ids: string[]; description: string }[];
-    disagreements: { finding_ids: string[]; note: string }[];
-    open_questions: { question: string; finding_id?: string | null; reason: string }[];
-    failed_experts: { agent: string; error_kind: string }[];
-  } | null;
-}
-
-export interface RunEvent {
-  seq: number;
-  node: string;
-  event: string;
-  payload: Record<string, unknown>;
-  at: string;
-}
+// The API types are shared with the app, so e2e assertions cannot drift from the contract.
+export type { RunDetail, RunEvent } from '../src/types';
 
 export async function startRun(request: APIRequestContext, scenarioId: string, overrides?: object): Promise<string> {
   const res = await request.post('/runs', { headers: AUTH, data: overrides ? { scenario_id: scenarioId, overrides } : { scenario_id: scenarioId } });

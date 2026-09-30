@@ -84,8 +84,13 @@ export const ST: Record<NodeStatus, { t: string; c: string }> = {
   skipped: { t: 'Skipped', c: '#8A9699' },
 };
 
+/** Readable failure class: `rate_limit` -> "rate limit"; a bare pipeline failure is "pipeline". */
+export function kindText(errorKind: string): string {
+  return errorKind === 'pipeline_failed' ? 'pipeline' : errorKind.replace(/_/g, ' ');
+}
+
 export function statusText(s: NodeStatus, errorKind?: string | null): string {
-  return s === 'failed' && errorKind ? `Failed · ${errorKind}` : ST[s].t;
+  return s === 'failed' && errorKind ? `Failed · ${kindText(errorKind)}` : ST[s].t;
 }
 
 export const RED = '#E5484D';

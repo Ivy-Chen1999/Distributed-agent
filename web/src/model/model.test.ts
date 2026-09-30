@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildTrace, elapsedAt, liveClock, statusAt, totalsAt, usageFor } from './trace';
-import { agentCards, decisionVMs, feedVM, latBars, logLines, nodeVM, selInfo, stripVM, type RunView } from './pipeline';
+import { agentCards, decisionVMs, feedVM, latBars, logLines, nodeVM, runStatusLabel, selInfo, stripVM, type RunView } from './pipeline';
 import { attention, kpis, runRows } from './overview';
 import { actorGroup, chainVMs, disagreementVMs, findingSteps, groupImpacts, questionVMs, shortLabel, unresolvedIds } from './dossier';
 import { highlightQuote, normalizeWithMap } from './quote';
@@ -53,6 +53,9 @@ describe('trace and node status', () => {
     expect(trace.spans.workforce.errorKind).toBe('timeout');
     const rv: RunView = { trace, clock: trace.end, run: r, system };
     expect(nodeVM('workforce', rv).stT).toBe('Failed · timeout');
+    expect(runStatusLabel('failed', 'pipeline_failed')).toBe('Failed · pipeline');
+    expect(runStatusLabel('failed', 'schema_invalid')).toBe('Failed · schema invalid');
+    expect(runStatusLabel('failed', null)).toBe('Failed');
     const bars = latBars(rv);
     expect(bars.find((b) => b.id === 'workforce')?.meta).toBe('timeout · 1m 00s');
     const k = kpis(rv, 'Degraded', '#E0A020');
