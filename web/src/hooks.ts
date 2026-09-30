@@ -1,5 +1,5 @@
 // Data hooks: one-shot loads and the per-run poller.
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { ApiError, api, describeError } from './api';
 import type { RunDetail, RunEvent } from './types';
 import { isFinished } from './model/trace';
@@ -132,3 +132,23 @@ export function useNow(on: boolean, ms = 200): number {
   }, [on, ms]);
   return now;
 }
+
+/** Below this width the sidebar becomes a drawer and multi-column layouts stack. */
+export const NARROW_PX = 760;
+
+/** True while `query` matches; follows resizes. Without matchMedia (e.g. jsdom) it is false. */
+export function useMedia(query: string): boolean {
+  const supported = typeof window !== 'undefined' && typeof window.matchMedia === 'function';
+  return useSyncExternalStore(
+    (notify) => {
+      if (!supported) return () => {};
+      const mq = window.matchMedia(query);
+      mq.addEventListener('change', notify);
+      return () => mq.removeEventListener('change', notify);
+    },
+    () => supported && window.matchMedia(query).matches,
+    () => false,
+  );
+}
+
+export const useNarrow = (): boolean => useMedia(`(max-width: ${NARROW_PX - 1}px)`);

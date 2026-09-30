@@ -8,6 +8,7 @@ import { failedExperts, shortRunId } from '../model/overview';
 import { regulationTitle, scenarioName } from '../model/scenario';
 import { elapsedAt } from '../model/trace';
 import type { ImpactDossier, ProvisionChange } from '../types';
+import { useNarrow } from '../hooks';
 
 const MONO = { fontFamily: FONT, fontVariantNumeric: 'tabular-nums' } as const;
 
@@ -146,7 +147,7 @@ export function Detail() {
                 <div key={di} style={{ ...CARD, padding: '18px 20px' }}>
                   <div style={LABEL}>{dg.heading}</div>
                   <div style={{ fontSize: 14, lineHeight: 1.55, marginTop: 8, maxWidth: '95ch' }}>{dg.note}</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: 12, marginTop: 16 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,240px),1fr))', gap: 12, marginTop: 16 }}>
                     {dg.sides.map((sd) => (
                       <div key={sd.id} style={{ border: '1px solid var(--line)', borderRadius: 10, overflow: 'hidden' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', borderTop: `4px solid ${sd.c}`, background: 'var(--soft)' }}>
@@ -275,6 +276,7 @@ function ImpactsTab({ d, changes }: { d: ImpactDossier; changes: ProvisionChange
 
 function ImpactCard({ im, changes }: { im: ImpactVM; changes: ProvisionChange[] | undefined }) {
   const C = useConsole();
+  const narrow = useNarrow();
   const open = C.openImp === im.id;
   return (
     <div id={`imp-${im.id}`} style={{ background: 'var(--card)', border: `1px solid ${open ? ACC : 'var(--line)'}`, borderRadius: 12, overflow: 'hidden', scrollMarginTop: 90 }}>
@@ -306,7 +308,7 @@ function ImpactCard({ im, changes }: { im: ImpactVM; changes: ProvisionChange[] 
         </svg>
       </button>
       {open && (
-        <div style={{ borderTop: '1px solid var(--line)', padding: '16px 18px 18px 62px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 20, background: 'var(--soft)' }}>
+        <div style={{ borderTop: '1px solid var(--line)', padding: narrow ? '16px 18px 18px' : '16px 18px 18px 62px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,300px),1fr))', gap: 20, background: 'var(--soft)' }}>
           {im.findings.map((fd) => {
             const c = ag(fd.agent).c;
             const steps = findingSteps(fd, changes);

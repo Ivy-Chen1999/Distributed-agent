@@ -98,6 +98,9 @@ export async function openConsole(page: Page, opts: { theme?: 'light' | 'dark' }
 export const nav = (page: Page, title: ScreenTitle): Locator => page.locator('aside nav button', { hasText: title });
 
 export async function go(page: Page, title: ScreenTitle): Promise<void> {
+  // On narrow screens the sidebar is a drawer behind the header's menu button.
+  const menu = page.getByRole('button', { name: 'Open navigation' });
+  if (await menu.isVisible()) await menu.click();
   await nav(page, title).click();
   await expect(screenTitle(page)).toHaveText(title);
 }

@@ -129,7 +129,7 @@ test('"(c)" renders as three characters, not a copyright sign (ligatures off)', 
   expect(text).not.toContain('©');
 });
 
-for (const width of [1024, 820]) {
+for (const width of [1024, 820, 600, 390]) {
   test(`no horizontal page scroll at ${width}px on any screen`, async ({ page }) => {
     await finishedRun(page.request, SCENARIOS.sme);
     await page.setViewportSize({ width, height: 900 });
@@ -153,6 +153,22 @@ for (const width of [1024, 820]) {
           .map((el) => `${el.tagName}.${(el.textContent ?? '').slice(0, 40)}`);
       });
       expect(offenders, `${screen} at ${width}px`).toEqual([]);
+      // No box's content spills past its own edge (e.g. a stat value wider than its card).
+      const spills = await page.evaluate(() =>
+        [...document.querySelectorAll('main *')]
+          .filter((el) => {
+            // Content inside an intentionally scrollable panel may be wider than its box.
+            for (let e = el.parentElement; e && e !== document.body; e = e.parentElement) {
+              const o = getComputedStyle(e).overflowX;
+              if (o === 'auto' || o === 'scroll') return false;
+            }
+            const cs = getComputedStyle(el);
+            if (cs.overflowX !== 'visible' || cs.display === 'inline' || el instanceof SVGElement) return false;
+            return el.scrollWidth > el.clientWidth + 1 && el.clientWidth > 0;
+          })
+          .map((el) => `${el.tagName}.${(el.textContent ?? '').slice(0, 40)} (${el.scrollWidth}>${el.clientWidth})`),
+      );
+      expect(spills, `${screen} at ${width}px`).toEqual([]);
     }
   });
 }

@@ -1,6 +1,7 @@
 import { useConsole } from '../ctx';
 import { ACC, CARD, FONT, LABEL, PULSE, RED, TABULAR, ag } from '../design';
 import { Dot, HButton } from '../components/ui';
+import { useNarrow } from '../hooks';
 import { edges, hostLabel, isIsolated, selInfo, topoPositions } from '../model/pipeline';
 import { statusAt } from '../model/trace';
 import { ST } from '../design';
@@ -15,6 +16,10 @@ export function Topology() {
   const selId = POS[C.sel] ? C.sel : (ex[0] ?? 'planner');
   const sel = selInfo(selId, rv);
   const system = C.system.data ?? null;
+  // On narrow screens the graph is transposed so it flows top to bottom.
+  const narrow = useNarrow();
+  const H = 760;
+  const at = (id: string) => (narrow ? { left: `${(POS[id][1] / 480) * 100}%`, top: `${(POS[id][0] / 100) * H}px` } : { left: `${POS[id][0]}%`, top: `${POS[id][1]}px` });
 
   const chip = (id: string) => (
     <button key={id} type="button" onClick={() => C.setSel(id)} style={{ border: '1px solid var(--line)', background: 'var(--soft)', borderRadius: 4, padding: '3px 8px', font: `700 11px ${FONT}`, color: 'var(--ink)', cursor: 'pointer' }}>
@@ -43,8 +48,8 @@ export function Topology() {
           </div>
         </div>
         <div style={{ overflowX: 'auto' }}>
-          <div style={{ position: 'relative', height: 480, minWidth: 820, margin: '0 64px' }}>
-            <svg viewBox="0 0 1000 480" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
+          <div style={{ position: 'relative', height: narrow ? H : 480, minWidth: narrow ? 0 : 820, margin: narrow ? '0 8px' : '0 64px' }}>
+            <svg viewBox={narrow ? '0 0 480 1000' : '0 0 1000 480'} preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
               {E.map(([a, b], i) => {
                 const A = POS[a];
                 const B = POS[b];
@@ -54,10 +59,13 @@ export function Topology() {
                 const x1 = A[0] * 10;
                 const x2 = B[0] * 10;
                 const mx = (x1 + x2) / 2;
+                const d = narrow
+                  ? `M${A[1]} ${x1} C${A[1]} ${mx} ${B[1]} ${mx} ${B[1]} ${x2}`
+                  : `M${x1} ${A[1]} C${mx} ${A[1]} ${mx} ${B[1]} ${x2} ${B[1]}`;
                 return (
                   <path
                     key={i}
-                    d={`M${x1} ${A[1]} C${mx} ${A[1]} ${mx} ${B[1]} ${x2} ${B[1]}`}
+                    d={d}
                     fill="none"
                     stroke={act ? ACC : live ? t.n2 : t.line}
                     strokeOpacity={act ? 1 : 0.55}
@@ -79,14 +87,13 @@ export function Topology() {
                   onClick={() => C.setSel(id)}
                   style={{
                     position: 'absolute',
-                    left: `${POS[id][0]}%`,
-                    top: `${POS[id][1]}px`,
+                    ...at(id),
                     transform: 'translate(-50%,-50%)',
-                    width: 112,
+                    width: narrow ? 96 : 112,
                     background: 'var(--card)',
                     border: isSel ? `2px solid ${ACC}` : s === 'failed' ? `1px solid ${RED}` : iso ? '1px dashed var(--n2)' : '1px solid var(--line)',
                     borderRadius: 10,
-                    padding: '8px 10px',
+                    padding: narrow ? '7px 7px' : '8px 10px',
                     textAlign: 'left',
                     cursor: 'pointer',
                     color: 'var(--ink)',
@@ -96,9 +103,9 @@ export function Topology() {
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <Dot c={ag(id).c} size={8} radius={2} />
-                    <span style={{ fontSize: 12, fontWeight: 700, lineHeight: 1.2 }}>{ag(id).n}</span>
+                    <span style={{ fontSize: narrow ? 11 : 12, fontWeight: 700, lineHeight: 1.2, minWidth: 0, overflowWrap: 'anywhere' }}>{ag(id).n}</span>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 5, font: `600 11px ${FONT}`, color: 'var(--n1)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 5, font: `600 ${narrow ? 10 : 11}px ${FONT}`, color: 'var(--n1)', minWidth: 0, overflowWrap: 'anywhere' }}>
                     <Dot c={ST[s].c} size={6} anim={s === 'running' ? PULSE : 'none'} />
                     {hostLabel(id, system, rv)}
                   </div>

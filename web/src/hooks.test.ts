@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, api } from './api';
-import { RETRY_MAX_MS, retryDelay, useRunData } from './hooks';
+import { RETRY_MAX_MS, retryDelay, useMedia, useRunData } from './hooks';
 import type { EventsPage, RunDetail } from './types';
 
 const run = (status: string) => ({ run_id: 'run_1', status }) as unknown as RunDetail;
@@ -54,5 +54,32 @@ describe('useRunData', () => {
     await act(async () => {});
     expect(events).toHaveBeenCalledTimes(2);
     expect(result.current.events).toHaveLength(500);
+  });
+});
+
+describe('useMedia', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('is false where matchMedia does not exist', () => {
+    const { result } = renderHook(() => useMedia('(max-width: 759px)'));
+    expect(result.current).toBe(false);
+  });
+
+  it('follows matchMedia changes', () => {
+    let matches = true;
+    const listeners = new Set<() => void>();
+    vi.stubGlobal('matchMedia', (q: string) => ({
+      media: q,
+      get matches() { return matches; },
+      addEventListener: (_: string, fn: () => void) => listeners.add(fn),
+      removeEventListener: (_: string, fn: () => void) => listeners.delete(fn),
+    }));
+    const { result } = renderHook(() => useMedia('(max-width: 759px)'));
+    expect(result.current).toBe(true);
+    act(() => {
+      matches = false;
+      listeners.forEach((fn) => fn());
+    });
+    expect(result.current).toBe(false);
   });
 });

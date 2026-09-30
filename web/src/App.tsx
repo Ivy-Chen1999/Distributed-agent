@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import { api, describeError, getToken, onUnauthorized, setToken } from './api';
 import { Ctx, type ChatMessage, type ConsoleCtx, type DetailTab, type Staged } from './ctx';
 import { BLUE, FONT, ICON, LABEL, MOON, PULSE, SCREENS, SUN, TH, TITLES, fmtS, type ScreenId } from './design';
-import { useLoad, useNow, useRunData } from './hooks';
+import { useLoad, useNarrow, useNow, useRunData } from './hooks';
 import { findingIndex } from './model/dossier';
 import { shortRunId } from './model/overview';
 import { RUN_ST, runStatusLabel, type RunView } from './model/pipeline';
@@ -75,6 +75,15 @@ export function App() {
   }, [theme, t.bg]);
 
   const [screen, setScreen] = useState<ScreenId>('overview');
+  const narrow = useNarrow();
+  const [drawer, setDrawer] = useState(false);
+  useEffect(() => {
+    if (!narrow) setDrawer(false);
+  }, [narrow]);
+  useEffect(() => {
+    // Move keyboard focus into the drawer when it opens.
+    if (drawer) document.querySelector<HTMLElement>('#womm-nav nav button[aria-current="page"]')?.focus();
+  }, [drawer]);
   const [sel, setSel] = useState('legal');
   const [tab, setTab] = useState<DetailTab>('impacts');
   const [group, setGroup] = useState<GroupMode>('area');
@@ -191,6 +200,7 @@ export function App() {
 
   const go = useCallback((s: ScreenId, extra?: { tab?: DetailTab; sel?: string; openImp?: string | null }) => {
     setScreen(s);
+    setDrawer(false);
     if (extra?.tab) setTab(extra.tab);
     if (extra?.sel) setSel(extra.sel);
     if (extra && 'openImp' in extra) setOpenImp(extra.openImp ?? null);
@@ -202,6 +212,17 @@ export function App() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [src]);
+
+  useEffect(() => {
+    if (!drawer) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      setDrawer(false);
+      document.querySelector<HTMLElement>('button[aria-controls="womm-nav"]')?.focus();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [drawer]);
 
   // Settings staged locally and sent as overrides on the next run.
   const [staged, setStaged] = useState<Staged>({ backends: {}, routerMode: null });
@@ -307,9 +328,18 @@ export function App() {
       <div
         data-screen-label="WOMM Console"
         data-theme={theme}
-        style={{ ...vars, display: 'grid', gridTemplateColumns: '236px minmax(0,1fr)', minHeight: '100vh', background: 'var(--bg,#F3F6F6)', color: 'var(--ink,#0F0F0F)', fontFamily: "'Manrope',system-ui,sans-serif" }}
+        style={{ ...vars, display: 'grid', gridTemplateColumns: narrow ? 'minmax(0,1fr)' : '236px minmax(0,1fr)', minHeight: '100vh', background: 'var(--bg,#F3F6F6)', color: 'var(--ink,#0F0F0F)', fontFamily: "'Manrope',system-ui,sans-serif" }}
       >
-        <aside style={{ background: 'var(--side,#0F0F0F)', color: '#FDFCFD', padding: '20px 16px', display: 'flex', flexDirection: 'column', gap: 22, position: 'sticky', top: 0, height: '100vh' }}>
+        {narrow && drawer && <div aria-hidden onClick={() => setDrawer(false)} style={{ position: 'fixed', inset: 0, zIndex: 19, background: 'rgba(15,15,15,.45)' }} />}
+        <aside
+          id="womm-nav"
+          aria-label="Navigation"
+          hidden={narrow && !drawer}
+          style={{
+            background: 'var(--side,#0F0F0F)', color: '#FDFCFD', padding: '20px 16px', display: narrow && !drawer ? 'none' : 'flex', flexDirection: 'column', gap: 22, top: 0, height: '100vh', overflowY: 'auto',
+            ...(narrow ? { position: 'fixed', left: 0, zIndex: 20, width: 260, maxWidth: '85vw', boxShadow: '0 0 40px rgba(0,0,0,.35)', animation: 'wfade .2s ease-out' } : { position: 'sticky' }),
+          }}
+        >
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 4px' }}>
             <div style={{ width: 32, height: 32, borderRadius: 7, background: '#00C4CC', display: 'grid', placeItems: 'center', flex: 'none' }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0F0F0F" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -361,14 +391,28 @@ export function App() {
         </aside>
 
         <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-          <header style={{ position: 'sticky', top: 0, zIndex: 5, display: 'flex', alignItems: 'center', gap: 14, padding: '14px 28px', borderBottom: '1px solid var(--line)', background: 'var(--card)', flexWrap: 'wrap' }}>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontWeight: 600, fontSize: 20, letterSpacing: '-.01em' }}>{TITLES[screen]}</div>
-              <div style={{ fontSize: 12, color: 'var(--n2)', marginTop: 1 }}>
+          <header style={{ position: 'sticky', top: 0, zIndex: 5, display: 'flex', alignItems: 'center', gap: narrow ? 10 : 14, padding: narrow ? '10px 16px' : '14px 28px', borderBottom: '1px solid var(--line)', background: 'var(--card)', flexWrap: 'wrap' }}>
+            {narrow && (
+              <button
+                type="button"
+                aria-label="Open navigation"
+                aria-controls="womm-nav"
+                aria-expanded={drawer}
+                onClick={() => setDrawer(true)}
+                style={{ flex: 'none', width: 36, height: 36, display: 'grid', placeItems: 'center', background: 'transparent', border: '1px solid var(--line)', borderRadius: 4, color: 'var(--ink)', cursor: 'pointer' }}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <path d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+            )}
+            <div style={{ minWidth: 0, flex: narrow ? 1 : undefined }}>
+              <div style={{ fontWeight: 600, fontSize: narrow ? 17 : 20, letterSpacing: '-.01em' }}>{TITLES[screen]}</div>
+              <div style={{ fontSize: 12, color: 'var(--n2)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: narrow ? 'nowrap' : undefined }}>
                 {scenarioName(scenarioId)} · <span style={{ fontFamily: FONT, fontVariantNumeric: 'tabular-nums' }}>{scenarioId}</span>
               </div>
             </div>
-            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', ...(narrow ? { width: '100%', marginLeft: 0 } : {}) }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--soft)', borderRadius: 4, padding: '5px 9px', font: `700 11px ${FONT}` }}>
                 <span style={{ width: 7, height: 7, borderRadius: '50%', background: runDot, animation: running ? PULSE : 'none' }} />
                 {runLabel}
@@ -406,7 +450,7 @@ export function App() {
             </div>
           </header>
 
-          <main style={{ padding: '24px 28px 48px', display: 'flex', flexDirection: 'column', gap: 18, minWidth: 0 }}>
+          <main style={{ padding: narrow ? '16px 16px 40px' : '24px 28px 48px', display: 'flex', flexDirection: 'column', gap: 18, minWidth: 0 }}>
             {screen === 'overview' && <Overview />}
             {screen === 'pipeline' && <Pipeline />}
             {screen === 'detail' && <Detail />}

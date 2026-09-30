@@ -1,4 +1,5 @@
 import { useConsole } from '../ctx';
+import { useNarrow } from '../hooks';
 import { CARD, FONT, LABEL, TABULAR } from '../design';
 import { Arrow, Chevron, Dot, EmptyCard, ErrorCard, HButton, LoadingCard, PRIMARY_BTN } from '../components/ui';
 import { attention, fmtDate, kpis, runRows } from '../model/overview';
@@ -10,6 +11,7 @@ const RUN_COLS = '1.2fr 1.6fr 1fr .7fr .8fr .8fr 1.1fr';
 
 export function Overview() {
   const C = useConsole();
+  const narrow = useNarrow();
   const runs = C.runs.data?.runs ?? [];
 
   if (!C.runId) {
@@ -71,11 +73,11 @@ export function Overview() {
 
       {C.runError && !C.run && <ErrorCard title="Could not load the run" message={C.runError} onRetry={C.reloadRun} />}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit,minmax(${narrow ? 140 : 190}px,1fr))`, gap: 12 }}>
         {tiles.map((k) => (
-          <div key={k.label} style={{ ...CARD, padding: '14px 16px' }}>
+          <div key={k.label} style={{ ...CARD, padding: '14px 16px', minWidth: 0 }}>
             <div style={LABEL}>{k.label}</div>
-            <div style={{ fontSize: 28, fontWeight: 600, marginTop: 8, ...TABULAR, letterSpacing: '-.01em', display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap' }}>
+            <div style={{ fontSize: narrow ? 22 : 28, fontWeight: 600, marginTop: 8, ...TABULAR, letterSpacing: '-.01em', display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap', minWidth: 0 }}>
               {k.dot && <Dot c={k.dot} size={9} />}
               {C.runLoading && !C.run ? '—' : k.value}
             </div>
@@ -147,6 +149,33 @@ export function Overview() {
             <button type="button" onClick={C.reloadRuns} style={{ background: 'none', border: 'none', padding: 0, font: `700 13px ${FONT}`, color: 'var(--ink)', textDecoration: 'underline', textUnderlineOffset: 4, cursor: 'pointer' }}>
               Retry
             </button>
+          </div>
+        ) : narrow ? (
+          <div>
+            {rows.length === 0 && <div style={{ padding: '12px 18px', borderTop: '1px solid var(--line)', fontSize: 13, color: 'var(--n1)' }}>{C.runs.status === 'loading' ? 'Loading runs…' : 'No runs yet.'}</div>}
+            {rows.map((r) => (
+              <HButton
+                key={r.runId}
+                onClick={() => {
+                  C.selectRun(r.runId);
+                  C.go('detail');
+                }}
+                title={r.runId}
+                style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 4, padding: '12px 18px', border: 'none', borderTop: '1px solid var(--line)', background: r.runId === C.runId ? 'var(--soft)' : 'transparent', color: 'var(--ink)', textAlign: 'left', fontSize: 13, cursor: 'pointer' }}
+                hover={{ background: 'var(--soft)' }}
+              >
+                <span style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
+                  <span style={{ fontWeight: 600, flex: 1, minWidth: 0 }}>{r.name}</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 600 }}>
+                    <Dot c={r.dot} />
+                    {r.status}
+                  </span>
+                </span>
+                <span style={{ fontSize: 12, color: 'var(--n1)', ...TABULAR }}>
+                  {r.id} · {r.impacts} impacts · {r.grounding} · {r.time}
+                </span>
+              </HButton>
+            ))}
           </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>

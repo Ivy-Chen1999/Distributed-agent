@@ -1,4 +1,5 @@
 import { useConsole } from '../ctx';
+import { useNarrow } from '../hooks';
 import { ACC, CARD, FONT, LABEL, PULSE, RED, TABULAR, WARN_BG, WARN_INK } from '../design';
 import { Dot, EmptyCard, ErrorCard, HButton, LoadingCard, Seg } from '../components/ui';
 import { colIds, decisionVMs, feedVM, nodeVM, routerDecider, routerMode, routerNote, selInfo, stripVM } from '../model/pipeline';
@@ -8,6 +9,7 @@ const SPEEDS = [1, 2, 3, 4, 8];
 
 export function Pipeline() {
   const C = useConsole();
+  const narrow = useNarrow();
   if (!C.runId) return <EmptyCard title="No run selected" sub="Start a run to watch the agent graph fill in live." />;
   if (!C.run && C.runLoading) return <LoadingCard title="Loading run" sub="Fetching node events." />;
   if (!C.run && C.runError) return <ErrorCard title="Could not load the run" message={C.runError} onRetry={C.reloadRun} />;
@@ -57,20 +59,20 @@ export function Pipeline() {
           </div>
         </div>
         <div role="region" aria-label="Pipeline stages" tabIndex={0} style={{ overflowX: 'auto', padding: '22px 18px 24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', minWidth: 'max-content' }}>
+          <div style={{ display: 'flex', flexDirection: narrow ? 'column' : 'row', alignItems: 'center', minWidth: narrow ? 0 : 'max-content' }}>
             {cols.map(({ ids, i }) => {
               const first = statusAt(rv.trace, ids[0] ?? 'board', rv.clock);
               const multi = ids.length > 1;
               return (
-                <div key={i} style={{ display: 'flex', alignItems: 'center' }}>
+                <div key={i} style={{ display: 'flex', flexDirection: narrow ? 'column' : 'row', alignItems: 'center', maxWidth: '100%' }}>
                   {i > 0 && (
-                    <div style={{ width: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', color: first === 'queued' || first === 'skipped' ? 'var(--line)' : ACC }}>
+                    <div style={{ width: 26, height: narrow ? 22 : undefined, transform: narrow ? 'rotate(90deg)' : undefined, display: 'flex', alignItems: 'center', justifyContent: 'center', color: first === 'queued' || first === 'skipped' ? 'var(--line)' : ACC }}>
                       <svg width="20" height="10" viewBox="0 0 20 10" fill="none" stroke="currentColor" strokeWidth="1.6">
                         <path d="M0 5h17M13 1l4 4-4 4" />
                       </svg>
                     </div>
                   )}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: multi ? 8 : 0, border: multi ? '1px dashed var(--line)' : 'none', borderRadius: 12 }}>
+                  <div style={{ display: 'flex', flexDirection: narrow ? 'row' : 'column', flexWrap: narrow ? 'wrap' : 'nowrap', justifyContent: 'center', gap: 8, padding: multi ? 8 : 0, border: multi ? '1px dashed var(--line)' : 'none', borderRadius: 12 }}>
                     {ids.map((id) => {
                       const nd = nodeVM(id, rv);
                       const s = nd.status;
