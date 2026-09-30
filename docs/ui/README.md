@@ -23,3 +23,14 @@ Status values: `queued`, `running`, `succeeded`, `degraded` (some experts failed
 failed), `failed`, `no_changes`. Every page needs loading, empty and error states.
 
 Note: Impact Dossier text is LLM-generated. Render it as escaped plain text, never as HTML.
+
+## Deviations from the Claude Design source
+
+The console follows `web/design/` except where accessibility requires otherwise
+(`web/e2e/a11y.spec.ts` runs an axe-core WCAG 2.1 AA scan of every screen in both themes):
+
+- Light-theme secondary text `--n2` is `#626E71` instead of `#687477`. The original reached only
+  4.26:1 on the soft background (AA needs 4.5:1); the new value reaches 4.58–4.85:1.
+- Keyboard focus shows a 2 px `--accInk` outline on every focusable element, inputs included.
+- The pipeline canvas and the live impact board are focusable, labelled regions, so they can be
+  scrolled from the keyboard.

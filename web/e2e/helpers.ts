@@ -22,7 +22,7 @@ export type ScreenTitle = (typeof SCREENS)[number];
 
 /** Design tokens (TH in web/design/WOMM Console.dc.html). */
 export const TH = {
-  light: { bg: '#F3F6F6', card: '#FFFFFF', soft: '#EDF2F2', line: '#DCE4E4', ink: '#0F0F0F', n1: '#4A565A', n2: '#687477', accInk: '#00737A', accSoft: '#D6F5F6', side: '#0F0F0F', hl: '#C4F1F3' },
+  light: { bg: '#F3F6F6', card: '#FFFFFF', soft: '#EDF2F2', line: '#DCE4E4', ink: '#0F0F0F', n1: '#4A565A', n2: '#626E71', accInk: '#00737A', accSoft: '#D6F5F6', side: '#0F0F0F', hl: '#C4F1F3' },
   dark: { bg: '#0A1011', card: '#111A1C', soft: '#182326', line: '#253235', ink: '#EDF3F3', n1: '#A9B5B7', n2: '#8A9799', accInk: '#3ED9E0', accSoft: '#0C3033', side: '#050809', hl: '#0F4A4E' },
 } as const;
 

@@ -56,7 +56,7 @@ export function Pipeline() {
             ))}
           </div>
         </div>
-        <div style={{ overflowX: 'auto', padding: '22px 18px 24px' }}>
+        <div role="region" aria-label="Pipeline stages" tabIndex={0} style={{ overflowX: 'auto', padding: '22px 18px 24px' }}>
           <div style={{ display: 'flex', alignItems: 'center', minWidth: 'max-content' }}>
             {cols.map(({ ids, i }) => {
               const first = statusAt(rv.trace, ids[0] ?? 'board', rv.clock);
@@ -181,7 +181,7 @@ export function Pipeline() {
               <div style={{ fontSize: 13, color: 'var(--n1)', marginTop: 4 }}>Findings appear here as experts post them.</div>
             </div>
           )}
-          <div style={{ display: 'flex', flexDirection: 'column', maxHeight: 560, overflowY: 'auto' }}>
+          <div role="region" aria-label="Shared impact board" tabIndex={0} style={{ display: 'flex', flexDirection: 'column', maxHeight: 560, overflowY: 'auto' }}>
             {feed.items.map((f) => {
               const b = badge(f.badge);
               return (

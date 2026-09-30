@@ -10,3 +10,5 @@ a{color:#00737A}
 a:hover{color:#0F0F0F}
 button{font-family:inherit}
 button:disabled{cursor:default !important;opacity:.7}
+/* Keyboard focus must stay visible (WCAG 2.4.7); !important beats inline `outline: none`. */
+:focus-visible{outline:2px solid var(--accInk) !important;outline-offset:2px}
