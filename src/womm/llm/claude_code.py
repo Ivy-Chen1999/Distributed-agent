@@ -483,6 +483,16 @@ class ClaudeCodeBackend(LLMBackend):
         report.latency_s["preflight"] = round(time.monotonic() - t, 2)
         report.checks["auth_preflight"] = True
 
+        try:
+            return await self._isolation_checks(report, model, timeout_s)
+        finally:
+            # Fail closed: an exception in the checks below still leaves a failed report.
+            if self.isolation_report is None:
+                self.isolation_report = report
+
+    async def _isolation_checks(
+        self, report: SelfCheckReport, model: str, timeout_s: float
+    ) -> SelfCheckReport:
         canary = f"WOMM-CANARY-{secrets.token_hex(6)}"
         argv = self.build_argv(
             model=model,

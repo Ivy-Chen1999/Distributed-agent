@@ -1,7 +1,7 @@
 ---
 title: "feat: WOMM v0 end-to-end skeleton (RIA pipeline + evaluation baseline)"
 type: feat
-status: active
+status: completed
 date: 2026-09-28
 origin: docs/brainstorms/2026-09-28-womm-phased-requirements.md
 ---

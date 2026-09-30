@@ -64,15 +64,21 @@ function detailOf(body: unknown, fallback: string): string {
   return fallback;
 }
 
-export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+/** Client-side cap per request; `ask` waits longer than the API's own 120 s answer timeout. */
+export const REQUEST_TIMEOUT_MS = 20_000;
+export const ASK_TIMEOUT_MS = 150_000;
+
+export async function request<T>(path: string, init: RequestInit = {}, timeoutMs = REQUEST_TIMEOUT_MS): Promise<T> {
   const headers = new Headers(init.headers);
   const token = getToken();
   if (token) headers.set('Authorization', `Bearer ${token}`);
   if (init.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
+  const signal = init.signal ?? (typeof AbortSignal.timeout === 'function' ? AbortSignal.timeout(timeoutMs) : undefined);
   let res: Response;
   try {
-    res = await fetch(path, { ...init, headers });
+    res = await fetch(path, { ...init, headers, signal });
   } catch (e) {
+    if (e instanceof DOMException && e.name === 'TimeoutError') throw new ApiError(0, `The WOMM API did not answer within ${Math.round(timeoutMs / 1000)}s`);
     throw new ApiError(0, `Cannot reach the WOMM API (${e instanceof Error ? e.message : 'network error'})`);
   }
   if (res.status === 401) {
@@ -90,6 +96,8 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
     }
   }
   if (!res.ok) throw new ApiError(res.status, detailOf(body, `${res.status} ${res.statusText || 'error'}`));
+  // Every API route answers JSON; text here means a proxy or the SPA answered instead.
+  if (typeof body === 'string') throw new ApiError(res.status, `Unexpected non-JSON response from ${path}`);
   return body as T;
 }
 
@@ -110,7 +118,7 @@ export const api = {
       body: JSON.stringify(overrides ? { scenario_id: scenarioId, overrides } : { scenario_id: scenarioId }),
     }),
   ask: (runId: string, question: string) =>
-    request<AskAnswer>(`/runs/${enc(runId)}/ask`, { method: 'POST', body: JSON.stringify({ question }) }),
+    request<AskAnswer>(`/runs/${enc(runId)}/ask`, { method: 'POST', body: JSON.stringify({ question }) }, ASK_TIMEOUT_MS),
 };
 
 /** Human message for a failed call, in the console's voice. */

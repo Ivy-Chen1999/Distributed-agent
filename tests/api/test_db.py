@@ -1,8 +1,8 @@
-from womm.api.db import Database
+from womm.api.db import Database, result_error_kind
 from womm.decisions.stub import StubDecisionService
 from womm.graph.build import run_scenario
 from womm.llm.fake import FakeBackend
-from womm.models.run import CodeIdentity, RunEvent
+from womm.models.run import CodeIdentity, RunEvent, RunResult, RunStatus
 
 from ..graph.conftest import fake_sv, fixture, good_script  # noqa: F401
 
@@ -38,6 +38,27 @@ async def test_reconcile_orphans(db):
     run = await db.get_run("running")
     assert (run["status"], run["error_kind"]) == ("failed", "orphaned")
     assert (await db.get_run("done"))["error_kind"] == "timeout"
+
+
+def _result(status: RunStatus, error: str | None) -> RunResult:
+    return RunResult(
+        run_id="r", scenario_id="s", status=status, system_version="sv", error=error,
+        code_identity=CodeIdentity(git_sha="t", dirty=False),
+    )  # fmt: skip
+
+
+def test_result_error_kind():
+    assert result_error_kind(_result(RunStatus.succeeded, None)) is None
+    failed = _result(RunStatus.failed, "planner failed: [timeout] claude CLI timed out")
+    assert result_error_kind(failed) == "timeout"
+    assert result_error_kind(_result(RunStatus.failed, "all experts failed")) == "pipeline_failed"
+
+
+async def test_failed_result_stores_error_kind(db):
+    await db.create_run("r", "s", "sv")
+    await db.mark_running("r")
+    assert await db.save_result(_result(RunStatus.failed, "planner failed: [auth] not logged in"))
+    assert (await db.get_run("r"))["error_kind"] == "auth"
 
 
 async def test_fake_run_persisted_consistently(db, fixture):  # noqa: F811

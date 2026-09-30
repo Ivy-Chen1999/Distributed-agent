@@ -42,6 +42,13 @@ export interface RunData {
 }
 
 export const POLL_MS = 1000;
+export const RETRY_MAX_MS = 30_000;
+
+/** Backoff after `n` consecutive failures: 3 s, 6 s, 12 s, ... capped, with ±20% jitter. */
+export function retryDelay(n: number, rand = Math.random): number {
+  const base = Math.min(RETRY_MAX_MS, POLL_MS * 3 * 2 ** Math.max(0, n - 1));
+  return Math.round(base * (0.8 + 0.4 * rand()));
+}
 
 /**
  * Fetch a run and its events. While queued/running, poll `GET /runs/{id}/events?after=` every
@@ -63,6 +70,7 @@ export function useRunData(runId: string | null, enabled: boolean, onFinished?: 
     let after = 0;
     let events: RunEvent[] = [];
     let wasActive = false;
+    let failures = 0;
     setData({ run: null, events: [], loading: true, error: null });
 
     const pullEvents = async () => {
@@ -73,8 +81,11 @@ export function useRunData(runId: string | null, enabled: boolean, onFinished?: 
           const seen = new Set(events.map((e) => e.seq));
           events = [...events, ...page.events.filter((e) => !seen.has(e.seq))];
         }
-        after = Math.max(after, page.next_after ?? after);
-        if (page.events.length < 500) return;
+        const next = Math.max(after, page.next_after ?? after);
+        const stuck = next === after;
+        after = next;
+        // A full page that does not move the cursor would loop forever; wait for the next tick.
+        if (page.events.length < 500 || stuck) return;
       }
     };
 
@@ -85,6 +96,7 @@ export function useRunData(runId: string | null, enabled: boolean, onFinished?: 
         await pullEvents();
         if (!live) return;
         const done = isFinished(run.status);
+        failures = 0;
         setData({ run, events, loading: false, error: null });
         if (!done) {
           wasActive = true;
@@ -96,8 +108,8 @@ export function useRunData(runId: string | null, enabled: boolean, onFinished?: 
         if (!live) return;
         const msg = describeError(e);
         setData((d) => ({ ...d, loading: false, error: msg }));
-        // Keep polling an active run through transient errors; stop on auth / not found.
-        if (!(e instanceof ApiError && (e.status === 401 || e.status === 404)) && wasActive) timer = setTimeout(tick, POLL_MS * 3);
+        // Retry transient errors with backoff (including a failed first load); stop on auth / not found.
+        if (!(e instanceof ApiError && (e.status === 401 || e.status === 404))) timer = setTimeout(tick, retryDelay(++failures));
       }
     };
     tick();

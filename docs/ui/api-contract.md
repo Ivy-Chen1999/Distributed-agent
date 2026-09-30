@@ -83,6 +83,8 @@ Newest first.
 ```
 `decisions`, `grounding`, `board`, `failures`, `usage`, `code_identity` appear once the run has
 finished; `dossier` only for succeeded/degraded/no_changes. While running, use the events.
+`error_kind` on a failed run is the failure class (`timeout`, `auth`, `orphaned`, `cancelled`,
+`process_error`, …; `pipeline_failed` when the pipeline failed without a tagged cause).
 
 ### `GET /runs/{run_id}/events?after=N&limit=500`
 `{"run_id": "…", "events": [{"seq": 1, "node": "planner", "event": "started"|"finished"|"failed", "payload": {…}, "at": "ISO"}], "next_after": N}`
@@ -97,4 +99,5 @@ the `at` timestamps.
 Body `{"question": "Who carries the penalty risk?"}` →
 `{"answer": "…", "cites": ["I19", "f_…"], "covered": true}`.
 Answers only from that run's dossier; `covered=false` when the dossier does not address it.
-409 if the run has no dossier.
+409 if the run has no dossier, 429 when 4 questions are already in flight, 502 when the backend
+fails, 504 when no answer arrives within 120 s.

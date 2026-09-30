@@ -1,9 +1,13 @@
 """Endpoints the WOMM Console uses beyond the core run API."""
 
+import asyncio
+
+import pytest
 from fastapi.testclient import TestClient
 
 from womm.api.app import create_app
 from womm.data.fixtures import load_fixture
+from womm.llm.base import LLMError
 from womm.llm.fake import FakeBackend
 
 from ..graph.conftest import fake_sv, good_script
@@ -11,10 +15,10 @@ from .test_app import AUTH, _settings, _wait
 from .test_db import synthesis_all
 
 
-def _client(database_url, script, **kw):
+def _client(database_url, script, backend=None, **kw):
     app = create_app(
         _settings(database_url), sv=fake_sv(), fixture=load_fixture(),
-        backends={"fake": FakeBackend(script)}, orphan_stale_after_s=0, **kw,
+        backends={"fake": backend or FakeBackend(script)}, orphan_stale_after_s=0, **kw,
     )  # fmt: skip
     return TestClient(app)
 
@@ -100,6 +104,41 @@ def test_ask_without_dossier_is_409(database_url):
         run_id, _ = _finished_run(c)
         r = c.post(f"/runs/{run_id}/ask", headers=AUTH, json={"question": "q"})
         assert r.status_code == 409
+
+
+def test_ask_unknown_run_is_404(database_url):
+    with _client(database_url, {}) as c:
+        r = c.post("/runs/run_nope/ask", headers=AUTH, json={"question": "q"})
+        assert r.status_code == 404
+
+
+@pytest.mark.parametrize(
+    ("failure", "detail"),
+    [(LLMError("rate_limit", "slow down"), "rate_limit"), (RuntimeError("boom"), "RuntimeError")],
+)
+def test_ask_backend_failure_is_502(database_url, failure, detail):
+    script = good_script(synthesis_all())
+    script["ask"] = [failure]
+    with _client(database_url, script) as c:
+        run_id, _ = _finished_run(c)
+        r = c.post(f"/runs/{run_id}/ask", headers=AUTH, json={"question": "q"})
+        assert r.status_code == 502 and detail in r.json()["detail"]
+
+
+def test_ask_times_out_with_504(database_url):
+    backend = FakeBackend(good_script(synthesis_all()))
+    real_call = backend.call
+
+    async def slow_ask(role_name, *a, **k):
+        if role_name == "ask":
+            await asyncio.sleep(5)
+        return await real_call(role_name, *a, **k)
+
+    backend.call = slow_ask
+    with _client(database_url, {}, backend=backend, ask_timeout_s=0.1) as c:
+        run_id, _ = _finished_run(c)
+        r = c.post(f"/runs/{run_id}/ask", headers=AUTH, json={"question": "q"})
+        assert r.status_code == 504
 
 
 def test_console_served_when_built(database_url, tmp_path):

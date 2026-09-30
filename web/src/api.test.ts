@@ -6,6 +6,26 @@ const respond = (status: number, body: unknown) => vi.fn(async () => new Respons
 afterEach(() => vi.unstubAllGlobals());
 
 describe('api client', () => {
+  it('maps a timed-out request to a readable ApiError', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new DOMException('signal timed out', 'TimeoutError'); }));
+    const e = await api.system().catch((x) => x);
+    expect(e).toBeInstanceOf(ApiError);
+    expect(e).toMatchObject({ status: 0, message: 'The WOMM API did not answer within 20s' });
+  });
+
+  it('gives every request an abort signal, with a longer budget for ask', async () => {
+    const spy = vi.spyOn(AbortSignal, 'timeout');
+    vi.stubGlobal('fetch', respond(200, { answer: 'a', cites: [], covered: true }));
+    await api.ask('run_1', 'q');
+    expect(spy).toHaveBeenLastCalledWith(150_000);
+    spy.mockRestore();
+  });
+
+  it('rejects a non-JSON 2xx body instead of passing a string through', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('<!doctype html>', { status: 200 })));
+    await expect(api.system()).rejects.toMatchObject({ message: 'Unexpected non-JSON response from /system' });
+  });
+
   it('sends the stored bearer token', async () => {
     setToken('secret-token-123456');
     const f = respond(200, { runs: [] });

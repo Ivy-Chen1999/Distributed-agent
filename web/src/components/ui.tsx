@@ -1,6 +1,6 @@
 // Small primitives reproducing the design's inline styles, including style-hover / style-focus.
 import { useState, type ButtonHTMLAttributes, type CSSProperties, type InputHTMLAttributes, type ReactNode } from 'react';
-import { CARD, FONT, LABEL, RED } from '../design';
+import { CARD, FONT, RED } from '../design';
 
 type BtnProps = ButtonHTMLAttributes<HTMLButtonElement> & { hover?: CSSProperties };
 
@@ -49,7 +49,6 @@ export const Dot = ({ c, size = 7, radius = '50%', anim, style }: { c: string; s
   <span style={{ width: size, height: size, borderRadius: radius, background: c, flex: 'none', animation: anim ?? 'none', ...style }} />
 );
 
-export const Label = ({ children, style }: { children: ReactNode; style?: CSSProperties }) => <div style={{ ...LABEL, ...style }}>{children}</div>;
 
 export const Arrow = ({ w = 20, color = 'var(--n2)' }: { w?: number; color?: string }) => (
   <svg width={w} height="10" viewBox="0 0 20 10" fill="none" stroke={color} strokeWidth="1.6">

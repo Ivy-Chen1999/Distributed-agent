@@ -7,6 +7,7 @@ in order, and recorded in schema_migrations.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +21,15 @@ from womm.models.system_version import SystemVersion
 
 MIGRATIONS_DIR = Path(__file__).parent / "migrations"
 ACTIVE = (RunStatus.queued.value, RunStatus.running.value)
+_KIND_TAG = re.compile(r"\[(\w+)\]")
+
+
+def result_error_kind(result: RunResult) -> str | None:
+    """A pipeline-level failure carries its kind as a `[kind]` tag in the error text."""
+    if result.status != RunStatus.failed:
+        return None
+    m = _KIND_TAG.search(result.error or "")
+    return m.group(1) if m else "pipeline_failed"
 
 
 class Database:
@@ -113,11 +123,16 @@ class Database:
             )
             return cur.rowcount == 1
 
-    async def heartbeat(self, instance_id: str) -> int:
+    async def heartbeat(self, instance_id: str, run_ids: list[str]) -> int:
+        """Refresh only the runs this process is still executing, so a run whose final write
+        failed stops heartbeating and the stale-owner reconcile fails it."""
+        if not run_ids:
+            return 0
         async with self.pool.connection() as conn:
             cur = await conn.execute(
-                "UPDATE runs SET heartbeat_at = now() WHERE instance_id = %s AND status = ANY(%s)",
-                (instance_id, list(ACTIVE)),
+                "UPDATE runs SET heartbeat_at = now()"
+                " WHERE instance_id = %s AND run_id = ANY(%s) AND status = ANY(%s)",
+                (instance_id, run_ids, list(ACTIVE)),
             )
             return cur.rowcount
 
@@ -126,9 +141,9 @@ class Database:
         (and stores nothing) when the run is no longer active, e.g. reconciled as orphaned."""
         async with self.pool.connection() as conn, conn.transaction():
             cur = await conn.execute(
-                "UPDATE runs SET status = %s, error = %s, finished_at = now(), result = %s"
-                " WHERE run_id = %s AND status = ANY(%s)",
-                (result.status.value, result.error,
+                "UPDATE runs SET status = %s, error = %s, error_kind = %s, finished_at = now(),"
+                " result = %s WHERE run_id = %s AND status = ANY(%s)",
+                (result.status.value, result.error, result_error_kind(result),
                  Jsonb(json.loads(result.model_dump_json())), result.run_id, list(ACTIVE)),
             )  # fmt: skip
             if cur.rowcount != 1:

@@ -483,6 +483,21 @@ async def test_self_check_auth_preflight_failure_raises_auth(cli):
     assert backend.isolation_report is not None and not backend.isolation_report.passed
 
 
+async def test_self_check_canary_exception_still_fails_closed(cli, monkeypatch):
+    cli.responses = [self_check_responder(CLEAN_INIT)]
+    backend = ClaudeCodeBackend()
+
+    async def canary_timeout(*a, **k):
+        raise LLMError("timeout", "canary run timed out")
+
+    monkeypatch.setattr(backend, "_run_cli", canary_timeout)
+    with pytest.raises(LLMError):
+        await backend.self_check(MODEL)
+    assert backend.isolation_report is not None and not backend.isolation_report.passed
+    with pytest.raises(LLMError, match="self-check failed"):
+        await backend.call("planner", "s", "u", Answer, cfg())
+
+
 async def test_cli_version_ok(cli):
     cli.responses = [("2.1.283 (Claude Code)\n", "", 0)]
     assert await cc.ClaudeCodeBackend().cli_version() == "2.1.283 (Claude Code)"

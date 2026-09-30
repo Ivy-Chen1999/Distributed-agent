@@ -6,6 +6,7 @@ to start without a token. Run with: `uvicorn --factory womm.api.app:create_app`.
 
 from __future__ import annotations
 
+import asyncio
 import hmac
 import json
 from contextlib import asynccontextmanager
@@ -82,6 +83,8 @@ def create_app(
     max_pending_runs: int = 20,
     orphan_stale_after_s: float = 120.0,
     heartbeat_s: float = 30.0,
+    max_concurrent_asks: int = 4,
+    ask_timeout_s: float = 120.0,
     web_dist: Path | None = WEB_DIST,
 ) -> FastAPI:
     settings = settings or load_settings()
@@ -93,6 +96,7 @@ def create_app(
         raise ConfigError("DATABASE_URL must be set to run the API")
     sv = sv or load_system_version(settings.system_version_path, REPO_ROOT)
     fixture = fixture or load_fixture()
+    ask_slots = asyncio.Semaphore(max_concurrent_asks)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -317,13 +321,27 @@ def create_app(
             "Dossier:\n" + json.dumps(_dossier_for_ask(dossier), ensure_ascii=False)
             + "\n\nQuestion: " + body.question
         )  # fmt: skip
+        if ask_slots.locked():
+            raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "too many questions in flight")
         try:
-            with tracing_context(metadata={"run_id": run_id, "system_version": sv.version_id},
-                                 tags=["ask"]):  # fmt: skip
-                out, _ = await backend.call("ask", ASK_PROMPT.read_text(encoding="utf-8"), user,
-                                            AskAnswer, role)  # fmt: skip
+            async with ask_slots:
+                with tracing_context(metadata={"run_id": run_id, "system_version": sv.version_id},
+                                     tags=["ask"]):  # fmt: skip
+                    out, _ = await asyncio.wait_for(
+                        backend.call("ask", ASK_PROMPT.read_text(encoding="utf-8"), user,
+                                     AskAnswer, role),
+                        ask_timeout_s,
+                    )  # fmt: skip
+        except TimeoutError:
+            raise HTTPException(
+                status.HTTP_504_GATEWAY_TIMEOUT, f"no answer within {ask_timeout_s:.0f}s"
+            ) from None
         except LLMError as exc:
             raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"could not answer: {exc}") from None
+        except Exception as exc:  # noqa: BLE001 - any backend fault is a bad gateway, not a 500
+            raise HTTPException(
+                status.HTTP_502_BAD_GATEWAY, f"could not answer: {type(exc).__name__}"
+            ) from None
         known = _dossier_ids(dossier)
         return {"answer": out.answer, "cites": [c for c in out.cites if c in known],
                 "covered": out.covered}  # fmt: skip

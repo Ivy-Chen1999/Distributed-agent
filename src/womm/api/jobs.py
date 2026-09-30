@@ -42,7 +42,8 @@ class JobRunner:
     stale_after_s: float = 120.0
     instance_id: str = field(default_factory=lambda: f"inst_{uuid.uuid4()}")
     _sem: asyncio.Semaphore = field(init=False)
-    _tasks: set[asyncio.Task] = field(init=False, default_factory=set)
+    _tasks: dict[str, asyncio.Task] = field(init=False, default_factory=dict)
+    _reserved: int = field(init=False, default=0)
     _maintenance: asyncio.Task | None = field(init=False, default=None)
 
     def __post_init__(self) -> None:
@@ -55,7 +56,7 @@ class JobRunner:
         """Heartbeat this instance's runs and fail other owners' stale ones, forever."""
         while True:
             try:
-                await self.db.heartbeat(self.instance_id)
+                await self.db.heartbeat(self.instance_id, list(self._tasks))
                 if n := await self.db.reconcile_orphans(self.stale_after_s):
                     log.warning("marked %d orphaned run(s) failed", n)
             except Exception:  # noqa: BLE001 - maintenance must keep going
@@ -65,16 +66,21 @@ class JobRunner:
     async def submit(self, scenario_id: str, sv: SystemVersion | None = None) -> str:
         """Queue a run with the runner's version, or a derived one (e.g. with overrides)."""
         self.fixture.scenario(scenario_id)  # raises FixtureError for unknown scenarios
-        if len(self._tasks) >= self.max_pending_runs:
-            raise QueueFull(f"{len(self._tasks)} runs already queued or running")
-        sv = sv or self.sv
-        if sv is not self.sv:
-            await self.db.upsert_system_version(sv)
-        run_id = f"run_{uuid.uuid4()}"
-        await self.db.create_run(run_id, scenario_id, sv.version_id, self.instance_id)
-        task = asyncio.create_task(self._execute(run_id, scenario_id, sv), name=run_id)
-        self._tasks.add(task)
-        task.add_done_callback(self._tasks.discard)
+        # Check and reserve before the first await, so a burst of submits cannot overshoot.
+        if self.active >= self.max_pending_runs:
+            raise QueueFull(f"{self.active} runs already queued or running")
+        self._reserved += 1
+        try:
+            sv = sv or self.sv
+            if sv is not self.sv:
+                await self.db.upsert_system_version(sv)
+            run_id = f"run_{uuid.uuid4()}"
+            await self.db.create_run(run_id, scenario_id, sv.version_id, self.instance_id)
+            task = asyncio.create_task(self._execute(run_id, scenario_id, sv), name=run_id)
+            self._tasks[run_id] = task
+            task.add_done_callback(lambda _: self._tasks.pop(run_id, None))
+        finally:
+            self._reserved -= 1
         return run_id
 
     async def _event(self, event: RunEvent) -> None:
@@ -106,7 +112,7 @@ class JobRunner:
     async def _fail(self, run_id: str, kind: str, message: str) -> None:
         try:
             await self.db.mark_failed(run_id, kind, message)
-        except Exception:  # noqa: BLE001 - the stale-heartbeat reconcile will catch it later
+        except Exception:  # noqa: BLE001 - the task ends, heartbeats stop, reconcile fails it
             log.exception("could not mark run %s failed", run_id)
 
     async def shutdown(self) -> None:
@@ -114,10 +120,11 @@ class JobRunner:
             self._maintenance.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await self._maintenance
-        for task in list(self._tasks):
+        tasks = list(self._tasks.values())
+        for task in tasks:
             task.cancel()
-        await asyncio.gather(*self._tasks, return_exceptions=True)
+        await asyncio.gather(*tasks, return_exceptions=True)
 
     @property
     def active(self) -> int:
-        return len(self._tasks)
+        return len(self._tasks) + self._reserved
