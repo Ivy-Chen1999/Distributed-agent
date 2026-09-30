@@ -43,6 +43,16 @@ test('widening the window turns the drawer back into a sidebar', async ({ page }
   await expect(page.locator('aside#womm-nav')).toHaveCSS('position', 'sticky');
 });
 
+test('a new screen opens at the top, not at the previous scroll position', async ({ page }) => {
+  await finishedRun(page.request, SCENARIOS.sme);
+  await openConsole(page);
+  await go(page, 'Run pipeline');
+  await page.mouse.wheel(0, 1500);
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(500);
+  await go(page, 'Topology');
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+});
+
 test('topology and pipeline run top to bottom', async ({ page }) => {
   await finishedRun(page.request, SCENARIOS.sme);
   await openConsole(page);

@@ -68,7 +68,7 @@ describe('WOMM Console', () => {
       expect(screen.getAllByText('Replaying').length).toBeGreaterThan(0);
       expect(screen.getByText('Board is empty')).toBeTruthy();
       act(() => {
-        vi.advanceTimersByTime(20_000);
+        vi.advanceTimersByTime(120_000); // the 287.5 s fixture run at 3×
       });
       expect(screen.getAllByText('Succeeded').length).toBeGreaterThan(0);
     } finally {

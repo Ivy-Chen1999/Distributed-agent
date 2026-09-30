@@ -124,7 +124,8 @@ export function App() {
     if (!replay.active) return;
     const iv = setInterval(() => {
       setReplay((r) => {
-        const c = Math.min(trace.end, r.clock + speed * 1.5);
+        // `speed` is a real-time multiple: at 8× a 6-minute run replays in 45 s.
+        const c = Math.min(trace.end, r.clock + speed * 0.1);
         return c >= trace.end ? { active: false, clock: trace.end } : { active: true, clock: c };
       });
     }, 100);
@@ -198,7 +199,11 @@ export function App() {
     [run, flash],
   );
 
+  const screenRef = useRef(screen);
+  screenRef.current = screen;
   const go = useCallback((s: ScreenId, extra?: { tab?: DetailTab; sel?: string; openImp?: string | null }) => {
+    // A new screen starts at the top; a jump into an impact scrolls there after rendering.
+    if (s !== screenRef.current) window.scrollTo({ top: 0 });
     setScreen(s);
     setDrawer(false);
     if (extra?.tab) setTab(extra.tab);

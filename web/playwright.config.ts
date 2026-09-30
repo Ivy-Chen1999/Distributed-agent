@@ -9,14 +9,17 @@ process.env.WOMM_E2E_DATABASE ??= `womm_e2e_${Date.now().toString(36)}_${Math.ra
 process.env.WOMM_E2E_TOKEN ??= 'e2e-console-token-0123456789';
 const PORT = Number(process.env.WOMM_E2E_PORT ?? 8765);
 const LIVE = process.env.WOMM_E2E_LIVE === '1';
-const BASE_URL = LIVE ? (process.env.WOMM_E2E_LIVE_URL ?? '') : `http://localhost:${PORT}`;
+// WOMM_E2E_DEMO=1 records the demo video against a real server (see e2e/demo.spec.ts).
+const DEMO = process.env.WOMM_E2E_DEMO === '1';
+const REAL = LIVE || DEMO;
+const BASE_URL = REAL ? (process.env.WOMM_E2E_LIVE_URL ?? '') : `http://localhost:${PORT}`;
 const DATABASE_URL = `${PG}/${process.env.WOMM_E2E_DATABASE}`;
 process.env.WOMM_E2E_DATABASE_URL = DATABASE_URL;
 
 export default defineConfig({
   testDir: './e2e',
   // WOMM_E2E_LIVE=1 runs only the live spec against a real server (see e2e/live.spec.ts).
-  testMatch: LIVE ? /live\.spec\.ts$/ : /.*\.spec\.ts$/,
+  testMatch: DEMO ? /demo\.spec\.ts$/ : LIVE ? /live\.spec\.ts$/ : /.*\.spec\.ts$/,
   // One shared server and database; the console always opens the newest run, so specs run one
   // at a time to keep "the latest run" deterministic.
   fullyParallel: false,
@@ -32,8 +35,8 @@ export default defineConfig({
     ...(process.env.GITHUB_ACTIONS ? ([['github']] as const) : []),
   ],
   outputDir: 'test-results',
-  globalSetup: LIVE ? undefined : './e2e/global-setup.ts',
-  globalTeardown: LIVE ? undefined : './e2e/global-teardown.ts',
+  globalSetup: REAL ? undefined : './e2e/global-setup.ts',
+  globalTeardown: REAL ? undefined : './e2e/global-teardown.ts',
   use: {
     baseURL: BASE_URL,
     viewport: { width: 1440, height: 900 },
@@ -42,7 +45,7 @@ export default defineConfig({
     video: 'off',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } } }],
-  webServer: LIVE
+  webServer: REAL
     ? undefined
     : {
         // Playwright starts the webServer before globalSetup, so the fresh database is created
