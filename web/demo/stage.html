@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>WOMM demo stage</title>
+<link rel="stylesheet" href="../node_modules/@fontsource/manrope/400.css" />
+<link rel="stylesheet" href="../node_modules/@fontsource/manrope/600.css" />
+<link rel="stylesheet" href="../node_modules/@fontsource/manrope/700.css" />
+<link rel="stylesheet" href="../node_modules/@fontsource/manrope/800.css" />
+<style>
+  html, body { margin: 0; background: #0f0f0f; overflow: hidden; }
+  * { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+  #stage { position: relative; width: 1920px; height: 1080px; overflow: hidden; background: #0f0f0f; font-family: 'Manrope', sans-serif; }
+  .layer { position: absolute; inset: 0; overflow: hidden; display: none; }
+  .layer img.shot { position: absolute; left: 0; top: 0; transform-origin: 0 0; box-shadow: 0 0 0 1px rgba(255,255,255,.06); }
+  .ring { position: absolute; border: 4px solid #00C4CC; border-radius: 16px; box-shadow: 0 0 0 9999px rgba(10,16,17,.38); pointer-events: none; }
+  .card { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; padding: 0 160px; color: #FDFCFD; background: #0f0f0f; }
+  .card .kicker { font: 700 22px 'Manrope'; letter-spacing: .14em; text-transform: uppercase; color: #3ED9E0; }
+  .card .title { font: 800 120px/1.02 'Manrope'; letter-spacing: -.03em; margin-top: 18px; }
+  .card .sub { font: 400 36px/1.4 'Manrope'; color: #B7BDBE; margin-top: 26px; max-width: 1300px; }
+  .card .meta { font: 600 22px 'Manrope'; color: #7F8889; margin-top: 56px; letter-spacing: .02em; }
+  .card .rule { width: 120px; height: 6px; background: #00C4CC; border-radius: 3px; margin-top: 40px; }
+  .phones { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 56px; background: #0f0f0f; }
+  .phones img { height: 860px; border-radius: 34px; box-shadow: 0 0 0 10px #1c2426, 0 30px 80px rgba(0,0,0,.5); }
+  #caption { position: absolute; left: 50%; bottom: 44px; transform: translateX(-50%); max-width: 1640px; padding: 18px 34px; border-radius: 14px;
+    background: rgba(15,15,15,.92); color: #fff; font: 600 30px/1.4 'Manrope'; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,.35); text-wrap: balance; z-index: 1000; }
+  #progress { position: absolute; left: 0; bottom: 0; height: 5px; background: #00C4CC; z-index: 1001; }
+</style>
+</head>
+<body>
+<div id="stage"><div id="caption"></div><div id="progress"></div></div>
+<script src="stage.js"></script>
+</body>
+</html>
