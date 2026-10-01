@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+@font-face{font-family:'Manrope';src:url('fonts/Manrope-Regular.ttf') format('truetype');font-weight:400;font-display:swap}
+@font-face{font-family:'Manrope';src:url('fonts/Manrope-SemiBold.ttf') format('truetype');font-weight:600;font-display:swap}
+@font-face{font-family:'Manrope';src:url('fonts/Manrope-Bold.ttf') format('truetype');font-weight:700;font-display:swap}
+@font-face{font-family:'Manrope';src:url('fonts/Manrope-ExtraBold.ttf') format('truetype');font-weight:800;font-display:swap}
+@keyframes wpulse{0%{box-shadow:0 0 0 0 rgba(47,128,237,.55)}100%{box-shadow:0 0 0 7px rgba(47,128,237,0)}}
+@keyframes wfade{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Manrope',system-ui,sans-serif;background:#F3F6F6;-webkit-font-smoothing:antialiased}
+a{color:#00737A}
+a:hover{color:#0F0F0F}
+button{font-family:inherit}
+</style>
+</helmet>
+<div data-screen-label="WOMM Console" style="--bg:{{ t.bg }};--card:{{ t.card }};--soft:{{ t.soft }};--line:{{ t.line }};--ink:{{ t.ink }};--n1:{{ t.n1 }};--n2:{{ t.n2 }};--acc:#00C4CC;--accInk:{{ t.accInk }};--accSoft:{{ t.accSoft }};--side:{{ t.side }};--hl:{{ t.hl }};display:grid;grid-template-columns:236px minmax(0,1fr);min-height:100vh;background:var(--bg,#F3F6F6);color:var(--ink,#0F0F0F);font-family:'Manrope',system-ui,sans-serif">
+
+  <aside style="background:var(--side,#0F0F0F);color:#FDFCFD;padding:20px 16px;display:flex;flex-direction:column;gap:22px;position:sticky;top:0;height:100vh">
+    <div style="display:flex;align-items:center;gap:10px;padding:0 4px">
+      <div style="width:32px;height:32px;border-radius:7px;background:#00C4CC;display:grid;place-items:center;flex:none">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0F0F0F" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"></circle><circle cx="5" cy="19" r="2"></circle><circle cx="19" cy="19" r="2"></circle><path d="M12 7v5M12 12l-5.5 5.5M12 12l5.5 5.5"></path></svg>
+      </div>
+      <div>
+        <div style="font-weight:800;font-size:17px;letter-spacing:-.01em">WOMM</div>
+        <div style="font-size:11px;color:#8E9798;margin-top:1px;letter-spacing:.02em">Regulatory impact · multi-agent</div>
+      </div>
+    </div>
+    <div style="background:rgba(255,255,255,.06);border-radius:10px;padding:11px 12px">
+      <div style="font:700 11px/1.4 'Manrope',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#8E9798">Regulation</div>
+      <div style="font-size:13px;font-weight:700;margin-top:4px">EU AI Act · proposal</div>
+      <div style="font-size:11px;color:#B7BDBE;margin-top:2px">COM(2021) 206 · Art 53–55, 71</div>
+    </div>
+    <nav style="display:flex;flex-direction:column;gap:3px">
+      <sc-for list="{{ nav }}" as="n" hint-placeholder-count="7">
+        <button onClick="{{ n.go }}" style="display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:6px;border:none;background:{{ n.bg }};color:{{ n.col }};font:600 14px 'Manrope',sans-serif;cursor:pointer;text-align:left" style-hover="color:#FFFFFF">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="{{ n.icol }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{ n.icon }}"></path></svg>
+          <span style="flex:1">{{ n.label }}</span>
+          <sc-if value="{{ n.hasBadge }}" hint-placeholder-val="{{ false }}"><span style="font:700 11px 'Manrope',sans-serif;background:#00C4CC;color:#0F0F0F;border-radius:4px;padding:1px 6px">{{ n.badge }}</span></sc-if>
+        </button>
+      </sc-for>
+    </nav>
+    <div style="margin-top:auto;display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:#B7BDBE"><span style="width:7px;height:7px;border-radius:50%;background:{{ runDot }}"></span><span style="white-space:nowrap">{{ runLabel }} · {{ clockText }}</span></div>
+      <div style="font-size:11px;color:#7F8889;line-height:1.5">Every impact traces back to a provision, a quote and a source.</div>
+    </div>
+  </aside>
+
+  <div style="min-width:0;display:flex;flex-direction:column">
+    <header style="position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:14px;padding:14px 28px;border-bottom:1px solid var(--line);background:var(--card);flex-wrap:wrap">
+      <div style="min-width:0">
+        <div style="font-weight:600;font-size:20px;letter-spacing:-.01em">{{ screenTitle }}</div>
+        <div style="font-size:12px;color:var(--n2);margin-top:1px">SME impacts · <span style="font-family:'Manrope',sans-serif;font-variant-numeric:tabular-nums">eval_sme_impacts</span></div>
+      </div>
+      <div style="margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span style="display:inline-flex;align-items:center;gap:6px;background:var(--soft);border-radius:4px;padding:5px 9px;font:700 11px 'Manrope',sans-serif"><span style="width:7px;height:7px;border-radius:50%;background:{{ runDot }};animation:{{ runPulse }}"></span>{{ runLabel }}</span>
+        <button onClick="{{ copySv }}" title="Copy system version" style="flex:none;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;background:var(--soft);border:none;border-radius:4px;padding:5px 9px;font:600 11px 'Manrope',sans-serif;font-variant-numeric:tabular-nums;color:var(--n1);cursor:pointer">{{ svLabel }}</button>
+        <button onClick="{{ toggleTheme }}" title="Switch theme" style="flex:none;width:34px;height:34px;display:grid;place-items:center;background:transparent;border:1px solid var(--line);border-radius:4px;color:var(--ink);cursor:pointer" style-hover="border-color:#00C4CC">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="{{ themeIcon }}"></path></svg>
+        </button>
+        <button onClick="{{ run }}" disabled="{{ running }}" style="flex:none;white-space:nowrap;display:inline-flex;align-items:center;gap:8px;background:#00C4CC;color:#0F0F0F;border:none;border-radius:4px;padding:9px 16px;font:700 13px 'Manrope',sans-serif;letter-spacing:.02em;cursor:pointer" style-hover="background:#33D3D9">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="#0F0F0F"><path d="M6 4l14 8-14 8z"></path></svg>{{ runBtn }}
+        </button>
+      </div>
+    </header>
+
+    <main style="padding:24px 28px 48px;display:flex;flex-direction:column;gap:18px;min-width:0">
+
+      <!-- OVERVIEW -->
+      <sc-if value="{{ isOverview }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;flex-direction:column;gap:18px">
+          <div style="display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap">
+            <div style="flex:1;min-width:280px">
+              <div style="font:700 11px/1.4 'Manrope',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--accInk)">Latest run · 28 Sep 2026, 16:18</div>
+              <h1 style="font-size:32px;font-weight:600;letter-spacing:-.015em;margin:8px 0 10px;line-height:1.25;text-wrap:balance">What the AI Act proposal changes for SMEs</h1>
+              <p style="font-size:14px;color:var(--n1);line-height:1.55;margin:0;max-width:64ch;text-wrap:pretty">Four provisions changed: regulatory sandboxes, personal-data reuse, SME measures and penalties. Three expert agents read them in parallel and posted to one shared board.</p>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button onClick="{{ goDetail }}" style="background:var(--ink);color:var(--card);border:none;border-radius:4px;padding:11px 18px;font:700 13px 'Manrope',sans-serif;letter-spacing:.02em;cursor:pointer;white-space:nowrap" style-hover="background:#00C4CC;color:#0F0F0F">Open impact dossier</button>
+              <button onClick="{{ goPipeline }}" style="background:transparent;color:var(--ink);border:1px solid var(--ink);border-radius:4px;padding:10px 16px;font:700 13px 'Manrope',sans-serif;cursor:pointer;white-space:nowrap">Watch pipeline</button>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px">
+            <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="5">
+              <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px">
+                <div style="font:700 11px/1.4 'Manrope',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--n2)">{{ k.label }}</div>
+                <div style="font-size:28px;font-weight:600;margin-top:8px;font-variant-numeric:tabular-nums;letter-spacing:-.01em;display:flex;align-items:center;gap:8px;white-space:nowrap"><sc-if value="{{ k.hasDot }}" hint-placeholder-val="{{ false }}"><span style="width:9px;height:9px;border-radius:50%;background:{{ k.dot }}"></span></sc-if>{{ k.value }}</div>
+                <div style="font-size:12px;color:var(--n2);margin-top:2px">{{ k.sub }}</div>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:16px;align-items:start">
+            <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px 18px">
+              <div style="display:flex;align-items:center;gap:8px"><div style="font:700 11px/1.4 'Manrope',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--n2)">Agent latency</div><span style="margin-left:auto;font-size:12px;color:var(--n2)">Experts run in parallel</span></div>
+              <div style="display:flex;align-items:center;gap:5px;margin:12px 0 16px;flex-wrap:wrap">
+                <sc-for list="{{ flowPills }}" as="p" hint-placeholder-count="6">
+                  <div style="display:flex;align-items:center;gap:5px"><sc-if value="{{ p.arrow }}" hint-placeholder-val="{{ false }}"><svg width="14" height="10" viewBox="0 0 20 10" fill="none" stroke="var(--n2)" stroke-width="1.6"><path d="M0 5h17M13 1l4 4-4 4"></path></svg></sc-if><span style="display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:4px;padding:4px 8px;font:700 11px 'Manrope',sans-serif"><span style="width:7px;height:7px;border-radius:2px;background:{{ p.c }}"></span>{{ p.label }}</span></div>
+                </sc-for>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:10px">
+                <sc-for list="{{ latBars }}" as="b" hint-placeholder-count="5">
+                  <div style="display:grid;grid-template-columns:110px minmax(0,1fr) 110px;gap:12px;align-items:center">
+                    <span style="font-size:13px;font-weight:600;display:flex;align-items:center;gap:7px"><span style="width:7px;height:7px;border-radius:2px;background:{{ b.c }}"></span>{{ b.name }}</span>
+                    <div style="height:8px;background:var(--soft);border-radius:2px;overflow:hidden"><div style="width:{{ b.w }};height:100%;background:{{ b.bar }};border-radius:2px;transition:width .3s"></div></div>
+                    <span style="font:600 12px 'Manrope',sans-serif;font-variant-numeric:tabular-nums;color:{{ b.tc }};text-align:right">{{ b.meta }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+
+            <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px 10px">
+              <div style="font:700 11px/1.4 'Manrope',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--n2)">Needs your review</div>
+              <div style="display:flex;flex-direction:column;margin-top:6px">
+                <sc-for list="{{ attention }}" as="a" hint-placeholder-count="3">
+                  <button onClick="{{ a.go }}" style="display:flex;align-items:center;gap:12px;padding:12px 0;border:none;border-bottom:1px solid var(--line);background:transparent;color:var(--ink);text-align:left;cursor:pointer" style-hover="color:#00A9B0">
+                    <span style="font-size:24px;font-weight:600;width:34px;font-variant-numeric:tabular-nums">{{ a.n }}</span>
+                    <span style="flex:1"><span style="display:block;font-size:14px;font-weight:700">{{ a.title }}</span><span style="display:block;font-size:12px;color:var(--n2);margin-top:2px;line-height:1.4">{{ a.sub }}</span></span>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"></path></svg>
+                  </button>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+
+          <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden">
+            <div style="padding:14px 18px;border-bottom:1px solid var(--line);font:700 11px/1.4 'Manrope',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--n2)">Recent runs</div>
+            <div style="overflow-x:auto">
+              <div style="min-width:760px">
+                <div style="display:grid;grid-template-columns:1.2fr 1.6fr 1fr .7fr .8fr .8fr 1.1fr;gap:12px;padding:9px 18px;font:700 11px 'Manrope',sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--n2);background:var(--soft)">
+                  <span>Run</span><span>Scenario</span><span>Status</span><span>Impacts</span><span>Grounding</span><span>Time</span><span>System version</span>
+                </div>
+                <sc-for list="{{ runs }}" as="r" hint-placeholder-count="4">
+                  <button onClick="{{ r.go }}" style="width:100%;display:grid;grid-template-columns:1.2fr 1.6fr 1fr .7fr .8fr .8fr 1.1fr;gap:12px;padding:12px 18px;border:none;border-top:1px solid var(--line);background:transparent;color:var(--ink);text-align:left;font-size:13px;cursor:pointer;align-items:center" style-hover="background:var(--soft)">
+                    <span style="font:600 12px 'Manrope',sans-serif;font-variant-numeric:tabular-nums">{{ r.id }}</span>
+                    <span><span style="display:block;font-weight:600">{{ r.name }}</span><span style="display:block;font-size:11px;color:var(--n2)">{{ r.kind }}</span></span>
+                    <span style="display:inline-flex;align-items:center;gap:6px;font-weight:600"><span style="width:7px;height:7px;border-radius:50%;background:{{ r.dot }}"></span>{{ r.status }}</span>
+                    <span>{{ r.impacts }}</span>
+                    <span style="font-variant-numeric:tabular-nums">{{ r.grounding }}</span>
+                    <span style="font-variant-numeric:tabular-nums">{{ r.time }}</span>
+                    <span style="font-family:'Manrope',sans-serif;font-variant-numeric:tabular-nums;font-size:12px;color:var(--n1)">{{ r.sv }}</span>
+                  </button>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- PIPELINE -->
+      <sc-if value="{{ isPipeline }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden">
+            <div style="display:flex;align-items:center;gap:18px;padding:14px 18px;border-bottom:1px solid var(--line);flex-wrap:wrap">
+              <div style="font:700 11px/1.4 'Manrope',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--n2);white-space:nowrap">Agent graph</div>
+              <div style="display:flex;gap:18px;flex-wrap:wrap;margin-left:auto">
+                <sc-for list="{{ strip }}" as="s" hint-placeholder-count="4">
+                  <div style="display:flex;align-items:baseline;gap:6px;white-space:nowrap"><span style="font:600 15px 'Manrope',sans-serif;font-variant-numeric:tabular-nums">{{ s.value }}</span><span style="font-size:12px;color:var(--n2)">{{ s.label }}</span></div>
+                </sc-for>
+              </div>
+            </div>
+            <div style="overflow-x:auto;padding:22px 18px 24px">
+              <div style="display:flex;align-items:center;min-width:max-content">
+                <sc-for list="{{ cols }}" as="col" hint-placeholder-count="8">
+                  <div style="display:flex;align-items:center">
+                    <sc-if value="{{ col.arrow }}" hint-placeholder-val="{{ true }}">
+                      <div style="width:26px;display:flex;align-items:center;justify-content:center;color:{{ col.arrowCol }}"><svg width="20" height="10" viewBox="0 0 20 10" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M0 5h17M13 1l4 4-4 4"></path></svg></div>
+                    </sc-if>
+                    <div style="display:flex;flex-direction:column;gap:8px;padding:{{ col.pad }};border:{{ col.frame }};border-radius:12px">
+                      <sc-for list="{{ col.nodes }}" as="nd" hint-placeholder-count="1">
+                        <button onClick="{{ nd.pick }}" style="width:124px;text-align:left;background:{{ nd.bg }};border:1px solid {{ nd.border }};border-radius:8px;padding:0;overflow:hidden;cursor:pointer;color:var(--ink);transition:border-color .2s,opacity .2s;opacity:{{ nd.op }}" style-hover="border-color:#00C4CC">
+                          <div style="height:3px;background:{{ nd.c }}"></div>
+                          <div style="padding:8px 10px 9px">
+                            <div style="font-size:13px;font-weight:700;line-height:1.25">{{ nd.name }}</div>
+                            <div style="font-size:11px;color:var(--n2);margin-top:1px;line-height:1.3">{{ nd.sub }}</div>
+                            <div style="display:flex;align-items:center;gap:5px;margin-top:8px;font:700 11px 'Manrope',sans-serif"><span style="width:7px;height:7px;border-radius:50%;background:{{ nd.stC }};animation:{{ nd.anim }}"></span>{{ nd.stT }}</div>
+                            <div style="font:600 11px 'Manrope',sans-serif;font-variant-numeric:tabular-nums;color:var(--n1);margin-top:3px">{{ nd.meta }}</div>
+                            <sc-if value="{{ nd.shadow }}" hint-placeholder-val="{{ false }}"><div style="margin-top:6px;display:inline-block;font:700 11px 'Manrope',sans-serif;letter-spacing:.06em;text-transform:uppercase;border:1px dashed var(--n2);color:var(--n1);border-radius:4px;padding:1px 5px">shadow</div></sc-if>
+                          </div>
+                        </button>
+                      </sc-for>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:16px;align-items:start">
+            <div style="display:flex;flex-direction:column;gap:16px">
+              <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px">
+                <div style="display:flex;align-items:center;gap:8px"><div style="font:700 11px/1.4 'Manrope',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--n2)">Router decisions</div><span style="margin-left:auto;font:700 11px 'Manrope',sans-serif;letter-spacing:.06em;text-transform:uppercase;border:1px dashed var(--n2);color:var(--n1);border-radius:4px;padding:1px 6px">{{ routerModeLabel }}</span></div>
+                <div style="font-size:12px;color:var(--n1);line-height:1.5;margin-top:6px">{{ routerNote }}</div>
+                <div style="display:flex;flex-direction:column;gap:10px;margin-top:14px">
+                  <sc-for list="{{ decisions }}" as="d" hint-placeholder-count="3">
+                    <div style="display:grid;grid-template-columns:96px minmax(0,1fr) 64px;gap:10px;align-items:center">
+                      <span style="font-size:13px;font-weight:700;display:flex;align-items:center;gap:7px"><span style="width:7px;height:7px;border-radius:2px;background:{{ d.c }}"></span>{{ d.name }}</span>
+                      <div style="height:6px;background:var(--soft);border-radius:2px;overflow:hidden"><div style="width:{{ d.w }};height:100%;background:{{ d.bar }}"></div></div>
+                      <span style="font:700 11px 'Manrope',sans-serif;color:{{ d.tc }};text-align:right">{{ d.decision }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+                <div style="font-size:11px;color:var(--n2);margin-top:12px">The decider is a stub for now. Relevance probabilities arrive with Jev.</div>
+              </div>
+              <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px">
+                <div style="font:700 11px/1.4 'Manrope',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--n2)">Selected node</div>
+                <div style="display:flex;align-items:center;gap:8px;margin-top:10px"><span style="width:10px;height:10px;border-radius:3px;background:{{ sel.c }}"></span><span style="font-size:16px;font-weight:600">{{ sel.name }}</span><span style="margin-left:auto;display:inline-flex;align-items:center;gap:5px;font:700 11px 'Manrope',sans-serif"><span style="width:7px;height:7px;border-radius:50%;background:{{ sel.stC }}"></span>{{ sel.stT }}</span></div>
+                <div style="font-size:13px;color:var(--n1);line-height:1.5;margin-top:6px">{{ sel.desc }}</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px">
+                  <sc-for list="{{ sel.facts }}" as="f" hint-placeholder-count="4">
+                    <div style="background:var(--soft);border-radius:6px;padding:8px 10px"><div style="font-size:11px;color:var(--n2)">{{ f.k }}</div><div style="font:600 12px 'Manrope',sans-serif;font-variant-numeric:tabular-nums;margin-top:2px;word-break:break-all">{{ f.v }}</div></div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+
+            <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden">
+              <div style="display:flex;align-items:center;gap:8px;padding:14px 18px;border-bottom:1px solid var(--line)"><div style="font:700 11px/1.4 'Manrope',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--n2)">Shared impact board · live</div><span style="margin-left:auto;font:600 11px 'Manrope',sans-serif;font-variant-numeric:tabular-nums;color:var(--n1)">{{ feedCount }}</span></div>
+              <sc-if value="{{ feedEmpty }}" hint-placeholder-val="{{ false }}">
+                <div style="padding:40px 24px;text-align:center"><div style="font-size:14px;font-weight:700">Board is empty</div><div style="font-size:13px;color:var(--n1);margin-top:4px">Findings appear here as experts post them.</div></div>
+              </sc-if>
+              <div style="display:flex;flex-direction:column;max-height:560px;overflow-y:auto">
+                <sc-for list="{{ feed }}" as="f" hint-placeholder-count="4">
+                  <div style="display:flex;gap:12px;padding:12px 18px;border-bottom:1px solid var(--line);animation:wfade .4s cubic-bezier(.2,0,0,1)">
+                    <span style="flex:none;width:4px;border-radius:2px;background:{{ f.c }}"></span>
+                    <div style="flex:1;min-width:0">
+                      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                        <span style="font-size:12px;font-weight:700">{{ f.agentName }}</span>
+                        <span style="font:500 11px 'Manrope',sans-serif;font-variant-numeric:tabular-nums;color:var(--n1)">{{ f.key }}</span>
+                        <span style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;font:700 11px 'Manrope',sans-serif;letter-spacing:.03em;color:{{ f.badgeC }};background:{{ f.badgeBg }};border-radius:4px;padding:3px 8px"><span style="width:6px;height:6px;border-radius:1px;background:{{ f.badgeC }}"></span>{{ f.badge }}</span>
+                      </div>
+                      <div style="font-size:13px;line-height:1.45;margin-top:4px;text-wrap:pretty">{{ f.impact }}</div>
+                      <div style="font-size:12px;color:var(--n2);margin-top:4px">{{ f.actor }} · confidence {{ f.conf }}</div>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- RUN DETAIL -->
+      <sc-if value="{{ isDetail }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;display:flex;gap:20px;flex-wrap:wrap;align-items:center">
+            <div style="flex:1;min-width:260px">
+              <div style="font:700 11px/1.4 'Manrope',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--accInk)">Impact dossier</div>
+              <div style="font-size:24px;font-weight:600;margin-top:6px;letter-spacing:-.01em">SME impacts · AI Act proposal</div>
+              <div style="font:500 12px 'Manrope',sans-serif;font-variant-numeric:tabular-nums;color:var(--n1);margin-top:4px">run_61c1165c · sv_44a681965332 · git ca8a81d28487</div>
+            </div>
+            <div style="display:flex;gap:22px;flex-wrap:wrap">
+              <sc-for list="{{ dossierCounts }}" as="c" hint-placeholder-count="4">
+                <div style="border-left:1px solid var(--ink);padding-left:14px"><div style="font-size:28px;font-weight:400;line-height:1.1;font-variant-numeric:tabular-nums">{{ c.n }}</div><div style="font-size:12px;color:var(--n1)">{{ c.label }}</div></div>
+              </sc-for>
+            </div>
+          </div>
+
+          <sc-if value="{{ dossierPending }}" hint-placeholder-val="{{ false }}">
+            <div style="background:var(--card);border:1px dashed var(--line);border-radius:12px;padding:40px 24px;text-align:center">
+              <div style="font-size:15px;font-weight:700">Dossier is assembling</div>
+              <div style="font-size:13px;color:var(--n1);margin-top:6px">Synthesis merges the board once all experts and the citation check finish. {{ clockText }} elapsed.</div>
+              <div style="display:flex;flex-direction:column;gap:8px;max-width:520px;margin:18px auto 0">
+                <div style="height:14px;border-radius:3px;background:var(--soft)"></div><div style="height:14px;width:82%;border-radius:3px;background:var(--soft)"></div><div style="height:14px;width:64%;border-radius:3px;background:var(--soft)"></div>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ dossierReady }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;flex-direction:column;gap:16px">
+              <div style="display:flex;gap:4px;border-bottom:1px solid var(--line);flex-wrap:wrap">
+                <sc-for list="{{ tabs }}" as="tb" hint-placeholder-count="5">
+                  <button onClick="{{ tb.go }}" style="background:transparent;border:none;border-bottom:2px solid {{ tb.line }};margin-bottom:-1px;padding:10px 12px;font:{{ tb.font }};color:var(--ink);cursor:pointer;display:flex;align-items:center;gap:6px">{{ tb.label }}<span style="font:600 11px 'Manrope',sans-serif;color:var(--n2)">{{ tb.n }}</span></button>
+                </sc-for>
+              </div>
+
+              <sc-if value="{{ tabImpacts }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex;flex-direction:column;gap:14px">
+                  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                    <span style="font-size:12px;color:var(--n2)">Group by</span>
+                    <div style="display:flex;background:var(--soft);border-radius:4px;padding:3px">
+                      <sc-for list="{{ groupOpts }}" as="g" hint-placeholder-count="2">
+                        <button onClick="{{ g.go }}" style="border:none;border-radius:3px;padding:6px 12px;white-space:nowrap;font:700 12px 'Manrope',sans-serif;background:{{ g.bg }};color:var(--ink);cursor:pointer">{{ g.label }}</button>
+                      </sc-for>
+                    </div>
+                    <span style="margin-left:auto;font-size:12px;color:var(--n2)">Open a quote to see it in context</span>
+                  </div>
+                  <sc-for list="{{ groups }}" as="gr" hint-placeholder-count="2">
+                    <div style="display:flex;flex-direction:column;gap:8px">
+                      <div style="display:flex;align-items:baseline;gap:4px 10px;margin:8px 0 4px;flex-wrap:wrap"><span style="flex:none;white-space:nowrap;font-size:15px;font-weight:600">{{ gr.label }}</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:500 11px 'Manrope',sans-serif;font-variant-numeric:tabular-nums;color:var(--n2)">{{ gr.meta }}</span></div>
+                      <sc-for list="{{ gr.items }}" as="im" hint-placeholder-count="2">
+                        <div style="background:var(--card);border:1px solid {{ im.border }};border-radius:12px;overflow:hidden">
+                          <button onClick="{{ im.toggle }}" style="width:100%;display:flex;gap:14px;align-items:flex-start;padding:14px 18px;border:none;background:transparent;color:var(--ink);text-align:left;cursor:pointer">
+                            <span style="font:700 12px 'Manrope',sans-serif;font-variant-numeric:tabular-nums;color:var(--accInk);flex:none;width:30px;padding-top:2px">{{ im.id }}</span>
+                            <span style="flex:1;min-width:0">
+                              <span style="display:block;font-size:15px;line-height:1.5;font-weight:600;text-wrap:pretty">{{ im.summary }}</span>
+                              <span style="display:flex;align-items:center;gap:12px;margin-top:8px;flex-wrap:wrap;font-size:12px;color:var(--n1)">
+                                <span style="display:flex;gap:8px">
+                                  <sc-for list="{{ im.agents }}" as="ag" hint-placeholder-count="2"><span style="display:inline-flex;align-items:center;gap:5px;font-weight:700"><span style="width:8px;height:8px;border-radius:50%;background:{{ ag.c }}"></span>{{ ag.n }}</span></sc-for>
+                                </span>
+                                <span style="white-space:nowrap">confidence {{ im.conf }}</span>
+                                <span style="white-space:nowrap">{{ im.merged }}</span>
+                                <span style="white-space:nowrap;font-family:'Manrope',sans-serif;font-variant-numeric:tabular-nums">{{ im.key }}</span>
+                              </span>
+                            </span>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;margin-top:2px;transform:{{ im.rot }};transition:transform .2s"><path d="M6 9l6 6 6-6"></path></svg>
+                          </button>
+                          <sc-if value="{{ im.open }}" hint-placeholder-val="{{ false }}">
+                            <div style="border-top:1px solid var(--line);padding:16px 18px 18px 62px;display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;background:var(--soft)">
+                              <sc-for list="{{ im.findings }}" as="fd" hint-placeholder-count="1">
+                                <div>
+                                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><span style="width:8px;height:8px;border-radius:50%;background:{{ fd.c }}"></span><span style="font-size:13px;font-weight:700">{{ fd.agentName }} finding</span><span style="font:500 11px 'Manrope',sans-serif;font-variant-numeric:tabular-nums;color:var(--n2)">{{ fd.id }}</span></div>
+                                  <div style="display:flex;flex-direction:column">
+                                    <sc-for list="{{ fd.steps }}" as="st" hint-placeholder-count="5">
+                                      <div style="display:grid;grid-template-columns:18px minmax(0,1fr);gap:10px">
+                                        <div style="display:flex;flex-direction:column;align-items:center"><span style="width:10px;height:10px;border-radius:50%;border:2px solid {{ fd.c }};background:var(--card);margin-top:3px;flex:none"></span><span style="flex:1;width:1px;background:{{ st.lineC }};margin:2px 0"></span></div>
+                                        <div style="padding-bottom:12px;min-width:0">
+                                          <div style="font:700 11px 'Manrope',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--n2)">{{ st.k }}</div>
+                                          <sc-if value="{{ st.plain }}" hint-placeholder-val="{{ true }}"><div style="font-size:13px;line-height:1.5;margin-top:2px;font-family:{{ st.ff }}">{{ st.v }}</div></sc-if>
+                                          <sc-if value="{{ st.isQuote }}" hint-placeholder-val="{{ false }}"><button onClick="{{ st.open }}" style="display:block;text-align:left;margin-top:4px;border:1px solid var(--line);background:var(--card);border-radius:6px;padding:9px 11px;font-size:13px;line-height:1.5;color:var(--ink);cursor:pointer" style-hover="border-color:#00C4CC">“{{ st.v }}” <span style="display:inline-block;font:700 11px 'Manrope',sans-serif;color:var(--accInk);text-decoration:underline;text-underline-offset:3px;margin-left:4px">View in source</span></button></sc-if>
+                                        </div>
+                                      </div>
+                                    </sc-for>
+                                  </div>
+                                </div>
+                              </sc-for>
+                            </div>
+                          </sc-if>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </sc-for>
+                  <div style="font-size:12px;color:var(--n2);text-align:center;padding:6px">Showing 11 of 25 impacts in this prototype.</div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ tabChains }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;flex-direction:column;gap:12px">
+                  <sc-for list="{{ chains }}" as="ch" hint-placeholder-count="3">
+                    <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px">
+                      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                        <sc-for list="{{ ch.steps }}" as="cs" hint-placeholder-count="3">
+                          <div style="display:flex;align-items:center;gap:6px"><sc-if value="{{ cs.arrow }}" hint-placeholder-val="{{ false }}"><svg width="18" height="10" viewBox="0 0 20 10" fill="none" stroke="var(--n2)" stroke-width="1.6"><path d="M0 5h17M13 1l4 4-4 4"></path></svg></sc-if><button onClick="{{ cs.go }}" title="{{ cs.title }}" style="border:1px solid var(--line);background:var(--soft);border-radius:4px;padding:6px 10px;font:700 12px 'Manrope',sans-serif;font-variant-numeric:tabular-nums;color:var(--ink);cursor:pointer;max-width:220px;text-align:left" style-hover="border-color:#00C4CC">{{ cs.id }} <span style="font:500 12px 'Manrope',sans-serif;color:var(--n1)">{{ cs.short }}</span></button></div>
+                        </sc-for>
+                      </div>
+                      <div style="font-size:13px;line-height:1.55;color:var(--n1);margin-top:12px;max-width:100ch">{{ ch.desc }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ tabDisagree }}" hint-placeholder-val="{{ false }}">
+                <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px">
+                  <div style="font:700 11px/1.4 'Manrope',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--n2)">Art 55(1)(a) · priority sandbox access</div>
+                  <div style="font-size:14px;line-height:1.55;margin-top:8px;max-width:95ch">{{ disagreement.note }}</div>
+                  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-top:16px">
+                    <sc-for list="{{ disagreement.sides }}" as="sd" hint-placeholder-count="3">
+                      <div style="border:1px solid var(--line);border-radius:10px;overflow:hidden">
+                        <div style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-top:4px solid {{ sd.c }};background:var(--soft)"><span style="font-size:13px;font-weight:700">{{ sd.agentName }}</span><span style="margin-left:auto;font:700 11px 'Manrope',sans-serif">{{ sd.stance }}</span></div>
+                        <div style="padding:12px">
+                          <div style="font-size:13px;line-height:1.5">{{ sd.impact }}</div>
+                          <div style="font:500 11px 'Manrope',sans-serif;font-variant-numeric:tabular-nums;color:var(--n2);margin-top:10px">{{ sd.id }} · confidence {{ sd.conf }}</div>
+                        </div>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <div style="font-size:12px;color:var(--n2);margin-top:12px">We keep both readings in the dossier. An analyst decides which one holds.</div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ tabQuestions }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;flex-direction:column;gap:16px">
+                  <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden">
+                    <sc-for list="{{ questions }}" as="q" hint-placeholder-count="4">
+                      <div style="display:flex;gap:14px;padding:14px 18px;border-bottom:1px solid var(--line);align-items:flex-start">
+                        <span style="font:700 12px 'Manrope',sans-serif;font-variant-numeric:tabular-nums;color:var(--n2);width:26px;flex:none;padding-top:2px">Q{{ q.n }}</span>
+                        <span style="flex:1;font-size:14px;line-height:1.55;text-wrap:pretty">{{ q.q }}</span>
+                        <span style="flex:none;font:700 11px 'Manrope',sans-serif;border-radius:4px;padding:3px 8px;background:{{ q.bg }};color:{{ q.col }}">{{ q.tag }}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px">
+                    <div style="font:700 11px/1.4 'Manrope',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--n2)">Failed experts</div>
+                    <sc-if value="{{ noFailures }}" hint-placeholder-val="{{ true }}"><div style="font-size:13px;color:var(--n1);margin-top:8px">None. All three experts returned valid findings.</div></sc-if>
+                    <sc-if value="{{ degraded }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:10px;margin-top:10px;border:1px solid #E5484D;border-radius:8px;padding:10px 12px"><span style="width:8px;height:8px;border-radius:50%;background:#E5484D"></span><span style="font-size:13px;font-weight:700">Workforce</span><span style="font:600 12px 'Manrope',sans-serif;font-variant-numeric:tabular-nums;color:var(--n1)">error_kind: timeout · 60.0s</span><span style="margin-left:auto;font-size:12px;color:var(--n1)">Run continued as degraded</span></div></sc-if>
+                  </div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ tabLog }}" hint-placeholder-val="{{ false }}">
+                <div style="background:#0B1112;border-radius:12px;padding:14px 0;color:#D5DEDF;font:500 13px/1.7 'Manrope',sans-serif;font-variant-numeric:tabular-nums;overflow-x:auto">
+                  <sc-for list="{{ logLines }}" as="l" hint-placeholder-count="6">
+                    <div style="display:grid;grid-template-columns:96px 54px 110px minmax(0,1fr);gap:12px;padding:1px 18px">
+                      <span style="color:#7F8B8D">{{ l.ts }}</span><span style="color:{{ l.lc }};font-weight:700">{{ l.level }}</span><span style="color:{{ l.c }}">{{ l.node }}</span><span>{{ l.msg }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+            </div>
+          </sc-if>
+        </div>
+      </sc-if>
+
+      <!-- AGENTS -->
+      <sc-if value="{{ isAgents }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <p style="font-size:14px;color:var(--n1);line-height:1.55;margin:0;max-width:72ch">Each agent runs in its own isolated process with a versioned prompt. The router picks relevant experts, experts post to a shared board, and synthesis merges what they found.</p>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px">
+            <sc-for list="{{ agentCards }}" as="a" hint-placeholder-count="6">
+              <div style="background:var(--card);border:1px solid {{ a.border }};border-radius:12px;overflow:hidden;display:flex;flex-direction:column">
+                <div style="height:4px;background:{{ a.c }}"></div>
+                <div style="padding:16px 18px;display:flex;flex-direction:column;gap:12px;flex:1">
+                  <div style="display:flex;align-items:center;gap:8px"><span style="font-size:16px;font-weight:600">{{ a.name }}</span><span style="font:700 11px 'Manrope',sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--n2)">{{ a.role }}</span><span style="margin-left:auto;display:inline-flex;align-items:center;gap:5px;font:700 11px 'Manrope',sans-serif"><span style="width:7px;height:7px;border-radius:50%;background:{{ a.stC }}"></span>{{ a.stT }}</span></div>
+                  <div style="font-size:13px;color:var(--n1);line-height:1.5">{{ a.desc }}</div>
+                  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+                    <sc-for list="{{ a.stats }}" as="s" hint-placeholder-count="3">
+                      <div style="background:var(--soft);border-radius:6px;padding:8px 10px"><div style="font:600 15px 'Manrope',sans-serif;font-variant-numeric:tabular-nums">{{ s.v }}</div><div style="font-size:11px;color:var(--n2)">{{ s.k }}</div></div>
+                    </sc-for>
+                  </div>
+                  <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:auto">
+                    <sc-for list="{{ a.tags }}" as="tg" hint-placeholder-count="3"><span style="font:500 11px 'Manrope',sans-serif;font-variant-numeric:tabular-nums;border:1px solid var(--line);border-radius:4px;padding:2px 6px;color:var(--n1)">{{ tg }}</span></sc-for>
+                  </div>
+                  <button onClick="{{ a.inspect }}" style="align-self:flex-start;background:transparent;border:none;padding:0;font:700 13px 'Manrope',sans-serif;color:var(--ink);text-decoration:underline;text-underline-offset:4px;cursor:pointer">Open in topology</button>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- TOPOLOGY -->
+      <sc-if value="{{ isTopo }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start">
+          <div style="flex:1 1 560px;min-width:0;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden">
+            <div style="display:flex;align-items:center;gap:8px 14px;padding:14px 18px;border-bottom:1px solid var(--line);flex-wrap:wrap">
+              <div style="font:700 11px/1.4 'Manrope',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--n2);white-space:nowrap">Process topology</div>
+              <div style="margin-left:auto;display:flex;gap:14px;font-size:12px;color:var(--n1);flex-wrap:wrap">
+                <span style="display:flex;align-items:center;gap:6px"><span style="width:18px;height:2px;background:#00C4CC"></span>data flow</span>
+                <span style="display:flex;align-items:center;gap:6px"><span style="width:18px;border-top:2px dashed var(--n2)"></span>shadow decision</span>
+                <span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border:1px dashed var(--n2);border-radius:3px"></span>isolated subprocess</span>
+              </div>
+            </div>
+            <div style="overflow-x:auto">
+              <div style="position:relative;height:480px;min-width:820px">
+                {{ edgesSvg }}
+                <sc-for list="{{ topo }}" as="tn" hint-placeholder-count="10">
+                  <button onClick="{{ tn.pick }}" style="position:absolute;left:{{ tn.x }};top:{{ tn.y }};transform:translate(-50%,-50%);width:112px;background:var(--card);border:{{ tn.border }};border-radius:10px;padding:8px 10px;text-align:left;cursor:pointer;color:var(--ink);box-shadow:{{ tn.shadow }}" style-hover="border-color:#00C4CC">
+                    <div style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:2px;background:{{ tn.c }};flex:none"></span><span style="font-size:12px;font-weight:700;line-height:1.2">{{ tn.name }}</span></div>
+                    <div style="display:flex;align-items:center;gap:5px;margin-top:5px;font:600 11px 'Manrope',sans-serif;color:var(--n1)"><span style="width:6px;height:6px;border-radius:50%;background:{{ tn.stC }};animation:{{ tn.anim }}"></span>{{ tn.host }}</div>
+                  </button>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+          <div style="flex:1 1 280px;max-width:100%;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;display:flex;flex-direction:column;gap:12px">
+            <div style="font:700 11px/1.4 'Manrope',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--n2)">Inspector</div>
+            <div style="display:flex;align-items:center;gap:8px"><span style="width:10px;height:10px;border-radius:3px;background:{{ sel.c }}"></span><span style="font-size:17px;font-weight:600">{{ sel.name }}</span></div>
+            <div style="font-size:13px;color:var(--n1);line-height:1.5">{{ sel.desc }}</div>
+            <div style="display:flex;flex-direction:column">
+              <sc-for list="{{ sel.facts }}" as="f" hint-placeholder-count="5">
+                <div style="display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);font-size:12px"><span style="color:var(--n2)">{{ f.k }}</span><span style="font-family:'Manrope',sans-serif;font-variant-numeric:tabular-nums;text-align:right;word-break:break-all">{{ f.v }}</span></div>
+              </sc-for>
+            </div>
+            <div>
+              <div style="font-size:11px;color:var(--n2);margin-bottom:6px">Receives from</div>
+              <div style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ sel.ins }}" as="i" hint-placeholder-count="1"><button onClick="{{ i.go }}" style="border:1px solid var(--line);background:var(--soft);border-radius:4px;padding:3px 8px;font:700 11px 'Manrope',sans-serif;color:var(--ink);cursor:pointer">{{ i.n }}</button></sc-for></div>
+              <div style="font-size:11px;color:var(--n2);margin:10px 0 6px">Sends to</div>
+              <div style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ sel.outs }}" as="o" hint-placeholder-count="1"><button onClick="{{ o.go }}" style="border:1px solid var(--line);background:var(--soft);border-radius:4px;padding:3px 8px;font:700 11px 'Manrope',sans-serif;color:var(--ink);cursor:pointer">{{ o.n }}</button></sc-for></div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ASK -->
+      <sc-if value="{{ isChat }}" hint-placeholder-val="{{ false }}">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:16px;align-items:start">
+          <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;display:flex;flex-direction:column;min-height:560px">
+            <div style="flex:1;padding:20px 22px;display:flex;flex-direction:column;gap:14px">
+              <sc-for list="{{ chat }}" as="m" hint-placeholder-count="3">
+                <div style="display:flex;justify-content:{{ m.justify }};animation:wfade .3s cubic-bezier(.2,0,0,1)">
+                  <div style="max-width:78%;background:{{ m.bg }};color:{{ m.col }};border:1px solid {{ m.border }};border-radius:10px;padding:11px 14px">
+                    <sc-if value="{{ m.isBot }}" hint-placeholder-val="{{ false }}"><div style="font:700 11px 'Manrope',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--accInk);margin-bottom:4px">WOMM · from this run's dossier</div></sc-if>
+                    <div style="font-size:14px;line-height:1.55;white-space:pre-wrap;text-wrap:pretty">{{ m.text }}</div>
+                    <sc-if value="{{ m.hasCites }}" hint-placeholder-val="{{ false }}">
+                      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px">
+                        <sc-for list="{{ m.cites }}" as="c" hint-placeholder-count="2"><button onClick="{{ c.go }}" style="border:1px solid var(--line);background:var(--card);border-radius:4px;padding:3px 8px;font:700 11px 'Manrope',sans-serif;font-variant-numeric:tabular-nums;color:var(--ink);cursor:pointer" style-hover="border-color:#00C4CC">{{ c.id }}</button></sc-for>
+                      </div>
+                    </sc-if>
+                  </div>
+                </div>
+              </sc-for>
+              <sc-if value="{{ thinking }}" hint-placeholder-val="{{ false }}"><div style="font-size:13px;color:var(--n2)">Reading the dossier…</div></sc-if>
+            </div>
+            <div style="border-top:1px solid var(--line);padding:14px 16px;display:flex;flex-direction:column;gap:10px">
+              <div style="display:flex;gap:6px;flex-wrap:wrap">
+                <sc-for list="{{ suggestions }}" as="s" hint-placeholder-count="4"><button onClick="{{ s.go }}" style="border:1px solid var(--line);background:transparent;border-radius:50px;padding:6px 12px;font:500 12px 'Manrope',sans-serif;color:var(--ink);cursor:pointer" style-hover="border-color:#00C4CC">{{ s.q }}</button></sc-for>
+              </div>
+              <div style="display:flex;gap:8px">
+                <input value="{{ draft }}" onChange="{{ onDraft }}" onKeyDown="{{ onKey }}" placeholder="Ask about an actor, a provision or a finding" style="flex:1;height:44px;border:1px solid var(--ink);border-radius:4px;padding:0 14px;font:400 14px 'Manrope',sans-serif;background:var(--card);color:var(--ink);outline:none" style-focus="border:2px solid #00C4CC">
+                <button onClick="{{ send }}" style="height:44px;background:#00C4CC;color:#0F0F0F;border:none;border-radius:4px;padding:0 18px;font:700 13px 'Manrope',sans-serif;cursor:pointer" style-hover="background:#33D3D9">Ask</button>
+              </div>
+            </div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;display:flex;flex-direction:column;gap:10px">
+            <div style="font:700 11px/1.4 'Manrope',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--n2)">Answering from</div>
+            <div style="font-size:13px;line-height:1.5">run_61c1165c · 25 impacts · 64 grounded quotes</div>
+            <div style="font-size:12px;color:var(--n1);line-height:1.5">Answers cite only this run. If the dossier doesn't cover something, WOMM says so instead of guessing.</div>
+            <button onClick="{{ run }}" style="align-self:flex-start;background:transparent;border:1px solid var(--ink);border-radius:4px;padding:8px 12px;font:700 12px 'Manrope',sans-serif;color:var(--ink);cursor:pointer">Start a new run</button>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- SETTINGS -->
+      <sc-if value="{{ isSettings }}" hint-placeholder-val="{{ false }}">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));gap:16px;align-items:start">
+          <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;display:flex;flex-direction:column;gap:12px">
+            <div style="font-size:16px;font-weight:600">System version</div>
+            <div style="font-size:13px;color:var(--n1);line-height:1.5">A content hash of <span style="font-family:'Manrope',sans-serif;font-variant-numeric:tabular-nums">system_versions/v0-baseline.yaml</span> and every prompt it references.</div>
+            <div style="display:flex;flex-direction:column">
+              <sc-for list="{{ svFacts }}" as="f" hint-placeholder-count="5"><div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px"><span style="color:var(--n2)">{{ f.k }}</span><span style="font-family:'Manrope',sans-serif;font-variant-numeric:tabular-nums;white-space:nowrap">{{ f.v }}</span></div></sc-for>
+            </div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;display:flex;flex-direction:column;gap:12px">
+            <div style="font-size:16px;font-weight:600">LLM backend per role</div>
+            <sc-for list="{{ backendRows }}" as="b" hint-placeholder-count="4">
+              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                <span style="flex:1;min-width:100px;font-size:13px;font-weight:600">{{ b.role }}</span>
+                <div style="display:flex;background:var(--soft);border-radius:4px;padding:3px">
+                  <sc-for list="{{ b.opts }}" as="o" hint-placeholder-count="3"><button onClick="{{ o.go }}" style="border:none;border-radius:3px;padding:5px 10px;font:600 12px 'Manrope',sans-serif;font-variant-numeric:tabular-nums;background:{{ o.bg }};color:{{ o.col }};cursor:pointer">{{ o.v }}</button></sc-for>
+                </div>
+              </div>
+            </sc-for>
+            <div style="font-size:12px;color:var(--n2);line-height:1.5">claude_code is for local development only. fake returns scripted outputs for tests.</div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;display:flex;flex-direction:column;gap:12px">
+            <div style="font-size:16px;font-weight:600">Router</div>
+            <div style="display:flex;background:var(--soft);border-radius:4px;padding:3px;align-self:flex-start">
+              <sc-for list="{{ routerOpts }}" as="o" hint-placeholder-count="2"><button onClick="{{ o.go }}" style="border:none;border-radius:3px;padding:7px 14px;font:700 12px 'Manrope',sans-serif;background:{{ o.bg }};color:{{ o.col }};cursor:pointer">{{ o.label }}</button></sc-for>
+            </div>
+            <div style="font-size:13px;color:var(--n1);line-height:1.5">{{ routerNote }}</div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;align-items:center;gap:8px"><span style="font-size:16px;font-weight:600">Isolation self-check</span><span style="margin-left:auto;font:700 11px 'Manrope',sans-serif;display:inline-flex;align-items:center;gap:5px">5 of 5 passed</span></div>
+            <sc-for list="{{ checks }}" as="c" hint-placeholder-count="5">
+              <div style="display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px"><span style="flex:1">{{ c }}</span><span style="font:700 11px 'Manrope',sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#1E9E6A;border:1px solid #1E9E6A;border-radius:4px;padding:2px 7px">Pass</span></div>
+            </sc-for>
+            <div style="font-size:12px;color:var(--n2)">The claude_code backend refuses to run if any check fails.</div>
+          </div>
+        </div>
+      </sc-if>
+    </main>
+  </div>
+
+  <sc-if value="{{ srcOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeSrc }}" style="position:fixed;inset:0;background:rgba(10,16,17,.5);z-index:40;display:flex;justify-content:flex-end">
+      <div onClick="{{ stop }}" style="width:480px;max-width:92vw;height:100%;background:var(--card);color:var(--ink);overflow-y:auto;padding:22px 24px 32px;animation:wfade .3s cubic-bezier(.2,0,0,1);display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font:600 12px 'Manrope',sans-serif;font-variant-numeric:tabular-nums;color:var(--n1)">{{ src.id }}</span>
+          <button onClick="{{ closeSrc }}" style="margin-left:auto;width:32px;height:32px;border:1px solid var(--line);border-radius:4px;background:transparent;color:var(--ink);cursor:pointer;display:grid;place-items:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"></path></svg></button>
+        </div>
+        <div style="font-size:20px;font-weight:600;line-height:1.3">{{ src.title }}</div>
+        <div style="font-size:12px;color:var(--n2)">Quote matched word for word in the source</div>
+        <div style="font-size:14px;line-height:1.7;white-space:pre-wrap;border-top:1px solid var(--line);padding-top:14px">{{ src.before }}<mark style="background:var(--hl);color:var(--ink);padding:1px 2px;border-radius:2px;text-decoration:underline;text-decoration-color:#00C4CC;text-underline-offset:3px">{{ src.quote }}</mark>{{ src.after }}</div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#0F0F0F;color:#FDFCFD;border-radius:6px;padding:9px 14px;font:600 13px 'Manrope',sans-serif;box-shadow:0 4px 12px rgba(0,0,0,.18);z-index:50">{{ toastText }}</div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light'|'dark'&quot;,&quot;section&quot;:&quot;Display&quot;},&quot;runOutcome&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;succeeded&quot;,&quot;degraded&quot;],&quot;default&quot;:&quot;succeeded&quot;,&quot;tsType&quot;:&quot;'succeeded'|'degraded'&quot;,&quot;section&quot;:&quot;Demo run&quot;},&quot;replaySpeed&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;min&quot;:1,&quot;max&quot;:8,&quot;step&quot;:1,&quot;unit&quot;:&quot;×&quot;,&quot;default&quot;:3,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Demo run&quot;}}">
+const AG={diff:{n:'Regulatory diff',c:'#8FA3A6'},planner:{n:'Impact Planner',c:'#64748B'},router:{n:'Router · Jev',c:'#C9A227'},legal:{n:'Legal',c:'#5B5BD6'},fiscal:{n:'Fiscal',c:'#E0A020'},stakeholder:{n:'Stakeholder',c:'#FF8064'},workforce:{n:'Workforce',c:'#4F9D69'},board:{n:'Impact Board',c:'#00C4CC'},citation:{n:'Citation check',c:'#00C4CC'},synthesis:{n:'Synthesis',c:'#8B5CF6'},dossier:{n:'Impact Dossier',c:'#8FA3A6'}};
+const NODES={
+diff:{s:0,e:.4,lat:.4,sub:'4 changed provisions',role:'deterministic',desc:'Compares provision keys between versions. No prior version here, so every provision in scope counts as added.'},
+planner:{s:.4,e:26.8,lat:26.4,tin:4240,tout:2366,cost:.040616,sub:'Impact hypotheses',role:'planner',hash:'3f1c9a02be7d4410',prompt:'prompts/planner.md',desc:'Turns the diff into an impact plan: what changed, who might be affected, which domains to check.'},
+router:{s:26.8,e:27,lat:.1,sub:'Relevance per expert',role:'router',desc:'Scores each expert\'s relevance. In shadow mode decisions are logged but every expert still runs.'},
+legal:{s:27,e:130,lat:103.1,tin:17146,tout:13621,cost:.20479,sub:'Obligations, rights',role:'expert',hash:'7cabd9f203ee1062',prompt:'prompts/legal.md',desc:'Reads the changed provisions for new obligations, rights, powers and liability.'},
+fiscal:{s:27,e:71.4,lat:44.4,tin:17156,tout:5877,cost:.12739,sub:'Costs, budgets',role:'expert',hash:'0e111403b501a9ac',prompt:'prompts/fiscal.md',desc:'Looks for compliance cost, fees, fines and public-budget effects.'},
+stakeholder:{s:27,e:125.7,lat:98.7,tin:17158,tout:11905,cost:.187678,sub:'Who is affected',role:'expert',hash:'a28ccbceb3292ba1',prompt:'prompts/stakeholder.md',desc:'Maps effects onto actors and flags where burdens fall unevenly.'},
+workforce:{s:27,e:87,lat:60,fail:'timeout',sub:'Jobs, skills',role:'expert',hash:'5d0e8b61c2f3a977',prompt:'prompts/workforce.md',desc:'Candidate expert for staffing and skills effects. Timed out in this run.'},
+board:{s:130,e:130.2,lat:.2,sub:'Shared findings',role:'state',desc:'One shared board every expert posts to. Findings keep their provenance: agent, prompt hash, model, round.'},
+citation:{s:130.2,e:132,lat:1.8,sub:'Quote existence',role:'deterministic',desc:'Checks every evidence quote verbatim against the source text. Grounding = quote existence rate.'},
+synthesis:{s:132,e:287.2,lat:155.2,tin:13322,tout:17118,cost:.224464,sub:'Merge and chain',role:'synthesis',hash:'c4e19f7a0b2d6358',prompt:'prompts/synthesis.md',desc:'Merges overlapping findings into impacts, links causal chains, surfaces disagreements and open questions.'},
+dossier:{s:287.2,e:287.5,lat:.3,sub:'Deterministic assembly',role:'deterministic',desc:'Assembles the final Impact Dossier. Every impact traces to a provision key, a quote and a source id.'}};
+const END=287.5;
+const Q={
+a53a:'This shall take place under the direct supervision and guidance by the competent authorities with a view to ensuring compliance with the requirements of this Regulation',
+a53b:'Any significant risks to health and safety and fundamental rights identified during the development and testing of such systems shall result in immediate mitigation',
+a53c:'The AI regulatory sandboxes shall not affect the supervisory and corrective powers of the competent authorities.',
+a53d:'Participants in the AI regulatory sandbox shall remain liable under applicable Union and Member States liability legislation for any harm inflicted on third parties as a result from the experimentation taking place in the sandbox.',
+a53e:'They shall submit annual reports to the Board and the Commission on the results from the implementation of those scheme, including good practices, lessons learnt and recommendations on their setup',
+a54a:'any personal data to be processed in the context of the sandbox are in a functionally separate, isolated and protected data processing environment under the control of the participants and only authorised persons have access to that data',
+a54b:'there are effective monitoring mechanisms to identify if any high risks to the fundamental rights of the data subjects may arise during the sandbox experimentation',
+a55a:'provide small-scale providers and start-ups with priority access to the AI regulatory sandboxes to the extent that they fulfil the eligibility conditions',
+a55b:'reducing those fees proportionately to their size and market size',
+a71a:'up to 6 % of its total worldwide annual turnover for the preceding financial year, whichever is higher',
+a71b:'shall take into particular account the interests of small-scale providers and start-up and their economic viability'};
+const SRC={
+'com2021_206/art_53':{title:'Article 53 · AI regulatory sandboxes',text:'1. AI regulatory sandboxes established by one or more Member States competent authorities or the European Data Protection Supervisor shall provide a controlled environment that facilitates the development, testing and validation of innovative AI systems for a limited time before their placement on the market or putting into service pursuant to a specific plan. '+Q.a53a+' and, where relevant, other Union and Member States legislation supervised within the sandbox.\n\n3. '+Q.a53c+' '+Q.a53b+' and, failing that, in the suspension of the development and testing process until such mitigation takes place.\n\n4. '+Q.a53d+'\n\n5. Member States\' competent authorities that have established AI regulatory sandboxes shall coordinate their activities and cooperate within the framework of the European Artificial Intelligence Board. '+Q.a53e+'.'},
+'com2021_206/art_54':{title:'Article 54 · Further processing of personal data in the sandbox',text:'1. In the AI regulatory sandbox personal data lawfully collected for other purposes shall be processed for the purposes of developing and testing certain innovative AI systems in the sandbox under the following conditions:\n\n[…]\n\n(c) '+Q.a54b+', as well as response mechanism to promptly mitigate those risks and, where necessary, stop the processing;\n\n(d) '+Q.a54a+';\n\n[…]'},
+'com2021_206/art_55':{title:'Article 55 · Measures for small-scale providers and users',text:'1. Member States shall undertake the following actions:\n\n(a) '+Q.a55a+';\n\n[…]\n\n2. The specific interests and needs of the small-scale providers shall be taken into account when setting the fees for conformity assessment under Article 43, '+Q.a55b+'.'},
+'com2021_206/art_71':{title:'Article 71 · Penalties',text:'1. In compliance with the terms and conditions laid down in this Regulation, Member States shall lay down the rules on penalties, including administrative fines, applicable to infringements of this Regulation and shall take all measures necessary to ensure that they are properly and effectively implemented. The penalties provided for shall be effective, proportionate, and dissuasive. They '+Q.a71b+'.\n\n[…]\n\n3. The following infringements shall be subject to administrative fines of up to 30 000 000 EUR or, if the offender is company, '+Q.a71a+':\n\n[…]'}};
+const PK={s:['ai_act/innovation/regulatory_sandboxes','Art 53','com2021_206/art_53'],p:['ai_act/innovation/sandbox_personal_data','Art 54','com2021_206/art_54'],m:['ai_act/innovation/sme_measures','Art 55','com2021_206/art_55'],x:['ai_act/penalties/penalties','Art 71','com2021_206/art_71']};
+const F=[
+{id:'f_a47fab8681f6',a:'legal',pk:'s',imp:'I1',actor:'Sandbox participants',impact:'Must keep real-time risk monitoring and be ready to halt testing whenever authorities flag a significant risk.',mech:'Art 53(1) places testing under direct supervision; Art 53(3) requires immediate mitigation or suspension.',q:'a53a',conf:.85},
+{id:'f_41a4a63615f1',a:'fiscal',pk:'s',imp:'I1',actor:'Providers and start-ups in sandboxes',impact:'Recurring staffing cost to operate under continuous supervision and keep rapid mitigation capability.',mech:'Continuous supervision plus immediate mitigation duties need dedicated staff for the whole participation period.',q:'a53b',conf:.82},
+{id:'f_610055439acf',a:'legal',pk:'s',imp:'I2',actor:'Competent authorities',impact:'Authorities must build technical and staffing capacity to supervise participants and use corrective powers in real time.',mech:'Art 53(3) preserves full supervisory and corrective powers inside the sandbox and obliges authorities to act on identified risks.',q:'a53c',conf:.80},
+{id:'f_4ddbd092557d',a:'stakeholder',pk:'s',imp:'I2',actor:'National competent authorities',impact:'Continuous monitoring may strain smaller or less-resourced Member State authorities more than larger ones.',mech:'Art 53(1) and (3) require direct supervision throughout the sandbox and immediate mitigation of risks.',q:'a53a',conf:.70},
+{id:'f_4529f447be7e',a:'legal',pk:'s',imp:'I3',actor:'Sandbox participants',impact:'Participants keep full civil liability for third-party harm. Sandbox status is no shield.',mech:'Art 53(4) preserves liability under Union and Member State law for harm from sandbox experimentation.',q:'a53d',conf:.90},
+{id:'f_dfb3a9508e85',a:'fiscal',pk:'s',imp:'I3',actor:'Providers and start-ups in sandboxes',impact:'Unmitigated liability cost exposure for harm caused to third parties.',mech:'Art 53(4) preserves participants\' liability for harm inflicted on third parties.',q:'a53d',conf:.85},
+{id:'f_15f19c93fd9c',a:'legal',pk:'s',imp:'I4',actor:'Member State authorities',impact:'A recurring annual reporting and coordination burden through the AI Board.',mech:'Art 53(5) requires coordination within the Board and annual reports to the Board and Commission.',q:'a53e',conf:.85},
+{id:'f_2beeb9f094a2',a:'fiscal',pk:'s',imp:'I4',actor:'Member State authorities',impact:'Dedicated administrative capacity for reporting and cross-authority cooperation.',mech:'Annual reporting and Board coordination are recurring duties beyond day-to-day supervision.',q:'a53e',conf:.80},
+{id:'f_7d21c0e9a4b3',a:'legal',pk:'p',imp:'I7',actor:'Participants reusing personal data',impact:'Only participants running an isolated, access-controlled data environment can invoke the reuse exception.',mech:'Art 54(1)(d) conditions reuse on a functionally separate, protected processing environment.',q:'a54a',conf:.87},
+{id:'f_b83e6f10d2a7',a:'fiscal',pk:'p',imp:'I13',actor:'Small providers and start-ups',impact:'The bundle of Art 54 conditions needs one-off and recurring investment that weighs heaviest on small providers.',mech:'Monitoring, isolation, logging and documentation duties apply regardless of participant size.',q:'a54b',conf:.78},
+{id:'f_41fddd4828ce',a:'legal',pk:'m',imp:'I15',actor:'Small-scale providers and start-ups',impact:'Priority sandbox access improves market-entry timing versus larger competitors.',mech:'Art 55(1)(a) obliges Member States to give priority access when eligibility conditions are met.',q:'a55a',conf:.88},
+{id:'f_cf85d9eb18f0',a:'fiscal',pk:'m',imp:'I16',actor:'Small-scale providers',impact:'Conformity-assessment fees reduced in proportion to size directly lower their compliance cost.',mech:'Art 55(2) requires fees to reflect the interests and needs of small-scale providers.',q:'a55b',conf:.84},
+{id:'f_65f2b4db1582',a:'stakeholder',pk:'m',imp:'I18',actor:'Small-scale providers and start-ups',impact:'Priority admission does not reduce the Art 54 duties once inside, so the benefit may be largely illusory.',mech:'Art 55(1)(a) changes admission order only; Art 54 conditions apply equally to every participant.',q:'a55a',conf:.72},
+{id:'f_0c9e5a7713fd',a:'legal',pk:'x',imp:'I19',actor:'Providers and operators',impact:'Tiered fines of up to 6%, 4% or 2% of worldwide turnover by infringement severity.',mech:'Art 71(3)–(5) set turnover-based ceilings calibrated to the type of infringement.',q:'a71a',conf:.92},
+{id:'f_e4a82b19c650',a:'stakeholder',pk:'x',imp:'I20',actor:'Small-scale providers and start-ups',impact:'Fine-setting must weigh their economic viability, lowering their relative enforcement risk.',mech:'Art 71(1) requires penalty rules to take particular account of small providers\' interests.',q:'a71b',conf:.76}];
+const IMP=[
+{id:'I1',sum:'Sandbox participants must maintain continuous real-time risk-monitoring and rapid mitigation/suspension capacity under competent-authority supervision, incurring recurring staffing costs.',pk:'s',ag:'Participants'},
+{id:'I2',sum:'Hosting competent authorities must build continuous technical and staffing capacity to supervise participants and exercise real-time corrective powers, which may strain smaller or less-resourced authorities.',pk:'s',ag:'Authorities'},
+{id:'I3',sum:'Sandbox status does not shield participants from civil liability for third-party harm caused by their experimentation under applicable Union or Member State law.',pk:'s',ag:'Participants'},
+{id:'I4',sum:'Hosting authorities face a recurring annual reporting and cross-Member-State coordination burden to the AI Board/Commission.',pk:'s',ag:'Authorities'},
+{id:'I7',sum:'Only participants able to build and continuously operate an isolated, access-controlled data environment can lawfully invoke the Art 54 reuse exception, requiring new dedicated infrastructure and ongoing operational cost.',pk:'p',ag:'Participants'},
+{id:'I13',sum:'The combined bundle of Art 54 conditions requires substantial one-off and recurring investment that is likely disproportionately costly for small providers and start-ups.',pk:'p',ag:'Small providers'},
+{id:'I15',sum:'Small-scale providers and start-ups gain a preferential right of priority access to AI regulatory sandboxes, improving relative market-entry timing versus larger competitors.',pk:'m',ag:'Small providers'},
+{id:'I16',sum:'Small-scale providers are entitled to conformity-assessment fees reduced proportionately to their size and market size, directly lowering their compliance costs.',pk:'m',ag:'Small providers'},
+{id:'I18',sum:'Priority sandbox admission does not reduce the resource-intensive Art 54 operational duties that apply equally to every participant once inside the sandbox.',pk:'m',ag:'Small providers'},
+{id:'I19',sum:'Providers and operators face tiered administrative fines of up to 6%, 4% or 2% of worldwide turnover, giving authorities broad, severity-calibrated enforcement reach.',pk:'x',ag:'All providers'},
+{id:'I20',sum:'Penalty rules must take particular account of small-scale providers\' economic viability, giving them a structurally lower relative enforcement risk than larger operators.',pk:'x',ag:'Small providers'}];
+const AREA={s:'Regulatory sandboxes',p:'Personal-data reuse',m:'SME measures',x:'Penalties'};
+const CHAINS=[
+{ids:['I1','I2','I4','I5'],d:'Continuous real-time risk-monitoring duties on participants (I1) require hosting authorities to build matching supervisory capacity (I2); this operational load is layered with a recurring annual reporting and coordination burden (I4), partly shaped by Commission implementing acts standardizing sandbox modalities (I5).'},
+{ids:['I8','I7','I9','I10','I13'],d:'Because the personal-data reuse exception is confined to enumerated public-interest purposes (I8), qualifying participants must build isolated, monitored data environments (I7), operate log retention (I9) and scheduled deletion (I10); cumulatively this is disproportionately costly for smaller participants (I13).'},
+{ids:['I15','I18','I13'],d:'Small providers receive priority sandbox admission (I15), but earlier access does not reduce the Art 54 operational duties that apply once inside (I18), so the aggregate burden in I13 persists.'},
+{ids:['I19','I20','I21'],d:'Tiered fines apply by infringement severity (I19); leniency factors for small providers reduce their relative exposure (I20), shifting a proportionately heavier turnover-based burden onto large providers (I21).'},
+{ids:['I3','I19','I25'],d:'Sandbox participation preserves full civil liability (I3); where the same non-compliance breaches the Regulation it also triggers administrative fines (I19), producing a dual-track financial exposure (I25).'}];
+const SHORT={I1:'Risk monitoring',I2:'Authority capacity',I3:'Civil liability',I4:'Annual reporting',I5:'Implementing acts',I7:'Isolated data env.',I8:'Public-interest only',I9:'Log retention',I10:'Data deletion',I13:'SME burden',I15:'Priority access',I18:'No duty relief',I19:'Tiered fines',I20:'SME leniency',I21:'Large-provider burden',I25:'Dual-track exposure'};
+const QS=['Does the \'direct supervision and guidance\' standard under Art 53 imply dedicated per-sandbox authority staffing, and how will resource-constrained Member States meet this without dedicated EU funding support?','How will Commission implementing acts under Art 53(6) interact with national sandbox schemes that are already operational before those acts are adopted?','What quantitative or qualitative threshold defines \'small-scale provider\' for priority sandbox access, fee reduction, and penalty leniency purposes, and will it be applied consistently across Member States?','Will the aggregate infrastructure burden of Art 54 conditions in practice deter smaller or start-up participants from ever invoking the personal-data reuse exception?','How will individual Member States decide whether to apply administrative fines to public authorities under Art 71(7), and could divergent choices create a two-tier compliance regime?','Given that Art 54 permits personal-data reuse without data-subject consent, is any alternative safeguard (prior notice, opt-out, oversight) required to compensate?'];
+const TH={light:{bg:'#F3F6F6',card:'#FFFFFF',soft:'#EDF2F2',line:'#DCE4E4',ink:'#0F0F0F',n1:'#4A565A',n2:'#687477',accInk:'#00737A',accSoft:'#D6F5F6',side:'#0F0F0F',hl:'#C4F1F3'},dark:{bg:'#0A1011',card:'#111A1C',soft:'#182326',line:'#253235',ink:'#EDF3F3',n1:'#A9B5B7',n2:'#8A9799',accInk:'#3ED9E0',accSoft:'#0C3033',side:'#050809',hl:'#0F4A4E'}};
+const ICON={overview:'M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z',pipeline:'M3 3h6v6H3zM15 15h6v6h-6zM6 9v3a3 3 0 0 0 3 3h6',detail:'M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zM14 3v6h6M8 13h8M8 17h5',agents:'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8',topo:'M12 7a2 2 0 1 0 0-4 2 2 0 0 0 0 4M5 21a2 2 0 1 0 0-4 2 2 0 0 0 0 4M19 21a2 2 0 1 0 0-4 2 2 0 0 0 0 4M12 7v5M12 12l-5.5 5.5M12 12l5.5 5.5',chat:'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z',settings:'M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6'};
+const TITLES={overview:'Overview',pipeline:'Run pipeline',detail:'Run detail',agents:'Agents',topo:'Topology',chat:'Ask WOMM',settings:'Settings'};
+const ST={queued:{t:'Queued',c:'#8A9699'},running:{t:'Running',c:'#2F80ED'},done:{t:'Done',c:'#1E9E6A'},failed:{t:'Failed · timeout',c:'#E5484D'}};
+const fmtS=s=>s<60?s.toFixed(1)+'s':Math.floor(s/60)+'m '+String(Math.round(s%60)).padStart(2,'0')+'s';
+const kTok=n=>n>=1000?(n/1000).toFixed(1)+'k':String(n);
+const T0=16*3600+18*60+27.2;
+const ts=s=>{const t=T0+s;const h=Math.floor(t/3600),m=Math.floor(t%3600/60),x=(t%60).toFixed(1).padStart(4,'0');return `${h}:${String(m).padStart(2,'0')}:${x}`};
+
+class Component extends DCLogic {
+  state={screen:'overview',theme:null,clock:END,running:false,sel:'legal',openImp:'I13',tab:'impacts',group:'area',src:null,draft:'',thinking:false,toast:null,routerMode:'shadow',backends:{planner:'claude_code',experts:'claude_code',synthesis:'claude_code',judge:'api'},
+    chat:[{bot:true,text:'The SME impacts run finished in 4m 48s: 25 impacts, all 64 evidence quotes found verbatim. Ask about any actor, provision or finding.'},{bot:false,text:'What is the main burden on small providers?'},{bot:true,text:'The heaviest one is I13: the Art 54 conditions for reusing personal data need one-off and recurring investment that hits small providers hardest.\n\nPriority sandbox access (I15) and reduced conformity-assessment fees (I16) offset part of it. Stakeholder argues priority admission doesn\'t reduce the duties once inside (I18). That conflict is kept as a disagreement.',cites:['I13','I15','I16','I18']}]};
+  componentWillUnmount(){clearInterval(this.iv);clearTimeout(this.tt);}
+  get degraded(){return (this.props.runOutcome??'succeeded')==='degraded';}
+  experts(){return this.degraded?['legal','fiscal','stakeholder','workforce']:['legal','fiscal','stakeholder'];}
+  status(id){const n=NODES[id],c=this.state.clock;if(c<n.s)return'queued';if(c<n.e)return'running';return n.fail?'failed':'done';}
+  go(screen,extra){this.setState({screen,...(extra||{})});}
+  run=()=>{if(this.state.running)return;clearInterval(this.iv);const sp=this.props.replaySpeed??3;this.setState({clock:0,running:true,screen:this.state.screen==='overview'||this.state.screen==='chat'?'pipeline':this.state.screen});
+    this.iv=setInterval(()=>{this.setState(s=>{const c=Math.min(END,s.clock+sp*1.5);if(c>=END){clearInterval(this.iv);return{clock:END,running:false};}return{clock:c};});},100);};
+  flash(t){clearTimeout(this.tt);this.setState({toast:t});this.tt=setTimeout(()=>this.setState({toast:null}),1600);}
+  answer(q){const l=q.toLowerCase();
+    if(/fine|penal|enforce|71/.test(l))return{text:'Penalty risk sits with all providers and operators (I19): fines of up to 6%, 4% or 2% of worldwide turnover by infringement severity. Small providers carry less relative risk because fine-setting must weigh their economic viability (I20), which shifts proportionately more onto large providers (I21, in the full dossier).',cites:['I19','I20']};
+    if(/disagree|conflict/.test(l))return{text:'One disagreement, on Art 55(1)(a). Legal and Fiscal read priority sandbox access as a net benefit for small providers. Stakeholder says it is largely illusory because the Art 54 duties still apply once inside. Both sides stay in the dossier.',cites:['I15','I18'],to:'disagree'};
+    if(/expert|agent|ran|who ran/.test(l))return{text:this.degraded?'Legal, Fiscal and Stakeholder ran in parallel. Workforce timed out after 60s, so the run is degraded. The router was in shadow mode: it logged relevance but didn\'t skip anyone.':'Legal, Fiscal and Stakeholder ran in parallel on claude-sonnet-5 via the claude_code backend. The router was in shadow mode: it marked all three relevant and logged it, but didn\'t skip anyone.'};
+    if(/authorit|member state/.test(l))return{text:'Authorities need continuous supervisory capacity (I2) and carry a recurring annual reporting and coordination burden through the AI Board (I4). Stakeholder flags that smaller Member State authorities may feel this most.',cites:['I2','I4']};
+    if(/workforce|re-run/.test(l))return{text:'Workforce is a candidate expert, not in the baseline system version. Switch the run state to "degraded" in Tweaks to see what a timed-out expert looks like in the pipeline.'};
+    return{text:'This run\'s dossier doesn\'t answer that directly. Try asking about an actor (authorities, small providers), a provision (Art 53–55, 71) or the disagreement.'};}
+  ask(q){q=(q||'').trim();if(!q||this.state.thinking)return;this.setState(s=>({chat:[...s.chat,{bot:false,text:q}],draft:'',thinking:true}));
+    clearTimeout(this.ct);this.ct=setTimeout(()=>{const a=this.answer(q);this.setState(s=>({thinking:false,chat:[...s.chat,{bot:true,...a}]}));},750);}
+  openImpact(id){if(IMP.find(i=>i.id===id))this.go('detail',{tab:'impacts',openImp:id});else this.flash(id+' is in the full dossier, not this prototype');}
+
+  selInfo(id){const n=NODES[id],a=AG[id],st=ST[this.status(id)];const bk=n.role==='expert'?this.state.backends.experts:(this.state.backends[n.role]||'—');
+    const facts=[{k:'Role',v:n.role},{k:'Latency',v:this.status(id)==='queued'?'—':fmtS(Math.min(n.lat,Math.max(0,this.state.clock-n.s)))}];
+    if(n.tin)facts.push({k:'Tokens in / out',v:kTok(n.tin)+' / '+kTok(n.tout)},{k:'Cost',v:'$'+n.cost.toFixed(3)});
+    if(n.hash)facts.push({k:'Backend',v:bk},{k:'Model',v:'claude-sonnet-5'},{k:'Prompt',v:n.prompt},{k:'Prompt hash',v:n.hash});
+    if(n.fail)facts.push({k:'error_kind',v:n.fail});
+    const E=this.edges();const nm=x=>({n:AG[x].n,go:()=>this.setState({sel:x})});
+    return{name:a.n,c:a.c,desc:n.desc,stT:st.t,stC:st.c,facts,ins:E.filter(e=>e[1]===id).map(e=>nm(e[0])),outs:E.filter(e=>e[0]===id).map(e=>nm(e[1]))};}
+  edges(){const ex=this.experts();return[['diff','planner'],['planner','router'],...ex.map(e=>['router',e]),...ex.map(e=>[e,'board']),['board','citation'],['citation','synthesis'],['board','synthesis'],['synthesis','dossier']];}
+
+  renderVals(){
+    const S=this.state,t=TH[S.theme??this.props.theme??'light'],deg=this.degraded,clock=S.clock,done=clock>=END,ex=this.experts();
+    const runLabel=S.running?'Running':deg?'Degraded':'Succeeded',runDot=S.running?'#2F80ED':deg?'#E0A020':'#1E9E6A';
+    const tokDone=Object.keys(NODES).filter(k=>NODES[k].tin&&this.status(k)==='done'&&(deg||k!=='workforce')).reduce((a,k)=>a+NODES[k].tin+NODES[k].tout,0);
+    const costDone=Object.keys(NODES).filter(k=>NODES[k].cost&&this.status(k)==='done').reduce((a,k)=>a+NODES[k].cost,0);
+    const citeDone=clock>=NODES.citation.e,grounded=deg?'63/64':'64/64';
+    const nav=Object.keys(TITLES).map(k=>({label:TITLES[k],icon:ICON[k],go:()=>this.go(k),bg:S.screen===k?'rgba(255,255,255,.09)':'transparent',col:S.screen===k?'#FFFFFF':'#B7BDBE',icol:S.screen===k?'#00C4CC':'currentColor',hasBadge:k==='pipeline'&&S.running,badge:'live'}));
+    const nodeVM=id=>{const n=NODES[id],s=this.status(id),st=ST[s];const el=s==='queued'?'—':fmtS(s==='running'?clock-n.s:n.lat);
+      return{name:AG[id].n,c:AG[id].c,sub:n.sub,stT:st.t,stC:st.c,anim:s==='running'?'wpulse 1.2s ease-out infinite':'none',meta:el+(n.tin&&s==='done'?' · '+kTok(n.tin+n.tout)+' tok':id==='citation'&&s==='done'?' · '+grounded:''),
+        bg:s==='running'?t.accSoft:'var(--card)',border:s==='failed'?'#E5484D':S.sel===id?'#00C4CC':s==='running'?'#00C4CC':'var(--line)',op:s==='queued'?.6:1,shadow:id==='router',pick:()=>this.setState({sel:id})};};
+    const colIds=[['diff'],['planner'],['router'],ex,['board'],['citation'],['synthesis'],['dossier']];
+    const cols=colIds.map((c,i)=>({arrow:i>0,arrowCol:this.status(c[0])==='queued'?'var(--line)':'#00C4CC',pad:c.length>1?'8px':'0',frame:c.length>1?'1px dashed var(--line)':'none',nodes:c.map(nodeVM)}));
+    // board feed
+    const feedAll=F.map((f,i)=>{const n=NODES[f.a],mine=F.filter(x=>x.a===f.a),k=mine.indexOf(f);return{f,at:n.s+(n.e-n.s)*(k+1)/(mine.length+1)};}).filter(x=>x.at<=clock).sort((a,b)=>b.at-a.at);
+    const feed=feedAll.map(({f})=>{const unres=deg&&f.id==='f_e4a82b19c650';const b=!citeDone?{t:'Checking quote',c:'var(--n1)',bg:'var(--soft)'}:unres?{t:'Quote not found',c:'#8A5A00',bg:'#FFF1CC'}:{t:'Quote verified',c:t.accInk,bg:t.accSoft};
+      return{c:AG[f.a].c,agentName:AG[f.a].n,key:PK[f.pk][0],impact:f.impact,actor:f.actor,conf:f.conf.toFixed(2),badge:b.t,badgeC:b.c,badgeBg:b.bg};});
+    const routerDone=clock>=NODES.router.e;
+    const decisions=ex.map(e=>{const err=e==='workforce'&&this.status(e)==='failed';return{name:AG[e].n,c:AG[e].c,w:routerDone?'100%':'0%',bar:err?'#E5484D':'#00C4CC',decision:!routerDone?'pending':err?'error':'relevant',tc:err?'#E5484D':'var(--ink)'};});
+    const routerNote=S.routerMode==='shadow'?'Shadow mode logs each decision but runs every expert anyway.':'Enforce mode skips experts marked not relevant. Switch once Jev is calibrated.';
+    // dossier
+    const findingVM=f=>{const p=PK[f.pk];const steps=[{k:'Regulatory change',v:p[0]+' · '+p[1]+' · added',ff:"'Manrope',sans-serif"},{k:'Affected actor',v:f.actor},{k:'Mechanism',v:f.mech},{k:'Evidence quote',v:Q[f.q],isQuote:true,open:()=>this.setState({src:{sid:p[2],q:Q[f.q]}})},{k:'Source',v:p[2],ff:"'Manrope',sans-serif"}];
+      return{id:f.id,c:AG[f.a].c,agentName:AG[f.a].n,steps:steps.map((s,i)=>({...s,plain:!s.isQuote,isQuote:!!s.isQuote,ff:s.ff||'inherit',lineC:i<4?'var(--line)':'transparent'}))};};
+    const impVM=im=>{const fs=F.filter(f=>f.imp===im.id),ags=[...new Set(fs.map(f=>f.a))],open=S.openImp===im.id;
+      return{id:im.id,summary:im.sum,key:PK[im.pk][1],conf:(fs.reduce((a,f)=>a+f.conf,0)/fs.length).toFixed(2),merged:fs.length>1?'merged from '+fs.length+' findings':'single finding',agents:ags.map(a=>({n:AG[a].n,c:AG[a].c})),open,rot:open?'rotate(180deg)':'none',border:open?'#00C4CC':'var(--line)',findings:fs.map(findingVM),toggle:()=>this.setState({openImp:open?null:im.id})};};
+    const gKey=S.group==='area'?(i=>AREA[i.pk]):(i=>i.ag);const gOrder=[...new Set(IMP.map(gKey))];
+    const groups=gOrder.map(g=>{const items=IMP.filter(i=>gKey(i)===g);return{label:g,meta:S.group==='area'?PK[items[0].pk][0]:items.length+' impacts',items:items.map(impVM)};});
+    const questions=QS.map((q,i)=>({n:i+1,q,tag:'Raised by synthesis',bg:'var(--soft)',col:'var(--n1)'}));
+    if(deg)questions.push({n:7,q:'Does penalty leniency for small providers (Art 71(1)) also cover fines for supplying inaccurate information?',tag:'Evidence unresolved',bg:'#FFF1CC',col:'#8A5A00'});
+    const tabDefs=[['impacts','Impacts','25'],['chains','Impact chains','5'],['disagree','Disagreements','1'],['questions','Open questions',String(questions.length)],['log','Event log','']];
+    const tabs=tabDefs.map(([k,l,n])=>({label:l,n,line:S.tab===k?'#00C4CC':'transparent',font:(S.tab===k?'700':'600')+" 13px 'Manrope',sans-serif",go:()=>this.setState({tab:k})}));
+    const chains=CHAINS.map(c=>({desc:c.d,steps:c.ids.map((id,i)=>({id,short:SHORT[id]||'',title:(IMP.find(x=>x.id===id)||{}).sum||'In the full dossier',arrow:i>0,go:()=>this.openImpact(id)}))}));
+    const dF=['f_41fddd4828ce','f_cf85d9eb18f0','f_65f2b4db1582'].map(id=>F.find(f=>f.id===id));
+    const disagreement={note:'Legal and fiscal findings characterize Art 55(1)(a) priority sandbox access as a clear net benefit improving small providers\' relative market position, while the stakeholder finding argues this priority is largely illusory in practice because it does not relieve small providers of the same resource-intensive Art 54 operational duties faced by all participants once admitted.',
+      sides:dF.map(f=>({agentName:AG[f.a].n,c:AG[f.a].c,impact:f.impact,id:f.id,conf:f.conf.toFixed(2),stance:f.a==='stakeholder'?'Burden persists':'Net benefit'}))};
+    const L=[[0,'INFO','run','started · scenario eval_sme_impacts · '+'sv_44a681965332'],[.4,'INFO','diff','4 changed provisions (no prior version → COM(2021) 206)'],[26.8,'INFO','planner','impact plan ready · 4,240 in / 2,366 out · 26.4s'],[26.9,'INFO','router','legal=relevant fiscal=relevant stakeholder=relevant · mode=shadow decider=stub'],[27,'INFO','dispatch','experts started in parallel ×'+ex.length+' · claude_code isolated subprocesses'],[71.4,'INFO','fiscal','posted findings to board · 44.4s'],...(deg?[[87,'WARN','workforce','error_kind=timeout after 60.0s · run continues as degraded']]:[]),[125.7,'INFO','stakeholder','posted findings to board · 98.7s'],[130,'INFO','legal','posted findings to board · 103.1s'],[130.2,'INFO','board','64 evidence quotes collected'],[132,deg?'WARN':'INFO','citation',grounded+' quotes found verbatim'+(deg?' · 1 unresolved → open question':'')],[287.2,'INFO','synthesis','25 impacts · 5 chains · 1 disagreement · '+questions.length+' open questions · 155.2s'],[287.5,'INFO','dossier','assembled · status='+(deg?'degraded':'succeeded')]];
+    const logLines=L.filter(l=>l[0]<=clock).map(([s,lv,node,msg])=>({ts:ts(s),level:lv,lc:lv==='WARN'?'#FFB547':'#3ED9E0',node,c:AG[node]?AG[node].c:'#D5DEDF',msg}));
+    // agents
+    const agentIds=['planner','router','legal','fiscal','stakeholder',...(deg?['workforce']:[]),'synthesis'];
+    const agentCards=agentIds.map(id=>{const n=NODES[id],st=ST[this.status(id)];const stats=n.tin?[{k:'latency',v:fmtS(n.lat)},{k:'tokens',v:kTok(n.tin+n.tout)},{k:'cost',v:'$'+n.cost.toFixed(2)}]:id==='router'?[{k:'decisions',v:String(ex.length)},{k:'mode',v:S.routerMode},{k:'decider',v:'stub'}]:[{k:'latency',v:fmtS(n.lat)},{k:'tokens',v:'—'},{k:'error',v:n.fail||'—'}];
+      return{name:AG[id].n,c:AG[id].c,role:n.role,desc:n.desc,stT:st.t,stC:st.c,border:this.status(id)==='failed'?'#E5484D':'var(--line)',stats,tags:n.hash?[n.prompt,n.hash,'claude-sonnet-5']:id==='router'?['router.relevance','Jev · U8']:['prompts/workforce.md','candidate'],inspect:()=>this.go('topo',{sel:id})};});
+    // topology
+    const Y=deg?{legal:75,fiscal:185,stakeholder:295,workforce:405}:{legal:100,fiscal:240,stakeholder:380};
+    const POS={diff:[6,240],planner:[19,240],router:[33,240],...Object.fromEntries(ex.map(e=>[e,[50,Y[e]]])),board:[67,240],citation:[80,130],synthesis:[80,350],dossier:[94,240]};
+    const topo=Object.keys(POS).map(id=>{const s=this.status(id),st=ST[s],iso=!!NODES[id].hash;return{name:AG[id].n,c:AG[id].c,x:POS[id][0]+'%',y:POS[id][1]+'px',stC:st.c,anim:s==='running'?'wpulse 1.2s ease-out infinite':'none',host:iso?'claude -p · isolated':NODES[id].role,
+      border:S.sel===id?'2px solid #00C4CC':s==='failed'?'1px solid #E5484D':iso?'1px dashed var(--n2)':'1px solid var(--line)',shadow:S.sel===id?'0 4px 12px rgba(0,0,0,.08)':'none',pick:()=>this.setState({sel:id})};});
+    const E=this.edges(),h=React.createElement;
+    const edgesSvg=h('svg',{viewBox:'0 0 1000 480',preserveAspectRatio:'none',style:{position:'absolute',inset:0,width:'100%',height:'100%'}},E.map(([a,b],i)=>{const A=POS[a],B=POS[b],act=S.sel===a||S.sel===b,live=this.status(a)!=='queued',dash=a==='router'||(b==='synthesis'&&a==='board');
+      const x1=A[0]*10,x2=B[0]*10,mx=(x1+x2)/2;return h('path',{key:i,d:`M${x1} ${A[1]} C${mx} ${A[1]} ${mx} ${B[1]} ${x2} ${B[1]}`,fill:'none',stroke:act?'#00C4CC':live?t.n2:t.line,strokeOpacity:act?1:.55,strokeWidth:act?2.2:1.4,strokeDasharray:dash?'5 4':'none',vectorEffect:'non-scaling-stroke'});}));
+    const selId=agentIds.concat(Object.keys(POS)).includes(S.sel)?S.sel:'legal';
+    const src=S.src?(()=>{const s=SRC[S.src.sid],i=s.text.indexOf(S.src.q);return{id:S.src.sid,title:s.title,before:s.text.slice(0,i),quote:S.src.q,after:s.text.slice(i+S.src.q.length)};})():{};
+    const runs=[{id:'run_61c1165c',name:'SME impacts',kind:'Evaluation · IA §6.1.3',status:S.running?'Running':deg?'Degraded':'Succeeded',dot:runDot,impacts:done?'25':'—',grounding:citeDone?grounded:'—',time:fmtS(Math.min(clock,END)),sv:'sv_44a681965332',go:()=>this.go('detail')},
+      {id:'run_3f0a92d1',name:'Provider compliance costs',kind:'Evaluation · IA §6.1.3',status:'Degraded',dot:'#E0A020',impacts:'17',grounding:'41/43',time:'5m 12s',sv:'sv_44a681965332',go:()=>this.flash('Only the latest run is wired up in this prototype')},
+      {id:'run_9b2e04c7',name:'Proposal → final text',kind:'Demo diff',status:'Succeeded',dot:'#1E9E6A',impacts:'12',grounding:'38/38',time:'3m 57s',sv:'sv_44a681965332',go:()=>this.flash('Only the latest run is wired up in this prototype')},
+      {id:'run_c71d5e38',name:'SME impacts',kind:'Evaluation · earlier version',status:'Failed · auth',dot:'#E5484D',impacts:'—',grounding:'—',time:'0m 04s',sv:'sv_1f09b7e2c4aa',go:()=>this.flash('Failed before the planner: claude CLI not logged in')}];
+    const lb=['planner','legal','fiscal','stakeholder',...(deg?['workforce']:[]),'synthesis'];
+    const latBars=lb.map(id=>{const n=NODES[id],s=this.status(id),el=s==='queued'?0:s==='running'?clock-n.s:n.lat;return{name:AG[id].n,c:AG[id].c,w:(el/155.2*100).toFixed(1)+'%',bar:s==='failed'?'#E5484D':AG[id].c,tc:s==='failed'?'#E5484D':'var(--n1)',meta:s==='failed'?'timeout · 60s':s==='queued'?'queued':fmtS(el)+(s==='done'&&n.tin?' · $'+n.cost.toFixed(2):'')};});
+    const sug=['Who carries the penalty risk?','Show the disagreement','Which experts ran?','What about authorities?'];
+    return{
+      t,nav,screenTitle:TITLES[S.screen],runLabel,runDot,runPulse:S.running?'wpulse 1.2s ease-out infinite':'none',clockText:fmtS(Math.min(clock,END)),svLabel:'sv_44a681965332',running:S.running,runBtn:S.running?'Running…':'Re-run',
+      themeIcon:(S.theme??this.props.theme??'light')==='light'?'M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z':'M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4',
+      toggleTheme:()=>this.setState({theme:(S.theme??this.props.theme??'light')==='light'?'dark':'light'}),
+      copySv:()=>{try{navigator.clipboard.writeText('sv_44a681965332');}catch(e){}this.flash('Copied sv_44a681965332');},run:this.run,
+      isOverview:S.screen==='overview',isPipeline:S.screen==='pipeline',isDetail:S.screen==='detail',isAgents:S.screen==='agents',isTopo:S.screen==='topo',isChat:S.screen==='chat',isSettings:S.screen==='settings',
+      goDetail:()=>this.go('detail'),goPipeline:()=>this.go('pipeline'),
+      kpis:[{label:'Status',value:runLabel,sub:deg?'Workforce expert timed out':'All experts returned findings',hasDot:true,dot:runDot},{label:'Total time',value:fmtS(Math.min(clock,END)),sub:'Wall-clock time'},{label:'Tokens',value:kTok(tokDone),sub:'Input and output'},{label:'Cost',value:'$'+costDone.toFixed(2),sub:'Model: claude-sonnet-5'},{label:'Grounding',value:citeDone?(deg?'98%':'100%'):'—',sub:citeDone?grounded+' quotes verified':'Waiting for citation check'}],
+      flowPills:['diff','planner','router','legal','fiscal','stakeholder','synthesis','dossier'].map((id,i)=>({label:AG[id].n,c:AG[id].c,arrow:i>0&&!['fiscal','stakeholder'].includes(id)})),latBars,
+      attention:[{n:'1',title:'Disagreement',sub:'Priority sandbox access: net benefit or illusory?',go:()=>this.go('detail',{tab:'disagree'})},{n:String(questions.length),title:'Open questions',sub:'Raised during synthesis for an analyst to settle',go:()=>this.go('detail',{tab:'questions'})},{n:deg?'1':'0',title:'Failed experts',sub:deg?'Workforce · timeout':'None in this run',go:()=>this.go('detail',{tab:'questions'})}],
+      runs,strip:[{value:fmtS(Math.min(clock,END)),label:'elapsed'},{value:kTok(tokDone),label:'tokens'},{value:'$'+costDone.toFixed(2),label:'cost'},{value:citeDone?grounded:'—',label:'quotes verified'}],
+      cols,decisions,routerNote,routerModeLabel:S.routerMode,feed,feedEmpty:feed.length===0,feedCount:feed.length+' of '+F.length+' findings',sel:this.selInfo(selId),
+      dossierCounts:[{n:'25',label:'impacts'},{n:String(questions.length),label:'open questions'},{n:'1',label:'disagreement'},{n:deg?'1':'0',label:'failed experts'}],
+      dossierPending:!done,dossierReady:done,tabs,tabImpacts:S.tab==='impacts',tabChains:S.tab==='chains',tabDisagree:S.tab==='disagree',tabQuestions:S.tab==='questions',tabLog:S.tab==='log',
+      groupOpts:[['area','Provision area'],['actor','Affected actor']].map(([k,l])=>({label:l,bg:S.group===k?'var(--card)':'transparent',go:()=>this.setState({group:k})})),groups,chains,disagreement,questions,noFailures:!deg,degraded:deg,logLines,
+      agentCards,topo,edgesSvg,
+      chat:S.chat.map(m=>({text:m.text,isBot:m.bot,justify:m.bot?'flex-start':'flex-end',bg:m.bot?'var(--soft)':'#00C4CC',col:m.bot?'var(--ink)':'#0F0F0F',border:m.bot?'var(--line)':'#00C4CC',hasCites:!!(m.cites&&m.cites.length),cites:(m.cites||[]).map(id=>({id,go:()=>this.openImpact(id)})).concat(m.to?[{id:'Disagreements',go:()=>this.go('detail',{tab:'disagree'})}]:[])})),
+      thinking:S.thinking,draft:S.draft,onDraft:e=>this.setState({draft:e.target.value}),onKey:e=>{if(e.key==='Enter')this.ask(S.draft);},send:()=>this.ask(S.draft),suggestions:sug.map(q=>({q,go:()=>this.ask(q)})),
+      svFacts:[{k:'id',v:'sv_44a681965332'},{k:'file',v:'v0-baseline.yaml'},{k:'git',v:'ca8a81d28487 (clean)'},{k:'claude CLI',v:'2.1.283'},{k:'tracing',v:'LangSmith · womm'}],
+      backendRows:[['planner','Planner'],['experts','Experts'],['synthesis','Synthesis'],['judge','Coverage judge']].map(([k,l])=>({role:l,opts:['claude_code','api','fake'].map(v=>({v,bg:S.backends[k]===v?'var(--ink)':'transparent',col:S.backends[k]===v?'var(--card)':'var(--n1)',go:()=>this.setState(s=>({backends:{...s.backends,[k]:v}}))}))})),
+      routerOpts:[['shadow','Shadow'],['enforce','Enforce']].map(([k,l])=>({label:l,bg:S.routerMode===k?'var(--ink)':'transparent',col:S.routerMode===k?'var(--card)':'var(--n1)',go:()=>this.setState({routerMode:k})})),
+      checks:['No tools, no MCP servers','No user settings, hooks or CLAUDE.md','Temporary working directory','Environment allowlist','Structured output validated'],
+      srcOpen:!!S.src,src,closeSrc:()=>this.setState({src:null}),stop:e=>e.stopPropagation(),toast:!!S.toast,toastText:S.toast||''
+    };
+  }
+}
+</script>
+</body>
+</html>

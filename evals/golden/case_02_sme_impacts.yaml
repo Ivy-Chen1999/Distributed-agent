@@ -1,0 +1,143 @@
+case_id: case_02_sme_impacts
+scenario_id: eval_sme_impacts
+ia_reference: >-
+  SWD(2021) 84 final, Part 1 §6.1.4 "SME test" (preferred option 3+), with the sandbox design
+  in §5.4.5 and the RSB opinion and responses in Part 2 Annex 1.3.
+notes: >-
+  Hand-written paraphrase of the IA; no IA text is copied verbatim. The scenario covers only
+  the support and enforcement provisions (Art 53, 54, 55, 71), not the requirements that
+  create costs. So the SME cost burden itself is not an expected impact here, because it
+  follows from Art 8-17 and 43, which are outside this scenario: SME suppliers bear the same
+  EUR 6 000-7 000 per system plus EUR 3 000-7 500 for conformity assessment as large firms,
+  against an average SME annual value added of EUR 174 000 (EUR 69 000 for micro-enterprises).
+  Those figures appear only as context for the net-effect impact (E06). Also left out: the
+  benefits of higher trust, legal certainty and avoided market fragmentation (driven by the
+  framework as a whole), harmonised standards (Art 40), and support through the AI-on-demand
+  platform, Digital Innovation Hubs and Testing and Experimentation Facilities (Digital Europe
+  Programme, not in the Regulation). The IA does not assess the SME impact of penalties
+  (Art 71, including its SME-interest clause) or of processing personal data in sandboxes
+  (Art 54) in §6.1.4, so neither has an expected impact. The only relevant penalty statement
+  (§5.4, footnote 245, on fines for incorrect information and conformity-assessment breaches)
+  is not SME-specific.
+expected_impacts:
+  - expected_id: c02_e01
+    affected_actor: SME and start-up providers of high-risk AI systems participating in AI regulatory sandboxes
+    mechanism: >-
+      Testing and validation before market entry under the direct supervision and guidance of
+      competent authorities, which may apply the rules proportionately within their discretion.
+    impact: >-
+      Authorities' direct guidance lowers the legal risk of non-compliance and so reduces
+      compliance costs, e.g. less need for legal or technical advice from third parties, and
+      helps SMEs reach compliance before market entry and bring products to market faster.
+    provision_keys:
+      - ai_act/innovation/regulatory_sandboxes
+    ia_section: SWD(2021) 84 Part 1 §6.1.4; §5.4.5(a)
+  - expected_id: c02_e02
+    affected_actor: Small-scale providers and start-ups
+    mechanism: >-
+      Priority access to AI regulatory sandboxes, tailored awareness raising and guidance
+      provided by Member States.
+    impact: >-
+      Free advice is especially valuable to SMEs early on, saving legal fees and reducing legal
+      uncertainty to a minimum; but familiarisation with the requirements is only a small part
+      of compliance costs, so the saving is limited.
+    provision_keys:
+      - ai_act/innovation/sme_measures
+      - ai_act/innovation/regulatory_sandboxes
+    ia_section: SWD(2021) 84 Part 1 §6.1.4; §5.4.5(b)
+  - expected_id: c02_e03
+    affected_actor: Providers (including SMEs) participating in AI regulatory sandboxes
+    mechanism: >-
+      Sandboxes grant no derogations or exemptions from applicable law; supervisory powers
+      remain, significant risks must be mitigated immediately or testing suspended, and the
+      conformity assessment must still be completed before placing on the market.
+    impact: >-
+      The sandbox benefit comes only from guidance, flexibility within the law and faster
+      market entry, not from relief from the requirements; participants still bear full
+      compliance obligations before going live.
+    provision_keys:
+      - ai_act/innovation/regulatory_sandboxes
+    ia_section: SWD(2021) 84 Part 1 §5.4.5(a) and §6.1.4; Part 2 Annex 1.3 (RSB response (5))
+  - expected_id: c02_e04
+    affected_actor: SME providers of high-risk AI systems undergoing third-party conformity assessment
+    mechanism: >-
+      Notified bodies must take the interests and needs of small-scale providers into account
+      and reduce conformity assessment fees in proportion to their size.
+    impact: >-
+      SMEs pay less than large companies for conformity assessment (otherwise EUR 3 000-7 500
+      per system), which partly offsets the disadvantages of their smaller scale.
+    provision_keys:
+      - ai_act/innovation/sme_measures
+    ia_section: SWD(2021) 84 Part 1 §6.1.4; §5.4.5(b); §6.1.3
+  - expected_id: c02_e05
+    affected_actor: SMEs and start-ups participating in AI regulatory sandboxes
+    mechanism: >-
+      Sandboxes act as a focal point that eases partnering with complementary firms,
+      knowledge acquisition and links to investors.
+    impact: >-
+      Better access to partners and finance; as evidence the IA cites a financial-sector
+      sandbox study in which entry was followed by an average 15% increase in capital raised
+      over the next two years.
+    provision_keys:
+      - ai_act/innovation/regulatory_sandboxes
+    ia_section: SWD(2021) 84 Part 1 §6.1.4
+  - expected_id: c02_e06
+    affected_actor: SME providers of high-risk AI systems, including new market entrants
+    mechanism: >-
+      Combined effect of the support measures (priority sandbox access and advice, lower
+      conformity assessment fees) against the fixed per-system compliance costs.
+    impact: >-
+      Support measures make regulatory costs smaller for SMEs, but do not fully offset them
+      (fixed costs of about EUR 6 000-7 000 per average high-risk system plus EUR 3 000-7 500
+      for conformity assessment; the monetary value of support cannot be determined
+      accurately). Whether the remaining costs deter some SMEs from entering particular
+      high-risk AI markets at the margin depends on the competitive environment and technical
+      specifics of the application.
+    provision_keys:
+      - ai_act/innovation/sme_measures
+      - ai_act/innovation/regulatory_sandboxes
+    ia_section: SWD(2021) 84 Part 1 §6.1.4 (final subsection)
+  - expected_id: c02_e07
+    affected_actor: National competent authorities establishing AI regulatory sandboxes
+    mechanism: >-
+      Direct supervision of testing in sandboxes and annual reporting to the Board and the
+      Commission.
+    impact: >-
+      Regulators gain hands-on experience and new supervisory tools to spot emerging risks
+      early, and sandbox evidence feeds the Commission's regular reviews of the high-risk list
+      and of harmonised standards.
+    provision_keys:
+      - ai_act/innovation/regulatory_sandboxes
+    ia_section: SWD(2021) 84 Part 1 §5.4.5(a)
+important_omissions:
+  - omission_id: c02_o01
+    description: >-
+      The net effect on SMEs, including new market entrants, of the support measures (priority
+      sandbox access, advice, reduced conformity fees) against the fixed compliance costs; the
+      IA concludes the costs are reduced but not completely offset.
+    provision_keys:
+      - ai_act/innovation/sme_measures
+      - ai_act/innovation/regulatory_sandboxes
+    source: >-
+      RSB opinion (Annex 1.3), second submission, point (1); response in SWD(2021) 84 Part 1
+      §6.1.4 (final subsection)
+  - omission_id: c02_o02
+    description: >-
+      Sandboxes give no exemptions from the rules; their value to SMEs comes from lower costs
+      for specialist legal and procedural advice and faster market entry, within clear limits
+      on experimentation.
+    provision_keys:
+      - ai_act/innovation/regulatory_sandboxes
+    source: >-
+      RSB opinion (Annex 1.3), first submission, what to improve (5); response in SWD(2021) 84
+      Part 1 §5.4.5 and §6.1.4
+  - omission_id: c02_o03
+    description: >-
+      Whether fixed costs create a prohibitive barrier to market entry for SMEs; the IA
+      concludes they do not, pointing among other things to notified bodies being required to
+      set lower conformity assessment fees for smaller companies.
+    provision_keys:
+      - ai_act/innovation/sme_measures
+    source: >-
+      RSB opinion (Annex 1.3), first submission, findings (3) and what to improve (4); response
+      in SWD(2021) 84 Part 1 §6.1.4

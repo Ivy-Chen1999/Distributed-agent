@@ -1,0 +1,14 @@
+@keyframes wpulse{0%{box-shadow:0 0 0 0 rgba(47,128,237,.55)}100%{box-shadow:0 0 0 7px rgba(47,128,237,0)}}
+@keyframes wfade{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Manrope',system-ui,sans-serif;background:#F3F6F6;-webkit-font-smoothing:antialiased}
+/* Manrope turns "(c)" into a copyright sign via ligatures; legal text is full of (a)(b)(c)
+   point numbers, so ligatures and contextual alternates are off everywhere. !important because
+   the inline `font:` shorthands used across the console reset both properties. */
+*{font-variant-ligatures:none !important;font-feature-settings:"liga" 0,"calt" 0,"dlig" 0 !important}
+a{color:#00737A}
+a:hover{color:#0F0F0F}
+button{font-family:inherit}
+button:disabled{cursor:default !important;opacity:.7}
+/* Keyboard focus must stay visible (WCAG 2.4.7); !important beats inline `outline: none`. */
+:focus-visible{outline:2px solid var(--accInk) !important;outline-offset:2px}

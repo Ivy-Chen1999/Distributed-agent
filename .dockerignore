@@ -1,0 +1,15 @@
+.git
+.venv
+.env
+.env.*
+.cache
+.claude
+runs
+evals
+tests
+docs
+brainstorm
+**/__pycache__
+web/node_modules
+web/dist
+!docs/ui/sample_run.json

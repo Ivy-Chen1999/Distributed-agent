@@ -1,0 +1,30 @@
+name: v0.1-api
+description: >
+  Reference baseline for v0.1 (R34): every role on the OpenAI API backend, router in shadow mode
+  with the stub decider. Model ids are unverified until the first live run with an API key.
+planner:
+  backend: api
+  model: openai:gpt-5.6-terra
+  prompt: prompts/planner.md
+synthesis:
+  backend: api
+  model: openai:gpt-5.6-terra
+  prompt: prompts/synthesis.md
+judge:
+  backend: api
+  model: openai:gpt-5.6-terra
+  prompt: prompts/judge_coverage.md
+experts:
+  - id: legal
+    domain: legal
+    role: {backend: api, model: "openai:gpt-5.6-terra", prompt: prompts/legal.md}
+  - id: fiscal
+    domain: fiscal
+    role: {backend: api, model: "openai:gpt-5.6-terra", prompt: prompts/fiscal.md}
+  - id: stakeholder
+    domain: stakeholder
+    role: {backend: api, model: "openai:gpt-5.6-terra", prompt: prompts/stakeholder.md}
+router:
+  mode: shadow
+  decider: stub
+max_parallel_llm_calls: 3
