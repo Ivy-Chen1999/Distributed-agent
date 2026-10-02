@@ -1,12 +1,19 @@
-"""Build data/fixtures/ai_act/ from EUR-Lex Cellar.
+"""Build data/fixtures/ai_act/ from the colleague's provision units and EUR-Lex Cellar.
 
-    uv run python scripts/build_fixture.py [--refresh]
+    uv run python scripts/build_fixture.py [--articles-from pipeline|cellar] [--refresh]
 
-Downloads COM(2021) 206 (proposal + explanatory memorandum, Cellar DOC_1) and Regulation (EU)
-2024/1689, keeps only the articles used by scenarios (resolved to stable provision keys through
-the hand-maintained crosswalk.yaml), strips impact-assessment material from the memorandum and
-writes proposal.json, final.json, sources.json and scenarios.yaml. Downloads are cached in
-.cache/cellar/.
+Article texts come from the colleague's data pipeline (calderonsamuel/course-cs-project-fall-2026-
+data, pinned to PIPELINE_COMMIT): the provision units of COM(2021) 206 and Regulation (EU)
+2024/1689, rendered by ``womm.data.parse_units``. Their container alignment must pair every
+article of the hand-maintained crosswalk.yaml, or the build fails. ``--articles-from cellar``
+parses the articles from Cellar instead (the pre-2026-10-02 source), and either way the other
+source's text is compared per article when it is cached.
+
+The explanatory memorandum always comes from Cellar DOC_1 (the colleague's data has none); its
+impact-assessment material is stripped. Only articles used by scenarios are kept, resolved to
+stable provision keys through crosswalk.yaml. Writes proposal.json, final.json, sources.json and
+scenarios.yaml; every download is pinned by sha256 in downloads.json and cached in .cache/cellar/.
+Runtime code never reads the upstream files, only this fixture.
 
 No text from the impact assessment SWD(2021) 84 is ever written here: scenarios only carry a
 section reference (``ia_reference``) so the golden cases (evals/golden/) can be aligned.
@@ -21,10 +28,12 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+import httpx
 import yaml
 
-from womm.data import parse_proposal, parse_regulation
-from womm.data.cellar import celex_url, fetch, sha256
+from womm.citations import normalize
+from womm.data import parse_proposal, parse_regulation, parse_units
+from womm.data.cellar import XHTML, CellarError, cached, celex_url, fetch, sha256
 from womm.data.fixtures import (
     DEFAULT_FIXTURE_DIR,
     Crosswalk,
@@ -69,6 +78,20 @@ PROPOSAL_URL = (
     "https://publications.europa.eu/resource/cellar/"
     "e0649735-a372-11eb-9585-01aa75ed71a1.0001.03/DOC_1"
 )
+
+# The colleague's data pipeline, pinned by commit (moving the pin changes downloads.json and
+# needs --accept-upstream-changes).
+PIPELINE_COMMIT = "16b5807927be1ade3802db7c59c26f7ca338ebf2"
+PIPELINE_REPO_RAW = (
+    "https://raw.githubusercontent.com/calderonsamuel/course-cs-project-fall-2026-data/"
+)
+PIPELINE_BASE = f"{PIPELINE_REPO_RAW}{PIPELINE_COMMIT}/data/processed"
+PIPELINE_UNITS = {
+    PROPOSAL.version_id: f"{PIPELINE_BASE}/provisions/{PROPOSAL.celex}.jsonl",
+    FINAL.version_id: f"{PIPELINE_BASE}/provisions/{FINAL.celex}.jsonl",
+}
+PIPELINE_CONTAINERS = f"{PIPELINE_BASE}/alignment/{PROPOSAL.celex}__{FINAL.celex}_containers.csv"
+ANY = "*/*"
 
 # Explanatory memorandum sections removed before the text becomes a citable source (R9, R24).
 # The golden cases are scored against SWD(2021) 84, so anything that restates its findings would
@@ -267,22 +290,93 @@ def write_fixture(
     (out_dir / "scenarios.yaml").write_text(header + body, encoding="utf-8")
 
 
-def check_downloads(path: Path, bodies: dict[str, bytes], *, accept: bool) -> None:
-    """Pin each upstream document by sha256 so a changed or tampered download fails loudly."""
+def check_downloads(
+    path: Path, bodies: dict[str, bytes], *, accept: bool, supersedes: str | None = None
+) -> None:
+    """Pin each upstream document by sha256 so a changed or tampered download fails loudly.
+
+    ``supersedes`` is a URL prefix whose pins this build replaces as a whole (the pipeline repo,
+    whose URLs carry the commit): a pinned URL under it that this build no longer fetches means
+    the pin moved, which counts as a change and is dropped once accepted.
+    """
     pinned = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
     current = {url: sha256(body) for url, body in bodies.items()}
     changed = sorted(u for u, h in current.items() if u in pinned and pinned[u] != h)
-    if changed and not accept:
+    stale = sorted(
+        u for u in pinned if supersedes and u.startswith(supersedes) and u not in current
+    )
+    if (changed or stale) and not accept:
         raise FixtureError(
-            f"upstream documents changed since the fixture was pinned: {changed}; "
+            f"upstream documents changed since the fixture was pinned: {changed + stale}; "
             "rerun with --accept-upstream-changes after reviewing the new text"
         )
-    path.write_text(json.dumps({**pinned, **current}, indent=2, sort_keys=True) + "\n")
+    kept = {u: h for u, h in pinned.items() if u not in stale}
+    path.write_text(json.dumps({**kept, **current}, indent=2, sort_keys=True) + "\n")
+
+
+def fetch_upstream(url: str, *, accept: str = XHTML, refresh: bool) -> bytes:
+    """``fetch`` with every network or HTTP failure reported as a FixtureError naming the URL."""
+    try:
+        return fetch(url, accept=accept, refresh=refresh)
+    except (CellarError, httpx.HTTPError) as exc:
+        raise FixtureError(f"download failed for {url}: {exc}") from None
+
+
+def cellar_articles(bodies: dict[str, bytes]) -> dict[str, list[Article]]:
+    return {
+        PROPOSAL.version_id: parse_proposal.parse_articles(
+            parse_proposal.parse_document(bodies[PROPOSAL_URL])
+        ),
+        FINAL.version_id: parse_regulation.parse_articles(
+            parse_regulation.parse_document(bodies[celex_url(FINAL.celex)])
+        ),
+    }
+
+
+def pipeline_articles(bodies: dict[str, bytes]) -> dict[str, list[Article]]:
+    out: dict[str, list[Article]] = {}
+    for version_id, url in PIPELINE_UNITS.items():
+        units = parse_units.parse_units(bodies[url], url.rsplit("/", 1)[1])
+        out[version_id] = parse_units.parse_articles(units)
+    return out
+
+
+def fidelity_report(
+    built: dict[str, RegulationVersion], other: dict[str, list[Article]], label: str
+) -> list[str]:
+    """One line per fixture article: byte-identical to the other source, identical only after
+    citation normalization (layout drift), or the first differing context."""
+    lines = []
+    for version_id, version in built.items():
+        by_number = {a.number: a.text for a in other.get(version_id, [])}
+        for p in version.provisions:
+            theirs = by_number.get(p.article)
+            if theirs is None:
+                verdict = f"missing in {label}"
+            elif theirs == p.text:
+                verdict = "byte-identical"
+            elif normalize(theirs) == normalize(p.text):
+                verdict = "same words, layout differs"
+            else:
+                a, b = normalize(p.text), normalize(theirs)
+                i = next(
+                    (i for i, (x, y) in enumerate(zip(a, b, strict=False)) if x != y),
+                    min(len(a), len(b)),
+                )
+                verdict = f"differs at {i}: {a[max(0, i - 30) : i + 30]!r} vs {b[max(0, i - 30) : i + 30]!r}"
+            lines.append(f"  {version_id} Art {p.article}: {verdict}")
+    return lines
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--out", type=Path, default=DEFAULT_FIXTURE_DIR)
+    parser.add_argument(
+        "--articles-from",
+        choices=("pipeline", "cellar"),
+        default="pipeline",
+        help="source of article texts (default: the colleague's pinned provision units)",
+    )
     parser.add_argument("--refresh", action="store_true", help="ignore the download cache")
     parser.add_argument(
         "--accept-upstream-changes",
@@ -294,25 +388,36 @@ def main(argv: list[str] | None = None) -> int:
     crosswalk = load_crosswalk(args.out / "crosswalk.yaml")
     scenarios = build_scenarios(crosswalk)
 
-    bodies = {
-        PROPOSAL_URL: fetch(PROPOSAL_URL, refresh=args.refresh),
-        celex_url(FINAL.celex): fetch(celex_url(FINAL.celex), refresh=args.refresh),
-    }
-    check_downloads(args.out / "downloads.json", bodies, accept=args.accept_upstream_changes)
-    proposal_root = parse_proposal.parse_document(bodies[PROPOSAL_URL])
-    final_root = parse_regulation.parse_document(bodies[celex_url(FINAL.celex)])
+    final_url = celex_url(FINAL.celex)
+    bodies = {PROPOSAL_URL: fetch_upstream(PROPOSAL_URL, refresh=args.refresh)}
+    if args.articles_from == "cellar":
+        bodies[final_url] = fetch_upstream(final_url, refresh=args.refresh)
+    else:
+        for url in (*PIPELINE_UNITS.values(), PIPELINE_CONTAINERS):
+            bodies[url] = fetch_upstream(url, accept=ANY, refresh=args.refresh)
+    check_downloads(
+        args.out / "downloads.json",
+        bodies,
+        accept=args.accept_upstream_changes,
+        supersedes=PIPELINE_REPO_RAW if args.articles_from == "pipeline" else None,
+    )
+
+    if args.articles_from == "cellar":
+        articles = cellar_articles(bodies)
+    else:
+        pairs = parse_units.parse_containers(bodies[PIPELINE_CONTAINERS], PIPELINE_CONTAINERS)
+        parse_units.check_crosswalk(crosswalk.entries, pairs, PROPOSAL.version_id, FINAL.version_id)
+        articles = pipeline_articles(bodies)
 
     built = []
     sources: list[Source] = []
-    for spec, articles in (
-        (PROPOSAL, parse_proposal.parse_articles(proposal_root)),
-        (FINAL, parse_regulation.parse_articles(final_root)),
-    ):
+    for spec in (PROPOSAL, FINAL):
         version, version_sources = build_version(
-            spec, articles, keys_needed(scenarios, spec.version_id), crosswalk
+            spec, articles[spec.version_id], keys_needed(scenarios, spec.version_id), crosswalk
         )
         built.append((spec, version))
         sources.extend(version_sources)
+    proposal_root = parse_proposal.parse_document(bodies[PROPOSAL_URL])
     sources.extend(memorandum_sources(parse_proposal.parse_memorandum(proposal_root)))
 
     regulation = Regulation(
@@ -335,11 +440,33 @@ def main(argv: list[str] | None = None) -> int:
                 chars = sum(len(by_version[vid][k].text) for k in s.provision_keys)
                 counts.append(f"{vid}={chars}")
         print(f"{s.scenario_id}: {len(s.provision_keys)} provisions, chars {', '.join(counts)}")
+    other = other_source_articles(args.articles_from, bodies)
+    if other is None:
+        print("fidelity: the other source is not cached; skipped")
+    else:
+        label = "cellar" if args.articles_from == "pipeline" else "pipeline"
+        print(f"fidelity against {label}:")
+        print("\n".join(fidelity_report({v.version_id: v for _, v in built}, other, label)))
     memo = [s for s in sources if s.kind == "memorandum"]
     print(f"memorandum sources: {[s.source_id for s in memo]}")
     print(f"stripped: {memo[0].stripped_sections if memo else []}")
     print(f"wrote {args.out}")
     return 0
+
+
+def other_source_articles(
+    current: str, bodies: dict[str, bytes]
+) -> dict[str, list[Article]] | None:
+    """Articles from the source not used for this build, from the cache only."""
+    if current == "pipeline":
+        url = celex_url(FINAL.celex)
+        body = bodies.get(url) or cached(url)
+        return cellar_articles({**bodies, url: body}) if body else None
+    urls = (*PIPELINE_UNITS.values(),)
+    found = {u: bodies.get(u) or cached(u, accept=ANY) for u in urls}
+    if not all(found.values()):
+        return None
+    return pipeline_articles(found)
 
 
 if __name__ == "__main__":

@@ -82,8 +82,14 @@ file and the prompts it references):
 
 ## Data
 
-`data/fixtures/ai_act/` is built from EUR-Lex Cellar by `scripts/build_fixture.py` (proposal
-COM(2021) 206 and Regulation (EU) 2024/1689). The delivery format for the full dataset is the
+`data/fixtures/ai_act/` is built by `scripts/build_fixture.py` (proposal COM(2021) 206 and
+Regulation (EU) 2024/1689). Article texts come from the colleague's data pipeline,
+[calderonsamuel/course-cs-project-fall-2026-data](https://github.com/calderonsamuel/course-cs-project-fall-2026-data),
+pinned by `PIPELINE_COMMIT` in the script and by sha256 in `downloads.json`. Its proposal-to-final
+alignment must agree with `crosswalk.yaml`, or the build fails. The explanatory memorandum comes
+from EUR-Lex Cellar. `--articles-from cellar` builds the articles from Cellar instead. To move the
+pin, change `PIPELINE_COMMIT`, rebuild with `--accept-upstream-changes`, and review the fidelity
+report it prints. Runtime code reads only the committed fixture. The delivery format for the full dataset is the
 R1 data contract: `docs/data-contract.schema.json` (generated from `womm.models.regulation`).
 Every provision needs a `provision_key` that stays stable across versions (articles are renumbered
 between proposal and final text).

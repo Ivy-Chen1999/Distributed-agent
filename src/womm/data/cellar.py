@@ -75,6 +75,18 @@ def fetch(
     return response.content
 
 
+def cached(
+    url: str,
+    *,
+    accept: str = XHTML,
+    language: str = "eng",
+    cache_dir: Path = DEFAULT_CACHE_DIR,
+) -> bytes | None:
+    """The cached body for ``url``, or None; never touches the network."""
+    path = _cache_path(cache_dir, url, accept, language)
+    return path.read_bytes() if path.exists() else None
+
+
 def sha256(body: bytes) -> str:
     return hashlib.sha256(body).hexdigest()
 
