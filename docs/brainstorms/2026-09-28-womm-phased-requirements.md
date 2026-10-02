@@ -67,6 +67,10 @@ Deliver by priority. **P1–P2 must be done by Friday.** Do P3–P5 on Friday if
 4. P4 Jev shadow (R10). Fallback: write DecisionRecords with a stub recorder
 5. P5 Failure records (R14b) and noise measurement (R34). Can be deferred to v0.1; the formal baseline and R34 run on the api backend and belong to v0.1
 
+6. P6 (added 2026-10-02) Build the fixture from the colleague's delivered data (R38). This brings
+   the R1 promise forward from v1 to v0: the data source is swapped, and agent code does not
+   change.
+
 R16 tracing is on by default from P1.
 
 
@@ -75,6 +79,13 @@ R16 tracing is on by default from P1.
 - R2. v0 builds its own minimal fixture, with two kinds of scenarios:
   - **Evaluation scenario**: the input is "no prior version → COM(2021)206" (the whole proposal is treated as a new change). This matches the object assessed by the official IA SWD(2021)84 and is used for golden case scoring.
   - **Demo scenario**: a diff of a small number of corresponding provisions from COM(2021)206 → Reg (EU) 2024/1689 (candidates: SME / compliance obligations / penalty-related), to show the provision-level diff capability. The official IA did not assess these amendments, so this scenario gets no IA-based coverage scoring.
+- R38. (added 2026-10-02) The colleague delivered the data:
+  [calderonsamuel/course-cs-project-fall-2026-data](https://github.com/calderonsamuel/course-cs-project-fall-2026-data),
+  at commit `16b5807`.
+  - The v0 fixture's article texts come from their provision units, pinned by commit and sha256.
+  - Their proposal-to-final alignment checks the hand crosswalk at build time.
+  - Only final Art 99 changes (digit grouping).
+  - Plan: `docs/plans/2026-10-02-001-feat-pipeline-data-import-plan.md`.
 - R3. The provision-level diff is a deterministic tool. It matches by provision key (not by article number) and outputs lists of added / removed / modified provisions as Planner input.
 
 **RIA main chain**
@@ -109,6 +120,17 @@ R16 tracing is on by default from P1.
 
 **Data and evidence**
 - R17. Integrate the multi-version AI Act data delivered by the colleague (proposal → amendments → consolidated version), covering all provisions, with on-demand retrieval rather than putting the full text into context.
+  - Refined 2026-10-02 by `docs/brainstorms/2026-10-02-provision-retrieval-requirements.md`: one
+    corpus, per-agent data scopes, Planner-driven retrieval, and a single-agent baseline.
+  - Plan: `docs/plans/2026-10-02-002-feat-scoped-provision-retrieval-plan.md`.
+- R39. (added 2026-10-02) The rest of the colleague's methodology is staged in
+  `docs/brainstorms/2026-10-02-next-stage-cost-and-methodology-requirements.md`. Proposed timing:
+  - **v1:** Stage A (LLM obligation enrichment, and the adversarial reviewer as the R30
+    new-expert candidate).
+  - **v1 if time allows, otherwise v1.1:** Stage B (EU-level cost estimation scored against the IA
+    cost sections).
+  - **After v1:** Stage C (municipal organization case and VNG/PBLQ validation) and Stage D (data
+    quality and generality).
 - R18. Evidence expert and Workforce expert go live (5 in total). External evidence is discovered via Exa; each item keeps its source and provenance.
 - R19. Three-layer citation validation: verbatim matching → support scoring (a MiniCheck-style small model) → only ambiguous cases go to the LLM judge.
 
@@ -226,3 +248,8 @@ R16 tracing is on by default from P1.
 ## Next Steps
 
 → `/ce-plan` generates the v0 implementation plan (v1 is planned separately after v0 is delivered)
+
+Update 2026-10-02:
+1. v0 P6: implement `docs/plans/2026-10-02-001-feat-pipeline-data-import-plan.md`.
+2. v1: implement `docs/plans/2026-10-02-002-feat-scoped-provision-retrieval-plan.md`.
+3. v1: plan Stage A from `docs/brainstorms/2026-10-02-next-stage-cost-and-methodology-requirements.md`.
