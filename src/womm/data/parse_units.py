@@ -26,9 +26,10 @@ from __future__ import annotations
 import csv
 import io
 import json
+from collections.abc import Iterable
 from dataclasses import dataclass
 
-from womm.data.fixtures import FixtureError
+from womm.data.fixtures import CrosswalkEntry, FixtureError
 from womm.data.parse_proposal import Article, Paragraph
 
 GAP = " […] "
@@ -134,7 +135,10 @@ def parse_containers(data: bytes, name: str = "containers") -> set[tuple[str, st
 
 
 def check_crosswalk(
-    entries, pairs: set[tuple[str, str]], old_version: str, new_version: str
+    entries: Iterable[CrosswalkEntry],
+    pairs: set[tuple[str, str]],
+    old_version: str,
+    new_version: str,
 ) -> None:
     """Every crosswalk entry present in both versions must be an aligned article pair."""
     for e in entries:

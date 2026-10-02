@@ -82,10 +82,10 @@ PROPOSAL_URL = (
 # The colleague's data pipeline, pinned by commit (moving the pin changes downloads.json and
 # needs --accept-upstream-changes).
 PIPELINE_COMMIT = "16b5807927be1ade3802db7c59c26f7ca338ebf2"
-PIPELINE_BASE = (
+PIPELINE_REPO_RAW = (
     "https://raw.githubusercontent.com/calderonsamuel/course-cs-project-fall-2026-data/"
-    f"{PIPELINE_COMMIT}/data/processed"
 )
+PIPELINE_BASE = f"{PIPELINE_REPO_RAW}{PIPELINE_COMMIT}/data/processed"
 PIPELINE_UNITS = {
     PROPOSAL.version_id: f"{PIPELINE_BASE}/provisions/{PROPOSAL.celex}.jsonl",
     FINAL.version_id: f"{PIPELINE_BASE}/provisions/{FINAL.celex}.jsonl",
@@ -290,17 +290,28 @@ def write_fixture(
     (out_dir / "scenarios.yaml").write_text(header + body, encoding="utf-8")
 
 
-def check_downloads(path: Path, bodies: dict[str, bytes], *, accept: bool) -> None:
-    """Pin each upstream document by sha256 so a changed or tampered download fails loudly."""
+def check_downloads(
+    path: Path, bodies: dict[str, bytes], *, accept: bool, supersedes: str | None = None
+) -> None:
+    """Pin each upstream document by sha256 so a changed or tampered download fails loudly.
+
+    ``supersedes`` is a URL prefix whose pins this build replaces as a whole (the pipeline repo,
+    whose URLs carry the commit): a pinned URL under it that this build no longer fetches means
+    the pin moved, which counts as a change and is dropped once accepted.
+    """
     pinned = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
     current = {url: sha256(body) for url, body in bodies.items()}
     changed = sorted(u for u, h in current.items() if u in pinned and pinned[u] != h)
-    if changed and not accept:
+    stale = sorted(
+        u for u in pinned if supersedes and u.startswith(supersedes) and u not in current
+    )
+    if (changed or stale) and not accept:
         raise FixtureError(
-            f"upstream documents changed since the fixture was pinned: {changed}; "
+            f"upstream documents changed since the fixture was pinned: {changed + stale}; "
             "rerun with --accept-upstream-changes after reviewing the new text"
         )
-    path.write_text(json.dumps({**pinned, **current}, indent=2, sort_keys=True) + "\n")
+    kept = {u: h for u, h in pinned.items() if u not in stale}
+    path.write_text(json.dumps({**kept, **current}, indent=2, sort_keys=True) + "\n")
 
 
 def fetch_upstream(url: str, *, accept: str = XHTML, refresh: bool) -> bytes:
@@ -323,7 +334,7 @@ def cellar_articles(bodies: dict[str, bytes]) -> dict[str, list[Article]]:
 
 
 def pipeline_articles(bodies: dict[str, bytes]) -> dict[str, list[Article]]:
-    out = {}
+    out: dict[str, list[Article]] = {}
     for version_id, url in PIPELINE_UNITS.items():
         units = parse_units.parse_units(bodies[url], url.rsplit("/", 1)[1])
         out[version_id] = parse_units.parse_articles(units)
@@ -384,7 +395,12 @@ def main(argv: list[str] | None = None) -> int:
     else:
         for url in (*PIPELINE_UNITS.values(), PIPELINE_CONTAINERS):
             bodies[url] = fetch_upstream(url, accept=ANY, refresh=args.refresh)
-    check_downloads(args.out / "downloads.json", bodies, accept=args.accept_upstream_changes)
+    check_downloads(
+        args.out / "downloads.json",
+        bodies,
+        accept=args.accept_upstream_changes,
+        supersedes=PIPELINE_REPO_RAW if args.articles_from == "pipeline" else None,
+    )
 
     if args.articles_from == "cellar":
         articles = cellar_articles(bodies)
@@ -438,7 +454,9 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-def other_source_articles(current: str, bodies: dict[str, bytes]) -> dict | None:
+def other_source_articles(
+    current: str, bodies: dict[str, bytes]
+) -> dict[str, list[Article]] | None:
     """Articles from the source not used for this build, from the cache only."""
     if current == "pipeline":
         url = celex_url(FINAL.celex)

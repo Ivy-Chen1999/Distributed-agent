@@ -135,3 +135,141 @@ def test_pipeline_build_reproduces_committed_fixture(tmp_path, monkeypatch):
         for f in (built, committed)
     ]
     assert kinds[0] == kinds[1] == ["modified", "modified", "modified"]
+
+
+def test_moving_the_pipeline_pin_needs_acceptance(tmp_path):
+    path = tmp_path / "downloads.json"
+    repo = build_fixture.PIPELINE_REPO_RAW
+    old, new = f"{repo}aaa/units.jsonl", f"{repo}bbb/units.jsonl"
+    cellar = "https://publications.europa.eu/resource/x"
+    build_fixture.check_downloads(path, {old: b"v1", cellar: b"m"}, accept=False, supersedes=repo)
+    with pytest.raises(FixtureError, match="upstream documents changed.*aaa/units.jsonl"):
+        build_fixture.check_downloads(
+            path, {new: b"v2", cellar: b"m"}, accept=False, supersedes=repo
+        )
+    build_fixture.check_downloads(path, {new: b"v2", cellar: b"m"}, accept=True, supersedes=repo)
+    assert set(json.loads(path.read_text())) == {new, cellar}  # the superseded pin is dropped
+
+
+def test_cellar_build_keeps_pipeline_pins(tmp_path):
+    path = tmp_path / "downloads.json"
+    pipeline = f"{build_fixture.PIPELINE_REPO_RAW}aaa/units.jsonl"
+    build_fixture.check_downloads(path, {pipeline: b"v1"}, accept=False)
+    build_fixture.check_downloads(path, {"https://x/doc": b"m"}, accept=False)  # no supersedes
+    assert set(json.loads(path.read_text())) == {pipeline, "https://x/doc"}
+
+
+FIXTURES = REPO_ROOT / "tests" / "fixtures"
+SAMPLE_CROSSWALK = """entries:
+  - provision_key: ai_act/high_risk/compliance_with_requirements
+    articles: {com2021_206: "8", reg2024_1689: "8"}
+  - provision_key: ai_act/high_risk/risk_management
+    articles: {com2021_206: "9", reg2024_1689: "9"}
+  - provision_key: ai_act/penalties/penalties
+    articles: {com2021_206: "71", reg2024_1689: "99"}
+"""
+SAMPLE_SCENARIOS = [
+    {
+        "scenario_id": "eval_sample",
+        "kind": "evaluation",
+        "description": "Sample evaluation scenario.",
+        "before_version": None,
+        "after_version": "com2021_206",
+        "articles": ["8", "9"],
+        "ia_reference": None,
+    },
+    {
+        "scenario_id": "demo_sample",
+        "kind": "demo",
+        "description": "Sample demo scenario.",
+        "before_version": "com2021_206",
+        "after_version": "reg2024_1689",
+        "articles": ["99"],
+        "ia_reference": None,
+    },
+]
+
+
+@pytest.fixture
+def offline_build(tmp_path, monkeypatch):
+    """main() against the committed samples: units and containers for the pipeline, the XHTML
+    samples for Cellar. No network, no download cache."""
+    from womm.data.cellar import celex_url
+
+    bodies = {
+        build_fixture.PROPOSAL_URL: (FIXTURES / "com2021_206_sample.xhtml").read_bytes(),
+        celex_url("32024R1689"): (FIXTURES / "reg2024_1689_sample.xhtml").read_bytes(),
+        build_fixture.PIPELINE_UNITS["com2021_206"]: (
+            FIXTURES / "units_proposal_sample.jsonl"
+        ).read_bytes(),
+        build_fixture.PIPELINE_UNITS["reg2024_1689"]: (
+            FIXTURES / "units_final_sample.jsonl"
+        ).read_bytes(),
+        build_fixture.PIPELINE_CONTAINERS: (FIXTURES / "containers_sample.csv").read_bytes(),
+    }
+    fetched: list[str] = []
+
+    def fake_fetch(url, **_):
+        fetched.append(url)
+        return bodies[url]
+
+    cache: dict[str, bytes] = {}
+    monkeypatch.setattr(build_fixture, "fetch", fake_fetch)
+    monkeypatch.setattr(build_fixture, "cached", lambda url, **_: cache.get(url))
+    monkeypatch.setattr(build_fixture, "SCENARIOS", SAMPLE_SCENARIOS)
+    (tmp_path / "crosswalk.yaml").write_text(SAMPLE_CROSSWALK, encoding="utf-8")
+    return tmp_path, bodies, cache, fetched
+
+
+def test_offline_pipeline_build(offline_build, capsys):
+    from womm.data.fixtures import load_fixture
+
+    out, bodies, _, fetched = offline_build
+    assert build_fixture.main(["--out", str(out)]) == 0
+    fixture = load_fixture(out)
+    assert set(fixture.scenarios) == {"eval_sample", "demo_sample"}
+    art9 = fixture.version("com2021_206").by_key()["ai_act/high_risk/risk_management"].text
+    assert "[…]" not in art9 and "\n(a) elimination" in art9
+    assert any(s.kind == "memorandum" for s in fixture.sources.values())
+    pins = json.loads((out / "downloads.json").read_text())
+    assert set(pins) == set(fetched)
+    assert "the other source is not cached; skipped" in capsys.readouterr().out
+
+
+def test_offline_pipeline_build_fails_on_crosswalk_disagreement(offline_build):
+    out, *_ = offline_build
+    text = SAMPLE_CROSSWALK.replace('{com2021_206: "9", reg2024_1689: "9"}',
+                                    '{com2021_206: "9", reg2024_1689: "10"}')  # fmt: skip
+    (out / "crosswalk.yaml").write_text(text, encoding="utf-8")
+    with pytest.raises(FixtureError, match="risk_management.*Art 9 to reg2024_1689 Art 10"):
+        build_fixture.main(["--out", str(out)])
+
+
+def test_offline_cellar_build_with_fidelity_report(offline_build, capsys):
+    from womm.data.fixtures import load_fixture
+
+    out, bodies, cache, fetched = offline_build
+    for url in build_fixture.PIPELINE_UNITS.values():
+        cache[url] = bodies[url]
+    assert build_fixture.main(["--out", str(out), "--articles-from", "cellar"]) == 0
+    assert not any(url.startswith(build_fixture.PIPELINE_REPO_RAW) for url in fetched)
+    penalties = load_fixture(out).version("reg2024_1689").by_key()["ai_act/penalties/penalties"]
+    assert "EUR 35 000 000" in penalties.text  # Cellar keeps the digit grouping
+    report = capsys.readouterr().out
+    assert "fidelity against pipeline:" in report
+    assert "com2021_206 Art 8: byte-identical" in report
+    assert "reg2024_1689 Art 99: differs at" in report
+
+
+def test_other_source_articles_from_cache_only(monkeypatch):
+    from womm.data.cellar import celex_url
+
+    monkeypatch.setattr(build_fixture, "cached", lambda url, **_: None)
+    assert build_fixture.other_source_articles("pipeline", {}) is None
+    assert build_fixture.other_source_articles("cellar", {}) is None
+    bodies = {
+        build_fixture.PROPOSAL_URL: (FIXTURES / "com2021_206_sample.xhtml").read_bytes(),
+        celex_url("32024R1689"): (FIXTURES / "reg2024_1689_sample.xhtml").read_bytes(),
+    }
+    other = build_fixture.other_source_articles("pipeline", bodies)
+    assert [a.number for a in other["reg2024_1689"]] == ["7", "16", "99", "103"]
