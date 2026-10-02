@@ -1,7 +1,7 @@
 ---
 title: "feat: Build the AI Act fixture from the colleague's data pipeline"
 type: feat
-status: active
+status: completed
 date: 2026-10-02
 origin: docs/brainstorms/2026-09-28-womm-phased-requirements.md
 ---
