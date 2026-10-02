@@ -3,7 +3,7 @@ from pathlib import Path
 import httpx
 import pytest
 
-from womm.data.cellar import CellarError, celex_url, fetch, fetch_celex
+from womm.data.cellar import CellarError, cached, celex_url, fetch, fetch_celex
 
 
 def _client(handler) -> httpx.Client:
@@ -62,3 +62,12 @@ def test_http_error(tmp_path: Path):
 def test_rejects_non_celex():
     with pytest.raises(ValueError):
         celex_url("../etc/passwd")
+
+
+def test_cached_reads_only_the_cache(tmp_path: Path):
+    url = "https://raw.githubusercontent.com/o/r/abc/data.csv"
+    assert cached(url, accept="*/*", cache_dir=tmp_path) is None
+    with _client(lambda request: httpx.Response(200, content=b"a,b")) as client:
+        fetch(url, accept="*/*", cache_dir=tmp_path, client=client)
+    assert cached(url, accept="*/*", cache_dir=tmp_path) == b"a,b"
+    assert cached(url, cache_dir=tmp_path) is None  # cache key includes the Accept header
