@@ -61,7 +61,7 @@ Sources read in full: their `README.md`, `docs/project-status.md`, `docs/org-gra
 
 ## Stages and requirements
 
-**Stage A: Obligation enrichment and the adversarial reviewer** (directly after plan 002)
+**Stage A: Obligation enrichment and the adversarial reviewer** (v1.1; moved from v1 on 2026-10-03)
 - R1. An offline LLM pass enriches every duty and prohibition. It adds the implied addressee where
   the rule pass says `unspecified`, a normalised action, one or more effort types from a fixed list,
   and resolved cross-references. These are added as new fields with `source = agent:<name>` and a
