@@ -110,7 +110,7 @@ export function App() {
 
   const scenarioId = run?.scenario_id ?? runs.data?.runs?.find((r) => r.run_id === runId)?.scenario_id ?? DEFAULT_SCENARIO;
   const scenario = scenarios.data?.find((s) => s.scenario_id === scenarioId) ?? null;
-  const [sources] = useLoad(authed ? `sources:${scenarioId}:${token}` : null, () => api.sources(scenarioId));
+  const [sources, reloadSources] = useLoad(authed ? `sources:${scenarioId}:${token}` : null, () => api.sources(scenarioId));
 
   const systemExperts = system.data?.experts.map((e) => e.id);
   const experts = useMemo(() => expertsFor(runData.events, run, systemExperts), [runData.events, run, systemExperts?.join(',')]);
@@ -281,6 +281,7 @@ export function App() {
     reloadRun: runData.reload,
     scenario,
     sources,
+    reloadSources,
     rv,
     runLabel,
     runDot,

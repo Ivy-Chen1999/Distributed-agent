@@ -1,13 +1,45 @@
 ---
-title: "feat: Scoped provision retrieval (Layer 1) and single-agent baseline"
+title: "feat: Scoped provision retrieval (Layer 1) and data-scope experiment"
 type: feat
 status: active
 date: 2026-10-02
-deepened: 2026-10-02
+deepened: 2026-10-03
 origin: docs/brainstorms/2026-10-02-provision-retrieval-requirements.md
 ---
 
-# feat: Scoped provision retrieval (Layer 1) and single-agent baseline
+# feat: Scoped provision retrieval (Layer 1) and data-scope experiment
+
+> **Revision 2026-10-03.** This revision follows a second review against new facts (colleague import merged; EU Digital Omnibus, Regulation (EU) 2026/1744, in force since 27 July 2026, amending 42 AI Act articles and moving Article 113 dates). Where a section below conflicts with this block, this block wins.
+>
+> **User decisions:**
+> - **Law version per mode.**
+>   - Evaluation stays on COM(2021) 206, which matches SWD(2021) 84.
+>   - Explore/demo runs use **Reg (EU) 2024/1689 as adopted**, explicitly labelled "pre-Omnibus" in the scenario name, the version metadata and the dossier header.
+>   - Every article that 2026/1744 amends carries a "superseded in part by Regulation (EU) 2026/1744" marker. The marker comes from a pinned list of the 42 amended articles.
+>   - The 2026 consolidated text becomes a third version in **Stage D**. That stage ports the consolidated parser built in the private demo track, uses string article numbers in keys such as `ai_act/art/4a`, and has no obligation records.
+>   - The corpus key scheme must accept that third version without re-keying.
+> - **Data scopes are a side experiment, not the v1 base.**
+>   - U6 compares **scoped vs unscoped only**, on AI Act cases only, on the **api backend**, with a pre-registered rule: if scoped coverage is more than one noise band below unscoped, revise the default scopes; otherwise keep them.
+>   - The self-evolution base (R27/R28) is an **unscoped** version.
+>   - The single-agent arm (v1.0-single, origin R6) is deferred until the 15–30 golden cases exist.
+> - **Sequencing.** Golden-case building (parent R22/R33) starts now, in parallel with U1–U4. Stage A (obligation enrichment, adversarial reviewer) moves to **v1.1**.
+>
+> **Fixes adopted from the review:**
+> - **No stale dates reach an agent (P0).**
+>   - The corpus build never emits a colleague `applies_from` as a current date. It drops `applies_from` for Chapter III Sections 1–3 (Articles 6–27, except Article 6(5)), for Articles 102–110, and for any article 2026/1744 amends.
+>   - Every remaining date is rendered as "as adopted (2024)".
+>   - Article 113's own records are left out of obligation views.
+>   - These rules are the same per-paragraph rules proven in the private demo.
+>   - U1 test: no rendered obligation source for Articles 6–27 contains a 2026-08-02 date.
+>   - U2 test: the `actors` and `full` views carry the label.
+> - **Prompt budget.**
+>   - The v1 SystemVersions set `max_provisions` to about 8 for text-all experts. This is sized from the measured baseline of about 40k characters, which takes about 6 minutes on `claude_code`.
+>   - Expert timeouts are raised to match.
+>   - U3 asserts that every expert prompt in the fake explore run stays under 60k characters.
+> - **Whole-proposal explore evaluation.**
+>   - Add an explore scenario "no prior version → COM(2021) 206, whole proposal", kind `evaluation`.
+>   - It is scored with the existing golden cases, next to the presets.
+>   - Report Planner key recall against the golden cases' provisions. This is the real test of R17.
 
 ## Overview
 
