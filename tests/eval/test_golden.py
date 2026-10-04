@@ -132,3 +132,21 @@ def test_drafts_are_ignored_and_splits_selected(tmp_path) -> None:
     assert [c.case_id for c in load_all_golden(tmp_path, split="val")] == ["case_02_b"]
     with pytest.raises(GoldenError, match="cannot be selected"):
         load_all_golden(tmp_path, split="holdout")
+
+
+def test_split_must_be_explicit_outside_ai_act() -> None:
+    data = load_golden(GOLDEN_DIR / "case_02_sme_impacts.yaml").model_dump(mode="json")
+    data.pop("split")
+    assert GoldenCase.model_validate(data).split == "train"  # ai_act keeps the default
+    with pytest.raises(ValueError, match="split must be explicit"):
+        GoldenCase.model_validate({**data, "fixture": "data_act"})
+    assert GoldenCase.model_validate({**data, "fixture": "data_act", "split": "val"}).split == "val"
+
+
+def test_case_file_without_split_for_another_fixture_fails_to_load(tmp_path) -> None:
+    data = load_golden(GOLDEN_DIR / "case_02_sme_impacts.yaml").model_dump(mode="json")
+    data.pop("split")
+    path = tmp_path / "case_05_x.yaml"
+    path.write_text(yaml.safe_dump({**data, "fixture": "data_act"}), encoding="utf-8")
+    with pytest.raises(ValueError, match="split must be explicit"):
+        load_golden(path)

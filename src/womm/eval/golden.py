@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from womm.config import REPO_ROOT
 from womm.data.fixtures import DEFAULT_FIXTURE, Fixture, FixtureError, fixture_dir, load_fixture
@@ -55,10 +55,23 @@ class GoldenCase(StrictModel):
         pattern=r"^[a-z0-9][a-z0-9_]*$",
         description="Fixture directory under data/fixtures/ the case is scored against.",
     )
-    split: Split = "train"
+    split: Split = Field(
+        default="train",
+        description="Defaults to train only for the original ai_act cases; explicit elsewhere.",
+    )
     notes: str = ""
     expected_impacts: list[ExpectedImpact] = Field(min_length=1)
     important_omissions: list[Omission] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _split_explicit_outside_ai_act(self) -> GoldenCase:
+        # A forgotten split must not silently put a new fixture's case into train.
+        if self.fixture != DEFAULT_FIXTURE and "split" not in self.model_fields_set:
+            raise ValueError(
+                f"{self.case_id}: split must be explicit for fixture {self.fixture!r} "
+                "(train or val)"
+            )
+        return self
 
 
 class GoldenError(ValueError):
