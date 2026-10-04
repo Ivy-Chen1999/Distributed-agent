@@ -16,6 +16,14 @@ def _payload(node: str, result: dict[str, Any] | None) -> dict[str, Any]:
         out["findings"] = {agent: len(fs) for agent, fs in board.items()}
     if failures := result.get("failures"):
         out["failures"] = {agent: f.error_kind for agent, f in failures.items() if f is not None}
+    if retrievals := result.get("retrievals"):
+        out["retrievals"] = {
+            agent: {
+                "granted": sum(r.granted for r in records),
+                "refused": sum(not r.granted for r in records),
+            }
+            for agent, records in retrievals.items()
+        }
     if decisions := result.get("decisions"):
         out["decisions"] = [
             {"subject": d.subject, "decision": d.decision, "probability": d.probability,

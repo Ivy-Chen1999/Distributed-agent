@@ -123,16 +123,23 @@ async def run_scenario(
     run_id = run_id or f"run_{uuid.uuid4()}"
     scenario = fixture.scenario(scenario_id)
     if scenario.mode == "explore":
-        inputs = explore_inputs(scenario, fixture, corpus or load_default_corpus())
+        corpus = corpus or load_default_corpus()
+        inputs = explore_inputs(scenario, fixture, corpus)
     else:
         before, after = fixture.scenario_versions(scenario_id)
         inputs = {
             "law_version": law_version(after),
             "diff": diff_versions(before, after, keys=scenario.provision_keys),
             "sources": {s.source_id: s for s in fixture.scenario_sources(scenario_id)},
+            "scenario_keys": list(scenario.provision_keys),
         }
 
-    ctx = WommContext(sv=sv, backends=backends, decisions=decisions, repo_root=repo_root)
+    # Scoped experts load the corpus on first use (obligation views), so an all-unscoped
+    # preset run never reads it.
+    ctx = WommContext(
+        sv=sv, backends=backends, decisions=decisions, repo_root=repo_root, fixture=fixture,
+        corpus=corpus,
+    )  # fmt: skip
     graph = build_graph(sv)
     final: dict = {}
     seq = 0
@@ -176,4 +183,5 @@ async def run_scenario(
         usage=[u for u in final.get("usage", []) if u is not None],
         error=final.get("fatal_error"),
         synthesis_error=final.get("synthesis_error"),
+        retrievals=[r for e in sv.spec.experts for r in final.get("retrievals", {}).get(e.id, [])],
     )

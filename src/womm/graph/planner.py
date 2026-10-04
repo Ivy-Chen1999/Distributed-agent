@@ -13,7 +13,7 @@ from langgraph.runtime import Runtime
 from pydantic import Field
 
 from womm.graph import render
-from womm.graph.experts import expert_user_content
+from womm.graph.experts import expert_user_content, expert_view
 from womm.graph.state import RIAState, WommContext
 from womm.llm.base import LLMError
 from womm.models.base import StrictModel
@@ -76,12 +76,17 @@ def cap_plan(
 
 
 def _explore_fits(state: RIAState, ctx: WommContext, max_chars: int) -> Callable[[FocusPlan], bool]:
-    """Whether every expert's prompt (system plus user content) stays within ``max_chars``
-    for a candidate plan, measured with the expert's actual rendering."""
-    system = max((len(ctx.prompt(e.role)) for e in ctx.sv.spec.experts), default=0)
+    """Whether every expert's prompt (its system prompt plus its own user content, rendered
+    through its own scope) stays within ``max_chars`` for a candidate plan."""
+    experts = [(len(ctx.prompt(e.role)), e) for e in ctx.sv.spec.experts]
 
     def fits(candidate: FocusPlan) -> bool:
-        return system + len(expert_user_content(state, candidate)) <= max_chars
+        return all(
+            system
+            + len(expert_user_content(state, candidate, expert_view(state, e, ctx, candidate)))
+            <= max_chars
+            for system, e in experts
+        )
 
     return fits
 

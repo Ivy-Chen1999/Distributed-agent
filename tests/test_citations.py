@@ -1,6 +1,6 @@
 import pytest
 
-from womm.citations import match_quote, normalize, validate_findings
+from womm.citations import AgentSources, match_quote, normalize, validate_findings
 from womm.models.findings import FindingDraft, ImpactFinding, Provenance
 from womm.models.regulation import Source
 
@@ -124,3 +124,36 @@ def test_provision_not_in_diff():
     out = validate_findings([f], SOURCES, {"k9"})
     assert out.report.verdicts[0].reason == "provision_not_in_diff"
     assert out.unsupported
+
+
+# ---------- per-agent validation (R11) ----------
+
+
+def test_per_agent_checks_the_finding_agents_own_sources():
+    """`legal` retrieved only art10: a quote from art9 is unknown_source for it, even though
+    art9 is in the run's shared sources."""
+    f = _finding(0, "k9", ("art9", GOOD))
+    views = {"legal": AgentSources(frozenset({"k9"}), {"art10": SOURCES["art10"]})}
+    out = validate_findings([f], SOURCES, {"k9"}, views)
+    assert [v.reason for v in out.report.verdicts] == ["unknown_source"]
+    views = {"legal": AgentSources(frozenset({"k9"}), {"art9": SOURCES["art9"]})}
+    assert validate_findings([f], {}, {"k9"}, views).report.verdicts[0].reason == "ok"
+
+
+def test_per_agent_provision_out_of_scope_beats_a_citable_source():
+    f = _finding(0, "k9", ("art9", GOOD))
+    views = {"legal": AgentSources(frozenset({"k10"}), {"art9": SOURCES["art9"]})}
+    out = validate_findings([f], SOURCES, {"k9", "k10"}, views)
+    assert [v.reason for v in out.report.verdicts] == ["provision_out_of_scope"]
+    assert out.unsupported
+
+
+def test_per_agent_missing_agent_may_cite_nothing():
+    f = _finding(0, "k9", ("art9", GOOD))
+    out = validate_findings([f], SOURCES, {"k9"}, {})
+    assert [v.reason for v in out.report.verdicts] == ["provision_out_of_scope"]
+    # The diff check still comes first.
+    g = _finding(1, "other", ("art9", GOOD))
+    assert validate_findings([g], SOURCES, {"k9"}, {}).report.verdicts[0].reason == (
+        "provision_not_in_diff"
+    )

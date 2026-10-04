@@ -9,6 +9,7 @@ from womm.data.corpus import PRE_OMNIBUS_NOTE, PRE_OMNIBUS_VERSIONS, Corpus, ind
 from womm.diff import RegulatoryDiff
 from womm.models.findings import ImpactFinding
 from womm.models.regulation import Source
+from womm.models.run import RetrievalRecord
 
 
 def changes_with_text(diff: RegulatoryDiff) -> str:
@@ -86,6 +87,30 @@ def changes_index(diff: RegulatoryDiff) -> str:
             refs.append(f"after: Art {c.after.article}, source_id={c.after.source_id}")
         lines.append(f"- [{c.kind}] provision_key={c.provision_key} ({'; '.join(refs)})")
     return "\n".join(lines)
+
+
+def scoped_changes_index(
+    diff: RegulatoryDiff, records: dict[str, RetrievalRecord], sees_delta: bool
+) -> str:
+    """For scoped experts: only the changes whose key the scope granted. The change kind is
+    shown only with ``sees_delta``. A key granted as an obligation view points at the view's
+    source ids, never at the text the expert cannot see."""
+    lines = []
+    for c in diff.changes:
+        record = records.get(c.provision_key)
+        if record is None or not record.granted:
+            continue
+        if record.status == "granted_text":
+            refs = []
+            if c.before:
+                refs.append(f"before: Art {c.before.article}, source_id={c.before.source_id}")
+            if c.after:
+                refs.append(f"after: Art {c.after.article}, source_id={c.after.source_id}")
+        else:
+            refs = [f"obligation records: source_id={sid}" for sid in record.source_ids]
+        tag = f"[{c.kind}] " if sees_delta else ""
+        lines.append(f"- {tag}provision_key={c.provision_key} ({'; '.join(refs)})")
+    return "\n".join(lines) or "(no changed provision is within your data scope)"
 
 
 def sources_block(sources: list[Source]) -> str:

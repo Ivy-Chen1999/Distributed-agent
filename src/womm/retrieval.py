@@ -16,14 +16,11 @@ from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
-from pydantic import Field, field_validator
-
 from womm.data.corpus import Corpus, Obligation
-from womm.models.base import StrictModel
 from womm.models.regulation import RegulationVersion, Source
+from womm.models.run import RetrievalRecord, RetrievalStatus
 from womm.models.system_version import DataScope
 
-RetrievalStatus = Literal["granted_text", "granted_obligations", "out_of_scope", "unknown_key"]
 ObligationView = Literal["actors", "full"]
 
 
@@ -36,22 +33,6 @@ class TextStore(Protocol):
     def version(self, version_id: str) -> RegulationVersion: ...
 
 
-class RetrievalRecord(StrictModel):
-    agent: str
-    layer: Literal[1] = 1
-    key: str
-    status: RetrievalStatus
-    source_ids: list[str] = Field(default_factory=list)
-    at: dt.datetime = Field(description="UTC time of the retrieval.")
-
-    @field_validator("at")
-    @classmethod
-    def _utc(cls, value: dt.datetime) -> dt.datetime:
-        if value.utcoffset() != dt.timedelta(0):
-            raise ValueError("retrieval time must be timezone-aware UTC")
-        return value
-
-
 @dataclass(frozen=True)
 class Retrieval:
     sources: list[Source]
@@ -59,7 +40,7 @@ class Retrieval:
 
     @property
     def granted_keys(self) -> list[str]:
-        return [r.key for r in self.records if r.status in ("granted_text", "granted_obligations")]
+        return [r.key for r in self.records if r.granted]
 
     @property
     def refused_keys(self) -> list[str]:
@@ -137,7 +118,7 @@ def retrieve(
     before_version: str | None,
     after_version: str,
     text_store: TextStore,
-    corpus: Corpus,
+    corpus: Corpus | None,
     *,
     agent: str,
     clock: Callable[[], dt.datetime] = _utc_now,
@@ -147,7 +128,8 @@ def retrieve(
     Sources follow ``Fixture.scenario_sources`` order: the before version's provisions in
     document order, then the after version's, each as its text or its obligation view. Records
     follow request order, one per distinct key. ``scope=None`` grants every known key's text
-    (the v0 behaviour). Memorandum sources are not handled here (see ``memorandum_sources``)."""
+    (the v0 behaviour) and never reads ``corpus``. Memorandum sources are not handled here
+    (see ``memorandum_sources``)."""
     requested = list(dict.fromkeys(keys))
     version_ids = [v for v in (before_version, after_version) if v is not None]
     versions = [text_store.version(v) for v in version_ids]
@@ -162,6 +144,8 @@ def retrieve(
         elif scope is None or scope.sees_text(key):
             status[key] = "granted_text"
         elif scope.obligations != "none":
+            if corpus is None:
+                raise ValueError("an obligation view needs the provision corpus")
             for vid in in_versions:
                 if corpus.obligation_records(vid, key)[1]:
                     obligation_sources[(vid, key)] = obligations_source(
