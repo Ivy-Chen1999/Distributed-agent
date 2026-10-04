@@ -3,16 +3,25 @@
 The document has no stable structural ids. It is a flat sequence of ``<p>`` elements whose
 class says what they are:
 
-- explanatory memorandum headings: ``li ManualHeading1..4`` (a ``span.num`` holds "3.3.")
-- articles start at ``p.Titrearticle`` ("Article 9" + ``<br/>`` + title)
-- numbered paragraphs: ``li ManualNumPar1``; points ``li Point0/1/2``, dashes ``li ListDash*``,
-  running text ``Text1`` / ``Normal`` belong to the paragraph they follow
-- ``SectionTitle`` (TITLE / Chapter headings), ``Applicationdirecte``, ``Fait`` and the
-  legislative financial statement end an article
+- explanatory memorandum headings: ``li ManualHeading1..4`` (a ``span.num`` holds "3.3.", or
+  a bullet "•" in some proposals, whose number is then derived from the position)
+- articles start at ``p.Titrearticle`` or a variant (``Titrearticle0``, ``Titrearticleb``, ...):
+  "Article 9" + ``<br/>`` + title, or "Article 9" alone with the title in the next ``Normal``
+  paragraph; a heading in that class that is not "Article N" is a chapter heading
+- numbered paragraphs: ``li ManualNumPar1`` (or ``li Point0`` numbered "1."); points
+  ``li Point0/1/2``, dashes ``li ListDash*``, running text ``Text1`` / ``Normal`` belong to the
+  paragraph they follow
+- ``SectionTitle`` / ``ChapterTitle`` (TITLE / Chapter headings), ``Applicationdirecte``,
+  ``Fait`` and the legislative financial statement end an article
+
+Tested on COM(2021) 206 (byte-for-byte characterization), COM(2022) 68 and COM(2022) 454.
+A markup variant this module does not know yields missing articles, not an exception, so
+callers that need completeness run ``check_article_sequence`` on the result.
 """
 
 from __future__ import annotations
 
+import datetime as dt
 import re
 from dataclasses import dataclass, field
 
@@ -20,8 +29,12 @@ from lxml import etree
 
 XHTML_NS = "http://www.w3.org/1999/xhtml"
 
+# Article headings: ``Titrearticle`` and Word's variants (``Titrearticle0``, ``Titrearticleb``,
+# ``Titrearticlef``, ``Titrearticlefa``, ...).
+_ARTICLE_START = re.compile(r"Titrearticle[0-9a-z]*")
 # Classes that terminate the current article without starting a new one.
 _ARTICLE_END = {
+    "ChapterTitle",
     "SectionTitle",
     "Applicationdirecte",
     "Fait",
@@ -29,6 +42,7 @@ _ARTICLE_END = {
     "Personnequisigne",
     "Fichefinanciretitre",
 }
+_PARAGRAPH_NUM = re.compile(r"\d+[a-z]?\.")
 _MEMO_END = {"Statut", "Typedudocument", "Titreobjet"}
 _HEADING_RE = re.compile(r"\bManualHeading(\d)\b")
 
@@ -103,6 +117,27 @@ def _num(el: etree._Element) -> str | None:
     return None
 
 
+_HEADING_NUMBER = re.compile(r"^(?:\d+|[IVX]+|[A-Z]|•)(?:\.\d+)*\.?$")
+
+
+def _heading_num(el: etree._Element) -> tuple[str | None, str]:
+    """(number, spilled text) of a memorandum heading.
+
+    Some sources put the previous section's last paragraph inside the heading's number span
+    (``<span class="num"><span>Body text.</span><span>3.</span></span>``, COM(2021) 762). The
+    last child span is then the number, and the text before it belongs to the previous section.
+    """
+    for node in el.iter(f"{{{XHTML_NS}}}span"):
+        if node.get("class") != "num":
+            continue
+        parts = [_clean("".join(c.itertext())) for c in node if isinstance(c.tag, str)]
+        parts = [p for p in parts if p]
+        if len(parts) > 1 and _HEADING_NUMBER.match(parts[-1]):
+            return parts[-1], " ".join(parts[:-1])
+        return _clean("".join(node.itertext())) or None, ""
+    return None, ""
+
+
 def _blocks(root: etree._Element):
     body = root.find(f"{{{XHTML_NS}}}body")
     if body is None:
@@ -118,13 +153,45 @@ def _blocks(root: etree._Element):
         yield el
 
 
-def _article_heading(el: etree._Element) -> tuple[str, str]:
-    spans = [_clean("".join(s.itertext())) for s in el if etree.QName(s).localname == "span"]
-    spans = [s for s in spans if s]
-    match = re.fullmatch(r"Article\s+(\d+[a-z]?)", spans[0] if spans else "")
+_BR = " "  # stands in for <br/> while a heading's text is collected
+
+
+def _raw_text(el: etree._Element) -> str:
+    """Text of ``el`` exactly as laid out (span boundaries add nothing), ``<br/>`` as _BR."""
+    pieces: list[str] = []
+
+    def walk(node: etree._Element) -> None:
+        cls = node.get("class", "") if isinstance(node.tag, str) else ""
+        if cls in ("FootnoteReference", "footnoteRef"):
+            pieces.append(node.tail or "")
+            return
+        is_br = isinstance(node.tag, str) and etree.QName(node).localname == "br"
+        pieces.append(_BR if is_br else (node.text or ""))
+        for child in node:
+            walk(child)
+        pieces.append(node.tail or "")
+
+    walk(el)
+    pieces[-1] = ""
+    return "".join(pieces)
+
+
+def _article_heading(el: etree._Element) -> tuple[str, str] | None:
+    """(number, title) of an article heading; None for a chapter/section heading that some
+    documents (e.g. COM(2022) 454) put in the same ``Titrearticle*`` class.
+
+    The number and the title are separated by ``<br/>``; Word splits both across spans, even
+    mid-word ("Article 3" + "1", "C" + "ompensation"), so the raw text is joined first. A
+    heading without ``<br/>`` has its title in the next paragraph (title is then "")."""
+    raw = _raw_text(el)
+    head, _, title = raw.partition(_BR)
+    head, title = _clean(head), _clean(title)
+    if not head.startswith("Article"):
+        return None
+    match = re.fullmatch(r"Article\s*(\d+[a-z]?)", head)
     if not match:
-        raise ValueError(f"unrecognised article heading at line {el.sourceline}: {spans!r}")
-    return match.group(1), " ".join(spans[1:])
+        raise ValueError(f"unrecognised article heading at line {el.sourceline}: {raw!r}")
+    return match.group(1), title
 
 
 def parse_articles(root: etree._Element) -> list[Article]:
@@ -146,7 +213,7 @@ def parse_articles(root: etree._Element) -> list[Article]:
 
     for el in _blocks(root):
         cls = el.get("class", "")
-        if cls == "Titrearticle":
+        if _ARTICLE_START.fullmatch(cls):
             close()
             current = _article_heading(el)
             continue
@@ -155,9 +222,18 @@ def parse_articles(root: etree._Element) -> list[Article]:
         if cls in _ARTICLE_END or _HEADING_RE.search(cls):
             close()
             continue
+        if not current[1] and not paragraphs and cls == "Normal" and _num(el) is None:
+            # Heading without <br/>: the first plain paragraph is the article title.
+            current = (current[0], _text(el))
+            continue
         if etree.QName(el).localname == "table":
             text = _clean(" ".join(el.itertext()))
-        elif "ManualNumPar1" in cls.split() or cls == "NumPar1":
+        elif (
+            "ManualNumPar1" in cls.split()
+            or cls == "NumPar1"
+            # Some proposals (e.g. COM(2022) 197) number paragraphs as "li Point0" with "1."
+            or (cls == "li Point0" and _PARAGRAPH_NUM.fullmatch(_num(el) or ""))
+        ):
             number = (_num(el) or "").rstrip(".") or None
             paragraphs.append([number, [_text(el, skip_num=True)]])
             continue
@@ -174,6 +250,60 @@ def parse_articles(root: etree._Element) -> list[Article]:
     return articles
 
 
+@dataclass(frozen=True)
+class Cover:
+    issued: dt.date | None  # "Brussels, 23.2.2022"
+    subject: str  # "on harmonised rules on fair access to and use of data (Data Act)"
+
+    @property
+    def short_title(self) -> str | None:
+        """The act's own name when the subject gives one, e.g. "Data Act"."""
+        for name in re.findall(r"\(([^()]+)\)", self.subject):
+            if name.strip().endswith("Act"):
+                return name.strip()
+        return None
+
+
+def parse_cover(root: etree._Element) -> Cover:
+    """Issue date and subject line from the cover page (``Emission``, ``Titreobjet_cp``)."""
+    issued, subject = None, ""
+    for el in _blocks(root):
+        cls = el.get("class", "")
+        if cls == "Emission" and issued is None:
+            m = re.search(r"(\d{1,2})\.(\d{1,2})\.(\d{4})", _text(el))
+            if m:
+                issued = dt.date(int(m.group(3)), int(m.group(2)), int(m.group(1)))
+        elif cls == "Titreobjet_cp" and not subject:
+            subject = _text(el)
+        if issued and subject:
+            break
+    return Cover(issued, subject)
+
+
+def check_article_sequence(articles: list[Article], label: str) -> None:
+    """Fail naming ``label`` unless the articles are Article 1..N in order, each once.
+
+    Lettered articles ("10a") may follow their base number. Any markup the parser missed shows
+    up here as zero articles or a gap, so a partial parse is never imported silently."""
+    if not articles:
+        raise ValueError(f"{label}: no articles found")
+    numbers = [a.number for a in articles]
+    dupes = sorted({n for n in numbers if numbers.count(n) > 1}, key=numbers.index)
+    if dupes:
+        raise ValueError(f"{label}: duplicate article numbers {dupes}")
+    expected = 1
+    for n in numbers:
+        base = int(re.match(r"\d+", n).group())
+        if n.isdigit():
+            if base != expected:
+                raise ValueError(
+                    f"{label}: article numbering jumps to {n} where {expected} was expected"
+                )
+            expected += 1
+        elif base != expected - 1:
+            raise ValueError(f"{label}: Article {n} does not follow Article {base}")
+
+
 def parse_memorandum(root: etree._Element) -> list[MemorandumSection]:
     """Explanatory memorandum sections (every heading level), up to the legislative text."""
     sections: list[MemorandumSection] = []
@@ -181,11 +311,17 @@ def parse_memorandum(root: etree._Element) -> list[MemorandumSection]:
         cls = el.get("class", "")
         heading = _HEADING_RE.search(cls)
         if heading:
-            number = (_num(el) or "").strip()
+            level = int(heading.group(1))
+            number, spilled = _heading_num(el)
+            number = (number or "").strip()
+            if spilled and sections:
+                sections[-1].blocks.append(spilled)
+            if not any(ch.isdigit() for ch in number):
+                # Some memoranda number subsections with a bullet ("•"): derive "2.3." from
+                # the parent section and the position, so headings stay unique and readable.
+                number = _derived_number(sections, level)
             number = number if number.endswith(".") else f"{number}."
-            sections.append(
-                MemorandumSection(number, _text(el, skip_num=True), int(heading.group(1)))
-            )
+            sections.append(MemorandumSection(number, _text(el, skip_num=True), level))
             continue
         if cls in _MEMO_END and sections:
             break
@@ -200,6 +336,19 @@ def parse_memorandum(root: etree._Element) -> list[MemorandumSection]:
         if text:
             sections[-1].blocks.append(text)
     return sections
+
+
+def _derived_number(sections: list[MemorandumSection], level: int) -> str:
+    """Number of a new level-``level`` section from the ones before it ("2.", 3rd -> "2.3.")."""
+    parent = ""
+    count = 0
+    for s in reversed(sections):
+        if s.level < level:
+            parent = s.number
+            break
+        if s.level == level:
+            count += 1
+    return f"{parent}{count + 1}."
 
 
 def strip_sections(
