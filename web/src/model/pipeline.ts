@@ -1,6 +1,6 @@
 // View-models for the agent graph, board feed, router panel, latency bars, log, agents, topology.
 import type { DecisionRecord, ImpactDossier, ImpactFinding, RoleSpec, RunDetail, RunStatus, Scenario, SystemInfo } from '../types';
-import { AG, AMBER, BLUE, GREEN, RED, ST, ag, fmtS, kTok, kindText, statusText, type NodeStatus } from '../design';
+import { AG, AMBER, BLUE, GREEN, NO_DATA_IN_SCOPE, RED, ST, ag, fmtS, kTok, kindText, statusText, type NodeStatus } from '../design';
 import { elapsedAt, statusAt, totalsAt, usageFor, type Trace } from './trace';
 import { capitalize, unresolvedIds } from './dossier';
 
@@ -388,9 +388,13 @@ export function logLines(rv: RunView): LogLine[] {
         ? ds.map((d) => `${d.subject}=${d.decision}`).join(' ') + ` · mode=${ds[0].mode} decider=${ds[0].decider}`
         : `dispatched ${(p.dispatched ?? []).join(', ') || 'all experts'} · router off`;
     } else if (ev.id !== null && roleOf(ev.id) === 'expert') {
-      if (failures.length) {
+      const errors = failures.filter(([, k]) => k !== NO_DATA_IN_SCOPE);
+      if (errors.length) {
         level = 'WARN';
-        msg = failures.map(([, k]) => `error_kind=${k} after ${fmtS(lat)}`).join(' · ') + ' · run continues as degraded';
+        msg = errors.map(([, k]) => `error_kind=${k} after ${fmtS(lat)}`).join(' · ') + ' · run continues as degraded';
+      } else if (failures.length) {
+        // A scoped expert with nothing in its scope is not called: data, not an error.
+        msg = 'skipped · no data within its scope (no call)';
       } else {
         const n = p.findings?.[id];
         msg = `posted ${n ?? 0} findings to board · ${fmtS(lat)}`;

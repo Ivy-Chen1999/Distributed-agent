@@ -1,6 +1,6 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import { useConsole, type DetailTab } from '../ctx';
-import { ACC, CARD, FONT, GREEN, LABEL, RED, TABULAR, WARN_BG, WARN_INK, ag, fmtS } from '../design';
+import { ACC, CARD, FONT, GREEN, LABEL, NO_DATA_IN_SCOPE, RED, TABULAR, WARN_BG, WARN_INK, ag, fmtS } from '../design';
 import { Arrow, Dot, EmptyCard, ErrorCard, HButton, LoadingCard, Seg } from '../components/ui';
 import { chainVMs, disagreementVMs, findingSteps, groupImpacts, questionVMs, type GroupMode, type ImpactVM } from '../model/dossier';
 import { hasComparableChanges, provisionComparisons, type ComparisonSide, type ComparisonVM, type Segment } from '../model/compare';
@@ -204,7 +204,7 @@ export function Detail() {
                         error_kind: {f.kind}
                         {lat ? ` · ${fmtS(lat)}` : ''}
                       </span>
-                      <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--n1)' }}>Run continued as degraded</span>
+                      <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--n1)' }}>{f.kind === NO_DATA_IN_SCOPE ? 'Skipped: no data in scope' : 'Run continued as degraded'}</span>
                     </div>
                   );
                 })}

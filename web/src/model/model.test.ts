@@ -67,6 +67,22 @@ describe('trace and node status', () => {
     expect(att.find((a) => a.key === 'unresolved')?.n).toBe('1');
   });
 
+  it('logs a no_data_in_scope expert as a skip, not as a degrading error', () => {
+    const run = degradedRun();
+    const trace = buildTrace({ events: syntheticEvents({ workforce: true, workforceKind: 'no_data_in_scope' }), experts: EX, run });
+    const rv: RunView = { trace, clock: trace.end, run, system };
+    const line = logLines(rv).find((l) => l.node === 'workforce');
+    expect(line?.level).toBe('INFO');
+    expect(line?.msg).toBe('skipped · no data within its scope (no call)');
+    expect(line?.msg).not.toContain('degraded');
+    expect(nodeVM('workforce', rv).stT).toBe('Skipped · no data in scope');
+    // A real expert error still reads as degrading the run.
+    const timeout = buildTrace({ events: syntheticEvents({ workforce: true }), experts: EX, run });
+    const tl = logLines({ ...rv, trace: timeout, clock: timeout.end }).find((l) => l.node === 'workforce');
+    expect(tl?.level).toBe('WARN');
+    expect(tl?.msg).toMatch(/^error_kind=timeout after .* · run continues as degraded$/);
+  });
+
   it('marks a node failed on a failed event, and skips nodes that never ran', () => {
     const events = syntheticEvents().slice(0, 4).concat([{ seq: 5, node: 'expert_legal', event: 'failed', payload: { error: 'boom' }, at: new Date(Date.parse(syntheticEvents()[3].at) + 1000).toISOString() }]);
     const trace = buildTrace({ events, experts: EX, run: { status: 'failed', failures: [] } });

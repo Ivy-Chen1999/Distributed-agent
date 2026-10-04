@@ -20,7 +20,7 @@ type Ev = [number, string, string, RunEvent['payload']?];
 
 const decisions = ['legal', 'fiscal', 'stakeholder'].map((subject) => ({ subject, decision: 'relevant', probability: null, mode: 'shadow' as const, decider: 'stub' }));
 
-export function syntheticEvents(opts: { workforce?: boolean } = {}): RunEvent[] {
+export function syntheticEvents(opts: { workforce?: boolean; workforceKind?: string } = {}): RunEvent[] {
   const ex = opts.workforce ? ['legal', 'fiscal', 'stakeholder', 'workforce'] : ['legal', 'fiscal', 'stakeholder'];
   const rows: Ev[] = [
     [0.4, 'planner', 'started'],
@@ -29,7 +29,7 @@ export function syntheticEvents(opts: { workforce?: boolean } = {}): RunEvent[] 
     [27.0, 'router', 'finished', { decisions, dispatched: ex }],
     ...ex.map((e): Ev => [27.0, `expert_${e}`, 'started']),
     [71.4, 'expert_fiscal', 'finished', { findings: { fiscal: 10 } }],
-    ...(opts.workforce ? [[87.0, 'expert_workforce', 'finished', { failures: { workforce: 'timeout' } }] as Ev] : []),
+    ...(opts.workforce ? [[87.0, 'expert_workforce', 'finished', { failures: { workforce: opts.workforceKind ?? 'timeout' } }] as Ev] : []),
     [125.7, 'expert_stakeholder', 'finished', { findings: { stakeholder: 12 } }],
     [130.0, 'expert_legal', 'finished', { findings: { legal: 22 } }],
     [130.2, 'validate', 'started'],
