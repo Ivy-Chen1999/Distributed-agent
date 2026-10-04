@@ -37,6 +37,14 @@ the comparison below has api-backend evidence.
 |---|---|---|
 | `v1.0-scoped.yaml` | `sv_735b080cf78a` | Side experiment: per-expert data scopes split by data form (full text versus obligation records); only the Planner sees the delta. |
 | `v1.0-unscoped.yaml` | `sv_73c6a3fdd013` | Control arm, and the self-evolution base candidate (R27/R28): v1.0-scoped with every scope removed. Same prompts, explore prompt and retrieval cap. |
+| `v1.0-scoped-api.yaml` | `sv_21cba366298d` | api twin of `v1.0-scoped.yaml`: every role on the api backend with `v0.3-api`'s model id. |
+| `v1.0-unscoped-api.yaml` | `sv_761d872bb18e` | api twin of `v1.0-unscoped.yaml`: every role on the api backend with `v0.3-api`'s model id. |
+
+The pre-registered comparison runs on the api twins: `--scoped sv_21cba366298d --unscoped
+sv_761d872bb18e` (`v1.0-scoped-api.yaml` vs `v1.0-unscoped-api.yaml`). The claude_code files
+serve development runs only, whose verdicts are dev-only. The twins' model ids are unverified
+until the first live run with an API key; if a model id has to change, the twins get new ids
+and this table is updated before any comparison run.
 
 Comparison: `scripts/compare_versions.py`, scoped vs unscoped only, AI Act golden cases only,
 api backend, router in shadow (or off) mode, at least 6 runs per case. Pre-registered rule: if

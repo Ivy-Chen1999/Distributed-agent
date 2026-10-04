@@ -26,10 +26,22 @@ PINNED_IDS = {
 }
 # Files added together with or after data scopes; their ids are new. They are pinned too, so a
 # change to one is deliberate (update the pin with the change).
-NEW_FILES = {"v1.0-scoped.yaml", "v1.0-unscoped.yaml"}
+NEW_FILES = {
+    "v1.0-scoped.yaml",
+    "v1.0-unscoped.yaml",
+    "v1.0-scoped-api.yaml",
+    "v1.0-unscoped-api.yaml",
+}
 NEW_PINNED_IDS = {
     "v1.0-scoped.yaml": "sv_735b080cf78a",
     "v1.0-unscoped.yaml": "sv_73c6a3fdd013",
+    "v1.0-scoped-api.yaml": "sv_21cba366298d",
+    "v1.0-unscoped-api.yaml": "sv_761d872bb18e",
+}
+# api twins: the pre-registered scoped vs unscoped comparison runs on these.
+API_TWINS = {
+    "v1.0-scoped-api.yaml": "v1.0-scoped.yaml",
+    "v1.0-unscoped-api.yaml": "v1.0-unscoped.yaml",
 }
 
 ROLE = {"backend": "fake", "model": "fake-1", "prompt": "prompts/p.md"}
@@ -63,6 +75,26 @@ def test_existing_version_ids_are_unchanged(name):
 @pytest.mark.parametrize("name", sorted(NEW_PINNED_IDS))
 def test_new_version_ids_are_pinned(name):
     assert load_system_version(SV_DIR / name, REPO_ROOT).version_id == NEW_PINNED_IDS[name]
+
+
+@pytest.mark.parametrize("twin", sorted(API_TWINS))
+def test_api_twins_differ_from_their_versions_only_in_backend_and_model(twin):
+    """Same prompts, scopes, router and retrieval caps; every role on the api backend with
+    v0.3-api's model id."""
+    api_model = load_system_version(SV_DIR / "v0.3-api.yaml", REPO_ROOT).spec.planner.model
+    got = load_system_version(SV_DIR / twin, REPO_ROOT).spec.model_dump()
+    base = load_system_version(SV_DIR / API_TWINS[twin], REPO_ROOT).spec.model_dump()
+    roles = [got[r] for r in ("planner", "synthesis", "judge")] + [
+        e["role"] for e in got["experts"]
+    ]
+    assert {(r["backend"], r["model"]) for r in roles} == {("api", api_model)}
+    for spec in (got, base):
+        for r in ("planner", "synthesis", "judge"):
+            spec[r].pop("backend"), spec[r].pop("model")
+        for e in spec["experts"]:
+            e["role"].pop("backend"), e["role"].pop("model")
+        spec.pop("name"), spec.pop("description", None)
+    assert got == base
 
 
 def test_every_committed_version_is_pinned_or_declared_new():

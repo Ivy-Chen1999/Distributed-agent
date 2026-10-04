@@ -1,0 +1,37 @@
+name: v1.0-unscoped-api
+description: >
+  api twin of v1.0-unscoped: same prompts, explore prompt, router and retrieval caps (no data
+  scopes), every role on the api backend with v0.3-api's model id. The pre-registered scoped vs
+  unscoped comparison runs on this twin and v1.0-scoped-api. Model ids are unverified until the
+  first live run with an API key.
+planner:
+  backend: api
+  model: openai:gpt-5.6-terra
+  prompt: prompts/planner.md
+  explore_prompt: prompts/v1/planner_explore.md
+synthesis:
+  backend: api
+  model: openai:gpt-5.6-terra
+  prompt: prompts/v0.3/synthesis.md
+  timeout_s: 480
+judge:
+  backend: api
+  model: openai:gpt-5.6-terra
+  prompt: prompts/judge_coverage.md
+experts:
+  - id: legal
+    domain: legal
+    role: {backend: api, model: openai:gpt-5.6-terra, prompt: prompts/v0.3/legal.md, timeout_s: 480}
+  - id: fiscal
+    domain: fiscal
+    role: {backend: api, model: openai:gpt-5.6-terra, prompt: prompts/v0.3/fiscal.md, timeout_s: 480}
+  - id: stakeholder
+    domain: stakeholder
+    role: {backend: api, model: openai:gpt-5.6-terra, prompt: prompts/v0.3/stakeholder.md, timeout_s: 480}
+router:
+  mode: shadow
+  decider: stub
+max_parallel_llm_calls: 3
+retrieval:
+  max_provisions: 8
+  max_prompt_chars: 60000
