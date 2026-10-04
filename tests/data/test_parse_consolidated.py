@@ -131,6 +131,41 @@ def test_footnote_calls_are_dropped_with_their_brackets():
     )
 
 
+def _article_51(paragraph: bytes) -> bytes:
+    return (
+        b'<html xmlns="http://www.w3.org/1999/xhtml"><body>'
+        b'<div class="eli-subdivision" id="art_51">'
+        b'<p class="title-article-norm">Article 51</p>'
+        b'<div class="eli-title"><p class="stitle-article-norm">Classification</p></div>'
+        + paragraph
+        + b"</div></body></html>"
+    )
+
+
+@pytest.mark.parametrize(
+    "exponent",
+    [b'<span class="superscript">25</span>', b"<sup>25</sup>"],
+)
+def test_exponents_keep_a_caret(exponent):
+    # Real markup of Article 51(2): the threshold is 10^25 floating point operations.
+    data = _article_51(
+        b'<p class="norm">measured in floating point operations is greater than 10'
+        + exponent
+        + b".</p>"
+    )
+    (art,) = parse_consolidated(data, source="inline.xhtml")
+    assert art.text == "measured in floating point operations is greater than 10^25."
+
+
+def test_superscript_inside_a_footnote_call_is_still_dropped():
+    data = _article_51(
+        b'<p class="norm">the Council (<a href="#E0001"><span class="superscript">1</span>'
+        b'</a>) and 10<span class="superscript">25</span> operations</p>'
+    )
+    (art,) = parse_consolidated(data, source="inline.xhtml")
+    assert art.text == "the Council and 10^25 operations"
+
+
 def test_amended_articles_come_from_the_markers():
     # 4 is replaced whole and 4a inserted (marker before them), 10 and 113 carry markers
     # inside; 9 is unamended.

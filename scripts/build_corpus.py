@@ -12,6 +12,11 @@ Versions (every article and annex of each):
   (``womm.data.parse_consolidated``); every other one keeps the 2024 text, after a check that
   the consolidated text has the same words (it differs only by footnote calls and spacing).
 
+The adopted units and records lost the one exponent in the Act's articles and annexes (Article
+51(2), "10^25" floating point operations, flattened to "1025"); ``KNOWN_FIXUPS`` restores it, and
+the build fails if its phrase is no longer found. The consolidated parse keeps exponents itself,
+so an unfixed adopted text would fail the same-words check below.
+
 The amended set is read from the consolidation markers (``▼Mn``) and must equal the articles
 and annexes named by the points of Article 1 of Regulation (EU) 2026/1744, or the build fails.
 
@@ -51,7 +56,7 @@ import re
 import sys
 from collections import Counter
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -165,6 +170,75 @@ def units_from(articles: Iterable[Article], annexes: Iterable[Article]) -> list[
     return [Unit("art", a.number, a.title, a.text) for a in articles] + [
         Unit("annex", a.number, a.title, a.text) for a in annexes
     ]
+
+
+# --- known upstream fixups ----------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class TextFixup:
+    """An exact phrase of one adopted article to rewrite, in its text and its records."""
+
+    article: str
+    old: str
+    new: str
+
+
+# The colleague's adopted units and obligation records flatten superscripts. The OJ and the
+# consolidated XHTML have exactly one superscript outside footnote calls: Article 51(2).
+KNOWN_FIXUPS = (
+    TextFixup(
+        "51",
+        "floating point operations is greater than 1025.",
+        "floating point operations is greater than 10^25.",
+    ),
+)
+
+
+def _stale(fixup: TextFixup, detail: str) -> FixtureError:
+    return FixtureError(
+        f"known fixup for Article {fixup.article} is stale ({detail}): {fixup.old!r}; "
+        "check whether upstream fixed it and update KNOWN_FIXUPS"
+    )
+
+
+def apply_text_fixups(units: list[Unit], fixups: Iterable[TextFixup]) -> list[Unit]:
+    """``units`` with each fixup applied; its phrase must occur exactly once in its article."""
+    out = list(units)
+    for fixup in fixups:
+        at = [i for i, u in enumerate(out) if u.kind == "art" and u.number == fixup.article]
+        if not at:
+            raise _stale(fixup, "article not found")
+        unit = out[at[0]]
+        found = unit.text.count(fixup.old)
+        if found != 1:
+            raise _stale(fixup, f"phrase found {found} times")
+        out[at[0]] = replace(unit, text=unit.text.replace(fixup.old, fixup.new))
+    return out
+
+
+def apply_record_fixups(
+    rows: list[dict[str, Any]], fixups: Iterable[TextFixup]
+) -> list[dict[str, Any]]:
+    """``rows`` with each fixup applied to every text field of its article's records; at least
+    one record must carry the phrase."""
+    out = list(rows)
+    for fixup in fixups:
+        hits = 0
+        for i, row in enumerate(out):
+            if row.get("article") != fixup.article:
+                continue
+            fields = {
+                k: v.replace(fixup.old, fixup.new)
+                for k, v in row.items()
+                if isinstance(v, str) and fixup.old in v
+            }
+            if fields:
+                hits += 1
+                out[i] = row | fields
+        if not hits:
+            raise _stale(fixup, f"no Article {fixup.article} record carries the phrase")
+    return out
 
 
 # --- keys ---------------------------------------------------------------------------------------
@@ -627,6 +701,7 @@ def build(bodies: Mapping[str, bytes], crosswalk: Crosswalk) -> Built:
         units[version_id] = units_from(
             parse_units.parse_articles(parsed), parse_units.parse_annexes(parsed)
         )
+    units[FINAL.version_id] = apply_text_fixups(units[FINAL.version_id], KNOWN_FIXUPS)
     pairs = parse_units.parse_containers(bodies[PIPELINE_CONTAINERS], PIPELINE_CONTAINERS)
     parse_units.check_crosswalk(crosswalk.entries, pairs, PROPOSAL.version_id, FINAL.version_id)
 
@@ -659,6 +734,8 @@ def build(bodies: Mapping[str, bytes], crosswalk: Crosswalk) -> Built:
     stats: dict[str, ObligationStats] = {}
     for version_id, url in PIPELINE_OBLIGATIONS.items():
         rows = parse_obligations(bodies[url], url.rsplit("/", 1)[1])
+        if version_id == FINAL.version_id:
+            rows = apply_record_fixups(rows, KNOWN_FIXUPS)
         obligations[version_id], stats[version_id] = build_obligations(
             rows, version_id, keys[version_id], set(marked[0])
         )

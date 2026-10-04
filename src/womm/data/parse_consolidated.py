@@ -14,7 +14,9 @@ from the OJ markup:
 - amendment markers are ``p.modref`` blocks ("▼M1", "▼B"); a deletion is a marker followed by
   "—————". They are dropped, with whatever they carry;
 - footnote calls are ``(<a href="#E0001">1</a>)``; they are dropped, as ``parse_regulation``
-  drops the OJ's.
+  drops the OJ's;
+- any other superscript (``span.superscript`` or ``sup``) is an exponent: Article 51(2)'s
+  "10<span class="superscript">25</span>" is rendered "10^25", not "1025".
 """
 
 from __future__ import annotations
@@ -72,9 +74,15 @@ def _is_footnote_call(el: etree._Element) -> bool:
     return _local(el) == "a" and (el.get("href") or "").startswith("#E")
 
 
+def _is_superscript(el: etree._Element) -> bool:
+    return _local(el) == "sup" or "superscript" in _classes(el)
+
+
 def _inline(el: etree._Element, pieces: list[str]) -> None:
-    """Append the visible text of inline element ``el`` (not its tail) to ``pieces``."""
-    pieces.append(el.text or "")
+    """Append the visible text of inline element ``el`` (not its tail) to ``pieces``. A
+    superscript outside a footnote call (those never reach here) is an exponent: "^" + text."""
+    text = el.text or ""
+    pieces.append(f"^{text.strip()}" if _is_superscript(el) else text)
     for child in el:
         if not isinstance(child.tag, str):
             pieces.append(child.tail or "")

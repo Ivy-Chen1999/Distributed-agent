@@ -162,6 +162,60 @@ def test_corpus_texts_match_the_fixture_for_scenario_keys(versions):
             assert corpus[p.provision_key].source_id == p.source_id
 
 
+def test_article_51_threshold_keeps_its_exponent_in_every_dated_version(versions, obligations):
+    # Art 51(2): the systemic-risk threshold is 10^25 floating point operations; the upstream
+    # units and records flattened the superscript to "1025".
+    threshold = "floating point operations is greater than 10^25."
+    for vid in (FINAL, CONSOLIDATED):
+        text = versions[vid].by_key()["ai_act/art/51"].text
+        assert threshold in text, vid
+        assert "greater than 1025" not in text, vid
+    (record,) = [r for r in obligations[FINAL]["ai_act/art/51"] if "10^25" in r["span"]]
+    assert "10^25" in record["action"]
+    assert "greater than 1025" not in json.dumps(obligations)
+
+
+def test_footnote_calls_stay_dropped_in_the_consolidated_text(versions):
+    # Art 40(3) cites Regulation (EU) No 1025/2012 with a footnote call; no "^1" may appear.
+    text = versions[CONSOLIDATED].by_key()["ai_act/art/40"].text
+    assert "Regulation (EU) No 1025/2012 of the European Parliament and of the Council" in text
+    exponents = {p.provision_key for p in versions[CONSOLIDATED].provisions if "^" in p.text}
+    assert exponents == {"ai_act/art/51"}
+
+
+def test_known_fixup_rewrites_its_phrase_once():
+    fixup = build_corpus.TextFixup("51", "greater than 1025.", "greater than 10^25.")
+    units = [Unit("art", "51", "Classification", "is greater than 1025."), *_units("52")]
+    fixed, other = build_corpus.apply_text_fixups(units, [fixup])
+    assert fixed.text == "is greater than 10^25."
+    assert other is units[1]
+
+
+@pytest.mark.parametrize(
+    "units",
+    [
+        [Unit("art", "51", "Classification", "is greater than 10^25.")],  # fixed upstream
+        [Unit("art", "51", "x", "greater than 1025. and greater than 1025.")],  # ambiguous
+        [Unit("art", "52", "x", "is greater than 1025.")],  # article gone
+    ],
+)
+def test_stale_text_fixup_fails_the_build(units):
+    fixup = build_corpus.TextFixup("51", "greater than 1025.", "greater than 10^25.")
+    with pytest.raises(FixtureError, match=r"known fixup for Article 51 .*'greater than 1025\.'"):
+        build_corpus.apply_text_fixups(units, [fixup])
+
+
+def test_known_fixup_rewrites_the_article_records_and_fails_when_stale():
+    fixup = build_corpus.TextFixup("51", "greater than 1025.", "greater than 10^25.")
+    row = _row("51", division="chV.sec1") | {"action": "is greater than 1025.", "span": "1025."}
+    other = _row("40") | {"action": "Regulation (EU) No 1025/2012"}
+    fixed, kept = build_corpus.apply_record_fixups([row, other], [fixup])
+    assert fixed["action"] == "is greater than 10^25." and fixed["span"] == "1025."
+    assert kept is other
+    with pytest.raises(FixtureError, match="known fixup for Article 51 .*no Article 51 record"):
+        build_corpus.apply_record_fixups([fixed, other], [fixup])
+
+
 def test_corpus_has_no_memorandum_or_impact_assessment(versions):
     for name in ("proposal.json", "final.json", "consolidated.json", "index.json"):
         raw = (CORPUS / name).read_text(encoding="utf-8")
