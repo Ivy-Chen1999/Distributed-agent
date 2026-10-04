@@ -1,11 +1,12 @@
 """Layer 1 retrieval: keys resolved through data scopes into sources plus retrieval records."""
 
 import datetime as dt
+import re
 
 import pytest
 
 from womm.config import REPO_ROOT
-from womm.data.corpus import Corpus, load_corpus
+from womm.data.corpus import SUPERSEDED_MARK, Corpus, load_corpus
 from womm.data.fixtures import Fixture, load_fixture
 from womm.models.system_version import DataScope, load_system_version
 from womm.retrieval import memorandum_sources, obligations_source, retrieve
@@ -297,3 +298,62 @@ def test_no_unlabelled_or_moved_date_in_any_obligation_view(corpus, view):
             article = v.by_key()[key].article
             if article.isdigit() and 6 <= int(article) <= 27 and v.version_id != PROPOSAL:
                 assert "applies from: 2026-08-02" not in src.text, key
+
+
+# ---------- consolidated-target runs never serve superseded obligation records ----------
+
+DATE = re.compile(
+    r"\b\d{1,2} (?:January|February|March|April|May|June|July|August|September|October|"
+    r"November|December) \d{4}\b|\b\d{4}-\d{2}-\d{2}\b"
+)
+
+
+def _amended(corpus) -> list[str]:
+    return [r.key for r in corpus.index_rows(CONSOLIDATED) if r.delta != "unchanged"]
+
+
+@pytest.mark.parametrize("view", ["actors", "full"])
+def test_omnibus_textless_scope_gets_no_2024_view_for_amended_keys(corpus, view):
+    """2024 -> consolidated: an amended or inserted key gets no obligation view at all, not the
+    2024 records (they hold superseded duties and deadlines)."""
+    amended = _amended(corpus)
+    with_2024_records = [k for k in amended if corpus.obligations[FINAL].get(k)]
+    assert with_2024_records  # the bug needs 2024 records to exist for amended keys
+    r = _run(_scope(obligations=view), amended, corpus, before=FINAL, after=CONSOLIDATED)
+    assert not [s.source_id for s in r.sources if s.source_id.startswith(f"{FINAL}/obligations/")]
+    assert {rec.status for rec in r.records} == {"out_of_scope"}
+
+
+def test_omnibus_unamended_key_still_borrows_2024_records(corpus):
+    r = _run(_scope(obligations="full"), [ART36], corpus, before=FINAL, after=CONSOLIDATED)
+    assert [s.source_id for s in r.sources] == [f"{FINAL}/obligations/art_36"]
+    assert SUPERSEDED_MARK not in r.sources[0].text
+
+
+def test_superseded_keys_are_the_consolidated_amendments(corpus):
+    assert corpus.is_superseded(FINAL, ART99)
+    assert not corpus.is_superseded(FINAL, ART36)
+    assert not corpus.is_superseded(PROPOSAL, ART99)  # only the adopted text was amended
+
+
+@pytest.mark.parametrize("view", ["actors", "full"])
+def test_no_unlabelled_date_in_any_view_of_an_amended_article(corpus, view):
+    """A 2024 view of an article 2026/1744 amended (pre-Omnibus runs only) never shows timing,
+    marks every record superseded, and so carries no unlabelled date."""
+    dated = 0
+    for key in _amended(corpus):
+        if not corpus.obligation_records(FINAL, key)[1]:
+            continue
+        src = obligations_source(corpus, FINAL, key, view)
+        assert SUPERSEDED_MARK in src.title
+        for block in src.text.split("\n\n"):
+            assert "\ntiming:" not in block, key
+            if DATE.search(block):
+                dated += 1
+                assert f"status: {SUPERSEDED_MARK}" in block, (key, block[:200])
+    assert dated  # the sweep saw dated records
+
+
+def test_unamended_2024_view_is_not_marked(corpus):
+    src = obligations_source(corpus, FINAL, ART36, "full")
+    assert SUPERSEDED_MARK not in src.text and SUPERSEDED_MARK not in src.title

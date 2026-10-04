@@ -16,7 +16,7 @@ from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
-from womm.data.corpus import Corpus, Obligation
+from womm.data.corpus import SUPERSEDED_MARK, Corpus, Obligation
 from womm.models.regulation import RegulationVersion, Source
 from womm.models.run import RetrievalRecord, RetrievalStatus
 from womm.models.system_version import DataScope
@@ -51,7 +51,7 @@ def _utc_now() -> dt.datetime:
     return dt.datetime.now(dt.UTC)
 
 
-def _field_lines(record: Obligation, view: ObligationView) -> list[str]:
+def _field_lines(record: Obligation, view: ObligationView, superseded: bool) -> list[str]:
     actors = record.actors or record.primary_actor
     date = (
         f"{record.applies_from} ({record.date_label})"
@@ -77,19 +77,27 @@ def _field_lines(record: Obligation, view: ObligationView) -> list[str]:
             ("addressee", record.addressee_text),
             ("condition", record.condition),
             ("action", record.action),
-            ("timing", record.timing),
+            ("timing", None if superseded else record.timing),
             ("public sector", public),
             ("applies from", date),
             ("span", record.span),
         ]
+    if superseded:
+        fields.insert(0, ("status", SUPERSEDED_MARK))
     return [f"[{record.obligation_id}]"] + [f"{name}: {value}" for name, value in fields if value]
 
 
-def render_obligations(records: Iterable[Obligation], view: ObligationView) -> str:
+def render_obligations(
+    records: Iterable[Obligation], view: ObligationView, *, superseded: bool = False
+) -> str:
     """The text of an obligation-view source: one block per record. Under ``actors`` the action
     is never shown, and the verbatim span only where the primary actor is unspecified (the span
-    fallback); under ``full`` every field and the span are shown."""
-    return "\n\n".join("\n".join(_field_lines(r, view)) for r in records)
+    fallback); under ``full`` every field and the span are shown.
+
+    ``superseded`` (records of a unit Regulation (EU) 2026/1744 amended): every record opens
+    with a ``status`` line carrying ``SUPERSEDED_MARK``, which labels the dates its free-text
+    fields may hold, and ``timing`` is never shown."""
+    return "\n\n".join("\n".join(_field_lines(r, view, superseded)) for r in records)
 
 
 def obligations_source(corpus: Corpus, version_id: str, key: str, view: ObligationView) -> Source:
@@ -104,11 +112,13 @@ def obligations_source(corpus: Corpus, version_id: str, key: str, view: Obligati
     provision = corpus.version(records_from).by_key()[key]
     suffix = provision.source_id.split("/", 1)[1]
     text_title = corpus.sources[provision.source_id].title
+    superseded = corpus.is_superseded(records_from, key)
+    mark = f" ({SUPERSEDED_MARK})" if superseded else ""
     return Source(
         source_id=f"{records_from}/obligations/{suffix}",
-        title=f"{text_title} (obligation records, {view} view)",
+        title=f"{text_title} (obligation records, {view} view){mark}",
         kind="obligations",
-        text=render_obligations(records, view),
+        text=render_obligations(records, view, superseded=superseded),
     )
 
 
@@ -137,6 +147,12 @@ def retrieve(
 
     status: dict[str, RetrievalStatus] = {}
     obligation_sources: dict[tuple[str, str], Source] = {}
+    # A run on a consolidated text takes obligation views from that version only: it borrows the
+    # adopted records for unchanged units, and an amended or inserted unit gets no view. The
+    # before version's records would serve superseded duties and deadlines as current.
+    consolidated_target = (
+        scope is not None and corpus is not None and corpus.is_consolidated(after_version)
+    )
     for key in requested:
         in_versions = [vid for vid in version_ids if key in present[vid]]
         if not in_versions:
@@ -146,12 +162,13 @@ def retrieve(
         elif scope.obligations != "none":
             if corpus is None:
                 raise ValueError("an obligation view needs the provision corpus")
-            for vid in in_versions:
-                if corpus.obligation_records(vid, key)[1]:
+            view_versions = [after_version] if consolidated_target else in_versions
+            for vid in view_versions:
+                if vid in in_versions and corpus.obligation_records(vid, key)[1]:
                     obligation_sources[(vid, key)] = obligations_source(
                         corpus, vid, key, scope.obligations
                     )
-            granted = any((vid, key) in obligation_sources for vid in in_versions)
+            granted = any((vid, key) in obligation_sources for vid in view_versions)
             status[key] = "granted_obligations" if granted else "out_of_scope"
         else:
             status[key] = "out_of_scope"

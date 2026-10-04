@@ -40,6 +40,10 @@ PRE_OMNIBUS_NOTE = (
     "Pre-Omnibus: Regulation (EU) 2024/1689 as adopted, before the amendments of Regulation "
     "(EU) 2026/1744 (in force since 27 July 2026). Some provisions and dates have changed."
 )
+# The marker on adopted-text material for a unit a consolidated version amended or inserted:
+# the title of a 2024 provision source shown in a run on the consolidated text, and every record
+# (and the title) of a 2024 obligation view of such a unit.
+SUPERSEDED_MARK = "as adopted 2024 — superseded in part by Regulation (EU) 2026/1744"
 
 
 def index_line(row: Mapping[str, Any] | IndexRow) -> str:
@@ -172,6 +176,54 @@ class Corpus:
                     text=p.text,
                 )
         return out
+
+    def is_consolidated(self, version_id: str) -> bool:
+        """Whether ``version_id`` is a consolidated text (False for a version not in the corpus,
+        such as a fixture-only version)."""
+        return any(
+            v.version_id == version_id and v.status == "consolidated" for v in self.index.versions
+        )
+
+    @cached_property
+    def _superseded(self) -> dict[str, frozenset[str]]:
+        """Base version -> the keys a consolidated version of it amended or inserted. The base is
+        the version the consolidated text borrows its obligation records from (the adopted
+        text)."""
+        out: dict[str, frozenset[str]] = {}
+        for info in self.index.versions:
+            if info.status != "consolidated":
+                continue
+            keys = {r.key for r in self.index_rows(info.version_id) if r.delta != "unchanged"}
+            out[info.obligations_from] = out.get(info.obligations_from, frozenset()) | keys
+        return out
+
+    def is_superseded(self, version_id: str, key: str) -> bool:
+        """Whether a consolidated version amended (or inserted) ``key`` of ``version_id``."""
+        return key in self._superseded.get(version_id, frozenset())
+
+    @cached_property
+    def _source_units(self) -> dict[str, tuple[str, str]]:
+        return {
+            p.source_id: (v.version_id, p.provision_key)
+            for v in self.regulation.versions
+            for p in v.provisions
+        }
+
+    def for_target(self, source: Source, after_version: str) -> Source:
+        """``source`` as a run on ``after_version`` shows it. In a run on a consolidated version,
+        a provision text of the version it consolidates whose unit was amended carries
+        ``SUPERSEDED_MARK`` in its title; the text is never changed. Any other source is
+        returned as is."""
+        if not self.is_consolidated(after_version):
+            return source
+        unit = self._source_units.get(source.source_id)
+        if unit is None or source.kind not in ("provision", "annex"):
+            return source
+        version_id, key = unit
+        base = self.version_info(after_version).obligations_from
+        if version_id != base or not self.is_superseded(version_id, key):
+            return source
+        return source.model_copy(update={"title": f"{source.title} ({SUPERSEDED_MARK})"})
 
     def obligation_records(self, version_id: str, key: str) -> tuple[str, list[Obligation]]:
         """``(records_version, records)`` an obligation view of ``key`` in ``version_id`` may use.
