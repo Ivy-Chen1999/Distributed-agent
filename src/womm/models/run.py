@@ -87,6 +87,24 @@ class CitableSource(BaseModel):
     text: str
 
 
+class PlannerTrace(BaseModel):
+    """What the Planner chose and where the router sent work, kept so trajectory metrics can be
+    computed offline from ``runs/``. Router decisions and their probabilities are in
+    ``RunResult.decisions``."""
+
+    keys: list[str] = Field(
+        default_factory=list,
+        description="Distinct focus keys after restriction and caps, in the Planner's order.",
+    )
+    areas: list[list[str]] = Field(
+        default_factory=list, description="The provision keys of each focus area."
+    )
+    notes: list[str] = Field(default_factory=list, description="Explore cap notes, if any.")
+    dispatched: list[str] = Field(
+        default_factory=list, description="Experts the router actually sent work to."
+    )
+
+
 class RunResult(BaseModel):
     run_id: str
     scenario_id: str
@@ -111,6 +129,15 @@ class RunResult(BaseModel):
         description="The union of every expert's citable sources (retrieved texts, obligation "
         "views and memorandum), in expert order, each once. None on results saved before it "
         "existed.",
+    )
+    planner: PlannerTrace | None = Field(
+        default=None,
+        description="The Planner's focus and the router's dispatch. None when the Planner did "
+        "not run (no changes, planner failure) or on results saved before it existed.",
+    )
+    trace_run_id: str | None = Field(
+        default=None,
+        description="LangSmith id of the graph's root run, when the run was traced.",
     )
 
 

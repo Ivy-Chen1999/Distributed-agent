@@ -29,6 +29,7 @@ from womm.models.regulation import Source
 from womm.models.run import RetrievalRecord
 from womm.models.system_version import DataScope, ExpertConfig
 from womm.retrieval import Retrieval, memorandum_sources, retrieve
+from womm.tracing import trace_retrieval
 
 ExpertNode = Callable[[RIAState, Runtime[WommContext]], Awaitable[dict]]
 
@@ -178,6 +179,19 @@ def _log(agent: str, view: ExpertView | None) -> dict:
     }
 
 
+def _traced_view(state: RIAState, expert: ExpertConfig, ctx: WommContext) -> ExpertView:
+    """``expert_view`` as a LangSmith ``retriever`` run (one per expert node; the Planner's
+    sizing calls stay untraced). Inputs are the requested keys and the scope only."""
+    focus = state.get("focus")
+
+    def retrieval(*, agent: str, keys: list[str], scope: dict | None) -> ExpertView:
+        return expert_view(state, expert, ctx)
+
+    traced = trace_retrieval(retrieval, agent=expert.id, split=ctx.extra.get("split"))
+    scope = expert.scope.model_dump(mode="json") if expert.scope is not None else None
+    return traced(agent=expert.id, keys=requested_keys(state, focus), scope=scope)
+
+
 def make_expert_node(expert: ExpertConfig) -> ExpertNode:
     async def expert_node(state: RIAState, runtime: Runtime[WommContext]) -> dict:
         ctx = runtime.context
@@ -185,7 +199,7 @@ def make_expert_node(expert: ExpertConfig) -> ExpertNode:
         prompt = ctx.prompt(role)
         view: ExpertView | None = None
         try:
-            view = expert_view(state, expert, ctx)
+            view = _traced_view(state, expert, ctx)
             if view.scope is not None and not view.granted_keys:
                 # Nothing within its scope: no call (it could only answer from the memorandum,
                 # and validation would reject every finding). Data, not an expert error.

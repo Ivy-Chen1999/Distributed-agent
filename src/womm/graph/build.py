@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import uuid
 from collections.abc import Awaitable, Callable
 from pathlib import Path
@@ -9,6 +10,7 @@ from pathlib import Path
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.runtime import Runtime
+from langsmith import tracing_context, uuid7
 
 from womm.config import DEFAULT_SYSTEM_VERSION, REPO_ROOT
 from womm.data.corpus import Corpus, law_version, load_default_corpus
@@ -18,7 +20,7 @@ from womm.diff import diff_versions
 from womm.graph import render
 from womm.graph.assemble import assemble_node
 from womm.graph.events import task_event
-from womm.graph.experts import make_expert_node
+from womm.graph.experts import focus_keys, make_expert_node
 from womm.graph.planner import planner_node
 from womm.graph.router import dispatch, expert_node_name, router_node
 from womm.graph.state import RIAState, WommContext
@@ -29,11 +31,13 @@ from womm.models.run import (
     CitableSource,
     CodeIdentity,
     GroundingStats,
+    PlannerTrace,
     RunEvent,
     RunResult,
     RunStatus,
 )
 from womm.models.system_version import SystemVersion, load_system_version
+from womm.tracing import is_sealed, run_metadata, run_tags, tracing_enabled
 
 
 def _after_start(state: RIAState) -> str:
@@ -126,12 +130,20 @@ async def run_scenario(
     tags: list[str] | None = None,
     on_event: Callable[[RunEvent], Awaitable[None]] | None = None,
     corpus: Corpus | None = None,
+    run_mode: str | None = None,
+    case_id: str | None = None,
+    split: str | None = None,
 ) -> RunResult:
     """Run one scenario. `on_event` receives node started/finished/failed events as they
     happen (for live progress); the RunResult is returned when the graph finishes.
 
     Preset scenarios read the fixture. Explore scenarios read `corpus` (default: the committed
-    corpus) and diff the whole versions."""
+    corpus) and diff the whole versions.
+
+    Tracing: the root run carries ``womm.tracing.run_metadata`` (``run_mode`` defaults to
+    ``explore`` for explore scenarios and ``demo`` otherwise; eval passes ``eval``, its
+    ``case_id`` and ``split``) and a fresh id, returned as ``RunResult.trace_run_id`` when the run
+    was traced. A sealed ``split`` runs with tracing disabled."""
     run_id = run_id or f"run_{uuid.uuid4()}"
     scenario = fixture.scenario(scenario_id)
     if scenario.mode == "explore":
@@ -152,32 +164,35 @@ async def run_scenario(
         sv=sv, backends=backends, decisions=decisions, repo_root=repo_root, fixture=fixture,
         corpus=corpus,
     )  # fmt: skip
+    ctx.extra["split"] = split
     graph = build_graph(sv)
+    meta = run_metadata(
+        sv, scenario_id=scenario_id, code=code_identity, case_id=case_id, split=split,
+        mode=run_mode or ("explore" if scenario.mode == "explore" else "demo"),
+    )  # fmt: skip
+    sealed = is_sealed(split)
+    root_id = uuid7()
+    traced = not sealed and tracing_enabled()
     final: dict = {}
     seq = 0
-    async for mode, chunk in graph.astream(
-        {"run_id": run_id, "scenario_id": scenario_id, "mode": scenario.mode, **inputs},
-        context=ctx,
-        stream_mode=["tasks", "values"],
-        config={
-            "run_name": f"womm:{scenario_id}",
-            "tags": ["womm", *(tags or [])],
-            "metadata": {
-                "run_id": run_id,
-                "scenario_id": scenario_id,
-                "system_version": sv.version_id,
-                "git_sha": code_identity.git_sha,
-                "git_dirty": code_identity.dirty,
-                "claude_cli_version": code_identity.claude_cli_version,
+    with tracing_context(enabled=False) if sealed else contextlib.nullcontext():
+        async for mode, chunk in graph.astream(
+            {"run_id": run_id, "scenario_id": scenario_id, "mode": scenario.mode, **inputs},
+            context=ctx,
+            stream_mode=["tasks", "values"],
+            config={
+                "run_id": root_id,
+                "run_name": f"womm:{scenario_id}",
+                "tags": [*run_tags(meta), *(tags or [])],
+                "metadata": {"run_id": run_id, **meta},
+                "max_concurrency": sv.spec.max_parallel_llm_calls + 2,
             },
-            "max_concurrency": sv.spec.max_parallel_llm_calls + 2,
-        },
-    ):
-        if mode == "values":
-            final = chunk
-        elif on_event is not None:
-            seq += 1
-            await on_event(task_event(run_id, seq, chunk))
+        ):
+            if mode == "values":
+                final = chunk
+            elif on_event is not None:
+                seq += 1
+                await on_event(task_event(run_id, seq, chunk))
 
     dossier = final["dossier"]
     validation = final.get("validation")
@@ -204,4 +219,18 @@ async def run_scenario(
         synthesis_error=final.get("synthesis_error"),
         retrievals=[r for e in sv.spec.experts for r in final.get("retrievals", {}).get(e.id, [])],
         citable_sources=list(citable.values()),
+        planner=_planner_trace(final),
+        trace_run_id=str(root_id) if traced else None,
+    )
+
+
+def _planner_trace(final: dict) -> PlannerTrace | None:
+    focus = final.get("focus")
+    if focus is None:
+        return None
+    return PlannerTrace(
+        keys=focus_keys(focus),
+        areas=[list(a.provision_keys) for a in focus.focus_areas],
+        notes=list(final.get("planner_notes") or []),
+        dispatched=list(final.get("dispatched") or []),
     )
