@@ -12,7 +12,7 @@ from womm.decisions.service import DecisionService
 from womm.diff import RegulatoryDiff
 from womm.llm.base import LLMBackend
 from womm.models.decisions import DecisionRecord
-from womm.models.dossier import ImpactDossier, SynthesisPlan
+from womm.models.dossier import ImpactDossier, LawVersion, SynthesisPlan
 from womm.models.findings import ExpertFailure, ImpactFinding
 from womm.models.regulation import Source
 from womm.models.run import CallUsage
@@ -34,8 +34,13 @@ def merge_slots[V](left: dict[str, V] | None, right: dict[str, V | None] | None)
 class RIAState(TypedDict, total=False):
     run_id: str
     scenario_id: str
+    mode: str  # "preset" or "explore" (Scenario.mode); absent means preset
+    law_version: LawVersion  # dossier header metadata: the version the run analyses
     diff: RegulatoryDiff
     sources: dict[str, Source]
+    index_header: str  # explore only: what the index covers (law version, comparison, counts)
+    index_lines: dict[str, str]  # explore only: provision key -> corpus index line, diff order
+    planner_notes: list[str]  # explore only: keys dropped by the caps, for the dossier
     focus: Any  # FocusPlan; typed loosely to avoid an import cycle with planner.py
     decisions: Annotated[list[DecisionRecord], operator.add]
     dispatched: list[str]  # experts the router actually sent work to

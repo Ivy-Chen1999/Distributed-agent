@@ -65,6 +65,7 @@ import httpx
 from womm.config import REPO_ROOT
 from womm.data import parse_consolidated, parse_units
 from womm.data.cellar import CELLAR_BASE, XHTML, CellarError, celex_url, fetch
+from womm.data.corpus import index_line
 from womm.data.fixtures import DEFAULT_FIXTURE_DIR, Crosswalk, FixtureError, load_crosswalk
 from womm.data.parse_consolidated import ConsolidatedParseError
 from womm.data.parse_proposal import Article
@@ -578,19 +579,6 @@ def build_index(
                 }
             )
     return {"regulation_id": REGULATION_ID, "versions": versions, "rows": rows}
-
-
-def index_line(row: Mapping[str, Any]) -> str:
-    """One index row as a Planner reads it: key | [number] heading | delta | actor counts.
-
-    The printed number is shown only where the key does not already end with it (crosswalk
-    keys, renumbered proposal articles)."""
-    label = "Art" if row["kind"] == "article" else "Annex"
-    number = "" if row["key"].endswith(f"/{row['number']}") else f"{label} {row['number']} "
-    parts = [row["key"], f"{number}{row['heading']}".strip(), row["delta"]]
-    if row["obligations"]:
-        parts.append(", ".join(f"{a} {n}" for a, n in row["obligations"].items()))
-    return " | ".join(parts)
 
 
 def index_sizes(index: Mapping[str, Any]) -> dict[str, int]:

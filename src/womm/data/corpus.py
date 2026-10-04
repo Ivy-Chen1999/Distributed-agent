@@ -16,20 +16,58 @@ retrieval can resolve text against either.
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass
-from functools import cached_property
+from functools import cache, cached_property
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import ValidationError
 
 from womm.config import REPO_ROOT
 from womm.data.fixtures import FixtureError
 from womm.models.base import StrictModel
+from womm.models.dossier import LawVersion
 from womm.models.regulation import Regulation, RegulationVersion, Source
 
 DEFAULT_CORPUS_DIR = REPO_ROOT / "data" / "corpus" / "ai_act"
 DeltaKind = Literal["added", "removed", "modified", "unchanged"]
+
+# Versions that Regulation (EU) 2026/1744 (the Digital Omnibus, in force 27 July 2026) has
+# amended. A run on one of them analyses superseded law and is labelled pre-Omnibus.
+PRE_OMNIBUS_VERSIONS = frozenset({"reg2024_1689"})
+PRE_OMNIBUS_NOTE = (
+    "Pre-Omnibus: Regulation (EU) 2024/1689 as adopted, before the amendments of Regulation "
+    "(EU) 2026/1744 (in force since 27 July 2026). Some provisions and dates have changed."
+)
+
+
+def index_line(row: Mapping[str, Any] | IndexRow) -> str:
+    """One index row as a Planner reads it: key | [number] heading | delta | actor counts.
+
+    The printed number is shown only where the key does not already end with it (crosswalk
+    keys, renumbered proposal articles). Shared with ``scripts/build_corpus.py``."""
+    if not isinstance(row, Mapping):
+        row = row.model_dump()
+    label = "Art" if row["kind"] == "article" else "Annex"
+    number = "" if row["key"].endswith(f"/{row['number']}") else f"{label} {row['number']} "
+    parts = [row["key"], f"{number}{row['heading']}".strip(), row["delta"]]
+    if row["obligations"]:
+        parts.append(", ".join(f"{a} {n}" for a, n in row["obligations"].items()))
+    return " | ".join(parts)
+
+
+def law_version(version: RegulationVersion) -> LawVersion:
+    """Dossier header metadata for the version a run analyses."""
+    pre = version.version_id in PRE_OMNIBUS_VERSIONS
+    return LawVersion(
+        version_id=version.version_id,
+        status=version.status,
+        source=version.source,
+        date=version.date.isoformat(),
+        pre_omnibus=pre,
+        note=PRE_OMNIBUS_NOTE if pre else None,
+    )
 
 
 class Obligation(StrictModel):
@@ -210,3 +248,9 @@ def load_corpus(directory: Path = DEFAULT_CORPUS_DIR) -> Corpus:
     corpus = Corpus(regulation, obligations, index)
     validate_corpus(corpus)
     return corpus
+
+
+@cache
+def load_default_corpus() -> Corpus:
+    """The committed AI Act corpus, loaded once per process (explore runs)."""
+    return load_corpus(DEFAULT_CORPUS_DIR)

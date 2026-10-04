@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+from collections import Counter
 
+from womm.data.corpus import PRE_OMNIBUS_NOTE, PRE_OMNIBUS_VERSIONS, Corpus, index_line
 from womm.diff import RegulatoryDiff
 from womm.models.findings import ImpactFinding
 from womm.models.regulation import Source
@@ -23,6 +25,54 @@ def changes_with_text(diff: RegulatoryDiff) -> str:
             p = c.after or c.before
             blocks.append(f"{head} (Art {p.article})\n{p.text}")
     return "\n\n".join(blocks)
+
+
+def corpus_index_lines(diff: RegulatoryDiff, corpus: Corpus) -> dict[str, str]:
+    """For the explore Planner: one corpus index line per changed provision, in diff order,
+    never any text. The delta column is the run's own change kind, not the index's stored
+    delta, so a no-prior-version run does not learn how a text was later amended."""
+    lines: dict[str, str] = {}
+    for c in diff.changes:
+        version = diff.after_version if c.after is not None else diff.before_version
+        row = corpus.row(version, c.provision_key) if version else None
+        if row is None:
+            p = c.after or c.before
+            lines[c.provision_key] = f"{c.provision_key} | Art {p.article} | {c.kind}"
+            continue
+        lines[c.provision_key] = index_line({**row.model_dump(), "delta": c.kind})
+    return lines
+
+
+def corpus_index_header(diff: RegulatoryDiff, corpus: Corpus) -> str:
+    """What the explore index covers: the law analysed, the comparison and the change counts."""
+    after = corpus.version_info(diff.after_version)
+    lines = [f"Law analysed: {after.label} (CELEX {after.celex}, {after.date})."]
+    if diff.after_version in PRE_OMNIBUS_VERSIONS:
+        lines.append(PRE_OMNIBUS_NOTE)
+    if diff.before_version is None:
+        lines.append("Compared with: no prior version; every provision is new.")
+    else:
+        before = corpus.version_info(diff.before_version)
+        lines.append(f"Compared with: {before.label} (CELEX {before.celex}, {before.date}).")
+    counts = Counter(c.kind for c in diff.changes)
+    summary = ", ".join(f"{n} {kind}" for kind, n in sorted(counts.items()))
+    lines.append(f"{len(diff.changes)} changed provisions ({summary}).")
+    lines.append(
+        "One line per article or annex: provision_key | number and heading | change kind | "
+        "obligation records by primary actor. Provision texts are not shown."
+    )
+    return "\n".join(lines)
+
+
+def explore_planner_input(header: str, index_lines: dict[str, str], max_provisions: int) -> str:
+    """The explore Planner's user content: the index header and rows, and the key cap."""
+    return (
+        "Regulatory changes (corpus index, no provision texts):\n\n"
+        + header
+        + "\n\n"
+        + "\n".join(index_lines.values())
+        + f"\n\nSelect at most {max_provisions} provision keys in total across all focus areas."
+    )
 
 
 def changes_index(diff: RegulatoryDiff) -> str:

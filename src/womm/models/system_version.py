@@ -82,7 +82,19 @@ class ExpertConfig(StrictModel):
 
 
 class RetrievalConfig(StrictModel):
+    """Explore-mode bounds. Versions without this block use ``DEFAULT_RETRIEVAL``."""
+
     max_provisions: int = Field(ge=1, description="Cap on the keys an explore Planner may pick.")
+    max_prompt_chars: int = Field(
+        default=60_000,
+        ge=10_000,
+        description="Cap on an explore-mode expert prompt (system prompt plus user content, in "
+        "characters). Keys the Planner picked that would push an expert prompt past it are "
+        "dropped, in the Planner's order, and the drop is recorded.",
+    )
+
+
+DEFAULT_RETRIEVAL = RetrievalConfig(max_provisions=8)
 
 
 class RouterConfig(StrictModel):

@@ -4,11 +4,13 @@ description: >
   scopes split by data form (full text versus obligation records), enforced by the retrieval
   layer. Only the Planner sees the delta. Compared against an unscoped twin (scoped vs unscoped
   only). Stakeholder's span fallback for unspecified-actor records weakens its separation until
-  actor completion lands. The explore-mode Planner prompt is added with explore scenarios.
+  actor completion lands. Preset scenarios keep the v0 Planner prompt; explore scenarios use the
+  index-reading explore prompt, bounded by max_provisions and max_prompt_chars.
 planner:
   backend: claude_code
   model: claude-sonnet-5
   prompt: prompts/planner.md
+  explore_prompt: prompts/v1/planner_explore.md
 synthesis:
   backend: claude_code
   model: claude-sonnet-5
@@ -61,3 +63,4 @@ router:
 max_parallel_llm_calls: 3
 retrieval:
   max_provisions: 8
+  max_prompt_chars: 60000

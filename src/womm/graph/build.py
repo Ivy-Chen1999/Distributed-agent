@@ -11,9 +11,11 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.runtime import Runtime
 
 from womm.config import DEFAULT_SYSTEM_VERSION, REPO_ROOT
+from womm.data.corpus import Corpus, law_version, load_default_corpus
 from womm.data.fixtures import Fixture
 from womm.decisions.service import DecisionService
 from womm.diff import diff_versions
+from womm.graph import render
 from womm.graph.assemble import assemble_node
 from womm.graph.events import task_event
 from womm.graph.experts import make_expert_node
@@ -22,6 +24,7 @@ from womm.graph.router import dispatch, expert_node_name, router_node
 from womm.graph.state import RIAState, WommContext
 from womm.graph.synthesis import all_experts_failed, synthesis_node, validate_node
 from womm.llm.base import LLMBackend
+from womm.models.regulation import Scenario
 from womm.models.run import CodeIdentity, GroundingStats, RunEvent, RunResult, RunStatus
 from womm.models.system_version import SystemVersion, load_system_version
 
@@ -66,6 +69,30 @@ def make_graph() -> CompiledStateGraph:
     return build_graph(load_system_version(DEFAULT_SYSTEM_VERSION, REPO_ROOT))
 
 
+def explore_inputs(scenario: Scenario, fixture: Fixture, corpus: Corpus) -> dict:
+    """Initial state of an explore run: the diff over the full corpus versions, the corpus
+    index lines of its changed provisions (no text), and the union of their texts as sources.
+
+    The memorandum belongs to COM(2021) 206: its sources join only runs that read that version,
+    so a run on later law never cites the proposal's explanation as if it were current."""
+    before = corpus.version(scenario.before_version) if scenario.before_version else None
+    after = corpus.version(scenario.after_version)
+    diff = diff_versions(before, after)
+    ids = [p.source_id for c in diff.changes for p in (c.before, c.after) if p is not None]
+    sources = {sid: corpus.sources[sid] for sid in dict.fromkeys(ids)}
+    versions = {scenario.before_version, scenario.after_version}
+    for sid, src in fixture.sources.items():
+        if src.kind == "memorandum" and sid.split("/", 1)[0] in versions:
+            sources[sid] = src
+    return {
+        "law_version": law_version(after),
+        "diff": diff,
+        "sources": sources,
+        "index_header": render.corpus_index_header(diff, corpus),
+        "index_lines": render.corpus_index_lines(diff, corpus),
+    }
+
+
 _STATUS = {
     "succeeded": RunStatus.succeeded,
     "degraded": RunStatus.degraded,
@@ -86,21 +113,31 @@ async def run_scenario(
     repo_root: Path = REPO_ROOT,
     tags: list[str] | None = None,
     on_event: Callable[[RunEvent], Awaitable[None]] | None = None,
+    corpus: Corpus | None = None,
 ) -> RunResult:
     """Run one scenario. `on_event` receives node started/finished/failed events as they
-    happen (for live progress); the RunResult is returned when the graph finishes."""
+    happen (for live progress); the RunResult is returned when the graph finishes.
+
+    Preset scenarios read the fixture. Explore scenarios read `corpus` (default: the committed
+    corpus) and diff the whole versions."""
     run_id = run_id or f"run_{uuid.uuid4()}"
     scenario = fixture.scenario(scenario_id)
-    before, after = fixture.scenario_versions(scenario_id)
-    diff = diff_versions(before, after, keys=scenario.provision_keys)
-    sources = {s.source_id: s for s in fixture.scenario_sources(scenario_id)}
+    if scenario.mode == "explore":
+        inputs = explore_inputs(scenario, fixture, corpus or load_default_corpus())
+    else:
+        before, after = fixture.scenario_versions(scenario_id)
+        inputs = {
+            "law_version": law_version(after),
+            "diff": diff_versions(before, after, keys=scenario.provision_keys),
+            "sources": {s.source_id: s for s in fixture.scenario_sources(scenario_id)},
+        }
 
     ctx = WommContext(sv=sv, backends=backends, decisions=decisions, repo_root=repo_root)
     graph = build_graph(sv)
     final: dict = {}
     seq = 0
     async for mode, chunk in graph.astream(
-        {"run_id": run_id, "scenario_id": scenario_id, "diff": diff, "sources": sources},
+        {"run_id": run_id, "scenario_id": scenario_id, "mode": scenario.mode, **inputs},
         context=ctx,
         stream_mode=["tasks", "values"],
         config={

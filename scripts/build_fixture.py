@@ -115,8 +115,13 @@ MEMORANDUM_STRIP = {
 # Top-level memorandum section number -> readable source_id suffix.
 MEMORANDUM_SLUGS = {"1": "context", "2": "legal_basis", "5": "other_elements"}
 
-# ``articles`` are article numbers in ``after_version``; they become provision keys through
-# crosswalk.yaml.
+# The AI Act as consolidated on 27 July 2026 (after Regulation (EU) 2026/1744). It lives only in
+# the provision corpus (scripts/build_corpus.py), which explore scenarios read.
+CONSOLIDATED_VERSION_ID = "reg2024_1689_c20260727"
+
+# Preset scenarios: ``articles`` are article numbers in ``after_version``; they become provision
+# keys through crosswalk.yaml. Explore scenarios (``mode: explore``) list no articles: they read
+# whole versions from the provision corpus and the Planner chooses provisions from its index.
 SCENARIOS: list[dict] = [
     {
         "scenario_id": "eval_provider_compliance_costs",
@@ -158,6 +163,46 @@ SCENARIOS: list[dict] = [
         "articles": ["16", "62", "99"],
         "ia_reference": None,
     },
+    {
+        "scenario_id": "eval_whole_proposal",
+        "kind": "evaluation",
+        "mode": "explore",
+        "description": (
+            "The whole proposal COM(2021) 206 as a new text. The Planner chooses the provisions "
+            "to study from the index of every article and annex. Which actors bear which "
+            "compliance costs and administrative burdens, and how are SMEs and start-ups "
+            "affected?"
+        ),
+        "before_version": None,
+        "after_version": PROPOSAL.version_id,
+        "ia_reference": "SWD(2021) 84 Part 1, sections 6.1.3 and 6.1.4",
+    },
+    {
+        "scenario_id": "consolidated_whole_act",
+        "kind": "demo",
+        "mode": "explore",
+        "description": (
+            "The AI Act as consolidated on 27 July 2026, the law in force, analysed as a whole. "
+            "The Planner chooses the provisions to study from the index of every article and "
+            "annex."
+        ),
+        "before_version": None,
+        "after_version": CONSOLIDATED_VERSION_ID,
+        "ia_reference": None,
+    },
+    {
+        "scenario_id": "omnibus_2026",
+        "kind": "demo",
+        "mode": "explore",
+        "description": (
+            "Regulation (EU) 2024/1689 as adopted -> as consolidated on 27 July 2026: the "
+            "changes made by Regulation (EU) 2026/1744. The Planner chooses the provisions to "
+            "study from the index of the amended and inserted articles and annexes."
+        ),
+        "before_version": FINAL.version_id,
+        "after_version": CONSOLIDATED_VERSION_ID,
+        "ia_reference": None,
+    },
 ]
 
 
@@ -169,9 +214,10 @@ def build_scenarios(crosswalk: Crosswalk) -> list[Scenario]:
     out = []
     for raw in SCENARIOS:
         data = {k: v for k, v in raw.items() if k != "articles"}
-        data["provision_keys"] = crosswalk.resolve(
-            raw["scenario_id"], raw["after_version"], raw["articles"]
-        )
+        if raw.get("mode", "preset") == "preset":
+            data["provision_keys"] = crosswalk.resolve(
+                raw["scenario_id"], raw["after_version"], raw["articles"]
+            )
         out.append(Scenario.model_validate(data))
     return out
 
@@ -434,6 +480,9 @@ def main(argv: list[str] | None = None) -> int:
 
     by_version = {v.version_id: v.by_key() for _, v in built}
     for s in scenarios:
+        if s.mode == "explore":
+            print(f"{s.scenario_id}: explore, {s.before_version} -> {s.after_version} (corpus)")
+            continue
         counts = []
         for vid in (s.before_version, s.after_version):
             if vid:

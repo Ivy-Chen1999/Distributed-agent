@@ -4,6 +4,7 @@
 scenarios:
 - scenario_id: eval_provider_compliance_costs
   kind: evaluation
+  mode: preset
   description: 'Proposal as a whole-new text: requirements for high-risk AI systems (Title III Chapter
     2, Art 8-15) and the core provider obligations (Art 16, quality management system Art 17, conformity
     assessment Art 43). Who bears which compliance costs and administrative burdens?'
@@ -24,6 +25,7 @@ scenarios:
   ia_reference: SWD(2021) 84 Part 1, section 6.1.3 (costs and administrative burdens)
 - scenario_id: eval_sme_impacts
   kind: evaluation
+  mode: preset
   description: 'Proposal as a whole-new text: AI regulatory sandboxes (Art 53-54), measures for small-scale
     providers and users (Art 55) and penalties (Art 71). How are SMEs and start-ups affected?'
   before_version: null
@@ -36,6 +38,7 @@ scenarios:
   ia_reference: SWD(2021) 84 Part 1, section 6.1.4 (SME test)
 - scenario_id: demo_penalties_amended
   kind: demo
+  mode: preset
   description: Proposal -> adopted Regulation for provider obligations (Art 16 -> 16), SME measures (Art
     55 -> 62) and penalties (Art 71 -> 99). Shows the provision-level diff across renumbering; not scored
     against the impact assessment.
@@ -45,4 +48,33 @@ scenarios:
   - ai_act/high_risk/provider_obligations
   - ai_act/innovation/sme_measures
   - ai_act/penalties/penalties
+  ia_reference: null
+- scenario_id: eval_whole_proposal
+  kind: evaluation
+  mode: explore
+  description: The whole proposal COM(2021) 206 as a new text. The Planner chooses the provisions to study
+    from the index of every article and annex. Which actors bear which compliance costs and administrative
+    burdens, and how are SMEs and start-ups affected?
+  before_version: null
+  after_version: com2021_206
+  provision_keys: []
+  ia_reference: SWD(2021) 84 Part 1, sections 6.1.3 and 6.1.4
+- scenario_id: consolidated_whole_act
+  kind: demo
+  mode: explore
+  description: The AI Act as consolidated on 27 July 2026, the law in force, analysed as a whole. The
+    Planner chooses the provisions to study from the index of every article and annex.
+  before_version: null
+  after_version: reg2024_1689_c20260727
+  provision_keys: []
+  ia_reference: null
+- scenario_id: omnibus_2026
+  kind: demo
+  mode: explore
+  description: 'Regulation (EU) 2024/1689 as adopted -> as consolidated on 27 July 2026: the changes made
+    by Regulation (EU) 2026/1744. The Planner chooses the provisions to study from the index of the amended
+    and inserted articles and annexes.'
+  before_version: reg2024_1689
+  after_version: reg2024_1689_c20260727
+  provision_keys: []
   ia_reference: null

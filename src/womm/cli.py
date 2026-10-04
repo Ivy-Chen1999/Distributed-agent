@@ -247,7 +247,13 @@ async def cmd_scenarios(args: argparse.Namespace) -> int:
     scenarios = list(load_fixture().scenarios.values())
     data = [s.model_dump(mode="json") for s in scenarios]
     text = "\n".join(
-        f"{s.scenario_id:34} {s.kind:10} {len(s.provision_keys):2} provisions" for s in scenarios
+        f"{s.scenario_id:34} {s.kind:10} "
+        + (
+            f"{len(s.provision_keys):2} provisions"
+            if s.mode == "preset"
+            else f"explore {s.before_version or '-'} -> {s.after_version}"
+        )
+        for s in scenarios
     )
     emit(args, data, text)
     return EXIT_OK

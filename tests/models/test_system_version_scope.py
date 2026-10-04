@@ -24,8 +24,10 @@ PINNED_IDS = {
     "v0.3-api.yaml": "sv_052a818610f1",
     "v0.3-candidate.yaml": "sv_c28e04120c37",
 }
-# Files added together with or after data scopes; their ids are new.
+# Files added together with or after data scopes; their ids are new. They are pinned too, so a
+# change to one is deliberate (update the pin with the change).
 NEW_FILES = {"v1.0-scoped.yaml"}
+NEW_PINNED_IDS = {"v1.0-scoped.yaml": "sv_735b080cf78a"}
 
 ROLE = {"backend": "fake", "model": "fake-1", "prompt": "prompts/p.md"}
 SCOPE = {"text": [], "obligations": "full", "hypothesis": "Costs trace to obligation records."}
@@ -53,6 +55,11 @@ def _spec(**expert) -> dict:
 @pytest.mark.parametrize("name", sorted(PINNED_IDS))
 def test_existing_version_ids_are_unchanged(name):
     assert load_system_version(SV_DIR / name, REPO_ROOT).version_id == PINNED_IDS[name]
+
+
+@pytest.mark.parametrize("name", sorted(NEW_PINNED_IDS))
+def test_new_version_ids_are_pinned(name):
+    assert load_system_version(SV_DIR / name, REPO_ROOT).version_id == NEW_PINNED_IDS[name]
 
 
 def test_every_committed_version_is_pinned_or_declared_new():

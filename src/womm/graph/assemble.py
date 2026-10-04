@@ -137,4 +137,8 @@ def assemble(state: RIAState, sv_id: str, expert_ids: list[str]) -> ImpactDossie
 
 async def assemble_node(state: RIAState, runtime: Runtime[WommContext]) -> dict:
     sv = runtime.context.sv
-    return {"dossier": assemble(state, sv.version_id, dispatched_ids(state, runtime))}
+    dossier = assemble(state, sv.version_id, dispatched_ids(state, runtime))
+    header = {"law_version": state.get("law_version")}
+    if planner_notes := state.get("planner_notes"):
+        header["notes"] = [*planner_notes, *dossier.notes]
+    return {"dossier": dossier.model_copy(update=header)}
