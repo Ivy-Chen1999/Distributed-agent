@@ -241,6 +241,20 @@ async def test_zero_valid_keys_fails_the_run_with_a_planner_error(fixture, corpu
     assert not _calls(backend, "expert")
 
 
+async def test_cap_notes_appear_once_when_the_caps_empty_the_plan(fixture, corpus):
+    """Every selected key is over the prompt cap: the run fails, and each cap note is in the
+    dossier exactly once (not also repeated inside the fatal error note)."""
+    keys = _longest_keys(corpus, fixture, "consolidated_whole_act", n=2)
+    sv = _fake(V1, max_prompt_chars=10_000)
+    result, backend = await _run(fixture, corpus, "consolidated_whole_act", _plan(keys), sv=sv)
+    assert result.status == RunStatus.failed and "no_provisions" in result.error
+    assert not _calls(backend, "expert")
+    notes = result.dossier.notes
+    (cap,) = [n for n in notes if "max_prompt_chars" in n]
+    assert sum(cap in n for n in notes) == 1, notes
+    assert cap not in result.error
+
+
 async def test_empty_explore_plan_fails_the_run(fixture, corpus):
     result, backend = await _run(fixture, corpus, "consolidated_whole_act", {"focus_areas": []})
     assert result.status == RunStatus.failed and "no_provisions" in result.error

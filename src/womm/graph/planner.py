@@ -124,9 +124,14 @@ async def planner_node(state: RIAState, runtime: Runtime[WommContext]) -> dict:
     )
     if not focus.focus_areas:
         # Experts must never run on the memorandum alone while told to analyse all changes.
+        # The cap notes go to the dossier once, as planner notes, not again inside the error.
+        reason = (
+            "the caps dropped every selected provision key (see the dossier notes)"
+            if notes
+            else "the explore plan selected no provision keys from the index"
+        )
         return {
-            "fatal_error": "planner failed: [no_provisions] the explore plan selected no "
-            "provision keys from the index" + (f" ({'; '.join(notes)})" if notes else ""),
+            "fatal_error": f"planner failed: [no_provisions] {reason}",
             "usage": [usage],
             "planner_notes": notes,
         }
