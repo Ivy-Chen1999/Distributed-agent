@@ -9,4 +9,15 @@ date: null
 strip_patterns: {}
 redactions: []
 leak_allow: []
-scenarios: []
+scenarios:
+- scenario_id: eval_cloud_switching
+  description: Switching between providers of data processing services (cloud and edge), safeguards against
+    unlawful international access and transfer of non-personal data, and interoperability for data processing
+    services (proposal only, no prior version).
+  articles:
+  - '23'
+  - '24'
+  - '25'
+  - '26'
+  - '27'
+  - '29'
