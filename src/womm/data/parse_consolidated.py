@@ -29,14 +29,17 @@ from womm.data.parse_regulation import _lines as oj_lines
 
 __all__ = [
     "ConsolidatedParseError",
+    "amended_annexes",
     "amended_articles",
-    "amending_act_articles",
+    "amending_act_targets",
+    "parse_annexes",
     "parse_articles",
     "parse_consolidated",
     "parse_document",
 ]
 
 _ARTICLE_ID = re.compile(r"art_\d+[a-z]*")
+_ANNEX_ID = re.compile(r"anx_[IVXLC]+")
 _HEADING = re.compile(r"Article\s+(\d+[a-z]*)")
 _PARA_NUM = re.compile(r"(\d+[a-z]*)\.")
 _BLOCK = {"p", "div", "table"}
@@ -227,6 +230,32 @@ def parse_articles(root: etree._Element, source: str = "<document>") -> list[Art
     return [_article(d, source) for d in divs]
 
 
+def _root(data: bytes, source: str) -> etree._Element:
+    try:
+        return parse_document(data)
+    except etree.XMLSyntaxError as exc:
+        raise ConsolidatedParseError(f"{source}: not well-formed XHTML: {exc}") from None
+
+
+def _amended(root: etree._Element, ids: re.Pattern[str]) -> list[str]:
+    """Ids (matching ``ids``) of the divs holding a ``▼Mn`` marker, or whose last preceding
+    marker in document order is one."""
+    amended: list[str] = []
+    last_marker = ""
+    for el in root.iter():
+        if not isinstance(el.tag, str):
+            continue
+        if _is_marker(el):
+            last_marker = _text(el)
+        elif _local(el) == "div" and ids.fullmatch(el.get("id", "")):
+            inner = (_text(m) for m in el.iter() if isinstance(m.tag, str) and _is_marker(m))
+            if _AMENDMENT_MARKER.match(last_marker) or any(
+                _AMENDMENT_MARKER.match(m) for m in inner
+            ):
+                amended.append(el.get("id"))
+    return amended
+
+
 def amended_articles(data: bytes, *, source: str) -> list[str]:
     """Numbers of the articles an amending act changed, read off the consolidation markers.
 
@@ -235,35 +264,50 @@ def amended_articles(data: bytes, *, source: str) -> list[str]:
     2026/1744). This is the authoritative change set: comparing texts also flags articles whose
     consolidated text differs from the Official Journal only by footnotes or spacing.
     """
-    try:
-        root = parse_document(data)
-    except etree.XMLSyntaxError as exc:
-        raise ConsolidatedParseError(f"{source}: not well-formed XHTML: {exc}") from None
-    amended: list[str] = []
-    last_marker = ""
-    for el in root.iter():
-        if not isinstance(el.tag, str):
-            continue
-        if _is_marker(el):
-            last_marker = _text(el)
-        elif _local(el) == "div" and _ARTICLE_ID.fullmatch(el.get("id", "")):
-            inner = (_text(m) for m in el.iter() if isinstance(m.tag, str) and _is_marker(m))
-            if _AMENDMENT_MARKER.match(last_marker) or any(
-                _AMENDMENT_MARKER.match(m) for m in inner
-            ):
-                amended.append(el.get("id").removeprefix("art_"))
+    root = _root(data, source)
     if not any(_ARTICLE_ID.fullmatch(d.get("id", "")) for d in root.iter("{*}div")):
         raise ConsolidatedParseError(f"{source}: no articles (div#art_N) found")
-    return amended
+    return [i.removeprefix("art_") for i in _amended(root, _ARTICLE_ID)]
+
+
+def amended_annexes(data: bytes, *, source: str) -> list[str]:
+    """Numbers (roman) of the annexes an amending act changed or added, by the same rule as
+    ``amended_articles``."""
+    root = _root(data, source)
+    return [i.removeprefix("anx_") for i in _amended(root, _ANNEX_ID)]
+
+
+def _annex(div: etree._Element, source: str) -> Article:
+    number = div.get("id").removeprefix("anx_")
+    heading = next((c for c in div if "title-annex-1" in _classes(c)), None)
+    if heading is None or _text(heading).upper() != f"ANNEX {number}":
+        raise ConsolidatedParseError(f"{source}: unrecognised annex heading in {div.get('id')}")
+    # The title is ``p.title-annex-2``, or a second ``p.title-annex-1`` (Annex X); an annex
+    # without either (Annex XIV) is titled by its first line, which stays in the text.
+    titles = [
+        c
+        for c in div
+        if isinstance(c.tag, str)
+        and c is not heading
+        and _classes(c) & {"title-annex-1", "title-annex-2"}
+    ]
+    body = [c for c in div if c is not heading and not any(c is t for t in titles)]
+    lines = _lines_of(body)
+    title = _text(titles[0]) if titles else (lines[0] if lines else "")
+    return Article(number, title, (Paragraph(None, "\n".join(lines)),))
+
+
+def parse_annexes(data: bytes, *, source: str) -> list[Article]:
+    """All annexes (``div#anx_N``, roman numbers) in document order, each as one unnumbered
+    block: points on their own lines, as for articles."""
+    root = _root(data, source)
+    divs = [d for d in root.iter("{*}div") if _ANNEX_ID.fullmatch(d.get("id", ""))]
+    return [_annex(d, source) for d in divs]
 
 
 def parse_consolidated(data: bytes, *, source: str) -> list[Article]:
     """Parse a consolidated XHTML body; ``source`` (a file name or URL) names it in errors."""
-    try:
-        root = parse_document(data)
-    except etree.XMLSyntaxError as exc:
-        raise ConsolidatedParseError(f"{source}: not well-formed XHTML: {exc}") from None
-    articles = parse_articles(root, source)
+    articles = parse_articles(_root(data, source), source)
     if not articles:
         raise ConsolidatedParseError(f"{source}: no articles (div#art_N) found")
     numbers = [a.number for a in articles]
@@ -275,26 +319,28 @@ def parse_consolidated(data: bytes, *, source: str) -> list[Article]:
 
 _POINT_LABEL = re.compile(r"\((\d+)\)\s")
 _TARGET_ARTICLE = re.compile(r"\bArticle\s+(\d+[a-z]*)")
-_INSERTED_HEADING = re.compile(r"‘?Article\s+(\d+[a-z]*)")
+_TARGET_ANNEX = re.compile(r"\bAnnex\s+([IVXLC]+)\b")
+_QUOTED_ARTICLE = re.compile(r"‘?Article\s+(\d+[a-z]*)")
+_QUOTED_ANNEX = re.compile(r"‘?ANNEX\s+([IVXLC]+)", re.IGNORECASE)
 
 
-def amending_act_articles(data: bytes, *, source: str) -> list[str]:
-    """Articles of the amended act that an amending act's Article 1 changes, in point order.
+def amending_act_targets(data: bytes, *, source: str) -> tuple[list[str], list[str]]:
+    """(articles, annexes) of the amended act that an amending act's Article 1 changes, in
+    point order.
 
     Article 1 of an amending regulation (e.g. 2026/1744) is a list of numbered points, each a
     two-cell OJ table: "(5) Article 4 is replaced by the following:", "(8) in Article 6, the
-    following paragraphs are inserted:". A point that inserts articles names them only in its
-    quoted headings ("‘Article 4a"). Points that change annexes name no article and are skipped.
-    This is the independent cross-check for ``amended_articles``.
+    following paragraphs are inserted:", "(41) Annex I is amended as follows:". A point that
+    inserts articles or adds an annex names them only in its quoted headings ("‘Article 4a",
+    "‘Annex XIV"). This is the independent cross-check for ``amended_articles`` and
+    ``amended_annexes``.
     """
-    try:
-        root = parse_document(data)
-    except etree.XMLSyntaxError as exc:
-        raise ConsolidatedParseError(f"{source}: not well-formed XHTML: {exc}") from None
+    root = _root(data, source)
     art_1 = next((d for d in root.iter("{*}div") if d.get("id") == "art_1"), None)
     if art_1 is None:
         raise ConsolidatedParseError(f"{source}: no Article 1 (div#art_1)")
-    out: dict[str, None] = {}
+    articles: dict[str, None] = {}
+    annexes: dict[str, None] = {}
     numbers: list[int] = []
     for table in (c for c in art_1 if _local(c) == "table"):
         lines = oj_lines([table])  # the OJ point layout: '(5) text'
@@ -302,15 +348,22 @@ def amending_act_articles(data: bytes, *, source: str) -> list[str]:
         if not label:
             raise ConsolidatedParseError(f"{source}: Article 1 point without a '(N)' label")
         numbers.append(int(label.group(1)))
-        first = lines[0]
-        if "inserted" in first and _TARGET_ARTICLE.search(first) is None:
-            targets = [m.group(1) for ln in lines[1:] if (m := _INSERTED_HEADING.fullmatch(ln))]
-        else:
-            m = _TARGET_ARTICLE.search(first)
-            targets = [m.group(1)] if m else []
-        out.update(dict.fromkeys(targets))
+        first, quoted = lines[0], lines[1:]
+        if m := _TARGET_ARTICLE.search(first):
+            arts, anxs = [m.group(1)], []
+        elif m := _TARGET_ANNEX.search(first):
+            arts, anxs = [], [m.group(1)]
+        else:  # "the following Article is inserted:" / "the following Annex is added:"
+            arts = [m.group(1) for ln in quoted if (m := _QUOTED_ARTICLE.fullmatch(ln))]
+            anxs = [m.group(1) for ln in quoted if (m := _QUOTED_ANNEX.fullmatch(ln))]
+        if not arts and not anxs:
+            raise ConsolidatedParseError(
+                f"{source}: Article 1 point ({label.group(1)}) names no article or annex"
+            )
+        articles.update(dict.fromkeys(arts))
+        annexes.update(dict.fromkeys(anxs))
     if not numbers:
         raise ConsolidatedParseError(f"{source}: Article 1 has no numbered points")
     if numbers != list(range(1, len(numbers) + 1)):
         raise ConsolidatedParseError(f"{source}: Article 1 points are not numbered 1..N")
-    return list(out)
+    return list(articles), list(annexes)

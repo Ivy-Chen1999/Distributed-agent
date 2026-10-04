@@ -7,8 +7,10 @@ from womm.citations import normalize
 from womm.data import parse_regulation
 from womm.data.parse_consolidated import (
     ConsolidatedParseError,
+    amended_annexes,
     amended_articles,
-    amending_act_articles,
+    amending_act_targets,
+    parse_annexes,
     parse_consolidated,
 )
 
@@ -170,7 +172,7 @@ def _amending_act(*points: tuple[str, list[str]]) -> bytes:
     ).encode()
 
 
-def test_amending_act_articles_reads_targets_and_inserted_headings():
+def test_amending_act_targets_reads_targets_and_quoted_headings():
     data = _amending_act(
         ("1", ["in Article 1(2), point (g) is replaced by the following:", "‘(g) text"]),
         ("2", ["Article 4 is replaced by the following:", "‘Article 4", "AI literacy"]),
@@ -179,17 +181,81 @@ def test_amending_act_articles_reads_targets_and_inserted_headings():
         ("5", ["in Article 6, the following paragraphs are inserted:", "‘1a. text"]),
         ("6", ["Annex I is amended as follows:", "(a) in Section A, point 1 is deleted;"]),
         ("7", ["Article 4 is amended as follows:", "(a) text"]),
+        ("8", ["in Annex VIII, section B, points 7 and 9 are deleted;"]),
+        ("9", ["the following Annex is added:", "‘Annex XIV", "The list of codes"]),
     )
-    assert amending_act_articles(data, source="act.xhtml") == ["1", "4", "4a", "75a", "75b", "6"]
+    articles, annexes = amending_act_targets(data, source="act.xhtml")
+    assert articles == ["1", "4", "4a", "75a", "75b", "6"]
+    assert annexes == ["I", "VIII", "XIV"]
 
 
-def test_amending_act_articles_rejects_gaps_in_point_numbers():
+def test_amending_act_point_naming_nothing_raises():
+    data = _amending_act(("1", ["the following recital is inserted:", "‘(5a) text"]))
+    with pytest.raises(ConsolidatedParseError, match=r"odd\.xhtml.*\(1\) names no article"):
+        amending_act_targets(data, source="odd.xhtml")
+
+
+def test_amending_act_targets_rejects_gaps_in_point_numbers():
     data = _amending_act(("1", ["Article 4 is replaced:"]), ("3", ["Article 5 is replaced:"]))
     with pytest.raises(ConsolidatedParseError, match=r"gap\.xhtml.*1\.\.N"):
-        amending_act_articles(data, source="gap.xhtml")
+        amending_act_targets(data, source="gap.xhtml")
 
 
 def test_amending_act_without_article_1_raises_naming_the_file():
     data = b'<html xmlns="http://www.w3.org/1999/xhtml"><body><p>x</p></body></html>'
     with pytest.raises(ConsolidatedParseError, match="none.xhtml"):
-        amending_act_articles(data, source="none.xhtml")
+        amending_act_targets(data, source="none.xhtml")
+
+
+def _annexes_doc(*divs: str) -> bytes:
+    body = "".join(divs)
+    return f'<html xmlns="http://www.w3.org/1999/xhtml"><body>{body}</body></html>'.encode()
+
+
+_POINT = (
+    '<div class="grid-container grid-list"><div class="list grid-list-column-1"><span>{label} '
+    '</span></div><div class="grid-list-column-2"><p class="norm">{text}</p></div></div>'
+)
+
+
+def test_annex_title_points_and_markers():
+    data = _annexes_doc(
+        '<p class="modref">▼B</p>'
+        '<div id="anx_III"><p><br/></p><hr class="separator-annex"/>'
+        '<p class="title-annex-1">ANNEX III</p>'
+        '<p class="title-annex-2">High-risk AI systems referred to in Article 6(2)</p>'
+        '<p class="norm">High-risk AI systems are the AI systems listed in any of the areas:</p>'
+        + _POINT.format(label="1.", text="Biometrics:")
+        + '<p class="modref">▼M1</p>'
+        + _POINT.format(label="2.", text="Critical infrastructure.")
+        + "</div>",
+        '<p class="modref">▼B</p>'
+        '<div id="anx_X"><p class="title-annex-1">ANNEX X</p>'
+        '<p class="title-annex-1">Union legislative acts on large-scale IT systems</p>'
+        '<p class="norm">Schengen Information System</p></div>',
+        '<p class="modref">▼M1</p>'
+        '<div id="anx_XIV"><p class="title-annex-1">ANNEX XIV</p>'
+        '<p class="norm">The list of codes</p><p class="norm">1. Introduction</p></div>',
+    )
+    annexes = {a.number: a for a in parse_annexes(data, source="anx.xhtml")}
+    assert list(annexes) == ["III", "X", "XIV"]
+    iii = annexes["III"]
+    assert iii.title == "High-risk AI systems referred to in Article 6(2)"
+    assert [p.number for p in iii.paragraphs] == [None]
+    assert iii.text == (
+        "High-risk AI systems are the AI systems listed in any of the areas:\n"
+        "1. Biometrics:\n2. Critical infrastructure."
+    )
+    assert annexes["X"].title == "Union legislative acts on large-scale IT systems"
+    assert annexes["X"].text == "Schengen Information System"
+    # No title paragraph: the first line titles the annex and stays in the text.
+    assert annexes["XIV"].title == "The list of codes"
+    assert annexes["XIV"].text == "The list of codes\n1. Introduction"
+    # III holds an M1 marker, XIV follows one; X follows a basic-act marker.
+    assert amended_annexes(data, source="anx.xhtml") == ["III", "XIV"]
+
+
+def test_annex_with_unexpected_heading_raises_naming_the_file():
+    data = _annexes_doc('<div id="anx_II"><p class="title-annex-1">ANNEX III</p></div>')
+    with pytest.raises(ConsolidatedParseError, match=r"bad\.xhtml.*anx_II"):
+        parse_annexes(data, source="bad.xhtml")

@@ -8,6 +8,7 @@ from womm.config import REPO_ROOT
 from womm.data.fixtures import CrosswalkEntry, FixtureError, load_crosswalk
 from womm.data.parse_units import (
     check_crosswalk,
+    parse_annexes,
     parse_articles,
     parse_containers,
     parse_units,
@@ -92,6 +93,51 @@ def test_final_penalties_match_up_to_digit_grouping(final, committed):
     ours = re.sub(r"(\d) (?=\d{3}\b)", r"\1", committed[("reg2024_1689", "99")])
     assert _ws(final["99"].text) == _ws(ours)
     assert final["99"].title == "Penalties"
+
+
+def _jsonl(*rows: tuple) -> bytes:
+    keys = ("unit_id", "parent_id", "seq", "type", "num", "label", "heading", "text")
+    return "\n".join(json.dumps(dict(zip(keys, r, strict=True))) for r in rows).encode()
+
+
+def test_article_level_subparagraphs_are_separate_blocks():
+    # Art 113 of 2024/1689: unnumbered subparagraphs directly under the article, the last one
+    # introducing points.
+    units = parse_units(
+        _jsonl(
+            ("X:art113", None, 1, "article", "Article 113", "113", "Entry into force", ""),
+            ("X:art113.sub1", "X:art113", 2, "subparagraph", None, "1", None, "It enters."),
+            ("X:art113.sub2", "X:art113", 3, "subparagraph", None, "2", None, "However:"),
+            ("X:art113.sub2.pt_a", "X:art113.sub2", 4, "point", "(a)", "a", None, "first;"),
+        )
+    )
+    (art,) = parse_articles(units)
+    assert [p.number for p in art.paragraphs] == [None, None]
+    assert art.text == "It enters.\n\nHowever:\n(a) first;"
+
+
+def test_annexes_render_sections_and_points_on_their_own_lines():
+    units = parse_units(
+        _jsonl(
+            ("X:art1", None, 1, "article", "Article 1", "1", "Subject", "Text."),
+            ("X:anxI", None, 2, "annex", "ANNEX I", "I", "List of legislation", ""),
+            ("X:anxI.secA", "X:anxI", 3, "annex_section", None, "A", "Section A. NLF", ""),
+            ("X:anxI.secA.pt1", "X:anxI.secA", 4, "point", "1.", "1", None, "Directive 1;"),
+            ("X:anxI.secB", "X:anxI", 5, "annex_section", None, "B", "Section B. Other", "Intro"),
+            ("X:anxI.secB.pt2", "X:anxI.secB", 6, "point", "2.", "2", None, "Regulation 2."),
+            ("X:anxX", None, 7, "annex", "ANNEX X Large-scale IT systems", "X", "", "Own text"),
+        )
+    )
+    annexes = parse_annexes(units)
+    assert [(a.number, a.title) for a in annexes] == [
+        ("I", "List of legislation"),
+        ("X", "Large-scale IT systems"),  # the title sits in ``num`` when ``heading`` is empty
+    ]
+    assert annexes[0].text == (
+        "Section A. NLF\n1. Directive 1;\nSection B. Other\nIntro\n2. Regulation 2."
+    )
+    assert annexes[1].text == "Own text"
+    assert [a.number for a in parse_articles(units)] == ["1"]
 
 
 def test_duplicate_unit_id_fails():
