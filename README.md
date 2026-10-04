@@ -122,6 +122,17 @@ judges. Humans review only the items an LLM cannot be trusted with:
   the draft.
 - Holdout drafts stay in `.cache/drafts/`. They are verified locally with
   `scripts/verify_golden_case.py` and handed to the holdout importer. They never go to `evals/`.
+- `scripts/import_holdout_case.py .cache/holdout_import/<case>.yaml` seals a verified holdout
+  case in its own database (`HOLDOUT_DATABASE_URL`, never given to the deployed API; its
+  migrations in `src/womm/eval/holdout_migrations/` are run only by the holdout scripts). The
+  scenario's article set comes from the gitignored `evals/private/holdout_scenarios.yaml`, never
+  from a public fixture. After import the handoff, the draft and its decisions file are deleted.
+- `womm.eval.holdout.compare(candidate, baseline, repetitions)` is the only way to score the
+  holdout. It runs with LangSmith tracing disabled, writes no `runs/` files and returns only
+  per-metric mean deltas, paired bootstrap CIs clustered by proposal and pooled noise, which
+  it records in the holdout database's audit table. Holdout cases are refused by
+  `load_all_golden`, `evaluate_cases`, `sync_dataset` and `persist_failures`, and holdout
+  metrics are never part of the R27 SystemVersion archive.
 
 ## Tests
 

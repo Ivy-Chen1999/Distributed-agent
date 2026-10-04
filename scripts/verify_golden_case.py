@@ -56,9 +56,9 @@ from womm.eval.golden_review import (
     check_draft,
     item_kind,
 )
+from womm.eval.holdout import HANDOFF_FORMAT
 
 HANDOFF_DIR = REPO_ROOT / ".cache" / "holdout_import"
-HANDOFF_FORMAT = "womm-holdout-handoff/1"
 CLAIM_FIELDS = ("affected_actor", "mechanism", "impact", "description")
 EDITABLE = {
     "impact": ("affected_actor", "mechanism", "impact", "provision_keys", "ia_section", "category"),

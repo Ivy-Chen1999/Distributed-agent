@@ -265,8 +265,12 @@ def _save_run(runs_dir: Path, run: RunResult) -> None:
 
 
 async def persist_failures(report: EvalReport, database_url: str) -> int:
-    """Write R14b failure records to Postgres; returns how many were written."""
+    """Write R14b failure records to Postgres; returns how many were written. A report that
+    contains a holdout case is refused before anything is written (AE3)."""
     from womm.api.db import Database
+
+    if report.metadata.get("split") == "holdout" or "holdout" in report.case_splits.values():
+        raise GoldenError(f"refusing to persist failures of a holdout run; {HOLDOUT_REFUSAL}")
 
     records = failure_records(report.scores)
     db = Database(database_url)
@@ -296,7 +300,11 @@ def write_report(report: EvalReport, runs_dir: Path) -> Path:
 
 
 def sync_dataset(client: Any, cases: list[GoldenCase], name: str = DATASET_NAME) -> Any:
-    """Idempotent upsert of golden cases as dataset examples, keyed by metadata.case_id."""
+    """Idempotent upsert of golden cases as dataset examples, keyed by metadata.case_id.
+    Holdout cases are refused before any LangSmith call (R23)."""
+    holdout = sum(c.split == "holdout" for c in cases)
+    if holdout:
+        raise GoldenError(f"refusing to sync {holdout} holdout case(s); {HOLDOUT_REFUSAL}")
     if client.has_dataset(dataset_name=name):
         dataset = client.read_dataset(dataset_name=name)
     else:
