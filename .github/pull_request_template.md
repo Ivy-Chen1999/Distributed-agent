@@ -9,8 +9,9 @@
 
 ## Golden-case review (only for PRs that add drafts under `evals/golden/drafts/`)
 
-Follow [docs/eval/golden-review-guide.md](../docs/eval/golden-review-guide.md). Keep the PR a
-**draft** while the review is open. CI requires every item that needs a human to be decided
+Follow [docs/eval/golden-review-guide.md](../docs/eval/golden-review-guide.md). Drafts come from
+a `review/<case>` branch that contains only the draft; a code PR must never contain one. Keep the
+PR a **draft** while the review is open. CI requires every item that needs a human to be decided
 once the PR is marked ready.
 
 - [ ] I reviewed every `pending` item, every `audit: true` item and every `possibly_missing`

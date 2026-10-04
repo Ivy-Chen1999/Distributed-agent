@@ -6,7 +6,9 @@ WOMM is scored against these answers, so a wrong item teaches the wrong lesson. 
 
 ## What you review
 
-A draft lives in `evals/golden/drafts/<case_id>.yaml` in a pull request. Each item has:
+A draft lives in `evals/golden/drafts/<case_id>.yaml` on its own `review/<case>` branch, opened
+as a draft pull request. That PR contains only the draft. Code changes go in separate PRs, which
+must never contain an unreviewed draft. Each item has:
 
 - the claim: `affected_actor`, `mechanism`, `impact` (or `description` for omissions);
 - the evidence: `ia_section` and `ia_anchor`, a verbatim quote from the IA;

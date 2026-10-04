@@ -115,6 +115,9 @@ judges. Humans review only the items an LLM cannot be trusted with:
   `docs/eval/golden-review-guide.md`. `tests/eval/test_golden_drafts.py` blocks a ready PR
   until every item that needs a human is decided. A draft PR (`WOMM_DRAFT_PR=true` in CI) may
   still have pending items.
+- Drafts and code never share a branch. Each draft lives on its own `review/<case>` branch, opened
+  as a draft PR on top of the code it needs. A code PR must never contain an unreviewed draft:
+  the strict review gate would fail on it, and merging it would turn `main` red.
 - After merge, `scripts/publish_golden_cases.py` writes `evals/golden/case_*.yaml` and deletes
   the draft.
 - Holdout drafts stay in `.cache/drafts/`. They are verified locally with
