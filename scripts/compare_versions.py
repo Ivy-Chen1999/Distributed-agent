@@ -9,8 +9,12 @@ the mean ± spread (sample standard deviation) of each arm, plus cost, latency a
 mode. AI Act golden cases only: scores whose scenario is not in the AI Act fixture are excluded.
 
 Refusals (exit 2): an unknown version id; a report with the router in ``active`` mode (an
-active router skips experts, so scopes would not be the only difference); router modes that
-differ across arms; backends that differ across reports.
+active router skips experts, so scopes would not be the only difference); a report whose router
+mode is missing or unknown (only ``shadow`` and ``off`` are accepted); router modes that differ
+across arms; backends that differ across reports. ``--min-runs`` below 1 is a usage error.
+
+Scoped experts with nothing within their scope are not called (``no_data_in_scope``). The report
+counts such skips per arm so they are not read as underperformance.
 
 The verdict applies the pre-registered rule below to the case-balanced mean coverage (the mean
 of the per-case means). One noise band is the larger of the two arms' pooled run-to-run spread
@@ -49,6 +53,8 @@ PRESET_ONLY = (
     "scenarios, so explore-mode scoping is not scored here."
 )
 REFUSED_STATUSES = {"out_of_scope", "unknown_key"}
+ACCEPTED_ROUTER_MODES = {"shadow", "off"}  # modes where every expert runs
+NO_DATA = "no_data_in_scope"
 
 Named = tuple[str, dict[str, Any]]
 
@@ -149,6 +155,17 @@ def _check_arms(reports: list[Named], scoped: str, unscoped: str) -> dict[str, l
             "refusing reports run with the router in active mode (it skips experts, so scopes "
             f"would not be the only difference): {', '.join(active)}"
         )
+    unknown = [
+        f"{n} ({_router_mode(r)})"
+        for rs in arms.values()
+        for n, r in rs
+        if _router_mode(r) not in ACCEPTED_ROUTER_MODES
+    ]
+    if unknown:
+        raise CompareError(
+            "refusing reports with a missing or unknown router mode (only shadow and off run "
+            f"every expert): {', '.join(unknown)}"
+        )
     modes = {sv: {_router_mode(r) for _, r in rs} for sv, rs in arms.items()}
     if len(modes[scoped] | modes[unscoped]) > 1:
         named = ", ".join(f"{n} ({_router_mode(r)})" for rs in arms.values() for n, r in rs)
@@ -176,15 +193,19 @@ def compare(
     aborted = [n for rs in arms.values() for n, r in rs if r.get("aborted")]
     non_ai_act: set[str] = set()
     scores: dict[str, list[dict]] = {}
+    included: dict[str, list[dict]] = {}  # every AI Act score of a kept report, scored or not
     for sv, rs in arms.items():
         scores[sv] = []
+        included[sv] = []
         for name, r in rs:
             if name in aborted:
                 continue
             for s in r["scores"]:
                 if s.get("scenario_id") not in ai_act_scenarios:
                     non_ai_act.add(s.get("case_id", "?"))
-                elif s.get("outcome") == "scored":
+                    continue
+                included[sv].append(s)
+                if s.get("outcome") == "scored":
                     scores[sv].append(s)
 
     case_ids = sorted({s["case_id"] for sv in scores for s in scores[sv]})
@@ -210,6 +231,9 @@ def compare(
         for key, sv in (("scoped", scoped), ("unscoped", unscoped))
     }
     backends = _backends(arms[scoped][0][1])
+    no_data = {
+        key: _no_data(included[sv]) for key, sv in (("scoped", scoped), ("unscoped", unscoped))
+    }
     return {
         "scoped": scoped,
         "unscoped": unscoped,
@@ -223,9 +247,27 @@ def compare(
         "min_runs": min_runs,
         "cases": cases,
         "runs": runs,
+        "no_data_in_scope": no_data,
         "rule": RULE,
         "verdict": _verdict(cases, backends, dev, min_runs),
         "explore": None,
+    }
+
+
+def _no_data(scores: list[dict]) -> dict[str, Any]:
+    """Runs with at least one scoped expert skipped for no data in its scope, the skips, and
+    the skips per expert."""
+    by_agent: dict[str, int] = {}
+    runs = 0
+    for s in scores:
+        agents = [a for a, kind in (s.get("expert_failures") or {}).items() if kind == NO_DATA]
+        runs += bool(agents)
+        for a in agents:
+            by_agent[a] = by_agent.get(a, 0) + 1
+    return {
+        "runs": runs,
+        "skips": sum(by_agent.values()),
+        "by_agent": dict(sorted(by_agent.items())),
     }
 
 
@@ -368,6 +410,18 @@ def render(out: dict[str, Any]) -> str:
             f"  {metric:<10} scoped {_fmt(out['runs']['scoped'][metric], 3)}  unscoped "
             f"{_fmt(out['runs']['unscoped'][metric], 3)}"
         )
+    lines += [
+        "",
+        "no_data_in_scope (a scoped expert not called: nothing within its scope; not "
+        "underperformance):",
+    ]
+    for arm in ("scoped", "unscoped"):
+        nd = (out.get("no_data_in_scope") or {}).get(arm) or {"runs": 0, "skips": 0, "by_agent": {}}
+        agents = ", ".join(f"{a} {n}" for a, n in nd["by_agent"].items())
+        lines.append(
+            f"  {arm}: {nd['skips']} skip(s) in {nd['runs']} run(s)"
+            + (f" ({agents})" if agents else "")
+        )
     lines += ["", f"Pre-registered rule: {out['rule']}."]
     if v["decision"] is None:
         lines.append(f"Verdict: none ({v['reason']}).")
@@ -401,12 +455,22 @@ def render(out: dict[str, Any]) -> str:
 # ---------- command ----------
 
 
+def _positive_int(value: str) -> int:
+    try:
+        n = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"not an integer: {value!r}") from None
+    if n < 1:
+        raise argparse.ArgumentTypeError(f"must be at least 1, got {n}")
+    return n
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--scoped", required=True, help="version id of the scoped arm")
     parser.add_argument("--unscoped", required=True, help="version id of the unscoped arm")
     parser.add_argument("--runs-dir", type=Path, default=Path("runs"))
-    parser.add_argument("--min-runs", type=int, default=MIN_RUNS)
+    parser.add_argument("--min-runs", type=_positive_int, default=MIN_RUNS)
     parser.add_argument("--dev", action="store_true", help="allow a non-api backend (dev-only)")
     parser.add_argument("--json", action="store_true", help="print the comparison as JSON")
     args = parser.parse_args(argv)

@@ -264,3 +264,68 @@ def test_main_refusal_exits_2(tmp_path, capsys):
     )
     assert code == 2
     assert "versions found" in capsys.readouterr().err
+
+
+# ---------- review fixes: router mode, --min-runs, one-arm cases, no_data_in_scope ----------
+
+
+@pytest.mark.parametrize("router", [None, "", "warp/stub", 7])
+def test_missing_or_unknown_router_mode_is_refused(router):
+    """Refused even when both arms agree on it: an unknown mode may be one that skips experts."""
+    arms = [_report(sv, {"case_01": SAME}) for sv in (SCOPED, UNSCOPED)]
+    for r in arms:
+        r["metadata"]["router"] = router
+        if router is None:
+            del r["metadata"]["router"]
+    reports = _named(*arms)
+    with pytest.raises(CompareError, match="missing or unknown router mode") as exc:
+        _compare(reports)
+    assert reports[0][0] in str(exc.value) and reports[1][0] in str(exc.value)
+
+
+def test_off_router_is_accepted():
+    reports = _named(
+        _report(SCOPED, {"case_01": SAME, "case_02": SAME}, router="off/stub"),
+        _report(UNSCOPED, {"case_01": SAME, "case_02": SAME}, router="off/stub"),
+    )
+    assert _compare(reports)["router_mode"] == "off"
+
+
+@pytest.mark.parametrize("value", ["0", "-3"])
+def test_min_runs_below_one_is_an_argparse_error(tmp_path, capsys, value):
+    with pytest.raises(SystemExit) as exc:
+        compare_versions.main(
+            ["--scoped", SCOPED, "--unscoped", UNSCOPED, "--runs-dir", str(tmp_path),
+             "--min-runs", value]
+        )  # fmt: skip
+    assert exc.value.code == 2
+    assert "--min-runs" in capsys.readouterr().err
+
+
+def test_case_scored_in_only_one_arm_withholds_the_verdict():
+    reports = _named(
+        _report(SCOPED, {"case_01": SAME, "case_02": SAME}),
+        _report(UNSCOPED, {"case_01": SAME}),
+    )
+    out = _compare(reports)
+    case = out["cases"]["case_02"]["coverage"]
+    assert case["label"] == "insufficient runs" and case["unscoped"]["n"] == 0
+    assert out["verdict"]["decision"] is None and "case_02" in out["verdict"]["reason"]
+    assert "unscoped n=0" in compare_versions.render(out)
+
+
+def test_no_data_in_scope_skips_are_counted_per_arm():
+    scoped = _report(SCOPED, {"case_01": SAME, "case_02": SAME})
+    for s in scoped["scores"][:4]:
+        s["expert_failures"] = {"fiscal": "no_data_in_scope"}
+    scoped["scores"][0]["expert_failures"]["stakeholder"] = "no_data_in_scope"
+    scoped["scores"][5]["expert_failures"] = {"legal": "timeout"}
+    reports = _named(scoped, _report(UNSCOPED, {"case_01": SAME, "case_02": SAME}))
+    out = _compare(reports)
+    assert out["no_data_in_scope"] == {
+        "scoped": {"runs": 4, "skips": 5, "by_agent": {"fiscal": 4, "stakeholder": 1}},
+        "unscoped": {"runs": 0, "skips": 0, "by_agent": {}},
+    }
+    text = compare_versions.render(out)
+    assert "no_data_in_scope" in text and "not underperformance" in text
+    assert "fiscal 4" in text
