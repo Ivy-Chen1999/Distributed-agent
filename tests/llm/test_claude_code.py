@@ -148,6 +148,29 @@ async def test_happy_path_returns_validated_object_and_usage(cli):
     assert usage.latency_s >= 0
 
 
+async def test_llm_span_carries_usage_metadata(cli):
+    """The LangSmith llm run gets token usage and cost from the CLI payload; latency is the
+    span's own start and end time."""
+    import time
+    from unittest.mock import MagicMock
+
+    from langsmith import Client, tracing_context
+
+    client = MagicMock(spec=Client)
+    cli.responses = [result_payload({"name": "Bob", "score": 3})]
+    with tracing_context(enabled=True, client=client, project_name="p"):
+        await ClaudeCodeBackend().call("planner", "sys", "hello", Answer, cfg())
+    time.sleep(0.05)
+    (created,) = [c.kwargs for c in client.method_calls if c[0] == "create_run"]
+    assert created["run_type"] == "llm" and created["name"] == "claude_code:planner"
+    (updated,) = [c.kwargs for c in client.method_calls if c[0] == "update_run"]
+    usage = updated["extra"]["metadata"]["usage_metadata"]
+    assert usage["input_tokens"] == 10 + 5351 + 4 and usage["output_tokens"] == 153
+    assert usage["total_tokens"] == 10 + 5351 + 4 + 153
+    assert usage["total_cost"] == pytest.approx(0.0115)
+    assert updated["end_time"] >= created["start_time"]
+
+
 async def test_structured_output_missing_falls_back_to_result_text(cli):
     payload = json.loads(result_payload({"name": "A", "score": 1}))
     del payload["structured_output"]
