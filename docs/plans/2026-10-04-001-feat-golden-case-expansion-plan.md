@@ -15,20 +15,20 @@ origin: docs/brainstorms/2026-09-28-womm-phased-requirements.md
 > - **Annotators:** 2–3 classmates at 3–5 hours each, so about 6–15 annotator-hours in total.
 > - **Drafting model:** Claude (no second vendor). Recall bias is countered by the classmates' "add missing" task. Every item records `provenance: llm_drafted | human_added` and the drafting model id.
 >
-> **Annotation design: humans only where judgement is required** (user decision 2026-10-04)
->
-> Classmates touch a case exactly once. Everything a machine can propose is pre-filled for them to confirm.
+> **Annotation design: humans only where an LLM cannot be trusted** (user decision 2026-10-04: "only the most necessary places get a human; everything else can be an LLM judge")
 >
 > | Step | Who | Where |
 > |---|---|---|
-> | Draft the impacts, each with an IA anchor, a proposed category, a "derivable from these provisions?" pre-check and provision keys | LLM (Claude) | drafting tool |
-> | Recall pass: compare the IA impacts section and the who-is-affected annex with the draft, and list "possibly missing" candidates, each anchored | LLM, second pass | drafting tool |
-> | **Confirm each item** (verified / edited / rejected, confirming or correcting its category and derivability), then **accept or decline each "possibly missing" candidate** | **classmates** (train/val) | GitHub PR, one pass per case |
-> | **Same, for the holdout** | **1–2 classmates who do not edit prompts or routing** | private: encrypted draft, local `verify_golden_case.py`, result returned for import |
-> | Second review on a few cases, Cohen's κ | optional, only if annotator time remains | separate PR |
+> | Draft the impacts, each with an IA anchor, a category, a derivability pre-check and provision keys | LLM (Claude) | drafting tool |
+> | Recall pass: list "possibly missing" candidates from the IA impacts section and annex, each anchored | LLM, second pass | drafting tool |
+> | **LLM judge verification:** each item and candidate is checked against its IA anchor in context, then marked `agree` (auto-accepted), `disagree` or `uncertain`, with a reason | LLM judge, an independent prompt and call | drafting tool |
+> | **Human check, train/val:** only the `disagree` and `uncertain` items, plus a **random 20% audit** of the auto-accepted items | classmates | GitHub PR |
+> | **Escalation:** if a proposal's audit error rate is over 10%, every item of that proposal goes to human review | classmates | same PR |
+> | **Holdout: full human verification** of every item | 1–2 classmates who do not edit prompts or routing | private: encrypted draft, local `verify_golden_case.py` |
 >
-> - Target effort is about 15–20 minutes per case, so 21 cases need about 6–7 annotator-hours. That fits 2–3 classmates at 3–5 hours each.
-> - Accepted candidates are recorded as `provenance: human_confirmed_candidate`. Anything a classmate types in themselves is `human_added`.
+> - Expected human effort is about 5–8 minutes per train/val case and 15–20 minutes per holdout case, roughly 3–4 hours in total.
+> - Provenance per item is one of `llm_judged`, `human_verified`, `human_edited` or `human_confirmed_candidate`. Audit results and the judge's agreement rate with humans are reported as evidence of golden-set quality.
+> - The draft-check CI test requires every `disagree`/`uncertain` item and every audited item to have a human decision and reviewer. Auto-accepted, un-audited items need none.
 > - Target granularity is 5–10 impacts per case, at the actor × mechanism level. The guide (`docs/eval/golden-review-guide.md`) has worked examples from the two existing AI Act cases.
 > - A tracking sheet (`evals/annotation-assignments.md`, with names and case ids only, no holdout ids) assigns cases and records minutes spent.
 > - **Go/no-go after the 2-proposal pilot:** if measured minutes per case × remaining cases exceeds the available hours, cut train cases first and keep the holdout at 8.
