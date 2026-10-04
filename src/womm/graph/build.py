@@ -25,7 +25,14 @@ from womm.graph.state import RIAState, WommContext
 from womm.graph.synthesis import all_experts_failed, synthesis_node, validate_node
 from womm.llm.base import LLMBackend
 from womm.models.regulation import Scenario
-from womm.models.run import CodeIdentity, GroundingStats, RunEvent, RunResult, RunStatus
+from womm.models.run import (
+    CitableSource,
+    CodeIdentity,
+    GroundingStats,
+    RunEvent,
+    RunResult,
+    RunStatus,
+)
 from womm.models.system_version import SystemVersion, load_system_version
 
 
@@ -174,6 +181,13 @@ async def run_scenario(
 
     dossier = final["dossier"]
     validation = final.get("validation")
+    retrieved = final.get("retrieved", {})
+    citable: dict[str, CitableSource] = {}
+    for e in sv.spec.experts:
+        for sid, s in retrieved.get(e.id, {}).items():
+            citable.setdefault(
+                sid, CitableSource(source_id=sid, title=s.title, kind=s.kind, text=s.text)
+            )
     return RunResult(
         run_id=run_id,
         scenario_id=scenario_id,
@@ -189,4 +203,5 @@ async def run_scenario(
         error=final.get("fatal_error"),
         synthesis_error=final.get("synthesis_error"),
         retrievals=[r for e in sv.spec.experts for r in final.get("retrievals", {}).get(e.id, [])],
+        citable_sources=list(citable.values()),
     )

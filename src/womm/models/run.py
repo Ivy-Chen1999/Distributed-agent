@@ -78,6 +78,15 @@ class RetrievalRecord(StrictModel):
         return self.status in GRANTED
 
 
+class CitableSource(BaseModel):
+    """A source some expert of the run could cite, as the console shows it."""
+
+    source_id: str
+    title: str
+    kind: str
+    text: str
+
+
 class RunResult(BaseModel):
     run_id: str
     scenario_id: str
@@ -96,6 +105,12 @@ class RunResult(BaseModel):
         default_factory=list,
         description="Every expert's Layer 1 retrieval records, in expert order, then request "
         "order.",
+    )
+    citable_sources: list[CitableSource] | None = Field(
+        default=None,
+        description="The union of every expert's citable sources (retrieved texts, obligation "
+        "views and memorandum), in expert order, each once. None on results saved before it "
+        "existed.",
     )
 
 

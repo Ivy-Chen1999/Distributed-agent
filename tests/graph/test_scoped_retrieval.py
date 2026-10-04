@@ -502,3 +502,19 @@ async def test_omnibus_2024_texts_carry_the_superseded_title_marker(fixture, cor
         # texts are unchanged
         assert f"{tags[old]}\n{corpus.sources[old].text}\n</source>" in legal
 
+
+# ---------- the run keeps every citable source (the console resolves citations with it) ----------
+
+
+async def test_run_result_keeps_citable_sources_including_obligation_views(fixture, corpus):
+    keys = fixture.scenario(SME).provision_keys
+    result, _ = await _run(fixture, corpus, SME, sv=_fake(V1), plan=_plan(keys))
+    ids = [s.source_id for s in result.citable_sources]
+    assert len(ids) == len(set(ids))
+    # Legal's texts and memorandum, Fiscal's obligation views: one union, in expert order.
+    assert f"{PROPOSAL}/art_71" in ids and MEMOS[0] in ids
+    assert f"{PROPOSAL}/obligations/art_71" in ids
+    view = next(s for s in result.citable_sources if s.source_id.endswith("obligations/art_71"))
+    assert view.kind == "obligations" and view.text and "obligation records" in view.title
+    dumped = result.model_dump(mode="json")["citable_sources"][0]
+    assert set(dumped) == {"source_id", "title", "kind", "text"}

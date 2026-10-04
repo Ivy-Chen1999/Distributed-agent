@@ -221,7 +221,10 @@ def create_app(
         result = row["result"] or {}
         out["started_at"] = row["started_at"]
         if row["status"] in FINISHED:
-            for key in ("grounding", "decisions", "board", "failures", "usage", "code_identity"):
+            for key in (
+                "grounding", "decisions", "board", "failures", "usage", "code_identity",
+                "citable_sources",
+            ):  # fmt: skip
                 out[key] = result.get(key)
         if row["status"] in WITH_DOSSIER:
             out["dossier"] = result.get("dossier")

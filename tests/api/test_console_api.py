@@ -55,6 +55,9 @@ def test_runs_list_and_detail_fields(database_url):
         run_id, detail = _finished_run(c)
         for key in ("board", "failures", "usage", "code_identity", "started_at"):
             assert key in detail
+        ids = {s["source_id"] for s in detail["citable_sources"]}
+        assert "com2021_206/art_55" in ids
+        assert set(detail["citable_sources"][0]) == {"source_id", "title", "kind", "text"}
         (row,) = c.get("/runs", headers=AUTH).json()["runs"]
         assert row["run_id"] == run_id and row["status"] == "succeeded"
         assert row["impacts"] == len(detail["dossier"]["impacts"])
