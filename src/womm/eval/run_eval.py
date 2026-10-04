@@ -12,9 +12,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from langsmith import traceable
+from langsmith import tracing_context
 from langsmith.run_helpers import get_current_run_tree
 
+from womm import tracing
 from womm.data.fixtures import Fixture
 from womm.decisions.service import DecisionService
 from womm.eval.evaluators import (
@@ -26,6 +27,7 @@ from womm.eval.evaluators import (
     score_case,
 )
 from womm.eval.golden import GoldenCase, check_against_fixture
+from womm.eval.trajectory import feedback_scores, trajectory_metrics, trajectory_summary
 from womm.graph.build import run_scenario
 from womm.llm.base import LLMBackend
 from womm.models.run import CodeIdentity, RunResult
@@ -61,6 +63,9 @@ class EvalReport:
                 "noise": noise(self.scores) if self.metadata.get("repetitions", 1) > 1 else None,
                 "failures": failure_records(self.scores),
                 "calibration": calibration(self.scores),
+                "trajectory": trajectory_summary(
+                    [s.trajectory for s in self.scores if s.outcome == "scored" and s.trajectory]
+                ),
                 "run_ids": self.run_ids,
                 "scores": [s.model_dump(mode="json") for s in self.scores],
             },
@@ -94,6 +99,11 @@ def experiment_metadata(
     return meta
 
 
+def case_split(case: GoldenCase) -> str | None:
+    """The case's split, when golden cases carry one."""
+    return getattr(case, "split", None)
+
+
 async def evaluate_cases(
     cases: list[GoldenCase],
     *,
@@ -118,30 +128,44 @@ async def evaluate_cases(
 
     async def one_case(case: GoldenCase, rep: int) -> tuple[RunResult, CaseScore]:
         """One repetition of one case: the pipeline run and its judge call share this trace."""
+        split = case_split(case)
         run = await run_scenario(
             case.scenario_id, sv=sv, fixture=fixture, backends=backends,
             decisions=decisions, code_identity=code, tags=["eval", case.case_id],
+            run_mode="eval", case_id=case.case_id, split=split,
         )  # fmt: skip
         score, _ = await score_case(case, run, judge_backend, judge_role, judge_prompt)
-        rt = get_current_run_tree()
+        traj = trajectory_metrics(run, case, labeled_decisions=score.decisions, sv=sv)
+        score = score.model_copy(update={"trajectory": traj, "graph_run_id": run.trace_run_id})
+        rt = None if tracing.is_sealed(split) else get_current_run_tree()
         if rt is not None:
             score = score.model_copy(update={"trace_id": str(rt.trace_id), "trace_url": _url(rt)})
+        if score.outcome == "scored":
+            outcome = {k: getattr(score, k) for k in ("coverage", "omissions_addressed",
+                                                      "grounding")}  # fmt: skip
+            tracing.send_feedback(
+                run.trace_run_id, {**outcome, **feedback_scores(traj)}, split=split,
+                trace_id=score.trace_id,
+            )  # fmt: skip
         return run, score
 
     async def all_cases() -> dict:
         for case in cases:
             for rep in range(repetitions):
-                traced_case = traceable(
-                    name="womm:eval_case",
-                    run_type="chain",
-                    metadata={
-                        "case_id": case.case_id,
-                        "repetition": rep + 1,
-                        "system_version": sv.version_id,
-                    },  # fmt: skip
-                    tags=["eval", case.case_id],
-                )(one_case)
-                run, score = await traced_case(case, rep)
+                split = case_split(case)
+                meta = tracing.run_metadata(
+                    sv, scenario_id=case.scenario_id, mode="eval", code=code,
+                    case_id=case.case_id, split=split,
+                )  # fmt: skip
+                traced_case = tracing.traced(
+                    one_case, split=split, name="womm:eval_case", run_type="chain",
+                    metadata={**meta, "repetition": rep + 1}, tags=["eval", case.case_id],
+                )  # fmt: skip
+                if tracing.is_sealed(split):
+                    with tracing_context(enabled=False):
+                        run, score = await traced_case(case, rep)
+                else:
+                    run, score = await traced_case(case, rep)
                 report.run_ids.append(run.run_id)
                 if runs_dir:
                     _save_run(runs_dir, run)
@@ -151,12 +175,15 @@ async def evaluate_cases(
                     return {"aborted": report.aborted}
         return {"summary": report.summary}
 
-    traced_all = traceable(
+    sealed = any(tracing.is_sealed(case_split(c)) for c in cases)
+    traced_all = tracing.traced(
+        all_cases,
+        split="holdout" if sealed else None,
         name="womm:eval",
         run_type="chain",
         metadata={k: v for k, v in report.metadata.items() if not isinstance(v, dict)},
         tags=["eval", sv.version_id],
-    )(all_cases)
+    )
     await traced_all()
     return report
 
@@ -263,6 +290,8 @@ async def record_langsmith_experiment(
         # LangSmith feedback scores are capped at +/-99999.9999, so tokens go in as thousands.
         tokens = outputs.get("tokens")
         results.append({"key": "ktokens", "score": None if tokens is None else tokens / 1000})
+        traj = feedback_scores(outputs.get("trajectory") or {})
+        results.extend({"key": k, "score": v} for k, v in traj.items())
         return {"results": results}
 
     def summary(outputs: list[dict]) -> dict:

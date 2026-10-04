@@ -58,6 +58,12 @@ class CaseScore(BaseModel):
     )
     trace_id: str | None = None
     trace_url: str | None = None
+    graph_run_id: str | None = Field(
+        default=None, description="LangSmith id of the graph run scored here, when traced."
+    )
+    trajectory: dict = Field(
+        default_factory=dict, description="womm.eval.trajectory metrics for this run."
+    )
 
 
 def infra_error(run: RunResult) -> str | None:
