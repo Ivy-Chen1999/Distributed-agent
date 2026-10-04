@@ -166,22 +166,40 @@ def fetch_celex(celex: str, **kwargs) -> bytes:
     return fetch(celex_url(celex), **kwargs)
 
 
-def fetch_document(url: str, **kwargs) -> bytes:
+def _cached_document(
+    url: str, *, language: str, cache_dir: Path, expected_sha256: str | None
+) -> bytes | None:
+    """The cached body under either type: the one matching ``expected_sha256`` (the pinned
+    hash), else the one cached last; None when neither is cached."""
+    paths = [_cache_path(cache_dir, url, accept, language) for accept in (XHTML, HTML)]
+    present = [p for p in paths if p.exists()]
+    if not present:
+        return None
+    bodies = {p: p.read_bytes() for p in present}
+    if expected_sha256:
+        for body in bodies.values():
+            if sha256(body) == expected_sha256:
+                return body
+    return bodies[max(present, key=lambda p: p.stat().st_mtime_ns)]
+
+
+def fetch_document(url: str, *, expected_sha256: str | None = None, **kwargs) -> bytes:
     """``fetch`` as XHTML, falling back to ``text/html`` when Cellar holds no XHTML stream.
 
     Since 2025 Cellar registers the Commission's XHTML manifestation as ``text/html``: the
     XHTML request answers 404 (resource) or 406 (item), the ``text/html`` one serves the same
-    XHTML document. A body cached under either type is reused without a request."""
+    XHTML document. A body cached under either type is reused without a request: the one whose
+    sha256 equals ``expected_sha256`` (the pin in ``downloads.json``) when given, else the one
+    cached last, never XHTML blindly."""
     if kwargs.get("accept", XHTML) == XHTML and not kwargs.get("refresh"):
-        for accept in (XHTML, HTML):
-            body = cached(
-                url,
-                accept=accept,
-                language=kwargs.get("language", "eng"),
-                cache_dir=kwargs.get("cache_dir", DEFAULT_CACHE_DIR),
-            )
-            if body is not None:
-                return body
+        body = _cached_document(
+            url,
+            language=kwargs.get("language", "eng"),
+            cache_dir=kwargs.get("cache_dir", DEFAULT_CACHE_DIR),
+            expected_sha256=expected_sha256,
+        )
+        if body is not None:
+            return body
     try:
         return fetch(url, **kwargs)
     except CellarNoDatastream:

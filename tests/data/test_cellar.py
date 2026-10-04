@@ -4,7 +4,10 @@ import httpx
 import pytest
 
 from womm.data.cellar import (
+    HTML,
+    XHTML,
     CellarError,
+    _cache_path,
     cached,
     celex_url,
     fetch,
@@ -13,6 +16,7 @@ from womm.data.cellar import (
     fetch_main_document,
     main_document,
     parse_listing,
+    sha256,
 )
 
 
@@ -175,3 +179,43 @@ def test_cached_reads_only_the_cache(tmp_path: Path):
         fetch(url, accept="*/*", cache_dir=tmp_path, client=client)
     assert cached(url, accept="*/*", cache_dir=tmp_path) == b"a,b"
     assert cached(url, cache_dir=tmp_path) is None  # cache key includes the Accept header
+
+
+def _cache_both(tmp_path: Path, url: str, xhtml: bytes, html: bytes) -> None:
+    """Cache ``url`` under both Accept types (text/html written last)."""
+    import os
+
+    for accept, body in ((XHTML, xhtml), (HTML, html)):
+        with _client(lambda r, body=body: httpx.Response(200, content=body)) as client:
+            fetch(url, accept=accept, cache_dir=tmp_path, client=client)
+    xpath = _cache_path(tmp_path, url, XHTML, "eng")
+    hpath = _cache_path(tmp_path, url, HTML, "eng")
+    os.utime(xpath, (1_000_000, 1_000_000))
+    os.utime(hpath, (2_000_000, 2_000_000))
+
+
+def test_fetch_document_prefers_the_cached_body_matching_the_pin(tmp_path: Path):
+    url = celex_url("52099PC0001")
+    _cache_both(tmp_path, url, b"<old xhtml/>", b"<new html/>")
+    with _client(lambda r: httpx.Response(500)) as client:
+        got = fetch_document(
+            url, cache_dir=tmp_path, client=client, expected_sha256=sha256(b"<old xhtml/>")
+        )
+        assert got == b"<old xhtml/>"
+        got = fetch_document(
+            url, cache_dir=tmp_path, client=client, expected_sha256=sha256(b"<new html/>")
+        )
+        assert got == b"<new html/>"
+
+
+def test_fetch_document_without_a_pin_reads_the_most_recent_cache(tmp_path: Path):
+    url = celex_url("52099PC0001")
+    _cache_both(tmp_path, url, b"<old xhtml/>", b"<new html/>")
+    with _client(lambda r: httpx.Response(500)) as client:
+        assert fetch_document(url, cache_dir=tmp_path, client=client) == b"<new html/>"
+        # A pin matching neither cached body falls back to the most recent one too; the
+        # importer's downloads.json check then reports the change.
+        assert (
+            fetch_document(url, cache_dir=tmp_path, client=client, expected_sha256="0" * 64)
+            == b"<new html/>"
+        )
