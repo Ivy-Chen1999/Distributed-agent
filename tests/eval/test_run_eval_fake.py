@@ -6,7 +6,13 @@ from womm.config import REPO_ROOT
 from womm.decisions.stub import StubDecisionService
 from womm.eval.evaluators import JudgeOutput
 from womm.eval.golden import load_all_golden
-from womm.eval.run_eval import BaselineRefused, evaluate_cases, experiment_metadata, sync_dataset
+from womm.eval.run_eval import (
+    BaselineRefused,
+    check_formal,
+    evaluate_cases,
+    experiment_metadata,
+    sync_dataset,
+)
 from womm.llm.base import LLMError
 from womm.llm.fake import FakeBackend
 from womm.models.run import CodeIdentity
@@ -112,6 +118,76 @@ def test_baseline_kind_smoke_vs_reference():
     cc = load_system_version(DEFAULT_SYSTEM_VERSION, REPO_ROOT)
     assert experiment_metadata(cc, CLEAN, True, 1)["baseline_kind"] == "smoke"
     assert "baseline_kind" not in experiment_metadata(cc, CLEAN, False, 1)
+
+
+async def test_two_splits_get_separate_summaries(second_fixture):
+    val = CASE.model_copy(update={"case_id": "case_99_val", "fixture": "other", "split": "val"})
+    report = await evaluate_cases(
+        [CASE, val], sv=fake_sv(), backends={"fake": FakeBackend(_script(reps=2))},
+        decisions=StubDecisionService(), code=CLEAN, judge_prompt="p",
+    )  # fmt: skip
+    assert report.metadata["split"] == "mixed"
+    assert report.metadata["splits"] == ["train", "val"]
+    by_split = json.loads(report.to_json())["summary_by_split"]
+    assert set(by_split) == {"train", "val"}
+    assert by_split["train"]["summary"]["cases"] == 1 and by_split["val"]["summary"]["cases"] == 1
+    assert "noise" not in by_split["train"]
+
+
+async def test_single_split_is_named_in_metadata(fixture):
+    report = await _evaluate(fixture, _script(reps=2), repetitions=2)
+    assert report.metadata["split"] == "train" and "formal" not in report.metadata
+    data = json.loads(report.to_json())
+    assert data["summary_by_split"]["train"]["noise"][CASE.case_id]["coverage"]["n"] == 2
+
+
+def _api_sv():
+    from womm.models.system_version import load_system_version
+
+    return load_system_version(REPO_ROOT / "system_versions/v0.1-api.yaml", REPO_ROOT)
+
+
+def test_formal_run_refuses_non_api_backends():
+    from womm.config import DEFAULT_SYSTEM_VERSION
+    from womm.models.system_version import load_system_version
+
+    cc = load_system_version(DEFAULT_SYSTEM_VERSION, REPO_ROOT)
+    with pytest.raises(BaselineRefused, match="api backend"):
+        experiment_metadata(cc, CLEAN, False, 6, formal=True)
+    with pytest.raises(BaselineRefused, match="api backend"):
+        check_formal(fake_sv(), 6)
+    # --baseline on claude_code is not formal: still allowed, still a smoke baseline
+    assert experiment_metadata(cc, CLEAN, True, 6)["baseline_kind"] == "smoke"
+
+
+def test_formal_run_marks_the_r34_noise_run():
+    meta = experiment_metadata(_api_sv(), CLEAN, False, 6, formal=True)
+    assert meta["formal"] is True and meta["run_kind"] == "r34_noise"
+    with pytest.raises(BaselineRefused, match="at least 6 repetitions"):
+        experiment_metadata(_api_sv(), CLEAN, False, 3, formal=True)
+    with pytest.raises(BaselineRefused, match="dirty"):
+        experiment_metadata(_api_sv(), CodeIdentity(git_sha="x", dirty=True), False, 6, formal=True)
+
+
+async def test_formal_run_needs_one_split(second_fixture, monkeypatch):
+    import womm.eval.run_eval as run_eval
+
+    monkeypatch.setattr(run_eval, "check_formal", lambda sv, reps: None)
+    val = CASE.model_copy(update={"case_id": "case_99_val", "fixture": "other", "split": "val"})
+    with pytest.raises(BaselineRefused, match="one split"):
+        await evaluate_cases(
+            [CASE, val], sv=fake_sv(), backends={"fake": FakeBackend({})},
+            decisions=StubDecisionService(), code=CLEAN, judge_prompt="p", repetitions=6,
+            formal=True,
+        )  # fmt: skip
+
+
+def test_sync_dataset_records_the_split():
+    client = _FakeClient()
+    sync_dataset(client, [CASE])
+    assert next(iter(client.examples.values())).metadata == {
+        "case_id": CASE.case_id, "split": "train",
+    }  # fmt: skip
 
 
 class _FakeClient:

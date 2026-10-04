@@ -1,7 +1,13 @@
 """Run golden cases through the pipeline and score them (F2, R11-R13, R34).
 
 Local mode writes a JSON report only. With LangSmith configured, the same run is recorded as an
-experiment (dataset synced from evals/golden) tagged with the system version and backends.
+experiment (dataset synced from evals/golden) tagged with the system version, backends and split.
+Reports carry ``split`` (one split, or ``mixed``) and a summary per split.
+
+A ``formal`` run is the R34 noise run (``womm eval --split val --repetitions 6 --formal``): it is
+the only kind that refuses non-api backends, and it needs one split, at least
+``FORMAL_MIN_REPETITIONS`` repetitions and a clean working tree. A ``--baseline`` on the
+claude_code backend is still allowed and keeps its ``smoke`` tag.
 """
 
 from __future__ import annotations
@@ -38,6 +44,8 @@ from womm.models.run import CodeIdentity, RunResult
 from womm.models.system_version import SystemVersion
 
 DATASET_NAME = "womm-golden-v0"
+FORMAL_MIN_REPETITIONS = 6
+FORMAL_RUN_KIND = "r34_noise"
 
 
 class BaselineRefused(RuntimeError):
@@ -51,11 +59,26 @@ class EvalReport:
     scores: list[CaseScore] = field(default_factory=list)
     run_ids: list[str] = field(default_factory=list)
     aborted: str | None = None
+    case_splits: dict[str, str] = field(default_factory=dict)
 
     @property
     def summary(self) -> dict | None:
         """None when the experiment was aborted (e.g. rate limit): no polluted aggregates."""
         return None if self.aborted else aggregate(self.scores)
+
+    @property
+    def summary_by_split(self) -> dict[str, dict] | None:
+        """One summary (and, with repetitions, noise) per split; None when aborted."""
+        if self.aborted:
+            return None
+        out: dict[str, dict] = {}
+        for split in sorted(set(self.case_splits.values())):
+            scores = [s for s in self.scores if self.case_splits.get(s.case_id) == split]
+            entry: dict[str, Any] = {"summary": aggregate(scores)}
+            if self.metadata.get("repetitions", 1) > 1:
+                entry["noise"] = noise(scores)
+            out[split] = entry
+        return out
 
     def to_json(self) -> str:
         return json.dumps(
@@ -64,6 +87,7 @@ class EvalReport:
                 "metadata": self.metadata,
                 "aborted": self.aborted,
                 "summary": self.summary,
+                "summary_by_split": self.summary_by_split,
                 "noise": noise(self.scores) if self.metadata.get("repetitions", 1) > 1 else None,
                 "failures": failure_records(self.scores),
                 "calibration": calibration(self.scores),
@@ -75,8 +99,28 @@ class EvalReport:
         )
 
 
+def check_formal(sv: SystemVersion, repetitions: int) -> None:
+    """A formal R34 noise run: every role on the api backend and enough repetitions. Only
+    formal runs refuse other backends (a claude_code ``--baseline`` stays a smoke baseline)."""
+    other = sorted({r.backend for r in sv.spec.roles().values()} - {"api"})
+    if other:
+        raise BaselineRefused(
+            f"a formal R34 noise run needs every role on the api backend; this system version "
+            f"uses {other}. Drop --formal for a dev noise run"
+        )
+    if repetitions < FORMAL_MIN_REPETITIONS:
+        raise BaselineRefused(
+            f"a formal R34 noise run needs at least {FORMAL_MIN_REPETITIONS} repetitions per "
+            f"case, got {repetitions}"
+        )
+
+
 def experiment_metadata(
-    sv: SystemVersion, code: CodeIdentity, baseline: bool, repetitions: int
+    sv: SystemVersion,
+    code: CodeIdentity,
+    baseline: bool,
+    repetitions: int,
+    formal: bool = False,
 ) -> dict[str, Any]:
     roles = sv.spec.roles()
     backends = sorted({r.backend for r in roles.values()})
@@ -97,7 +141,20 @@ def experiment_metadata(
                 "refusing to tag a baseline from a dirty working tree; commit your changes first"
             )
         meta["baseline_kind"] = "smoke" if "claude_code" in backends else "reference"
+    if formal:
+        check_formal(sv, repetitions)
+        if code.dirty:
+            raise BaselineRefused(
+                "refusing a formal run from a dirty working tree; commit your changes first"
+            )
+        meta["formal"] = True
+        meta["run_kind"] = FORMAL_RUN_KIND
     return meta
+
+
+def split_label(cases: list[GoldenCase]) -> str:
+    splits = {c.split for c in cases}
+    return splits.pop() if len(splits) == 1 else "mixed"
 
 
 async def evaluate_cases(
@@ -111,6 +168,7 @@ async def evaluate_cases(
     judge_prompt: str,
     repetitions: int = 1,
     baseline: bool = False,
+    formal: bool = False,
     runs_dir: Path | None = None,
 ) -> EvalReport:
     """Run and score ``cases``, each against its own fixture (``case.fixture``).
@@ -125,13 +183,18 @@ async def evaluate_cases(
         if case.split == "holdout":
             raise GoldenError(f"{case.case_id}: {HOLDOUT_REFUSAL}")
         check_against_fixture(case, load_case_fixture(case, fixtures))
+    split = split_label(cases)
+    if formal and split == "mixed":
+        raise BaselineRefused("a formal R34 noise run covers exactly one split; pass --split")
     report = EvalReport(
         system_version=sv.version_id,
         metadata={
-            **experiment_metadata(sv, code, baseline, repetitions),
+            **experiment_metadata(sv, code, baseline, repetitions, formal),
             "fixtures": sorted({c.fixture for c in cases}),
+            "split": split,
             "splits": sorted({c.split for c in cases}),
         },
+        case_splits={c.case_id: c.split for c in cases},
     )
     judge_role = sv.spec.judge
     judge_backend = backends[judge_role.backend]
@@ -156,10 +219,11 @@ async def evaluate_cases(
                     run_type="chain",
                     metadata={
                         "case_id": case.case_id,
+                        "split": case.split,
                         "repetition": rep + 1,
                         "system_version": sv.version_id,
                     },  # fmt: skip
-                    tags=["eval", case.case_id],
+                    tags=["eval", case.case_id, f"split:{case.split}"],
                 )(one_case)
                 run, score = await traced_case(case, rep)
                 report.run_ids.append(run.run_id)
@@ -175,7 +239,7 @@ async def evaluate_cases(
         name="womm:eval",
         run_type="chain",
         metadata={k: v for k, v in report.metadata.items() if not isinstance(v, dict)},
-        tags=["eval", sv.version_id],
+        tags=["eval", sv.version_id, f"split:{split}"],
     )(all_cases)
     await traced_all()
     return report
@@ -245,7 +309,7 @@ def sync_dataset(client: Any, cases: list[GoldenCase], name: str = DATASET_NAME)
     for case in cases:
         inputs = {"case_id": case.case_id, "scenario_id": case.scenario_id}
         outputs = case.model_dump(mode="json")
-        meta = {"case_id": case.case_id}
+        meta = {"case_id": case.case_id, "split": case.split}
         ex = existing.get(case.case_id)
         if ex is None:
             client.create_example(

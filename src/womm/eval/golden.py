@@ -28,6 +28,12 @@ HOLDOUT_REFUSAL = (
 )
 
 
+# How a published item was decided (plan Revision 2026-10-04). Hand-written cases have none.
+ItemProvenance = Literal[
+    "llm_judged", "human_verified", "human_edited", "human_confirmed_candidate"
+]
+
+
 class ExpectedImpact(StrictModel):
     expected_id: str
     affected_actor: str
@@ -37,6 +43,8 @@ class ExpectedImpact(StrictModel):
         min_length=1, description="Scenario provisions this impact follows from."
     )
     ia_section: str = Field(description="Where in the impact assessment this is stated.")
+    category: str | None = Field(default=None, description="Drafting category, if drafted.")
+    provenance: ItemProvenance | None = None
 
 
 class Omission(StrictModel):
@@ -44,6 +52,8 @@ class Omission(StrictModel):
     description: str = Field(description="An impact a good assessment must not leave out.")
     provision_keys: list[str] = Field(min_length=1)
     source: str = Field(description="e.g. 'SWD(2021) 84 §6.1.4' or 'RSB opinion'.")
+    category: str | None = None
+    provenance: ItemProvenance | None = None
 
 
 class GoldenCase(StrictModel):

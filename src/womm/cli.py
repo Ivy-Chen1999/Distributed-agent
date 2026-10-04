@@ -27,6 +27,7 @@ from womm.decisions.factory import make_decision_service
 from womm.eval.golden import SELECTABLE_SPLITS, GoldenError, load_all_golden
 from womm.eval.run_eval import (
     BaselineRefused,
+    check_formal,
     evaluate_cases,
     persist_failures,
     record_langsmith_experiment,
@@ -64,6 +65,7 @@ examples:
   womm eval --case case_02_sme_impacts --local --json
   womm eval --split val --local
   womm eval --baseline
+  womm eval --split val --repetitions 6 --formal   # R34 noise run (api backend only)
 """
 
 _RUN_EXIT = {
@@ -167,12 +169,16 @@ async def cmd_eval(args: argparse.Namespace) -> int:
         if unknown:
             raise UsageError(f"unknown golden case(s): {unknown}")
         cases = [c for c in cases if c.case_id in args.case]
+    if args.formal and (args.case or not args.split):
+        raise UsageError("--formal runs a whole split: pass --split and no --case")
     if args.split:
         cases = [c for c in cases if c.split == args.split]
     if not cases:
         raise UsageError(
             f"no golden cases selected (split={args.split or 'any'}, case={args.case or 'any'})"
         )
+    if args.formal:
+        check_formal(sv, args.repetitions)  # before any self-check or LLM spend
     settings = load_settings()
     decisions = make_decision_service(sv, settings)  # config errors before LLM spend
     backends, cli_version, _ = await prepare_backends(sv, skip_self_check=args.skip_self_check)
@@ -185,6 +191,7 @@ async def cmd_eval(args: argparse.Namespace) -> int:
         judge_prompt=sv.prompt_text(sv.spec.judge),
         repetitions=args.repetitions,
         baseline=args.baseline,
+        formal=args.formal,
         runs_dir=Path(args.runs_dir),
     )
     # The report is written first, so a failing side effect below can never lose the results.
@@ -196,7 +203,7 @@ async def cmd_eval(args: argparse.Namespace) -> int:
             # LangSmith prints the experiment link to stdout; stdout is reserved for data.
             with contextlib.redirect_stdout(sys.stderr):
                 name = await record_langsmith_experiment(
-                    report, cases, Client(), prefix=f"womm-{sv.spec.name}"
+                    report, cases, Client(), prefix=_experiment_prefix(sv, report)
                 )
             report.metadata["langsmith_experiment"] = name
             info(f"LangSmith experiment: {name}")
@@ -225,6 +232,11 @@ async def cmd_eval(args: argparse.Namespace) -> int:
         info(f"eval aborted: {report.aborted}")
         return EXIT_FAILED
     return EXIT_OK
+
+
+def _experiment_prefix(sv: SystemVersion, report: Any) -> str:
+    prefix = f"womm-{sv.spec.name}-{report.metadata['split']}"
+    return prefix + "-formal" if report.metadata.get("formal") else prefix
 
 
 async def cmd_selfcheck(args: argparse.Namespace) -> int:
@@ -292,6 +304,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_eval.add_argument("--repetitions", type=int, default=1, help="runs per case (noise)")
     p_eval.add_argument("--baseline", action="store_true", help="tag as a baseline experiment")
+    p_eval.add_argument(
+        "--formal",
+        action="store_true",
+        help="the R34 noise run: one --split, >= 6 repetitions, api backend only, clean tree",
+    )
     p_eval.add_argument("--local", action="store_true", help="do not record in LangSmith")
     p_eval.add_argument("--skip-self-check", action="store_true", help="dev only")
     p_eval.add_argument("--decider", choices=["jev", "stub"], help="override the router decider")

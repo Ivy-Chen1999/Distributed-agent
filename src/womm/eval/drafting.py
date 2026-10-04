@@ -85,7 +85,7 @@ CATEGORY_GUIDE = {
 Derivable = Literal["yes", "partly", "no"]
 JudgeVerdict = Literal["agree", "disagree", "unknown"]
 Overall = Literal["agree", "disagree", "uncertain"]
-Decision = Literal["pending", "auto_accepted", "verified", "edited", "rejected"]
+Decision = Literal["pending", "auto_accepted", "verified", "edited", "rejected", "unclear"]
 Split = Literal["train", "val", "holdout"]
 DIMENSIONS = ("anchor_faithfulness", "derivability", "category")
 JUDGE_ROLES = {
@@ -701,9 +701,10 @@ async def draft_case(
 
 DRAFT_HEADER = (
     "# DRAFT golden case written by scripts/draft_golden_case.py; not scored until published.\n"
-    "# Review: decide every item whose review.decision is 'pending' (judge disagree/uncertain,\n"
-    "# a deterministic flag, or audit: true) as verified / edited / rejected, and set\n"
-    "# review.reviewer to your GitHub username. Auto-accepted items need no decision.\n"
+    "# Review (docs/eval/golden-review-guide.md): decide every item whose review.decision is\n"
+    "# 'pending' (judge disagree/uncertain, a deterministic flag, or audit: true) and every\n"
+    "# possibly_missing candidate as verified / edited / rejected / unclear, and set\n"
+    "# review.reviewer to your GitHub username. Other auto-accepted items need no decision.\n"
     "# IA identifiers are kept in the gitignored evals/private/ia_index.yaml, never here.\n"
 )
 
