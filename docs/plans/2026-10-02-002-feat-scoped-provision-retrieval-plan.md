@@ -237,6 +237,10 @@ R9 and R10 (Layer 2) are not covered by this plan. AE3 is deferred with Layer 2.
 - **Expert prompts are filtered too, not only the sources block.** For scoped experts:
   - `changes_index` and the focus areas list only granted keys;
   - the `[added]` / `[modified]` tags are dropped unless `sees_delta` is set;
+  - without `sees_delta`, each granted key gets one neutral reference (`sources: <id>, <id>`,
+    sorted, no `before:` / `after:` labels, no article numbers). Inherent residue: a key with a
+    source in one version only (added, removed, or a proposal-only key) still shows that the
+    other side is missing; text grants list both versions whenever both exist;
   - focus-area rationales are omitted, because the Planner wrote them with full delta visibility.
 
   Unscoped experts keep today's rendering byte for byte. The shared

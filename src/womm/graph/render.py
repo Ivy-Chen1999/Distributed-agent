@@ -92,24 +92,39 @@ def changes_index(diff: RegulatoryDiff) -> str:
 def scoped_changes_index(
     diff: RegulatoryDiff, records: dict[str, RetrievalRecord], sees_delta: bool
 ) -> str:
-    """For scoped experts: only the changes whose key the scope granted. The change kind is
-    shown only with ``sees_delta``. A key granted as an obligation view points at the view's
-    source ids, never at the text the expert cannot see."""
+    """For scoped experts: only the changes whose key the scope granted. A key granted as an
+    obligation view points at the view's source ids, never at the text the expert cannot see.
+
+    With ``sees_delta`` a text grant keeps the ``[kind]`` tag and its ``before:`` / ``after:``
+    references. Without it, each granted key gets one neutral reference: its granted source ids,
+    sorted, with no side labels and no article numbers (a renumbering would hint at a change).
+
+    What stays inherent without ``sees_delta``: the expert sees which versions a key has sources
+    in. Text grants list both versions' sources whenever both exist, so a source id's version
+    prefix only tells the expert what it would learn from the texts anyway; but a key with one
+    source only (added or removed, or a proposal-only key such as ``ai_act/proposal/art/4``)
+    still shows that one side is missing. An obligation view lists only the versions with
+    records, so a missing view is ambiguous between "no such provision" and "no records"."""
     lines = []
     for c in diff.changes:
         record = records.get(c.provision_key)
         if record is None or not record.granted:
             continue
-        if record.status == "granted_text":
+        if record.status == "granted_text" and sees_delta:
             refs = []
             if c.before:
                 refs.append(f"before: Art {c.before.article}, source_id={c.before.source_id}")
             if c.after:
                 refs.append(f"after: Art {c.after.article}, source_id={c.after.source_id}")
+            ref = "; ".join(refs)
+        elif record.status == "granted_text":
+            ref = f"sources: {', '.join(sorted(record.source_ids))}"
+        elif sees_delta:
+            ref = "; ".join(f"obligation records: source_id={sid}" for sid in record.source_ids)
         else:
-            refs = [f"obligation records: source_id={sid}" for sid in record.source_ids]
+            ref = f"obligation records: {', '.join(sorted(record.source_ids))}"
         tag = f"[{c.kind}] " if sees_delta else ""
-        lines.append(f"- {tag}provision_key={c.provision_key} ({'; '.join(refs)})")
+        lines.append(f"- {tag}provision_key={c.provision_key} ({ref})")
     return "\n".join(lines) or "(no changed provision is within your data scope)"
 
 

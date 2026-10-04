@@ -334,3 +334,61 @@ async def test_expert_event_carries_counts_and_no_texts(fixture, corpus):
     dumped = json.dumps(fiscal)
     assert "Member States" not in dumped and "source_id" not in dumped
     assert len(dumped) < 300
+
+
+# ---------- no change kind through the scoped changes index ----------
+
+DELTA_WORDS = re.compile(r"\b(?:before|after):|\b(?:added|modified|removed)\b", re.IGNORECASE)
+SOURCE_TAG = re.compile(r"<source [^>]*>")
+
+
+def _non_text_parts(user: str) -> str:
+    """Everything an expert reads except the legal texts themselves: the head, the changes
+    index, the focus areas and every source tag (id, kind, title). Source texts are legal text
+    and may say "modified" on their own."""
+    head, _, sources = user.partition("Citable sources")
+    return head + "\n".join(SOURCE_TAG.findall(sources))
+
+
+def _diff(fixture, corpus, scenario):
+    from womm.diff import diff_versions
+    from womm.graph.build import explore_inputs
+
+    sc = fixture.scenario(scenario)
+    if sc.mode == "explore":
+        return explore_inputs(sc, fixture, corpus)["diff"]
+    return diff_versions(*fixture.scenario_versions(scenario), keys=sc.provision_keys)
+
+
+@pytest.mark.parametrize("scenario", ["demo_penalties_amended", "omnibus_2026"])
+async def test_scoped_no_delta_prompt_never_reveals_the_change_kind(fixture, corpus, scenario):
+    diff = _diff(fixture, corpus, scenario)
+    by_kind: dict[str, list[str]] = {}
+    for c in diff.changes:
+        by_kind.setdefault(c.kind, []).append(c.provision_key)
+    keys = [k for kind in sorted(by_kind) for k in by_kind[kind][:2]]
+    assert "modified" in by_kind
+    result, backend = await _run(fixture, corpus, scenario, sv=_fake(V1), plan=_plan(keys))
+    assert result.status == RunStatus.succeeded, result.error
+    for agent in ("legal", "fiscal", "stakeholder"):
+        user = _expert_call(backend, agent).user_content
+        assert DELTA_WORDS.search(_non_text_parts(user)) is None, (agent, scenario)
+    # Legal sees every text: a modified key lists both versions' sources in one neutral,
+    # sorted reference.
+    legal = _expert_call(backend, "legal").user_content
+    change = next(c for c in diff.changes if c.kind == "modified")
+    ids = sorted([change.before.source_id, change.after.source_id])
+    assert f"provision_key={change.provision_key} (sources: {', '.join(ids)})" in legal
+
+
+async def test_scoped_expert_with_delta_keeps_before_and_after(fixture, corpus):
+    scope = {"text": "all", "obligations": "none", "sees_delta": True,
+             "hypothesis": "A reviewer with the delta."}  # fmt: skip
+    sv = _fake(scopes={"legal": scope})
+    diff = _diff(fixture, corpus, "demo_penalties_amended")
+    change = next(c for c in diff.changes if c.kind == "modified")
+    _, backend = await _run(
+        fixture, corpus, "demo_penalties_amended", sv=sv, plan=_plan([change.provision_key])
+    )
+    legal = _expert_call(backend, "legal").user_content
+    assert f"- [modified] provision_key={change.provision_key} (before: Art " in legal
