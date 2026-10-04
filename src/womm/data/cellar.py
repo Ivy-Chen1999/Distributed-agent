@@ -8,19 +8,91 @@ from __future__ import annotations
 
 import hashlib
 import re
+from dataclasses import dataclass
 from pathlib import Path
 
 import httpx
+import lxml.html
+from lxml import etree
 
 from womm.config import REPO_ROOT
 
 CELLAR_BASE = "https://publications.europa.eu/resource"
 DEFAULT_CACHE_DIR = REPO_ROOT / ".cache" / "cellar"
 XHTML = "application/xhtml+xml"
+HTML = "text/html"
 
 
 class CellarError(RuntimeError):
     """Raised when Cellar does not return the requested document."""
+
+
+class CellarNoDatastream(CellarError):
+    """HTTP 404/406: the resource exists in Cellar but holds no stream of the requested type."""
+
+
+class CellarMultipleChoice(CellarError):
+    """HTTP 300: the resource has several items (``DOC_1``, ``DOC_3``, ...); ``listing`` is
+    Cellar's HTML list of them."""
+
+    def __init__(self, url: str, listing: str) -> None:
+        super().__init__(
+            f"{url} is ambiguous (HTTP 300); choose one of the listed items:\n{listing[:2000]}"
+        )
+        self.url = url
+        self.listing = listing
+
+
+@dataclass(frozen=True)
+class ListingItem:
+    url: str
+    stream_name: str
+    order: int | None
+
+
+def parse_listing(listing: str) -> list[ListingItem]:
+    """Items of a Cellar HTTP 300 listing, with their https URL and stream name."""
+    try:
+        root = lxml.html.fromstring(listing)
+    except (etree.ParserError, ValueError):
+        return []
+    items = []
+    for li in root.iter("li"):
+        if li.get("title") != "item":
+            continue
+        link = li.find("a")
+        href = link.get("href", "") if link is not None else ""
+        if not href.startswith(("http://publications.europa.eu/", f"{CELLAR_BASE}/")):
+            continue
+        fields = {f.get("title"): (f.text or "").strip() for f in li.iter("li")}
+        order = fields.get("stream_order", "")
+        items.append(
+            ListingItem(
+                url="https://" + href.split("://", 1)[1],
+                stream_name=fields.get("stream_name", ""),
+                order=int(order) if order.isdigit() else None,
+            )
+        )
+    return items
+
+
+def main_document(celex: str, items: list[ListingItem]) -> ListingItem:
+    """The item holding the act itself (explanatory memorandum + articles), not its annexes.
+
+    Commission proposals name it ``<n>_EN_ACT_part1_v<k>.html``; the annexes are
+    ``..._annexe_...``. Anything else is ambiguous and fails naming the CELEX."""
+    acts = [
+        i
+        for i in items
+        if re.search(r"(^|_)ACT(_|\.)", i.stream_name) and "annex" not in i.stream_name.lower()
+    ]
+    if len(acts) != 1:
+        names = [i.stream_name or i.url for i in items]
+        raise CellarError(
+            f"{celex}: no single main document in the HTTP 300 listing "
+            f"({len(acts)} act item(s) among {names})"
+        )
+    return acts[0]
 
 
 def celex_url(celex: str) -> str:
@@ -63,10 +135,9 @@ def fetch(
             client.close()
 
     if response.status_code == 300:
-        raise CellarError(
-            f"{url} is ambiguous (HTTP 300); choose one of the listed items:\n"
-            f"{response.text[:2000]}"
-        )
+        raise CellarMultipleChoice(url, response.text)
+    if response.status_code in (404, 406):
+        raise CellarNoDatastream(f"{url} returned HTTP {response.status_code} for {accept}")
     if response.status_code != 200:
         raise CellarError(f"{url} returned HTTP {response.status_code}")
 
@@ -93,3 +164,38 @@ def sha256(body: bytes) -> str:
 
 def fetch_celex(celex: str, **kwargs) -> bytes:
     return fetch(celex_url(celex), **kwargs)
+
+
+def fetch_document(url: str, **kwargs) -> bytes:
+    """``fetch`` as XHTML, falling back to ``text/html`` when Cellar holds no XHTML stream.
+
+    Since 2025 Cellar registers the Commission's XHTML manifestation as ``text/html``: the
+    XHTML request answers 404 (resource) or 406 (item), the ``text/html`` one serves the same
+    XHTML document. A body cached under either type is reused without a request."""
+    if kwargs.get("accept", XHTML) == XHTML and not kwargs.get("refresh"):
+        for accept in (XHTML, HTML):
+            body = cached(
+                url,
+                accept=accept,
+                language=kwargs.get("language", "eng"),
+                cache_dir=kwargs.get("cache_dir", DEFAULT_CACHE_DIR),
+            )
+            if body is not None:
+                return body
+    try:
+        return fetch(url, **kwargs)
+    except CellarNoDatastream:
+        if kwargs.get("accept", XHTML) != XHTML:
+            raise
+        return fetch(url, **{**kwargs, "accept": HTML})
+
+
+def fetch_main_document(celex: str, **kwargs) -> tuple[str, bytes]:
+    """(URL, body) of a COM document's main item: the CELEX resource itself when Cellar
+    answers 200, else the act item (``DOC_n``) resolved from its HTTP 300 listing."""
+    try:
+        url = celex_url(celex)
+        return url, fetch_document(url, **kwargs)
+    except CellarMultipleChoice as exc:
+        item = main_document(celex, parse_listing(exc.listing))
+        return item.url, fetch_document(item.url, **kwargs)
