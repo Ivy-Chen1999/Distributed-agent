@@ -136,7 +136,7 @@ def test_extra_pattern_strips_a_named_section() -> None:
         "The preferred option is option 3.",
         "As the Impact Assessment shows, costs are low.",
         "The Regulatory Scrutiny Board gave a positive opinion.",
-        "See SWD(2022) 34 for details.",
+        "See SWD(2099) 34 for details.",
         "The preferred policy option saves EUR 22 million per year.",
         "As shown in the Commission staff working document, the proposal is consistent.",
         "This was confirmed in the public consultation.",
@@ -152,10 +152,10 @@ def test_leak_guard_names_the_section(text: str) -> None:
 def test_leak_guard_allow_list_masks_exact_citations_only() -> None:
     kept = [
         MemorandumSection(
-            "5.1.", "Monitoring", 2, ["Indicators are listed in SWD(2022) 34, section 9."]
+            "5.1.", "Monitoring", 2, ["Indicators are listed in SWD(2099) 34, section 9."]
         )
     ]
-    allow = [Allow("5.1.", "SWD(2022) 34")]
+    allow = [Allow("5.1.", "SWD(2099) 34")]
     leak_guard(kept, allow=allow)
     kept[0].blocks.append("The preferred option is cheap.")
     with pytest.raises(MemorandumError, match="preferred option"):
@@ -318,8 +318,8 @@ def test_stale_allow_list_entry_fails() -> None:
         "As the impact-assessment shows, costs are low.",
         "As the impact\u2011assessment shows, costs are low.",  # non-breaking hyphen
         "As the Impact\n  Assessment shows, costs are low.",
-        "See SWD (2022) 34 for details.",
-        "See swd(2022) 34 for details.",
+        "See SWD (2099) 34 for details.",
+        "See swd(2099) 34 for details.",
         "The Board's opinion SEC (2022) 164 was positive.",
         "The Board's opinion SEC(2022)164 was positive.",
         "The IA found low costs.",
