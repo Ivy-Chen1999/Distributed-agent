@@ -74,12 +74,17 @@ def explore_inputs(scenario: Scenario, fixture: Fixture, corpus: Corpus) -> dict
     index lines of its changed provisions (no text), and the union of their texts as sources.
 
     The memorandum belongs to COM(2021) 206: its sources join only runs that read that version,
-    so a run on later law never cites the proposal's explanation as if it were current."""
+    so a run on later law never cites the proposal's explanation as if it were current. In a run
+    on the consolidated text, the adopted texts of amended units carry the superseded marker in
+    their titles (``Corpus.for_target``)."""
     before = corpus.version(scenario.before_version) if scenario.before_version else None
     after = corpus.version(scenario.after_version)
     diff = diff_versions(before, after)
     ids = [p.source_id for c in diff.changes for p in (c.before, c.after) if p is not None]
-    sources = {sid: corpus.sources[sid] for sid in dict.fromkeys(ids)}
+    sources = {
+        sid: corpus.for_target(corpus.sources[sid], scenario.after_version)
+        for sid in dict.fromkeys(ids)
+    }
     versions = {scenario.before_version, scenario.after_version}
     for sid, src in fixture.sources.items():
         if src.kind == "memorandum" and sid.split("/", 1)[0] in versions:

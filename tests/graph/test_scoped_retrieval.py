@@ -229,7 +229,10 @@ async def test_scoped_prompts_leak_no_delta_scope_or_rationale(fixture, corpus, 
         fixture, corpus, scenario, sv=_fake(V1), plan=_plan(keys, rationale=RATIONALE)
     )
     assert result.status == RunStatus.succeeded, result.error
-    for agent in ("legal", "fiscal", "stakeholder"):
+    called = [a for a in ("legal", "fiscal", "stakeholder")
+              if any(c.agent == a for c in backend.calls)]  # fmt: skip
+    assert "legal" in called
+    for agent in called:
         user = _expert_call(backend, agent).user_content
         for tag in ("[added]", "[modified]", "[removed]"):
             assert tag not in user, (agent, tag)
@@ -239,8 +242,9 @@ async def test_scoped_prompts_leak_no_delta_scope_or_rationale(fixture, corpus, 
         for r in records:
             if not r.granted:
                 assert not _mentions(user, r.key), (agent, r.key)
-    fiscal = _expert_call(backend, "fiscal").user_content
-    assert {k for _, k in SOURCE_ID.findall(fiscal)} <= {"obligations"}
+    if "fiscal" in called:
+        fiscal = _expert_call(backend, "fiscal").user_content
+        assert {k for _, k in SOURCE_ID.findall(fiscal)} <= {"obligations"}
 
 
 # ---------- memorandum channel ----------
@@ -278,20 +282,45 @@ async def test_memorandum_quote_cannot_carry_an_out_of_scope_provision(fixture, 
 # ---------- edge cases and the log ----------
 
 
-async def test_expert_with_no_granted_key_runs_on_memorandum_only(fixture, corpus):
+async def test_expert_with_no_granted_key_is_not_called(fixture, corpus):
+    """A scoped expert whose retrieval grants nothing (here: only the memorandum) is skipped:
+    no LLM call, a no_data_in_scope entry and a dossier note, and the run is not degraded."""
     scope = {"text": [], "obligations": "none", "sees_memorandum": True,
              "hypothesis": "Nothing but the memorandum."}  # fmt: skip
     sv = _fake(scopes={"fiscal": scope})
     keys = fixture.scenario(SME).provision_keys
     result, backend = await _run(fixture, corpus, SME, sv=sv, plan=_plan(keys))
-    user = _expert_call(backend, "fiscal").user_content
-    assert [m[0] for m in SOURCE_ID.findall(user)] == MEMOS
-    assert "(no changed provision is within your data scope)" in user
-    assert "(no focus area is within your data scope)" in user
+    assert not [c for c in backend.calls if c.agent == "fiscal"]
+    assert result.status == RunStatus.succeeded
+    (failure,) = result.failures
+    assert (failure.agent, failure.error_kind) == ("fiscal", "no_data_in_scope")
+    assert failure.attempts == 0
+    assert "fiscal: no data within its scope for this run" in result.dossier.notes
     fiscal = [r for r in result.retrievals if r.agent == "fiscal"]
     assert [(r.key, r.status, r.source_ids) for r in fiscal] == [
         (k, "out_of_scope", []) for k in keys
     ]
+    assert not [u for u in result.usage if u.agent == "fiscal"]
+
+
+async def test_every_expert_without_data_fails_the_run_without_calls(fixture, corpus):
+    nothing = {"text": [], "obligations": "none", "hypothesis": "Sees nothing."}
+    sv = _fake(scopes={e: nothing for e in ("legal", "fiscal", "stakeholder")})
+    result, backend = await _run(fixture, corpus, SME, sv=sv, plan=_plan([K71]))
+    assert not [c for c in backend.calls if c.role_name in ("expert", "synthesis")]
+    assert result.status == RunStatus.failed
+    assert {f.error_kind for f in result.failures} == {"no_data_in_scope"}
+    for agent in ("legal", "fiscal", "stakeholder"):
+        assert f"{agent}: no data within its scope for this run" in result.dossier.notes
+
+
+async def test_unscoped_expert_is_called_even_without_keys(fixture, corpus):
+    """The skip is for scoped experts only: unscoped (v0) experts keep their behaviour."""
+    result, backend = await _run(fixture, corpus, SME, sv=_fake(), plan=_plan([K71]))
+    assert {c.agent for c in backend.calls if c.role_name == "expert"} == {
+        "legal", "fiscal", "stakeholder"
+    }  # fmt: skip
+    assert not result.failures
 
 
 async def test_records_survive_llm_error_and_unexpected_exception(fixture, corpus):
@@ -311,12 +340,14 @@ async def test_records_survive_llm_error_and_unexpected_exception(fixture, corpu
 
 
 async def test_refusals_of_a_failed_expert_stay_in_the_log(fixture, corpus):
-    scope = {"text": [], "obligations": "none", "hypothesis": "Sees nothing."}
+    scope = {"text": [K71], "obligations": "none", "hypothesis": "One text only."}
     sv = _fake(scopes={"stakeholder": scope})
     experts = {"expert/stakeholder": [LLMError("timeout", "t")]}
     result, _ = await _run(fixture, corpus, SME, sv=sv, plan=_plan([K71]), experts=experts)
     records = [r for r in result.retrievals if r.agent == "stakeholder"]
-    assert len(records) == 4 and all(r.status == "out_of_scope" for r in records)
+    assert [r.status for r in records].count("out_of_scope") == 3
+    assert [r.status for r in records].count("granted_text") == 1
+    assert {f.agent: f.error_kind for f in result.failures} == {"stakeholder": "timeout"}
 
 
 async def test_expert_event_carries_counts_and_no_texts(fixture, corpus):
@@ -370,7 +401,9 @@ async def test_scoped_no_delta_prompt_never_reveals_the_change_kind(fixture, cor
     assert "modified" in by_kind
     result, backend = await _run(fixture, corpus, scenario, sv=_fake(V1), plan=_plan(keys))
     assert result.status == RunStatus.succeeded, result.error
-    for agent in ("legal", "fiscal", "stakeholder"):
+    called = {c.agent for c in backend.calls if c.role_name == "expert"}
+    assert "legal" in called
+    for agent in called:
         user = _expert_call(backend, agent).user_content
         assert DELTA_WORDS.search(_non_text_parts(user)) is None, (agent, scenario)
     # Legal sees every text: a modified key lists both versions' sources in one neutral,
@@ -392,3 +425,80 @@ async def test_scoped_expert_with_delta_keeps_before_and_after(fixture, corpus):
     )
     legal = _expert_call(backend, "legal").user_content
     assert f"- [modified] provision_key={change.provision_key} (before: Art " in legal
+
+
+# ---------- focus areas reach scoped experts as keys only ----------
+
+QUESTION = "UNIQUE-PLANNER-QUESTION-TEXT about who bears the cost"
+
+
+@pytest.mark.parametrize("scenario", [SME, "omnibus_2026"])
+async def test_scoped_prompt_has_no_planner_question_text(fixture, corpus, scenario):
+    keys = (
+        fixture.scenario(SME).provision_keys
+        if scenario == SME
+        else [c.provision_key for c in _diff(fixture, corpus, scenario).changes][:4]
+    )
+    plan = {"focus_areas": [{"provision_keys": keys, "question": QUESTION, "rationale": RATIONALE}]}
+    _, backend = await _run(fixture, corpus, scenario, sv=_fake(V1), plan=plan)
+    calls = [c for c in backend.calls if c.role_name == "expert"]
+    assert calls
+    for call in calls:
+        assert "UNIQUE-PLANNER-QUESTION-TEXT" not in call.user_content, call.agent
+        assert RATIONALE not in call.user_content
+        focus = call.user_content.split("Impact Planner focus areas:", 1)[1]
+        focus = focus.split("Citable sources", 1)[0]
+        assert "[keys: " in focus
+
+
+async def test_unscoped_prompt_keeps_the_planner_question(fixture, corpus):
+    keys = fixture.scenario(SME).provision_keys
+    plan = {"focus_areas": [{"provision_keys": keys, "question": QUESTION, "rationale": RATIONALE}]}
+    _, backend = await _run(fixture, corpus, SME, sv=_fake(), plan=plan)
+    for call in [c for c in backend.calls if c.role_name == "expert"]:
+        assert QUESTION in call.user_content and RATIONALE in call.user_content
+
+
+# ---------- consolidated-target runs: no superseded obligations, marked 2024 texts ----------
+
+CONSOLIDATED = "reg2024_1689_c20260727"
+FINAL = "reg2024_1689"
+
+
+def _amended_with_2024_records(corpus) -> list[str]:
+    return [
+        r.key
+        for r in corpus.index_rows(CONSOLIDATED)
+        if r.delta == "modified" and corpus.obligations[FINAL].get(r.key)
+    ]
+
+
+async def test_omnibus_scoped_experts_get_no_2024_obligation_view(fixture, corpus):
+    keys = _amended_with_2024_records(corpus)[:4]
+    result, backend = await _run(fixture, corpus, "omnibus_2026", sv=_fake(V1), plan=_plan(keys))
+    for call in [c for c in backend.calls if c.role_name == "expert"]:
+        assert f'id="{FINAL}/obligations/' not in call.user_content, call.agent
+    assert not any(
+        sid.startswith(f"{FINAL}/obligations/") for r in result.retrievals for sid in r.source_ids
+    )
+    # Fiscal (obligation records only) has nothing within its scope for amended articles.
+    assert {f.agent: f.error_kind for f in result.failures}.get("fiscal") == "no_data_in_scope"
+
+
+@pytest.mark.parametrize("sv_kind", ["scoped", "unscoped"])
+async def test_omnibus_2024_texts_carry_the_superseded_title_marker(fixture, corpus, sv_kind):
+    from womm.data.corpus import SUPERSEDED_MARK
+
+    keys = _amended_with_2024_records(corpus)[:2]
+    sv = _fake(V1) if sv_kind == "scoped" else _fake()
+    _, backend = await _run(fixture, corpus, "omnibus_2026", sv=sv, plan=_plan(keys))
+    legal = _expert_call(backend, "legal").user_content
+    tags = {m.group(1): m.group(0) for m in re.finditer(r'<source id="([^"]+)"[^>]*>', legal)}
+    for key in keys:
+        old = corpus.version(FINAL).by_key()[key].source_id
+        new = corpus.version(CONSOLIDATED).by_key()[key].source_id
+        assert f"({SUPERSEDED_MARK})" in tags[old], tags[old]
+        assert SUPERSEDED_MARK not in tags[new]
+        # texts are unchanged
+        assert f"{tags[old]}\n{corpus.sources[old].text}\n</source>" in legal
+

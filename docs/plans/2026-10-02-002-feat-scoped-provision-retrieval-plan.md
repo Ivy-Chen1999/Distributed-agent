@@ -44,6 +44,12 @@ origin: docs/brainstorms/2026-10-02-provision-retrieval-requirements.md
 >   - Add an explore scenario "no prior version → COM(2021) 206, whole proposal", kind `evaluation`.
 >   - It is scored with the existing golden cases, next to the presets.
 >   - Report Planner key recall against the golden cases' provisions. This is the real test of R17.
+>
+> **Fixes adopted from the implementation review (2026-10-04):**
+> - **Focus questions no longer reach scoped experts (channel closed).** The Planner writes its focus questions, like its rationales, with full delta visibility, so a question could name a change kind or an out-of-scope provision. Scoped experts now receive the focus areas as provision keys only (granted keys, no question, no rationale). Unscoped experts keep the questions and rationales byte for byte. This replaces "focus areas list only granted keys" under Key Technical Decisions, which left the question text in.
+> - **No superseded obligations in runs on the consolidated text.** Obligation views in such runs come from the run's after version only (the consolidated text borrows the 2024 records for unchanged units); an amended or inserted unit gets no view, never the 2024 records. Any 2024 view of an amended unit (pre-Omnibus runs) marks each record and its title "as adopted 2024 — superseded in part by Regulation (EU) 2026/1744" and never shows `timing`. In `omnibus_2026`, the 2024 provision texts of amended units carry the same marker in their titles (texts unchanged; preset prompts unaffected).
+> - **A scoped expert with nothing in its scope is not called.** It gets a `no_data_in_scope` entry and a dossier note ("<expert>: no data within its scope for this run"). This does not degrade the run on its own; a run where no expert has data fails. `compare_versions.py` reports per-arm counts of such skips so they are not read as underperformance.
+> - **The pre-registered comparison runs on api twins** (`v1.0-scoped-api.yaml`, `v1.0-unscoped-api.yaml`), see `system_versions/PROMOTIONS.md`.
 
 ## Overview
 

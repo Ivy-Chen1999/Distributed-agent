@@ -259,7 +259,10 @@ async def test_every_expert_prompt_stays_under_60k(fixture, corpus, scenario_id,
     result, backend = await _run(fixture, corpus, scenario_id, _plan(keys), sv=_fake(sv_path))
     assert result.status == RunStatus.succeeded, result.error
     experts = _calls(backend, "expert")
-    assert len(experts) == 3
+    # A scoped expert with nothing in its scope is not called (amended units of the
+    # consolidated text have no obligation view).
+    skipped = {f.agent for f in result.failures if f.error_kind == "no_data_in_scope"}
+    assert experts and len(experts) + len(skipped) == 3
     for c in experts:
         assert len(c.system_prompt) + len(c.user_content) < 60_000, c.agent
     focus = experts[0].user_content.split("Impact Planner focus areas:", 1)[1]

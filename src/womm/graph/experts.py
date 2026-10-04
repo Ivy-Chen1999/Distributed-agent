@@ -17,7 +17,14 @@ from langgraph.runtime import Runtime
 from womm.graph import render
 from womm.graph.state import RIAState, WommContext
 from womm.llm.base import LLMError
-from womm.models.findings import ExpertFailure, FindingBatch, ImpactFinding, Provenance
+from womm.models.findings import (
+    NO_DATA_IN_SCOPE,
+    ExpertFailure,
+    FindingBatch,
+    ImpactFinding,
+    Provenance,
+    no_data_note,
+)
 from womm.models.regulation import Source
 from womm.models.run import RetrievalRecord
 from womm.models.system_version import DataScope, ExpertConfig
@@ -80,6 +87,14 @@ def expert_view(state: RIAState, expert: ExpertConfig, ctx: WommContext, focus=N
         agent=expert.id,
     )
     memos = memorandum_sources(scope, state["sources"])
+    if explore:
+        # A run on the consolidated text marks the adopted texts of amended units (titles only).
+        retrieval = Retrieval(
+            sources=[
+                ctx.provision_corpus().for_target(s, diff.after_version) for s in retrieval.sources
+            ],
+            records=retrieval.records,
+        )
     if scope is None:
         # Unscoped (v0): the same sources in the same order as before scopes existed, i.e. the
         # run's source union order, restricted to what was retrieved, plus the memorandum.
@@ -91,15 +106,16 @@ def expert_view(state: RIAState, expert: ExpertConfig, ctx: WommContext, focus=N
 
 
 def _scoped_focus(focus, granted: set[str]) -> str:
-    """Focus areas for a scoped expert: only granted keys, no rationale (the Planner wrote the
-    rationales with full delta visibility)."""
+    """Focus areas for a scoped expert: granted keys only, with neither the question nor the
+    rationale (the Planner wrote both with full delta visibility, so either could carry the
+    change kind or out-of-scope content into the expert's context)."""
     if focus is None:
         return "(none)"
-    areas = [(a.question, [k for k in a.provision_keys if k in granted]) for a in focus.focus_areas]
-    areas = [(q, keys) for q, keys in areas if keys]
+    areas = [[k for k in a.provision_keys if k in granted] for a in focus.focus_areas]
+    areas = [keys for keys in areas if keys]
     if not areas:
         return "(no focus area is within your data scope)"
-    return "\n".join(f"{i}. {q} [keys: {', '.join(keys)}]" for i, (q, keys) in enumerate(areas, 1))
+    return "\n".join(f"{i}. [keys: {', '.join(keys)}]" for i, keys in enumerate(areas, 1))
 
 
 def _explore_head(state: RIAState) -> str:
@@ -116,7 +132,7 @@ def expert_user_content(state: RIAState, focus=None, view: ExpertView | None = N
     Unscoped experts (``view`` None or without a scope) see what they saw before scopes: preset
     runs render the scenario's whole diff and the view's sources (all scenario sources), explore
     runs the Planner's selection only. Scoped experts see only granted keys, without change
-    kinds unless ``sees_delta``, and focus areas without rationales."""
+    kinds unless ``sees_delta``, and focus areas as keys only (no question, no rationale)."""
     focus = focus if focus is not None else state.get("focus")
     explore = state.get("mode") == "explore"
     head = _explore_head(state) if explore else ""
@@ -170,6 +186,18 @@ def make_expert_node(expert: ExpertConfig) -> ExpertNode:
         view: ExpertView | None = None
         try:
             view = expert_view(state, expert, ctx)
+            if view.scope is not None and not view.granted_keys:
+                # Nothing within its scope: no call (it could only answer from the memorandum,
+                # and validation would reject every finding). Data, not an expert error.
+                failure = ExpertFailure(
+                    agent=expert.id, error_kind=NO_DATA_IN_SCOPE,
+                    message=no_data_note(expert.id), attempts=0,
+                )  # fmt: skip
+                return {
+                    "board": {expert.id: []},
+                    "failures": {expert.id: failure},
+                    **_log(expert.id, view),
+                }
             batch, usage = await ctx.backend_for(role).call(
                 "expert", prompt, expert_user_content(state, view=view), FindingBatch, role,
                 agent=expert.id,
