@@ -27,3 +27,19 @@ Pooled over 6 runs per case, v0.3 against the baseline:
 The promotion stands (net better, case_02 clearly), but the gain comes from case_02. Single-case
 coverage moves by ~0.1 between identical runs, so 3 repetitions only resolve differences above
 ~0.1; the v1 gate (R28) must be sized for that.
+
+## 2026-10-04 candidates: data scopes (not promoted)
+
+Both are candidates only. Neither replaces `v0.3-candidate.yaml`, and neither is promoted until
+the comparison below has api-backend evidence.
+
+| File | Version id | Purpose |
+|---|---|---|
+| `v1.0-scoped.yaml` | `sv_735b080cf78a` | Side experiment: per-expert data scopes split by data form (full text versus obligation records); only the Planner sees the delta. |
+| `v1.0-unscoped.yaml` | `sv_73c6a3fdd013` | Control arm, and the self-evolution base candidate (R27/R28): v1.0-scoped with every scope removed. Same prompts, explore prompt and retrieval cap. |
+
+Comparison: `scripts/compare_versions.py`, scoped vs unscoped only, AI Act golden cases only,
+api backend, router in shadow (or off) mode, at least 6 runs per case. Pre-registered rule: if
+scoped coverage is more than one noise band below unscoped, revise the default scopes before
+v1.0-scoped is used further; otherwise keep the scopes. Golden-case results measure preset-mode
+scoping only. The single-agent arm (`v1.0-single`) is deferred until 15–30 golden cases exist.

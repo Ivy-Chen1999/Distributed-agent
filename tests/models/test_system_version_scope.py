@@ -26,8 +26,11 @@ PINNED_IDS = {
 }
 # Files added together with or after data scopes; their ids are new. They are pinned too, so a
 # change to one is deliberate (update the pin with the change).
-NEW_FILES = {"v1.0-scoped.yaml"}
-NEW_PINNED_IDS = {"v1.0-scoped.yaml": "sv_735b080cf78a"}
+NEW_FILES = {"v1.0-scoped.yaml", "v1.0-unscoped.yaml"}
+NEW_PINNED_IDS = {
+    "v1.0-scoped.yaml": "sv_735b080cf78a",
+    "v1.0-unscoped.yaml": "sv_73c6a3fdd013",
+}
 
 ROLE = {"backend": "fake", "model": "fake-1", "prompt": "prompts/p.md"}
 SCOPE = {"text": [], "obligations": "full", "hypothesis": "Costs trace to obligation records."}
