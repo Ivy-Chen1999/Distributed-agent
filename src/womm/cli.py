@@ -24,7 +24,7 @@ from womm.backends import prepare_backends
 from womm.config import REPO_ROOT, ConfigError, load_settings
 from womm.data.fixtures import FixtureError, load_fixture
 from womm.decisions.factory import make_decision_service
-from womm.eval.golden import GoldenError, load_all_golden
+from womm.eval.golden import SELECTABLE_SPLITS, GoldenError, load_all_golden
 from womm.eval.run_eval import (
     BaselineRefused,
     evaluate_cases,
@@ -62,6 +62,7 @@ examples:
   womm selfcheck --json
   womm run eval_sme_impacts
   womm eval --case case_02_sme_impacts --local --json
+  womm eval --split val --local
   womm eval --baseline
 """
 
@@ -166,13 +167,18 @@ async def cmd_eval(args: argparse.Namespace) -> int:
         if unknown:
             raise UsageError(f"unknown golden case(s): {unknown}")
         cases = [c for c in cases if c.case_id in args.case]
+    if args.split:
+        cases = [c for c in cases if c.split == args.split]
+    if not cases:
+        raise UsageError(
+            f"no golden cases selected (split={args.split or 'any'}, case={args.case or 'any'})"
+        )
     settings = load_settings()
     decisions = make_decision_service(sv, settings)  # config errors before LLM spend
     backends, cli_version, _ = await prepare_backends(sv, skip_self_check=args.skip_self_check)
     report = await evaluate_cases(
         cases,
         sv=sv,
-        fixture=load_fixture(),
         backends=backends,
         decisions=decisions,
         code=code_identity(cli_version),
@@ -279,6 +285,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_run.add_argument("--decider", choices=["jev", "stub"], help="override the router decider")
     p_eval = sub.add_parser("eval", parents=[common], help="run golden cases and score them")
     p_eval.add_argument("--case", action="append", help="golden case_id to run (repeatable)")
+    p_eval.add_argument(
+        "--split",
+        choices=SELECTABLE_SPLITS,
+        help="only cases of this split (holdout is never selectable here)",
+    )
     p_eval.add_argument("--repetitions", type=int, default=1, help="runs per case (noise)")
     p_eval.add_argument("--baseline", action="store_true", help="tag as a baseline experiment")
     p_eval.add_argument("--local", action="store_true", help="do not record in LangSmith")

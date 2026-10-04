@@ -11,6 +11,7 @@ Files:
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
@@ -19,15 +20,31 @@ import yaml
 from pydantic import Field, ValidationError
 
 from womm.config import REPO_ROOT
+from womm.data.cellar import sha256
 from womm.models.base import StrictModel
 from womm.models.regulation import Provision, Regulation, RegulationVersion, Scenario, Source
 
-DEFAULT_FIXTURE_DIR = REPO_ROOT / "data" / "fixtures" / "ai_act"
+FIXTURES_ROOT = REPO_ROOT / "data" / "fixtures"
+DEFAULT_FIXTURE = "ai_act"
+DEFAULT_FIXTURE_DIR = FIXTURES_ROOT / DEFAULT_FIXTURE
 VERSION_FILES = ("proposal.json", "final.json")
 
 
 class FixtureError(ValueError):
     """The fixture files are missing, malformed or inconsistent."""
+
+
+_FIXTURE_NAME = re.compile(r"[a-z0-9][a-z0-9_]*")
+
+
+def fixture_dir(name: str, root: Path | None = None) -> Path:
+    """``data/fixtures/<name>``; fails naming ``name`` when it is malformed or absent."""
+    if not _FIXTURE_NAME.fullmatch(name):
+        raise FixtureError(f"invalid fixture name {name!r}")
+    directory = (root or FIXTURES_ROOT) / name
+    if not directory.is_dir():
+        raise FixtureError(f"unknown fixture {name!r}: no directory {directory}")
+    return directory
 
 
 class CrosswalkEntry(StrictModel):
@@ -156,6 +173,30 @@ def validate_fixture(fixture: Fixture) -> None:
             raise FixtureError(f"evaluation scenario {s.scenario_id!r} must have no before_version")
         if s.kind == "demo" and s.before_version is None:
             raise FixtureError(f"demo scenario {s.scenario_id!r} needs a before_version")
+
+
+def check_downloads(
+    path: Path, bodies: dict[str, bytes], *, accept: bool, supersedes: str | None = None
+) -> None:
+    """Pin each upstream document by sha256 so a changed or tampered download fails loudly.
+
+    ``supersedes`` is a URL prefix whose pins this build replaces as a whole (the pipeline repo,
+    whose URLs carry the commit): a pinned URL under it that this build no longer fetches means
+    the pin moved, which counts as a change and is dropped once accepted.
+    """
+    pinned = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    current = {url: sha256(body) for url, body in bodies.items()}
+    changed = sorted(u for u, h in current.items() if u in pinned and pinned[u] != h)
+    stale = sorted(
+        u for u in pinned if supersedes and u.startswith(supersedes) and u not in current
+    )
+    if (changed or stale) and not accept:
+        raise FixtureError(
+            f"upstream documents changed since the fixture was pinned: {changed + stale}; "
+            "rerun with --accept-upstream-changes after reviewing the new text"
+        )
+    kept = {u: h for u, h in pinned.items() if u not in stale}
+    path.write_text(json.dumps({**kept, **current}, indent=2, sort_keys=True) + "\n")
 
 
 def _read_json(path: Path):

@@ -85,6 +85,28 @@ def test_eval_unknown_case(fake_version, tmp_path, capsys, use_script):
     assert "unknown golden case" in capsys.readouterr().err
 
 
+def test_eval_empty_split_is_usage_error(fake_version, tmp_path, capsys, use_script):
+    use_script({})
+    assert cli.main(_args(fake_version, tmp_path, "eval", "--split", "val")) == cli.EXIT_USAGE
+    assert "no golden cases selected (split=val" in capsys.readouterr().err
+
+
+def test_eval_holdout_split_not_selectable(fake_version, tmp_path, capsys):
+    with pytest.raises(SystemExit) as exc:
+        cli.main(_args(fake_version, tmp_path, "eval", "--split", "holdout"))
+    assert exc.value.code == cli.EXIT_USAGE
+    assert "invalid choice" in capsys.readouterr().err
+
+
+def test_eval_split_train_selects_cases(fake_version, tmp_path, capsys, use_script):
+    use_script(_script())
+    code = cli.main(_args(fake_version, tmp_path, "eval", "--split", "train",
+                          "--case", "case_02_sme_impacts", "--local", "--json"))  # fmt: skip
+    data = json.loads(capsys.readouterr().out)
+    assert code == cli.EXIT_OK and data["summary"]["scored"] == 1
+    assert data["metadata"]["splits"] == ["train"]
+
+
 def test_eval_local_json_skips_langsmith(fake_version, tmp_path, capsys, use_script, monkeypatch):
     use_script(_script())
 

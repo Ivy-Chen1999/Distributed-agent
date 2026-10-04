@@ -64,6 +64,29 @@ async def test_end_to_end_fake_eval(fixture):
     assert report.metadata["backends"] == ["fake"]
 
 
+async def test_each_case_runs_on_its_own_fixture(second_fixture):
+    other = CASE.model_copy(update={"case_id": "case_99_other", "fixture": "other"})
+    report = await evaluate_cases(
+        [CASE, other], sv=fake_sv(), backends={"fake": FakeBackend(_script(reps=2))},
+        decisions=StubDecisionService(), code=CLEAN, judge_prompt="p",
+    )  # fmt: skip
+    assert [s.case_id for s in report.scores] == [CASE.case_id, "case_99_other"]
+    assert all(s.coverage == 1.0 for s in report.scores)
+    assert report.metadata["fixtures"] == ["ai_act", "other"]
+    assert report.metadata["splits"] == ["train"]
+
+
+async def test_holdout_case_is_refused(fixture):
+    from womm.eval.golden import GoldenError
+
+    sealed = CASE.model_copy(update={"split": "holdout"})
+    with pytest.raises(GoldenError, match="holdout"):
+        await evaluate_cases(
+            [sealed], sv=fake_sv(), fixture=fixture, backends={"fake": FakeBackend({})},
+            decisions=StubDecisionService(), code=CLEAN, judge_prompt="p",
+        )  # fmt: skip
+
+
 async def test_repetitions(fixture):
     report = await _evaluate(fixture, _script(reps=2), repetitions=2)
     assert len(report.scores) == 2 and len(set(report.run_ids)) == 2

@@ -1,20 +1,31 @@
 """Golden cases (R11): expected impacts written from an official impact assessment subsection.
 
-Golden files live in evals/golden/, never in data/fixtures/: agents must not see them.
+Golden files live in evals/golden/, never in data/fixtures/: agents must not see them. Each case
+names the fixture it is scored against (``data/fixtures/<fixture>``) and its split. Holdout
+cases are never stored as YAML in this repository (R23): the loader refuses them, and only the
+top-level ``case_*.yaml`` files are read, so drafts under ``evals/golden/drafts/`` are never
+scored.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Literal
 
 import yaml
 from pydantic import Field
 
 from womm.config import REPO_ROOT
-from womm.data.fixtures import Fixture
+from womm.data.fixtures import DEFAULT_FIXTURE, Fixture, FixtureError, fixture_dir, load_fixture
 from womm.models.base import StrictModel
 
 GOLDEN_DIR = REPO_ROOT / "evals" / "golden"
+Split = Literal["train", "val", "holdout"]
+SELECTABLE_SPLITS = ("train", "val")
+HOLDOUT_REFUSAL = (
+    "holdout cases are never stored under evals/; they are sealed in the holdout database "
+    "through scripts/import_holdout_case.py"
+)
 
 
 class ExpectedImpact(StrictModel):
@@ -39,6 +50,12 @@ class GoldenCase(StrictModel):
     case_id: str
     scenario_id: str
     ia_reference: str
+    fixture: str = Field(
+        default=DEFAULT_FIXTURE,
+        pattern=r"^[a-z0-9][a-z0-9_]*$",
+        description="Fixture directory under data/fixtures/ the case is scored against.",
+    )
+    split: Split = "train"
     notes: str = ""
     expected_impacts: list[ExpectedImpact] = Field(min_length=1)
     important_omissions: list[Omission] = Field(default_factory=list)
@@ -49,16 +66,46 @@ class GoldenError(ValueError):
 
 
 def load_golden(path: Path) -> GoldenCase:
-    return GoldenCase.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
+    """One public golden case; a holdout case is refused (it must never sit in the repo)."""
+    case = GoldenCase.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
+    if case.split == "holdout":
+        raise GoldenError(f"{path.name}: split 'holdout' is not allowed here; {HOLDOUT_REFUSAL}")
+    return case
 
 
-def load_all_golden(directory: Path = GOLDEN_DIR) -> list[GoldenCase]:
-    return [load_golden(p) for p in sorted(directory.glob("case_*.yaml"))]
+def load_all_golden(directory: Path = GOLDEN_DIR, split: str | None = None) -> list[GoldenCase]:
+    """Every top-level ``case_*.yaml`` (never ``drafts/``), optionally only one split."""
+    if split is not None and split not in SELECTABLE_SPLITS:
+        raise GoldenError(f"split {split!r} cannot be selected; use one of {SELECTABLE_SPLITS}")
+    cases = [load_golden(p) for p in sorted(directory.glob("case_*.yaml"))]
+    return [c for c in cases if split is None or c.split == split]
 
 
-def check_against_fixture(case: GoldenCase, fixture: Fixture) -> None:
+def load_case_fixture(case: GoldenCase, cache: dict[str, Fixture] | None = None) -> Fixture:
+    """The fixture a case is scored against, loaded once per name when ``cache`` is given."""
+    if cache is not None and case.fixture in cache:
+        return cache[case.fixture]
+    try:
+        fixture = load_fixture(fixture_dir(case.fixture))
+    except FixtureError as exc:
+        raise GoldenError(f"{case.case_id}: {exc}") from None
+    if cache is not None:
+        cache[case.fixture] = fixture
+    return fixture
+
+
+def check_against_fixture(case: GoldenCase, fixture: Fixture | None = None) -> None:
     """Every expected impact and omission must trace to provisions inside the scenario;
-    otherwise coverage would be capped by scenario construction, not system quality."""
+    otherwise coverage would be capped by scenario construction, not system quality.
+
+    Without ``fixture`` the case's own fixture is loaded; a given fixture must be that one."""
+    if fixture is None:
+        fixture = load_case_fixture(case)
+    elif fixture.regulation.regulation_id != case.fixture:
+        raise GoldenError(
+            f"{case.case_id}: case is for fixture {case.fixture!r}, not "
+            f"{fixture.regulation.regulation_id!r}"
+        )
     try:
         scenario = fixture.scenario(case.scenario_id)
     except Exception as exc:

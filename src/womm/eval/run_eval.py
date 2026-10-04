@@ -25,7 +25,13 @@ from womm.eval.evaluators import (
     noise,
     score_case,
 )
-from womm.eval.golden import GoldenCase, check_against_fixture
+from womm.eval.golden import (
+    HOLDOUT_REFUSAL,
+    GoldenCase,
+    GoldenError,
+    check_against_fixture,
+    load_case_fixture,
+)
 from womm.graph.build import run_scenario
 from womm.llm.base import LLMBackend
 from womm.models.run import CodeIdentity, RunResult
@@ -98,7 +104,7 @@ async def evaluate_cases(
     cases: list[GoldenCase],
     *,
     sv: SystemVersion,
-    fixture: Fixture,
+    fixture: Fixture | None = None,
     backends: dict[str, LLMBackend],
     decisions: DecisionService,
     code: CodeIdentity,
@@ -107,11 +113,25 @@ async def evaluate_cases(
     baseline: bool = False,
     runs_dir: Path | None = None,
 ) -> EvalReport:
+    """Run and score ``cases``, each against its own fixture (``case.fixture``).
+
+    ``fixture``, when given, is used for the cases naming its regulation_id; any other fixture
+    is loaded from data/fixtures/. Holdout cases are refused: they are scored only through the
+    sealed holdout entry point, never traced or written to ``runs/``."""
+    fixtures: dict[str, Fixture] = {}
+    if fixture is not None:
+        fixtures[fixture.regulation.regulation_id] = fixture
     for case in cases:
-        check_against_fixture(case, fixture)
+        if case.split == "holdout":
+            raise GoldenError(f"{case.case_id}: {HOLDOUT_REFUSAL}")
+        check_against_fixture(case, load_case_fixture(case, fixtures))
     report = EvalReport(
         system_version=sv.version_id,
-        metadata=experiment_metadata(sv, code, baseline, repetitions),
+        metadata={
+            **experiment_metadata(sv, code, baseline, repetitions),
+            "fixtures": sorted({c.fixture for c in cases}),
+            "splits": sorted({c.split for c in cases}),
+        },
     )
     judge_role = sv.spec.judge
     judge_backend = backends[judge_role.backend]
@@ -119,7 +139,7 @@ async def evaluate_cases(
     async def one_case(case: GoldenCase, rep: int) -> tuple[RunResult, CaseScore]:
         """One repetition of one case: the pipeline run and its judge call share this trace."""
         run = await run_scenario(
-            case.scenario_id, sv=sv, fixture=fixture, backends=backends,
+            case.scenario_id, sv=sv, fixture=fixtures[case.fixture], backends=backends,
             decisions=decisions, code_identity=code, tags=["eval", case.case_id],
         )  # fmt: skip
         score, _ = await score_case(case, run, judge_backend, judge_role, judge_prompt)
