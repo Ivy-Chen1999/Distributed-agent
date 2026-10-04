@@ -51,7 +51,7 @@ class Source(StrictModel):
 
     source_id: str
     title: str
-    kind: Literal["provision", "memorandum", "annex"]
+    kind: Literal["provision", "memorandum", "annex", "obligations"]
     text: str
     stripped_sections: list[str] = Field(
         default_factory=list,
