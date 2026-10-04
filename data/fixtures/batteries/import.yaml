@@ -16,5 +16,6 @@ redactions:
   sentence: The evaluation of the Batteries Directive and the analysis preceding
   reason: states the IA's conclusion on the choice of instrument
 leak_allow:
-- results of a dedicated impact assessment
+- section: 5.3.
+  text: results of a dedicated impact assessment
 scenarios: []

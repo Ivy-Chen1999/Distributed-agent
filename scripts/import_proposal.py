@@ -18,7 +18,8 @@ leak, and then writes nothing: a proposal is imported whole or not at all.
 Per-proposal settings live in ``import.yaml`` (hand-editable, reviewed in PRs): extra strip
 patterns, sentence redactions, leak-guard allow-list entries and the evaluation scenarios
 (article sets) used by golden cases. No impact-assessment text is ever written to the
-agent-visible fixture files; redacted sentences are recorded only by section and reason.
+agent-visible fixture files; sources record only how many sentences were redacted in which
+section. The reasons stay in ``import.yaml`` and the import log.
 
 The accompanying IA's identifiers (``--ia-celex``, ``--ia-date``, ``--rsb-ref``) are written only
 to the gitignored local index ``evals/private/ia_index.yaml`` (``womm.data.ia_index``), never to
@@ -51,7 +52,9 @@ from womm.data.fixtures import (
 )
 from womm.data.ia_index import IA_FIELDS, IA_INDEX_PATH, IaRecord, load_ia_index, update_ia_index
 from womm.data.memorandum import (
+    Allow,
     Redaction,
+    leak_check_text,
     leak_guard,
     memorandum_sources,
     redact_sentences,
@@ -69,16 +72,30 @@ class ImportFailed(RuntimeError):
 
 
 class ScenarioSpec(StrictModel):
+    """No ``ia_reference``: the golden case names its IA; the public fixture must not."""
+
     scenario_id: str = Field(pattern=r"^eval_[a-z0-9_]+$")
-    description: str
+    description: str = Field(description="Public text; checked by the leak guard.")
     articles: list[str] = Field(min_length=1)
-    ia_reference: str | None = None
 
 
 class RedactionSpec(StrictModel):
     section: str = Field(min_length=1, description="Full heading or number of a kept section.")
     sentence: str = Field(min_length=1, description="Exact sentence or a unique prefix of it.")
-    reason: str = Field(min_length=1, description="Why the sentence states or cites the IA.")
+    reason: str = Field(
+        min_length=1,
+        description="Why the sentence states or cites the IA; kept here and in the import log, "
+        "never in sources.json.",
+    )
+
+
+class AllowSpec(StrictModel):
+    section: str = Field(min_length=1, description="Full heading or number of a kept section.")
+    text: str = Field(
+        min_length=1,
+        description="Exact phrase, occurring once in that section, with a qualifying word "
+        "beyond the marker (e.g. 'results of a dedicated impact assessment').",
+    )
 
 
 class ImportConfig(StrictModel):
@@ -95,8 +112,9 @@ class ImportConfig(StrictModel):
     redactions: list[RedactionSpec] = Field(
         default_factory=list, description="Sentences removed from kept memorandum sections."
     )
-    leak_allow: list[str] = Field(
-        default_factory=list, description="Exact phrases (not about this IA) the guard ignores."
+    leak_allow: list[AllowSpec] = Field(
+        default_factory=list,
+        description="Section-scoped phrases (not about this IA) the leak guard ignores.",
     )
     scenarios: list[ScenarioSpec] = Field(default_factory=list)
 
@@ -142,7 +160,11 @@ def build(config: ImportConfig, body: bytes) -> Imported:
             [Redaction(r.section, r.sentence, r.reason) for r in config.redactions],
             label=celex,
         )
-        leak_guard(redacted.kept, allow=config.leak_allow, label=celex)
+        leak_guard(
+            redacted.kept, allow=[Allow(a.section, a.text) for a in config.leak_allow], label=celex
+        )
+        for spec in config.scenarios:
+            leak_check_text(spec.description, what=f"scenario {spec.scenario_id!r}", label=celex)
     except (ValueError, etree.LxmlError) as exc:  # incl. MemorandumError
         raise ImportFailed(str(exc) if celex in str(exc) else f"{celex}: {exc}") from None
 
@@ -196,7 +218,6 @@ def build(config: ImportConfig, body: bytes) -> Imported:
                 before_version=None,
                 after_version=version_id,
                 provision_keys=[provision_key(config.regulation_id, n) for n in spec.articles],
-                ia_reference=spec.ia_reference,
             )
         )
     try:
@@ -235,7 +256,11 @@ def write_fixture(
         "# there, then re-import. No impact-assessment text belongs in data/fixtures.\n"
     )
     body = yaml.safe_dump(
-        {"scenarios": [s.model_dump(mode="json") for s in imported.scenarios]},
+        {
+            "scenarios": [
+                s.model_dump(mode="json", exclude={"ia_reference"}) for s in imported.scenarios
+            ]
+        },
         sort_keys=False,
         allow_unicode=True,
         width=100,
@@ -310,10 +335,25 @@ def resolve_config(args: argparse.Namespace) -> tuple[Path, ImportConfig]:
     return out_dir, config
 
 
-def download(config: ImportConfig, *, refresh: bool) -> tuple[str, bytes]:
+def pinned_hash(out_dir: Path, url: str) -> str | None:
+    """The sha256 pinned for ``url`` in ``downloads.json``, if any."""
+    path = out_dir / "downloads.json"
+    try:
+        return json.loads(path.read_text(encoding="utf-8")).get(url) if path.exists() else None
+    except (OSError, json.JSONDecodeError, AttributeError) as exc:
+        raise ImportFailed(f"cannot read {path}: {exc}") from None
+
+
+def download(config: ImportConfig, out_dir: Path, *, refresh: bool) -> tuple[str, bytes]:
     try:
         if config.document_url:
-            return config.document_url, fetch_document(config.document_url, refresh=refresh)
+            # Read the cached manifestation the fixture was built from, not XHTML blindly.
+            body = fetch_document(
+                config.document_url,
+                refresh=refresh,
+                expected_sha256=pinned_hash(out_dir, config.document_url),
+            )
+            return config.document_url, body
         return fetch_main_document(config.celex, refresh=refresh)
     except (CellarError, httpx.HTTPError) as exc:
         raise ImportFailed(f"{config.celex}: download failed: {exc}") from None
@@ -339,7 +379,7 @@ def main(argv: list[str] | None = None) -> int:
 
     out_dir, config = resolve_config(args)
     ia = ia_record(args, config)  # validated before anything is downloaded or written
-    url, body = download(config, refresh=args.refresh)
+    url, body = download(config, out_dir, refresh=args.refresh)
     imported = build(config, body)
     config = config.model_copy(update={"document_url": url, "title": imported.regulation.title})
     try:
@@ -357,7 +397,10 @@ def main(argv: list[str] | None = None) -> int:
     print(f"memorandum sources: {[s.source_id for s in memo]}")
     print(f"stripped: {imported.stripped}")
     redacted = sum(len(v) for v in imported.redactions.values())
-    print(f"redacted sentences: {redacted} {sorted(imported.redactions)}")
+    print(f"redacted sentences: {redacted}")
+    for heading, reasons in imported.redactions.items():  # log only; never in sources.json
+        for reason in reasons:
+            print(f"  {heading}: {reason}")
     print("leak guard: clean")
     if ia is not None:
         print(f"IA identifiers: written to {args.ia_index} (local only)")

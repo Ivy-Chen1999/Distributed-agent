@@ -229,6 +229,13 @@ def load_fixture(directory: Path = DEFAULT_FIXTURE_DIR) -> Fixture:
 
         sources = [Source.model_validate(s) for s in _read_json(directory / "sources.json")]
         raw = yaml.safe_load((directory / "scenarios.yaml").read_text(encoding="utf-8")) or {}
+        if (directory / "import.yaml").exists():
+            # Imported fixtures are public; the IA reference belongs to the golden case.
+            named = [s.get("scenario_id") for s in raw.get("scenarios", []) if "ia_reference" in s]
+            if named:
+                raise FixtureError(
+                    f"{directory}: imported fixture scenarios {named} must not carry ia_reference"
+                )
         scenarios = [Scenario.model_validate(s) for s in raw.get("scenarios", [])]
     except ValidationError as exc:
         raise FixtureError(f"fixture in {directory} does not match the models: {exc}") from exc

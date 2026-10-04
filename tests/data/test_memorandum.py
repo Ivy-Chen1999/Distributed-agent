@@ -8,12 +8,15 @@ import pytest
 from womm.config import REPO_ROOT
 from womm.data.cellar import cached
 from womm.data.memorandum import (
-    LEAK_MARKERS,
+    Allow,
     MemorandumError,
     Redaction,
+    leak_check_text,
     leak_guard,
     memorandum_sources,
+    normalise,
     redact_sentences,
+    sentence_starts,
     strip_topics,
 )
 from womm.data.parse_proposal import (
@@ -152,10 +155,11 @@ def test_leak_guard_allow_list_masks_exact_citations_only() -> None:
             "5.1.", "Monitoring", 2, ["Indicators are listed in SWD(2022) 34, section 9."]
         )
     ]
-    leak_guard(kept, allow=["SWD(2022) 34"])
+    allow = [Allow("5.1.", "SWD(2022) 34")]
+    leak_guard(kept, allow=allow)
     kept[0].blocks.append("The preferred option is cheap.")
     with pytest.raises(MemorandumError, match="preferred option"):
-        leak_guard(kept, allow=["SWD(2022) 34"])
+        leak_guard(kept, allow=allow)
 
 
 def test_data_act_sample_strips_and_passes_the_guard() -> None:
@@ -229,7 +233,6 @@ def test_redaction_by_full_heading_and_exact_sentence_drops_an_emptied_block() -
         (Redaction("1.3.", "The", "r"), "starts 2 sentences"),
         (Redaction("3.3.", "The proposal", "r"), r"'3\.3\.' matches 0 kept sections"),
         (Redaction("1.3.", "The proposal", " "), "empty sentence or reason"),
-        (Redaction("1.3.", "The proposal", "cites SWD(2020) 1"), "contains an IA marker"),
     ],
 )
 def test_stale_or_ambiguous_redaction_fails_naming_the_celex(
@@ -250,21 +253,147 @@ def test_guard_still_fails_on_a_marker_no_redaction_covers() -> None:
 
 def test_allow_list_masks_the_exact_phrase_only() -> None:
     other = "Obligations under Union law such as environmental impact assessment apply."
-    leak_guard(_policies(other), allow=["environmental impact assessment"])
+    allow = [Allow("1.3.", "environmental impact assessment")]
+    leak_guard(_policies(other), allow=allow)
     leaky = _policies(other, "The impact assessment shows low costs.")
     with pytest.raises(MemorandumError, match="1 IA marker"):
-        leak_guard(leaky, allow=["environmental impact assessment"])
+        leak_guard(leaky, allow=allow)
 
 
-@pytest.mark.parametrize("phrase", [*LEAK_MARKERS, "Impact  Assessment", "assessment", " "])
+@pytest.mark.parametrize(
+    "phrase",
+    [
+        "impact assessment",
+        "Impact  Assessment",
+        "the impact assessment",
+        "The Impact Assessments",
+        "this impact assessment",
+        "an IA",
+        "the SWD(",
+        "assessment",
+        " ",
+    ],
+)
 def test_allow_list_cannot_mask_a_bare_marker(phrase: str) -> None:
+    text = f"Nothing to see in {phrase} here."
     with pytest.raises(MemorandumError, match="would mask a bare marker"):
-        leak_guard(_policies("Nothing to see."), allow=[phrase])
+        leak_guard(_policies(text), allow=[Allow("1.3.", phrase)])
+
+
+def test_allow_entry_must_name_a_kept_section() -> None:
+    other = "Union law such as environmental impact assessment applies."
+    with pytest.raises(MemorandumError, match=r"'9\.9\.' matches 0 kept sections"):
+        leak_guard(_policies(other), allow=[Allow("9.9.", "environmental impact assessment")])
+
+
+def test_allow_entry_is_scoped_to_its_section() -> None:
+    other = "Union law such as environmental impact assessment applies."
+    sections = [
+        *_policies(other),
+        MemorandumSection("5.1.", "Monitoring", 2, [other]),
+    ]
+    with pytest.raises(MemorandumError, match=r"(?s)1 IA marker.*'5\.1\. Monitoring'"):
+        leak_guard(sections, allow=[Allow("1.3.", "environmental impact assessment")])
+
+
+def test_allow_entry_must_match_exactly_one_occurrence() -> None:
+    other = "Union law such as environmental impact assessment applies."
+    with pytest.raises(MemorandumError, match="occurs 2 times"):
+        leak_guard(
+            _policies(other, other), allow=[Allow("1.3.", "environmental impact assessment")]
+        )
 
 
 def test_stale_allow_list_entry_fails() -> None:
-    with pytest.raises(MemorandumError, match="occur nowhere"):
-        leak_guard(_policies("Nothing to see."), allow=["environmental impact assessment"])
+    with pytest.raises(MemorandumError, match="occurs 0 times"):
+        leak_guard(
+            _policies("Nothing to see."), allow=[Allow("1.3.", "environmental impact assessment")]
+        )
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "As the impact assess\u00adment shows, costs are low.",  # soft hyphen
+        "As the impact-assessment shows, costs are low.",
+        "As the impact\u2011assessment shows, costs are low.",  # non-breaking hyphen
+        "As the Impact\n  Assessment shows, costs are low.",
+        "See SWD (2022) 34 for details.",
+        "See swd(2022) 34 for details.",
+        "The Board's opinion SEC (2022) 164 was positive.",
+        "The Board's opinion SEC(2022)164 was positive.",
+        "The IA found low costs.",
+        "As the IAs show, costs are low.",
+        "The impact analysis demonstrates low costs.",
+        "The impact-analysis demonstrates low costs.",
+        "The preferred\u2013option is option 3.",
+    ],
+)
+def test_leak_guard_catches_variants(text: str) -> None:
+    kept = [MemorandumSection("1.1.", "Reasons for and objectives", 2, ["Fine.", text])]
+    with pytest.raises(MemorandumError, match="1 IA marker"):
+        leak_guard(kept, label="52099PC0001")
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Media literacy is a priority.",  # "ia" inside a word
+        "The agencies of the Union cooperate.",
+        "Section (2022) is not a reference.",
+        "Ex-post evaluations are kept.",
+    ],
+)
+def test_leak_guard_ignores_lookalikes(text: str) -> None:
+    leak_guard([MemorandumSection("1.1.", "Reasons", 2, [text])])
+
+
+def test_ia_false_positive_is_handled_by_a_scoped_allow_entry() -> None:
+    text = "Annex IA lists the product categories."
+    with pytest.raises(MemorandumError, match="1 IA marker"):
+        leak_guard(_policies(text))
+    leak_guard(_policies(text), allow=[Allow("1.3.", "Annex IA lists")])
+
+
+def test_normalise_removes_soft_hyphens_and_dashes() -> None:
+    assert normalise("Impact\u00adAssess\u00adment \u2013 a\u2014b  -c") == "impactassessment a b c"
+
+
+def test_leak_check_text_names_the_field() -> None:
+    leak_check_text("Obligations of providers of AI systems.", what="scenario eval_x")
+    with pytest.raises(
+        MemorandumError, match=r"(?s)52099PC0001: scenario eval_x.*impact assessment"
+    ):
+        leak_check_text(
+            "Costs as estimated in the impact assessment.",
+            what="scenario eval_x",
+            label="52099PC0001",
+        )
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Some Member States, e.g. Germany and France, have rules.",
+        "That is, i.e. In practice, nothing changes.",
+        "See cf. Directive 2001/95/EC on safety.",
+        "As set out in Art. 5 of the Directive, rules apply.",
+        "Regulation (EU) No. 2019/1020 applies here.",
+    ],
+)
+def test_sentence_starts_ignore_abbreviations(text: str) -> None:
+    assert sentence_starts(text) == {0}
+
+
+def test_redaction_does_not_cut_at_an_abbreviation() -> None:
+    block = (
+        "Rules exist. The impact assessment found that some States, e.g. Germany, already "
+        "comply. Other text."
+    )
+    result = redact_sentences(
+        _policies(block), [Redaction("1.3.", "The impact assessment found", "IA finding")]
+    )
+    assert result.kept[0].blocks == ["Rules exist. Other text."]
 
 
 def test_redactions_recorded_on_the_owning_source_only() -> None:
@@ -278,15 +407,16 @@ def test_redactions_recorded_on_the_owning_source_only() -> None:
     )
     sources = memorandum_sources(
         result.kept,
-        ["3. IA"],
+        ["3. Impact assessment"],
         version_id="com2099_1",
         label="COM(2099) 1",
         redactions=result.records,
     )
     context, legal = sources
     assert context.redactions == [
-        "1.3. Consistency with other Union policies: cites the IA's gap analysis"
+        "redacted: 1 sentence in 1.3. Consistency with other Union policies"
     ]
+    assert "gap analysis" not in context.model_dump_json()  # the reason never reaches a source
     assert "impact assessment" not in context.text
     assert legal.redactions == []
     assert "redactions" not in legal.model_dump() and "redactions" in context.model_dump()

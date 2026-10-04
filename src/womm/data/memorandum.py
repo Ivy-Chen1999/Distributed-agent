@@ -16,26 +16,31 @@ than exact heading, together with their subsections:
 - ``budget``: budgetary implications quote the IA's public-sector estimates
 
 Then a **leak guard** scans everything kept for IA-conclusion markers ("impact assessment",
-"preferred option", "Regulatory Scrutiny Board", "SWD(") and rejects the memorandum, naming
-the section, unless the occurrence is an allow-listed citation from the proposal's
-``import.yaml``. A proposal whose kept text trips the guard is fixed there, where the exception
-stays reviewable, never by loosening the guard:
+"preferred option", "Regulatory Scrutiny Board", "SWD (", "IA", ...) and rejects the memorandum,
+naming the section, unless the occurrence is an allow-listed phrase from the proposal's
+``import.yaml``. Text is normalised first (soft hyphens deleted, hyphens and dashes read as
+spaces, whitespace collapsed, case folded), so "impact-assessment" or "SWD (2022)" match too.
+A proposal whose kept text trips the guard is fixed there, where the exception stays
+reviewable, never by loosening the guard:
 
 - an extra strip pattern removes a whole section;
 - a **sentence redaction** (``redact_sentences``) removes one sentence that restates or cites the
   IA in an otherwise useful section. Each entry names the section, the exact sentence or a unique
   prefix of it, and a reason; an entry that no longer matches exactly one sentence fails the
-  import, so a stale entry cannot pass silently. The reasons, not the sentences, are recorded on
-  the memorandum sources (``redactions``), next to ``stripped_sections``;
-- an **allow-list** entry masks one exact phrase that is not about this proposal's IA (e.g.
-  "environmental impact assessment" of another instrument). An entry must be longer than a bare
-  marker and must occur in the kept text.
+  import, so a stale entry cannot pass silently. Sentences end at ``.``, ``!`` or ``?`` but not
+  after an abbreviation such as "e.g.", "i.e.", "cf.", "Art." or "No.". The memorandum sources
+  record only how many sentences were redacted in which section (``redactions``); neither the
+  sentence nor the reason reaches an agent-visible file, because a reason can restate the IA;
+- an **allow-list** entry masks one phrase that is not about this proposal's IA (e.g.
+  "environmental impact assessment" of another instrument). It names its kept section, must
+  occur there exactly once, must contain a marker and must carry a qualifying word beyond it:
+  "the impact assessment" or "IAs" would mask the marker itself and are refused.
 """
 
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sized
 from dataclasses import dataclass, replace
 
 from womm.data.parse_proposal import MemorandumSection
@@ -52,16 +57,32 @@ TOPIC_PATTERNS: dict[str, str] = {
 }
 # Topics every Better Regulation memorandum has; a memorandum without them is not recognised.
 REQUIRED_TOPICS = ("ia_results", "proportionality", "budget")
+# Regexes over normalised text (``normalise``: casefolded, dashes as spaces, one space).
 LEAK_MARKERS = (
-    "impact assessment",
-    "preferred option",
-    "preferred policy option",
-    "regulatory scrutiny board",
-    "swd(",
-    "staff working document",  # the accompanying SWD cited without its number
-    "public consultation",  # consultation results belong to the stripped section 3
-    "problem definition",  # IA template term for the problem analysis
+    r"impact assessment",
+    r"impact analysis",  # an IA conclusion under another name
+    r"\bias?\b",  # "the IA", "IAs"; false positives ("Annex IA") need a scoped allow entry
+    r"preferred option",
+    r"preferred policy option",
+    r"regulatory scrutiny board",
+    r"\bswd\s*\(",
+    r"\bsec\s*\(\s*\d{4}\s*\)",  # the RSB opinion's SEC reference
+    r"staff working document",  # the accompanying SWD cited without its number
+    r"public consultation",  # consultation results belong to the stripped section 3
+    r"problem definition",  # IA template term for the problem analysis
 )
+_MARKERS = [re.compile(m) for m in LEAK_MARKERS]
+# Words that cannot make an allow entry specific: what is left of "the impact assessment" or
+# "impact assessments" once the marker is removed.
+_FUNCTION_WORDS = frozenset(
+    {
+        *("a", "an", "the", "this", "that", "these", "those", "its", "it", "their", "our"),
+        *("his", "her", "such", "any", "each", "every", "some", "all", "no", "own", "said"),
+        *("same", "s", "of", "in", "on", "at", "to", "for", "by", "with", "from", "as", "and"),
+        "or",
+    }
+)
+_DASHES = re.compile(r"[\-\u2010-\u2015\u2212\u2043\ufe58\ufe63\uff0d]")
 # Top-level sections of the standard memorandum template -> readable source_id suffix.
 TEMPLATE_SLUGS = {
     "context of the proposal": "context",
@@ -135,20 +156,69 @@ class Redaction:
 @dataclass(frozen=True)
 class RedactResult:
     kept: list[MemorandumSection]
-    records: dict[str, list[str]]  # full heading -> reasons, in entry order
+    records: dict[str, list[str]]  # full heading -> reasons, in entry order (import log only)
+
+
+@dataclass(frozen=True)
+class Allow:
+    """One phrase the leak guard ignores in one kept section (from ``import.yaml``)."""
+
+    section: str  # the section's full heading or its number, as for ``Redaction``
+    text: str  # the exact phrase; must occur exactly once in that section
 
 
 # A sentence ends at ., ! or ? (plus closing quotes/brackets) followed by whitespace and an
-# opening capital, quote or bracket; or at the end of its block.
+# opening capital, quote or bracket; or at the end of its block. A period that closes an
+# abbreviation does not end a sentence.
 _SENTENCE_END = re.compile(r"[.!?][\"'\u201d\u2019)\]]*\s+(?=[A-Z\u201c\u2018\"'(])")
+ABBREVIATIONS = frozenset(
+    {
+        *("e.g.", "i.e.", "cf.", "art.", "arts.", "no.", "nos.", "para.", "paras.", "p."),
+        *("pp.", "vol.", "ch.", "sec.", "fig.", "ibid.", "op.", "mr.", "mrs.", "ms.", "dr."),
+        *("st.", "vs.", "approx."),
+    }
+)
 
 
 def _norm(text: str) -> str:
     return " ".join(text.split())
 
 
-def _sentence_starts(text: str) -> set[int]:
-    return {0, *(m.end() for m in _SENTENCE_END.finditer(text))}
+def normalise(text: str) -> str:
+    """Text as the leak guard reads it: soft hyphens deleted, hyphens and dashes as spaces,
+    whitespace collapsed to one space, case folded."""
+    return _norm(_DASHES.sub(" ", text.replace("\u00ad", ""))).casefold()
+
+
+def marker_hits(normalised: str) -> list[re.Match[str]]:
+    """Every leak-marker match in already ``normalise``d text."""
+    return [m for pattern in _MARKERS for m in pattern.finditer(normalised)]
+
+
+def _sentence_ends(text: str) -> list[int]:
+    ends = []
+    for m in _SENTENCE_END.finditer(text):
+        if text[m.start()] == ".":
+            word = text[: m.start() + 1].rsplit(None, 1)[-1].lstrip("(\"'\u201c\u2018[")
+            if word.casefold() in ABBREVIATIONS:
+                continue
+        ends.append(m.end())
+    return ends
+
+
+def sentence_starts(text: str) -> set[int]:
+    """Offsets where a sentence starts in ``text`` (abbreviation-aware)."""
+    return {0, *_sentence_ends(text)}
+
+
+def _find_section(
+    sections: list[MemorandumSection], wanted: str
+) -> tuple[MemorandumSection | None, int]:
+    key = _norm(wanted).casefold()
+    targets = [
+        s for s in sections if key in (_norm(s.full_heading).casefold(), _norm(s.number).casefold())
+    ]
+    return (targets[0] if len(targets) == 1 else None), len(targets)
 
 
 def redact_sentences(
@@ -162,34 +232,24 @@ def redact_sentences(
     An entry fails, naming ``label``, when its section is not among ``sections`` (e.g. it was
     stripped), when its text starts no sentence there, or when it starts more than one. The
     removed sentence runs from the match to the next sentence end at or after the entry's end.
-    Reasons are recorded on the sources, so a reason containing a leak marker fails too."""
+    Reasons are returned for the import log only; they never reach a source."""
     kept = [replace(s, blocks=list(s.blocks)) for s in sections]
     records: dict[str, list[str]] = {}
     errors: list[str] = []
     for r in redactions:
-        wanted = _norm(r.section).casefold()
-        targets = [
-            s
-            for s in kept
-            if wanted in (_norm(s.full_heading).casefold(), _norm(s.number).casefold())
-        ]
-        if len(targets) != 1:
-            errors.append(f"section {r.section!r} matches {len(targets)} kept sections")
+        target, count = _find_section(kept, r.section)
+        if target is None:
+            errors.append(f"section {r.section!r} matches {count} kept sections")
             continue
-        (target,) = targets
         needle = _norm(r.sentence)
         if not needle or not r.reason.strip():
             errors.append(f"{target.full_heading!r}: empty sentence or reason")
-            continue
-        if any(m in r.reason.casefold() for m in LEAK_MARKERS):
-            # The reason is copied into the agent-visible source; it must not leak either.
-            errors.append(f"{target.full_heading!r}: reason {r.reason!r} contains an IA marker")
             continue
         blocks = [_norm(b) for b in target.blocks]
         hits = [
             (i, pos)
             for i, block in enumerate(blocks)
-            for pos in _sentence_starts(block)
+            for pos in sentence_starts(block)
             if block.startswith(needle, pos)
         ]
         if len(hits) != 1:
@@ -198,10 +258,7 @@ def redact_sentences(
             continue
         i, pos = hits[0]
         block = blocks[i]
-        end = next(
-            (m.end() for m in _SENTENCE_END.finditer(block) if m.end() > pos + len(needle)),
-            len(block),
-        )
+        end = next((e for e in _sentence_ends(block) if e > pos + len(needle)), len(block))
         target.blocks[i] = (block[:pos] + block[end:]).strip()
         target.blocks[:] = [b for b in target.blocks if b]
         records.setdefault(target.full_heading, []).append(r.reason.strip())
@@ -210,32 +267,80 @@ def redact_sentences(
     return RedactResult(kept, records)
 
 
+def _allow_error(text: str) -> str | None:
+    """Why an allow entry is too broad, or None. It must contain a marker and keep a
+    qualifying word once every marker is removed (not just articles, determiners or 's')."""
+    norm = normalise(text)
+    if not marker_hits(norm):
+        return "contains no IA marker"
+    rest = norm
+    for pattern in _MARKERS:
+        rest = pattern.sub(" ", rest)
+    words = re.findall(r"[^\W_]+", rest)
+    if not [w for w in words if w not in _FUNCTION_WORDS]:
+        return "has no qualifying word beyond the marker"
+    return None
+
+
+def leak_hits(text: str) -> list[str]:
+    """Context snippets of every leak marker in ``text`` (normalised first)."""
+    norm = normalise(text)
+    return [
+        f"{m.re.pattern!r}: ...{norm[max(0, m.start() - 60) : m.end() + 60]}..."
+        for m in marker_hits(norm)
+    ]
+
+
+def leak_check_text(text: str, *, what: str, label: str = "memorandum") -> None:
+    """Raise when free text written into a public file (e.g. a scenario description) carries an
+    IA marker. No allow-list: such text is ours and can simply be rephrased."""
+    hits = leak_hits(text)
+    if hits:
+        raise MemorandumError(f"{label}: {what}: {len(hits)} IA marker(s):\n  " + "\n  ".join(hits))
+
+
 def leak_guard(
-    sections: list[MemorandumSection], *, allow: Iterable[str] = (), label: str = "memorandum"
+    sections: list[MemorandumSection], *, allow: Iterable[Allow] = (), label: str = "memorandum"
 ) -> None:
     """Raise naming the section and marker when kept text still carries IA conclusions.
 
-    ``allow`` holds exact phrases (e.g. "environmental impact assessment") that are masked
-    first. A phrase that is no longer than a bare marker, or that occurs nowhere, fails: the
-    allow-list cannot loosen the guard globally or keep a stale entry."""
-    allowed = [_norm(a).casefold() for a in allow]
-    bad = [a for a in allowed if not a or any(a in m for m in LEAK_MARKERS)]
-    if bad:
-        raise MemorandumError(f"{label}: allow-list entries {bad} would mask a bare marker")
-    texts = [_norm(t).casefold() for s in sections for t in (s.full_heading, *s.blocks)]
-    unused = [a for a in allowed if not any(a in t for t in texts)]
-    if unused:
-        raise MemorandumError(f"{label}: allow-list entries {unused} occur nowhere (stale)")
+    Each ``allow`` entry masks its phrase once, in its own section only. An entry fails when its
+    section is not kept, when the phrase occurs there other than exactly once, or when it is
+    too broad (``_allow_error``): the allow-list cannot loosen the guard or keep a stale entry."""
+    masks: dict[int, list[str]] = {}
+    errors: list[str] = []
+    for a in allow:
+        why = _allow_error(a.text)
+        if why:
+            errors.append(f"allow entry {a.text!r} would mask a bare marker ({why})")
+            continue
+        target, count = _find_section(sections, a.section)
+        if target is None:
+            errors.append(
+                f"allow entry {a.text!r}: section {a.section!r} matches {count} kept sections"
+            )
+            continue
+        phrase = normalise(a.text)
+        found = sum(normalise(t).count(phrase) for t in (target.full_heading, *target.blocks))
+        if found != 1:
+            errors.append(
+                f"allow entry {a.text!r} occurs {found} times in {target.full_heading!r} "
+                "(must be exactly once)"
+            )
+            continue
+        masks.setdefault(id(target), []).append(phrase)
+    if errors:
+        raise MemorandumError(f"{label}: allow-list failed:\n  " + "\n  ".join(errors))
     hits: list[str] = []
     for s in sections:
+        phrases = masks.get(id(s), [])
         for text in (s.full_heading, *s.blocks):
-            folded = _norm(text).casefold()
-            for phrase in allowed:
-                folded = folded.replace(phrase, " ")
-            for marker in LEAK_MARKERS:
-                for m in re.finditer(re.escape(marker), folded):
-                    context = folded[max(0, m.start() - 60) : m.end() + 60]
-                    hits.append(f"{s.full_heading!r} contains {marker!r}: ...{context}...")
+            norm = normalise(text)
+            for phrase in phrases:
+                norm = norm.replace(phrase, " ")
+            for m in marker_hits(norm):
+                context = norm[max(0, m.start() - 60) : m.end() + 60]
+                hits.append(f"{s.full_heading!r} contains {m.re.pattern!r}: ...{context}...")
     if hits:
         raise MemorandumError(
             f"{label}: {len(hits)} IA marker(s) in kept memorandum sections:\n  "
@@ -249,10 +354,13 @@ def memorandum_sources(
     *,
     version_id: str,
     label: str,
-    redactions: Mapping[str, list[str]] | None = None,
+    redactions: Mapping[str, Sized] | None = None,
 ) -> list[Source]:
-    """One source per kept top-level section; each records the full strip list and the
-    reasons for the sentences redacted from its own sections ("<heading>: <reason>")."""
+    """One source per kept top-level section; each records the full strip list and, per own
+    section with redactions, only their count ("redacted: 2 sentences in <heading>").
+
+    ``redactions`` maps a full heading to its redacted entries (``RedactResult.records``); only
+    their number is used, so no reason text can reach the agent-visible source."""
     redactions = redactions or {}
     groups: list[list[MemorandumSection]] = []
     for s in kept:
@@ -277,9 +385,9 @@ def memorandum_sources(
                 text="\n\n".join(lines),
                 stripped_sections=removed,
                 redactions=[
-                    f"{s.full_heading}: {reason}"
+                    f"redacted: {n} sentence{'s' if n != 1 else ''} in {s.full_heading}"
                     for s in group
-                    for reason in redactions.get(s.full_heading, [])
+                    if (n := len(redactions.get(s.full_heading, ())))
                 ],
             )
         )

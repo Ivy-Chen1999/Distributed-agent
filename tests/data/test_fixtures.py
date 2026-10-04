@@ -172,3 +172,21 @@ def test_crosswalk_rejects_article_mapped_twice(tmp_path: Path):
     )
     with pytest.raises(FixtureError, match="mapped to both"):
         load_crosswalk(path)
+
+
+def test_imported_fixture_scenarios_may_not_carry_an_ia_reference(tmp_path: Path):
+    """Imported fixtures (with import.yaml) are public; the IA reference lives in the golden
+    case, so a scenario naming one fails to load."""
+    for name in ("proposal.json", "sources.json"):
+        shutil.copy(DEFAULT_FIXTURE_DIR / name, tmp_path / name)
+    scenario = (
+        "scenarios:\n- scenario_id: s\n  kind: evaluation\n  description: d\n"
+        "  before_version: null\n  after_version: com2021_206\n"
+        "  provision_keys: [ai_act/high_risk/risk_management]\n"
+    )
+    (tmp_path / "scenarios.yaml").write_text(scenario)
+    (tmp_path / "import.yaml").write_text("celex: 52021PC0206\nregulation_id: ai_act\n")
+    load_fixture(tmp_path)
+    (tmp_path / "scenarios.yaml").write_text(scenario + "  ia_reference: null\n")
+    with pytest.raises(FixtureError, match="ia_reference"):
+        load_fixture(tmp_path)

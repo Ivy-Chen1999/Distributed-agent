@@ -12,6 +12,7 @@ from womm.config import REPO_ROOT
 from womm.data import cellar
 from womm.data.fixtures import load_fixture
 from womm.data.ia_index import IA_FIELDS, load_ia_index
+from womm.data.memorandum import leak_check_text, marker_hits, normalise
 
 spec = importlib.util.spec_from_file_location(
     "import_proposal", REPO_ROOT / "scripts/import_proposal.py"
@@ -31,18 +32,21 @@ CELEX_URL = f"https://publications.europa.eu/resource/celex/{CELEX}"
 def serve(monkeypatch):
     """Serve ``body`` for the CELEX resource and count downloads; no network."""
     calls: list[str] = []
+    fetch_kwargs: list[dict] = []
 
     def install(body: bytes = DATA_ACT):
         def fake_main(celex, **_):
             calls.append(celex)
             return f"https://publications.europa.eu/resource/celex/{celex}", body
 
-        def fake_fetch(url, **_):
+        def fake_fetch(url, **kwargs):
             calls.append(url)
+            fetch_kwargs.append(kwargs)
             return body
 
         monkeypatch.setattr(import_proposal, "fetch_main_document", fake_main)
         monkeypatch.setattr(import_proposal, "fetch_document", fake_fetch)
+        install.fetch_kwargs = fetch_kwargs
         return calls
 
     return install
@@ -98,7 +102,6 @@ def test_scenarios_from_import_yaml(tmp_path, serve):
             "scenario_id": "eval_compensation",
             "description": "Compensation for B2B data sharing (Art 8-9).",
             "articles": ["8", "9"],
-            "ia_reference": None,
         }
     ]
     path.write_text(yaml.safe_dump(config))
@@ -166,12 +169,62 @@ def test_redaction_from_import_yaml_is_applied_and_recorded(tmp_path, serve):
     assert "Data is an asset." in context.text
     assert "preferred option" not in context.text.casefold()
     assert context.redactions == [
-        "1.1. Reasons for and objectives of the proposal: states an IA conclusion"
+        "redacted: 1 sentence in 1.1. Reasons for and objectives of the proposal"
     ]
     assert all(s.redactions == [] for s in memo[1:])
-    assert "preferred option" not in (out / "sources.json").read_text().casefold()
+    published = (out / "sources.json").read_text().casefold()
+    assert "preferred option" not in published
+    assert "states an ia conclusion" not in published  # reasons stay in import.yaml
     config = yaml.safe_load((out / "import.yaml").read_text())
     assert config["redactions"][0]["reason"] == "states an IA conclusion"
+
+
+def test_reimport_reads_the_cached_body_matching_the_pin(tmp_path, serve):
+    serve()
+    _run(tmp_path, CELEX, "--id", "data_act")
+    _run(tmp_path, CELEX)
+    assert serve.fetch_kwargs[-1]["expected_sha256"] == cellar.sha256(DATA_ACT)
+
+
+def test_scenario_ia_reference_is_refused_in_import_yaml(tmp_path, serve):
+    serve()
+    _write_config(
+        tmp_path,
+        scenarios=[
+            {
+                "scenario_id": "eval_x",
+                "description": "Compensation (Art 9).",
+                "articles": ["9"],
+                "ia_reference": "1999 IA, section 6",
+            }
+        ],
+    )
+    with pytest.raises(import_proposal.ImportFailed, match="ia_reference"):
+        _run(tmp_path, CELEX)
+
+
+@pytest.mark.parametrize(
+    "description",
+    ["Costs the impact assessment quantified (Art 9).", "Art 9, see SWD (1999) 2."],
+)
+def test_scenario_description_must_pass_the_leak_guard(tmp_path, serve, description):
+    serve()
+    path = _write_config(
+        tmp_path,
+        scenarios=[{"scenario_id": "eval_x", "description": description, "articles": ["9"]}],
+    )
+    with pytest.raises(
+        import_proposal.ImportFailed, match=r"(?s)52022PC0068: scenario 'eval_x'.*IA marker"
+    ):
+        _run(tmp_path, CELEX)
+    assert [p.name for p in path.parent.iterdir()] == ["import.yaml"]
+
+
+def test_allow_entry_needs_a_section(tmp_path, serve):
+    serve()
+    _write_config(tmp_path, leak_allow=["results of a dedicated impact assessment"])
+    with pytest.raises(import_proposal.ImportFailed, match="leak_allow"):
+        _run(tmp_path, CELEX)
 
 
 def test_stale_redaction_fails_and_writes_nothing(tmp_path, serve):
@@ -326,17 +379,29 @@ def test_committed_imports_load_and_are_complete(name):
     assert list(pins) == [config["document_url"]]
     memo = [s for s in fixture.sources.values() if s.kind == "memorandum"]
     assert memo and all(s.stripped_sections for s in memo)
-    from womm.data.memorandum import LEAK_MARKERS
-
-    allowed = [" ".join(a.split()).casefold() for a in config.get("leak_allow") or []]
+    # Each source passes the guard once the reviewed, section-scoped allow entries are masked.
+    allow = config.get("leak_allow") or []
     for s in memo:
-        text = " ".join(s.text.split()).casefold()
-        for phrase in allowed:  # reviewed exact phrases, e.g. another instrument's IA
-            text = text.replace(phrase, " ")
-        assert not any(m in text for m in LEAK_MARKERS), s.source_id
-    # Every redaction entry is recorded once, by section and reason, on some memorandum source.
-    recorded = sorted(r for s in memo for r in s.redactions)
-    assert len(recorded) == len(config.get("redactions") or [])
+        text = normalise(s.text)
+        blocks = s.text.split("\n\n")
+        for entry in allow:
+            if any(entry["section"] in (b, b.split(" ", 1)[0]) for b in blocks):
+                text = text.replace(normalise(entry["text"]), " ", 1)
+        assert not marker_hits(text), (s.source_id, marker_hits(text))
+    # Sources record only how many sentences were redacted where, never the reasons.
+    redactions = config.get("redactions") or []
+    recorded = [r for s in memo for r in s.redactions]
+    assert all(re.fullmatch(r"redacted: \d+ sentences? in .+", r) for r in recorded), recorded
+    counts = [int(r.split()[1]) for r in recorded]
+    assert sum(counts) == len(redactions)
+    published = (out / "sources.json").read_text(encoding="utf-8").casefold()
+    for r in redactions:
+        assert r["reason"].strip().casefold() not in published, (name, r["reason"])
+    # Public scenarios carry no IA reference (golden cases do) and their text passes the guard.
+    scenarios = yaml.safe_load((out / "scenarios.yaml").read_text()).get("scenarios") or []
+    for sc in [*scenarios, *(config.get("scenarios") or [])]:
+        assert "ia_reference" not in sc, (name, sc["scenario_id"])
+        leak_check_text(sc["description"], what=f"scenario {sc['scenario_id']!r}", label=name)
     # IA identifiers live only in the gitignored evals/private/ia_index.yaml (holdout safety).
     assert not any(k in config for k in IA_FIELDS), name
     raw = (out / "import.yaml").read_text()

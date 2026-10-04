@@ -60,8 +60,9 @@ class Source(StrictModel):
     redactions: list[str] = Field(
         default_factory=list,
         description=(
-            "One '<section heading>: <reason>' per sentence removed from this source because it "
-            "states or cites impact-assessment material; the sentence itself is not kept."
+            "One 'redacted: <n> sentence(s) in <section heading>' per section of this source with "
+            "sentences removed because they state or cite impact-assessment material. Neither "
+            "the sentences nor the reasons are kept here (reasons stay in import.yaml)."
         ),
     )
 
