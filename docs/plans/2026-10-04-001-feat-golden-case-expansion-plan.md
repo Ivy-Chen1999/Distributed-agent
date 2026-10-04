@@ -26,9 +26,20 @@ origin: docs/brainstorms/2026-09-28-womm-phased-requirements.md
 > | **Escalation:** if a proposal's audit error rate is over 10%, every item of that proposal goes to human review | classmates | same PR |
 > | **Holdout: full human verification** of every item | 1–2 classmates who do not edit prompts or routing | private: encrypted draft, local `verify_golden_case.py` |
 >
-> - Expected human effort is about 5–8 minutes per train/val case and 15–20 minutes per holdout case, roughly 3–4 hours in total.
+> - Expected human effort is about 5–8 minutes per train/val case and 15–20 minutes per holdout case, plus about 1 hour for coverage-judge calibration: roughly 4–5 hours in total.
 > - Provenance per item is one of `llm_judged`, `human_verified`, `human_edited` or `human_confirmed_candidate`. Audit results and the judge's agreement rate with humans are reported as evidence of golden-set quality.
 > - The draft-check CI test requires every `disagree`/`uncertain` item and every audited item to have a human decision and reviewer. Auto-accepted, un-audited items need none.
+>
+> **Aligned with Anthropic's eval guidance** ([Demystifying evals for AI agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents))
+> - **Isolated judges per dimension.** Anchor faithfulness, derivability and category are three separate judge calls, never one combined grade. Each judge may answer `unknown`.
+> - **Unambiguous tasks only.** "A good task is one where two domain experts would independently reach the same verdict." An item that a human reviewer also marks unclear is dropped, not kept as a coin flip.
+> - **Solvable and fair.** Before a case is published, WOMM runs it once and someone reads the transcript, checking that the dossier's misses are fair failures and that no expected impact is unreachable from the case's provisions.
+> - **Calibrate the scoring judge too. This is a second required human task.**
+>   - WOMM's own coverage/omissions judge (`src/womm/eval/evaluators.py`) decides promotions, so it must agree with humans.
+>   - Classmates label about 30 (dossier, expected impact) pairs as covered or not, drawn across train/val cases.
+>   - Report judge–human agreement. If it is below 85%, fix the judge rubric before any promotion run.
+>   - Recalibrate when the judge prompt or model changes.
+> - **Read transcripts routinely.** Each eval report samples 3 runs for a human read, a lightweight weekly habit rather than a gate.
 > - Target granularity is 5–10 impacts per case, at the actor × mechanism level. The guide (`docs/eval/golden-review-guide.md`) has worked examples from the two existing AI Act cases.
 > - A tracking sheet (`evals/annotation-assignments.md`, with names and case ids only, no holdout ids) assigns cases and records minutes spent.
 > - **Go/no-go after the 2-proposal pilot:** if measured minutes per case × remaining cases exceeds the available hours, cut train cases first and keep the holdout at 8.
