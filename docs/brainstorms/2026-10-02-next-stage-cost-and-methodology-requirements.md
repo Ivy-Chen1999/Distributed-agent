@@ -107,7 +107,8 @@ Sources read in full: their `README.md`, `docs/project-status.md`, `docs/org-gra
 - R12. A field-level validator report for the corpus and the enrichment layers.
 - R13. Point-level source ids for citations, introduced together with a planned re-baseline.
 - R14. Application dates updated for the Digital Omnibus. Consolidated versions become a supported
-  version status.
+  version status. *Moved into v1 on 2026-10-04: plan 002 adds the 2026-07-27 consolidated text as a
+  corpus version.*
 - R15. A per-act configuration file, so another act can be imported without code changes. This
   ties in with origin R33 (other EU proposals as evaluation corpus).
 

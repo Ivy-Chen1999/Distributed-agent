@@ -12,12 +12,16 @@ origin: docs/brainstorms/2026-10-02-provision-retrieval-requirements.md
 > **Revision 2026-10-03.** This revision follows a second review against new facts (colleague import merged; EU Digital Omnibus, Regulation (EU) 2026/1744, in force since 27 July 2026, amending 42 AI Act articles and moving Article 113 dates). Where a section below conflicts with this block, this block wins.
 >
 > **User decisions:**
-> - **Law version per mode.**
+> - **Law version per mode (updated 2026-10-04, user decision: target the 2026 consolidated text in v1).**
 >   - Evaluation stays on COM(2021) 206, which matches SWD(2021) 84.
->   - Explore/demo runs use **Reg (EU) 2024/1689 as adopted**, explicitly labelled "pre-Omnibus" in the scenario name, the version metadata and the dossier header.
->   - Every article that 2026/1744 amends carries a "superseded in part by Regulation (EU) 2026/1744" marker. The marker comes from a pinned list of the 42 amended articles.
->   - The 2026 consolidated text becomes a third version in **Stage D**. That stage ports the consolidated parser built in the private demo track, uses string article numbers in keys such as `ai_act/art/4a`, and has no obligation records.
->   - The corpus key scheme must accept that third version without re-keying.
+>   - Explore runs and the demo target **the AI Act as consolidated on 27 July 2026** (CELEX 02024R1689-20260727), the law in force. This adds a third corpus version in v1 (U1). Stage D no longer owns it.
+>   - **Corpus versions:** proposal (2021), adopted (2024), consolidated (2026-07-27).
+>   - **Keys** use string article numbers, so inserted articles fit: `ai_act/art/4a`, `ai_act/art/75b`.
+>   - **Port the consolidated parser** from the private demo track into `src/womm/data/parse_consolidated.py`. It is generic code with tests and contains no sales content.
+>   - **Amended set:** read from the `▼Mn` consolidation markers and cross-checked against Regulation (EU) 2026/1744 Article 1, which has 43 amending points, 42 articles plus annex points.
+>   - **Obligations:** none exist for the consolidated text. Explore runs on the consolidated version use the 2024 obligation records only for **unamended** articles. Amended articles get no obligation view, so their scope falls back to text where the scope allows it.
+>   - **Explore scenarios:** `consolidated_whole_act` (no prior version → consolidated text, for whole-act analysis of current law) and `omnibus_2026` (adopted 2024 → consolidated, the change view; the console's comparison view shows it).
+>   - **2024-text runs** remain possible, and are labelled pre-Omnibus.
 > - **Data scopes are a side experiment, not the v1 base.**
 >   - U6 compares **scoped vs unscoped only**, on AI Act cases only, on the **api backend**, with a pre-registered rule: if scoped coverage is more than one noise band below unscoped, revise the default scopes; otherwise keep them.
 >   - The self-evolution base (R27/R28) is an **unscoped** version.
