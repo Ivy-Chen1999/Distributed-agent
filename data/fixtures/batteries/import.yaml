@@ -1,0 +1,20 @@
+# Import settings for 52020PC0798; rerun scripts/import_proposal.py after editing.
+# strip_patterns / redactions / leak_allow are reviewed exceptions to the memorandum
+# leak guard. IA identifiers live only in the gitignored evals/private/ia_index.yaml.
+celex: 52020PC0798
+regulation_id: batteries
+title: Batteries Regulation
+document_url: https://publications.europa.eu/resource/cellar/4b5d88a6-3ad8-11eb-b27b-01aa75ed71a1.0001.03/DOC_1
+date: null
+strip_patterns: {}
+redactions:
+- section: 2.1.
+  sentence: The impact analysis of the proposed measures demonstrates
+  reason: states the impact analysis's conclusion on which objectives predominate (no marker, found by
+    hand)
+- section: 2.4.
+  sentence: The evaluation of the Batteries Directive and the analysis preceding
+  reason: states the IA's conclusion on the choice of instrument
+leak_allow:
+- results of a dedicated impact assessment
+scenarios: []

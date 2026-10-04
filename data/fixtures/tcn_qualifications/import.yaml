@@ -1,0 +1,21 @@
+# Import settings for 52026PC0990; rerun scripts/import_proposal.py after editing.
+# strip_patterns / redactions / leak_allow are reviewed exceptions to the memorandum
+# leak guard. IA identifiers live only in the gitignored evals/private/ia_index.yaml.
+celex: 52026PC0990
+regulation_id: tcn_qualifications
+title: Third-Country Qualifications Directive
+document_url: https://publications.europa.eu/resource/celex/52026PC0990
+date: null
+strip_patterns: {}
+redactions:
+- section: 1.1.
+  sentence: The average recognition procedure is estimated to cost
+  reason: IA baseline estimate of recognition cost and duration from the IA's survey
+- section: 2.2.
+  sentence: This necessity was confirmed in the Public Consultation
+  reason: states a consultation result (the stripped section 3 topic)
+- section: 2.2.
+  sentence: The preferred policy option is estimated
+  reason: states the IA's chosen option and its monetised savings
+leak_allow: []
+scenarios: []

@@ -1,0 +1,12 @@
+# Import settings for 52026PC0599; rerun scripts/import_proposal.py after editing.
+# strip_patterns / redactions / leak_allow are reviewed exceptions to the memorandum
+# leak guard. IA identifiers live only in the gitignored evals/private/ia_index.yaml.
+celex: 52026PC0599
+regulation_id: affordable_housing
+title: Affordable Housing Act
+document_url: https://publications.europa.eu/resource/cellar/03161c95-ac5e-11f1-b9e5-01aa75ed71a1.0001.03/DOC_1
+date: null
+strip_patterns: {}
+redactions: []
+leak_allow: []
+scenarios: []

@@ -1,0 +1,12 @@
+# Import settings for 52022PC0495; rerun scripts/import_proposal.py after editing.
+# strip_patterns / redactions / leak_allow are reviewed exceptions to the memorandum
+# leak guard. IA identifiers live only in the gitignored evals/private/ia_index.yaml.
+celex: 52022PC0495
+regulation_id: pld
+title: Product Liability Directive
+document_url: https://publications.europa.eu/resource/cellar/b9a6a6fe-3ff4-11ed-92ed-01aa75ed71a1.0001.03/DOC_1
+date: null
+strip_patterns: {}
+redactions: []
+leak_allow: []
+scenarios: []

@@ -1,0 +1,15 @@
+# Import settings for 52025PC0747; rerun scripts/import_proposal.py after editing.
+# strip_patterns / redactions / leak_allow are reviewed exceptions to the memorandum
+# leak guard. IA identifiers live only in the gitignored evals/private/ia_index.yaml.
+celex: 52025PC0747
+regulation_id: drug_precursors
+title: Drug Precursors Regulation
+document_url: https://publications.europa.eu/resource/cellar/a75a9f2f-d0fe-11f0-8da2-01aa75ed71a1.0001.03/DOC_1
+date: null
+strip_patterns: {}
+redactions:
+- section: 1.2.
+  sentence: Streamlined administrative procedures and a central electronic system
+  reason: states the IA's net cost-saving conclusion
+leak_allow: []
+scenarios: []

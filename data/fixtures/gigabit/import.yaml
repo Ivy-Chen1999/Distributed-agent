@@ -1,0 +1,12 @@
+# Import settings for 52023PC0094; rerun scripts/import_proposal.py after editing.
+# strip_patterns / redactions / leak_allow are reviewed exceptions to the memorandum
+# leak guard. IA identifiers live only in the gitignored evals/private/ia_index.yaml.
+celex: 52023PC0094
+regulation_id: gigabit
+title: Gigabit Infrastructure Act
+document_url: https://publications.europa.eu/resource/cellar/03b1958e-b362-11ed-8912-01aa75ed71a1.0001.03/DOC_1
+date: null
+strip_patterns: {}
+redactions: []
+leak_allow: []
+scenarios: []

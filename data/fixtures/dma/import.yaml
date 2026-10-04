@@ -1,0 +1,15 @@
+# Import settings for 52020PC0842; rerun scripts/import_proposal.py after editing.
+# strip_patterns / redactions / leak_allow are reviewed exceptions to the memorandum
+# leak guard. IA identifiers live only in the gitignored evals/private/ia_index.yaml.
+celex: 52020PC0842
+regulation_id: dma
+title: Digital Markets Act
+document_url: https://publications.europa.eu/resource/celex/52020PC0842
+date: null
+strip_patterns: {}
+redactions:
+- section: 5.1.
+  sentence: It also responds to explicit demands by stakeholders
+  reason: names a policy option from the inception stage of the IA
+leak_allow: []
+scenarios: []

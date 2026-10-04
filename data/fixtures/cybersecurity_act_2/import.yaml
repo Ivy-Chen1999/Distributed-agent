@@ -1,0 +1,15 @@
+# Import settings for 52026PC0011; rerun scripts/import_proposal.py after editing.
+# strip_patterns / redactions / leak_allow are reviewed exceptions to the memorandum
+# leak guard. IA identifiers live only in the gitignored evals/private/ia_index.yaml.
+celex: 52026PC0011
+regulation_id: cybersecurity_act_2
+title: Cybersecurity Act 2
+document_url: https://publications.europa.eu/resource/cellar/03aee288-f75c-11f0-b9bc-01aa75ed71a1.0001.03/DOC_1
+date: null
+strip_patterns: {}
+redactions:
+- section: 1.1.
+  sentence: These general objectives respond to the key challenges
+  reason: attributes the problem list to the IA's problem analysis
+leak_allow: []
+scenarios: []

@@ -1,0 +1,15 @@
+# Import settings for 52020PC0825; rerun scripts/import_proposal.py after editing.
+# strip_patterns / redactions / leak_allow are reviewed exceptions to the memorandum
+# leak guard. IA identifiers live only in the gitignored evals/private/ia_index.yaml.
+celex: 52020PC0825
+regulation_id: dsa
+title: Digital Services Act
+document_url: https://publications.europa.eu/resource/celex/52020PC0825
+date: null
+strip_patterns: {}
+redactions:
+- section: 1.3.
+  sentence: Sector-specific instruments do not cover all the regulatory gaps evidenced
+  reason: states the IA's problem finding (regulatory gaps of sector-specific instruments)
+leak_allow: []
+scenarios: []

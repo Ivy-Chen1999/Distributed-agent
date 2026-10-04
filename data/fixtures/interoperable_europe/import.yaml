@@ -1,0 +1,12 @@
+# Import settings for 52022PC0720; rerun scripts/import_proposal.py after editing.
+# strip_patterns / redactions / leak_allow are reviewed exceptions to the memorandum
+# leak guard. IA identifiers live only in the gitignored evals/private/ia_index.yaml.
+celex: 52022PC0720
+regulation_id: interoperable_europe
+title: Interoperable Europe Act
+document_url: https://publications.europa.eu/resource/celex/52022PC0720
+date: null
+strip_patterns: {}
+redactions: []
+leak_allow: []
+scenarios: []

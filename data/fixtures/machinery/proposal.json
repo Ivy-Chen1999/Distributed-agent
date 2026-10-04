@@ -1,0 +1,378 @@
+{
+  "regulation_id": "machinery",
+  "title": "Machinery Regulation",
+  "versions": [
+    {
+      "version_id": "com2021_202",
+      "date": "2021-04-21",
+      "status": "proposal",
+      "source": "52021PC0202",
+      "provisions": [
+        {
+          "provision_key": "machinery/proposal/art/1",
+          "article": "1",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_1"
+        },
+        {
+          "provision_key": "machinery/proposal/art/2",
+          "article": "2",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_2"
+        },
+        {
+          "provision_key": "machinery/proposal/art/3",
+          "article": "3",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_3"
+        },
+        {
+          "provision_key": "machinery/proposal/art/4",
+          "article": "4",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_4"
+        },
+        {
+          "provision_key": "machinery/proposal/art/5",
+          "article": "5",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_5"
+        },
+        {
+          "provision_key": "machinery/proposal/art/6",
+          "article": "6",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_6"
+        },
+        {
+          "provision_key": "machinery/proposal/art/7",
+          "article": "7",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_7"
+        },
+        {
+          "provision_key": "machinery/proposal/art/8",
+          "article": "8",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_8"
+        },
+        {
+          "provision_key": "machinery/proposal/art/9",
+          "article": "9",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_9"
+        },
+        {
+          "provision_key": "machinery/proposal/art/10",
+          "article": "10",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_10"
+        },
+        {
+          "provision_key": "machinery/proposal/art/11",
+          "article": "11",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_11"
+        },
+        {
+          "provision_key": "machinery/proposal/art/12",
+          "article": "12",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_12"
+        },
+        {
+          "provision_key": "machinery/proposal/art/13",
+          "article": "13",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_13"
+        },
+        {
+          "provision_key": "machinery/proposal/art/14",
+          "article": "14",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_14"
+        },
+        {
+          "provision_key": "machinery/proposal/art/15",
+          "article": "15",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_15"
+        },
+        {
+          "provision_key": "machinery/proposal/art/16",
+          "article": "16",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_16"
+        },
+        {
+          "provision_key": "machinery/proposal/art/17",
+          "article": "17",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_17"
+        },
+        {
+          "provision_key": "machinery/proposal/art/18",
+          "article": "18",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_18"
+        },
+        {
+          "provision_key": "machinery/proposal/art/19",
+          "article": "19",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_19"
+        },
+        {
+          "provision_key": "machinery/proposal/art/20",
+          "article": "20",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_20"
+        },
+        {
+          "provision_key": "machinery/proposal/art/21",
+          "article": "21",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_21"
+        },
+        {
+          "provision_key": "machinery/proposal/art/22",
+          "article": "22",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_22"
+        },
+        {
+          "provision_key": "machinery/proposal/art/23",
+          "article": "23",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_23"
+        },
+        {
+          "provision_key": "machinery/proposal/art/24",
+          "article": "24",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_24"
+        },
+        {
+          "provision_key": "machinery/proposal/art/25",
+          "article": "25",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_25"
+        },
+        {
+          "provision_key": "machinery/proposal/art/26",
+          "article": "26",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_26"
+        },
+        {
+          "provision_key": "machinery/proposal/art/27",
+          "article": "27",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_27"
+        },
+        {
+          "provision_key": "machinery/proposal/art/28",
+          "article": "28",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_28"
+        },
+        {
+          "provision_key": "machinery/proposal/art/29",
+          "article": "29",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_29"
+        },
+        {
+          "provision_key": "machinery/proposal/art/30",
+          "article": "30",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_30"
+        },
+        {
+          "provision_key": "machinery/proposal/art/31",
+          "article": "31",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_31"
+        },
+        {
+          "provision_key": "machinery/proposal/art/32",
+          "article": "32",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_32"
+        },
+        {
+          "provision_key": "machinery/proposal/art/33",
+          "article": "33",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_33"
+        },
+        {
+          "provision_key": "machinery/proposal/art/34",
+          "article": "34",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_34"
+        },
+        {
+          "provision_key": "machinery/proposal/art/35",
+          "article": "35",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_35"
+        },
+        {
+          "provision_key": "machinery/proposal/art/36",
+          "article": "36",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_36"
+        },
+        {
+          "provision_key": "machinery/proposal/art/37",
+          "article": "37",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_37"
+        },
+        {
+          "provision_key": "machinery/proposal/art/38",
+          "article": "38",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_38"
+        },
+        {
+          "provision_key": "machinery/proposal/art/39",
+          "article": "39",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_39"
+        },
+        {
+          "provision_key": "machinery/proposal/art/40",
+          "article": "40",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_40"
+        },
+        {
+          "provision_key": "machinery/proposal/art/41",
+          "article": "41",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_41"
+        },
+        {
+          "provision_key": "machinery/proposal/art/42",
+          "article": "42",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_42"
+        },
+        {
+          "provision_key": "machinery/proposal/art/43",
+          "article": "43",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_43"
+        },
+        {
+          "provision_key": "machinery/proposal/art/44",
+          "article": "44",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_44"
+        },
+        {
+          "provision_key": "machinery/proposal/art/45",
+          "article": "45",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_45"
+        },
+        {
+          "provision_key": "machinery/proposal/art/46",
+          "article": "46",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_46"
+        },
+        {
+          "provision_key": "machinery/proposal/art/47",
+          "article": "47",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_47"
+        },
+        {
+          "provision_key": "machinery/proposal/art/48",
+          "article": "48",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_48"
+        },
+        {
+          "provision_key": "machinery/proposal/art/49",
+          "article": "49",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_49"
+        },
+        {
+          "provision_key": "machinery/proposal/art/50",
+          "article": "50",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_50"
+        },
+        {
+          "provision_key": "machinery/proposal/art/51",
+          "article": "51",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_51"
+        },
+        {
+          "provision_key": "machinery/proposal/art/52",
+          "article": "52",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_202/art_52"
+        }
+      ]
+    }
+  ]
+}
