@@ -1,0 +1,63 @@
+name: v1.0-scoped
+description: >
+  Candidate (side experiment, not the v1 base): v0.3-candidate prompts with per-expert data
+  scopes split by data form (full text versus obligation records), enforced by the retrieval
+  layer. Only the Planner sees the delta. Compared against an unscoped twin (scoped vs unscoped
+  only). Stakeholder's span fallback for unspecified-actor records weakens its separation until
+  actor completion lands. The explore-mode Planner prompt is added with explore scenarios.
+planner:
+  backend: claude_code
+  model: claude-sonnet-5
+  prompt: prompts/planner.md
+synthesis:
+  backend: claude_code
+  model: claude-sonnet-5
+  prompt: prompts/v0.3/synthesis.md
+  timeout_s: 480
+judge:
+  backend: claude_code
+  model: claude-sonnet-5
+  prompt: prompts/judge_coverage.md
+experts:
+  - id: legal
+    domain: legal
+    role: {backend: claude_code, model: claude-sonnet-5, prompt: prompts/v0.3/legal.md, timeout_s: 480}
+    scope:
+      text: all
+      obligations: full
+      sees_delta: false
+      sees_memorandum: true
+      hypothesis: Legal interpretation needs the full text and the legislator's explanation.
+  - id: fiscal
+    domain: fiscal
+    role: {backend: claude_code, model: claude-sonnet-5, prompt: prompts/v0.3/fiscal.md, timeout_s: 480}
+    scope:
+      text: []
+      obligations: full
+      sees_delta: false
+      sees_memorandum: false
+      hypothesis: Cost claims stay traceable to specific obligation records.
+  - id: stakeholder
+    domain: stakeholder
+    role: {backend: claude_code, model: claude-sonnet-5, prompt: prompts/v0.3/stakeholder.md, timeout_s: 480}
+    scope:
+      # Subject matter, scope, definitions, high-risk classification and Annex III (both versions).
+      text:
+        - ai_act/art/1
+        - ai_act/art/2
+        - ai_act/art/3
+        - ai_act/art/6
+        - ai_act/annex/III
+      obligations: actors
+      sees_delta: false
+      sees_memorandum: false
+      hypothesis: >
+        Who is affected is judged without being steered by what the duties are. Weakened for
+        records whose primary actor is unspecified, which show their verbatim span until actor
+        completion lands.
+router:
+  mode: shadow
+  decider: stub
+max_parallel_llm_calls: 3
+retrieval:
+  max_provisions: 8
