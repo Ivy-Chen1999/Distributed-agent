@@ -12,6 +12,9 @@ redactions:
 - section: 1.1.
   sentence: These general objectives respond to the key challenges
   reason: attributes the problem list to the IA's problem analysis
+- section: 1.1.
+  sentence: The new regulation also creates a harmonised framework to tackle non-technical risks
+  reason: shares 12-word runs with the IA's impact cut (overlap test)
 leak_allow: []
 quant_allow: []
 scenarios: []

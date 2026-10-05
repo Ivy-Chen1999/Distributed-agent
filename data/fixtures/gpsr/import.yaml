@@ -8,7 +8,10 @@ title: General Product Safety Regulation
 document_url: https://publications.europa.eu/resource/cellar/e6adc4a2-da3d-11eb-895a-01aa75ed71a1.0001.03/DOC_1
 date: null
 strip_patterns: {}
-redactions: []
+redactions:
+- section: 2.4.
+  sentence: The choice of Regulation instead of Directive also allows to better deliver
+  reason: shares 12-word runs with the IA's impact cut (overlap test)
 leak_allow: []
 quant_allow: []
 scenarios: []

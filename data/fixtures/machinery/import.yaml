@@ -12,6 +12,15 @@ redactions:
 - section: 1.1.
   sentence: In view of dealing with the elements highlighted in the evaluation
   reason: attributes the problem list to the IA report
+- section: 1.3.
+  sentence: This proposal is coherent with the Union policy on artificial intelligence (AI)
+  reason: shares 12-word runs with the IA's impact cut (overlap test)
+- section: 2.2.
+  sentence: As for the added value of action at Union level, regulatory action
+  reason: shares 12-word runs with the IA's impact cut (overlap test)
+- section: 2.4.
+  sentence: In this respect, a Regulation by its legal nature, would better ensure
+  reason: shares 12-word runs with the IA's impact cut (overlap test)
 leak_allow: []
 quant_allow: []
 scenarios: []
