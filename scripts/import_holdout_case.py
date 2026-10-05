@@ -8,8 +8,9 @@ supplied locally in evals/private/holdout_scenarios.yaml (the article set never 
 public fixture), and its IA record in evals/private/ia_index.yaml. The case, its scenario and
 its IA identifiers are stored in the holdout database (its own migrations are applied here,
 never by the API). Then the handoff is deleted, together with the plaintext draft in
-.cache/drafts/ (when its sha256 matches the one recorded at verification) and its decisions
-file. Re-importing the same case is a no-op. Everything runs with LangSmith tracing disabled.
+.cache/drafts/ and its decisions file, both only when the draft's sha256 matches the one
+recorded at verification (otherwise both stay, for a re-verification). Handoffs are read only
+from under .cache/. Re-importing the same case, scenario and IA record is a no-op. Everything runs with LangSmith tracing disabled.
 """
 
 from __future__ import annotations
@@ -25,6 +26,7 @@ from langsmith import tracing_context
 
 from womm.config import REPO_ROOT
 from womm.data.ia_index import IA_INDEX_PATH, IaIndexError, load_ia_index
+from womm.eval.drafting import DraftingError, require_under_cache
 from womm.eval.golden import GOLDEN_DIR
 from womm.eval.holdout import (
     PRIVATE_DIR,
@@ -48,6 +50,10 @@ def read_handoff(path: Path) -> dict:
     if path.resolve().is_relative_to(EVALS_DIR.resolve()):
         raise HoldoutError(f"refusing a holdout handoff under evals/ ({path})")
     try:
+        require_under_cache(path, "a holdout handoff")
+    except DraftingError as exc:
+        raise HoldoutError(str(exc)) from None
+    try:
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
     except (OSError, yaml.YAMLError) as exc:
         raise HoldoutError(f"cannot read handoff {path}: {exc}") from None
@@ -57,15 +63,16 @@ def read_handoff(path: Path) -> dict:
 
 
 def delete_plaintext(handoff_path: Path, case_id: str, draft_sha: str | None, drafts: Path) -> None:
-    """Remove the handoff, and the draft and decisions file it was verified from."""
+    """Remove the handoff, and the draft and decisions file it was verified from. When the draft
+    on disk is not the verified one, both stay: the decisions belong to that draft."""
     handoff_path.unlink()
     draft = drafts / f"{case_id}.yaml"
-    if draft.exists():
-        if draft_sha and hashlib.sha256(draft.read_bytes()).hexdigest() == draft_sha:
-            draft.unlink()
-        else:
-            info(f"warning: {draft} differs from the verified draft; left in place")
     decisions = drafts / f"{case_id}.decisions.yaml"
+    if draft.exists():
+        if not (draft_sha and hashlib.sha256(draft.read_bytes()).hexdigest() == draft_sha):
+            info(f"warning: {draft} differs from the verified draft; it and its decisions stay")
+            return
+        draft.unlink()
     if decisions.exists():
         decisions.unlink()
 

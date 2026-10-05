@@ -10,6 +10,7 @@ import yaml
 from langsmith.run_helpers import get_tracing_context
 
 from womm.config import REPO_ROOT
+from womm.eval import drafting as drafting_module
 from womm.eval.golden import GoldenCase
 
 from .eval.draft_factory import draft_dict, write
@@ -32,6 +33,13 @@ def _decisions(**overrides):
     return d
 
 
+@pytest.fixture(autouse=True)
+def cache_root(tmp_path, monkeypatch):
+    """tmp_path/cache stands in for the repository's gitignored .cache/."""
+    monkeypatch.setattr(drafting_module, "CACHE_DIR", tmp_path / "cache")
+    return tmp_path / "cache"
+
+
 @pytest.fixture
 def holdout(tmp_path):
     draft = tmp_path / "cache" / "drafts" / f"{CASE}.yaml"
@@ -40,7 +48,7 @@ def holdout(tmp_path):
 
 
 def _argv(tmp_path, draft, *extra):
-    return ["--draft", str(draft), "--out-dir", str(tmp_path / "handoff"),
+    return ["--draft", str(draft), "--out-dir", str(tmp_path / "cache" / "handoff"),
             "--ia-root", str(tmp_path / "ia"), "--today", "2026-10-21", *extra]  # fmt: skip
 
 
@@ -64,7 +72,7 @@ def test_decisions_file_writes_a_private_handoff(tmp_path, holdout, monkeypatch)
                  "--decisions", str(_decisions_file(tmp_path, dec)))  # fmt: skip
     assert verify.main(argv, interactive=False) == 0
     assert seen == [False], "verification runs with LangSmith tracing disabled"
-    out = tmp_path / "handoff" / f"{CASE}.yaml"
+    out = tmp_path / "cache" / "handoff" / f"{CASE}.yaml"
     assert stat.S_IMODE(out.stat().st_mode) == 0o600
     data = yaml.safe_load(out.read_text())
     assert data["format"] == verify.HANDOFF_FORMAT and data["verified_by"] == "jdoe"
@@ -83,7 +91,7 @@ def test_refuses_non_interactive_without_reviewer_and_decisions(tmp_path, holdou
     assert "--reviewer and --decisions" in capsys.readouterr().err
     path = _decisions_file(tmp_path, _decisions())
     assert verify.main(_argv(tmp_path, holdout, "--decisions", str(path)), interactive=False) == 2
-    assert not (tmp_path / "handoff").exists()
+    assert not (tmp_path / "cache" / "handoff").exists()
 
 
 def test_every_item_must_be_decided(tmp_path, holdout, capsys):
@@ -112,7 +120,7 @@ def test_bad_decisions_are_refused(tmp_path, holdout, capsys, entry, message):
     argv = _argv(tmp_path, holdout, "--reviewer", "jdoe", "--decisions", str(path))
     assert verify.main(argv, interactive=False) == 2
     assert message in capsys.readouterr().err
-    assert not (tmp_path / "handoff").exists()
+    assert not (tmp_path / "cache" / "handoff").exists()
 
 
 def test_too_few_kept_impacts_is_refused(tmp_path, holdout, capsys):
@@ -160,7 +168,7 @@ def test_interactive_session(tmp_path, holdout, monkeypatch):
     assert code == 0
     assert any("in context" in s and "cost number 2" in s for s in shown)
     case = GoldenCase.model_validate(
-        yaml.safe_load((tmp_path / "handoff" / f"{CASE}.yaml").read_text())["case"]
+        yaml.safe_load((tmp_path / "cache" / "handoff" / f"{CASE}.yaml").read_text())["case"]
     )
     by_id = {e.expected_id: e for e in case.expected_impacts}
     assert by_id["c90_e02"].affected_actor == "Actor 2b"
@@ -171,4 +179,26 @@ def test_interactive_quit_writes_nothing(tmp_path, holdout):
     answers = iter(["jdoe", "q"])
     code = verify.main(_argv(tmp_path, holdout), interactive=True,
                        ask=lambda _p: next(answers), say=lambda _s: None)  # fmt: skip
-    assert code == 2 and not (tmp_path / "handoff").exists()
+    assert code == 2 and not (tmp_path / "cache" / "handoff").exists()
+
+
+def test_draft_and_handoff_must_be_under_the_cache(tmp_path, holdout, capsys):
+    """P3-1: holdout plaintext lives only under .cache/ (gitignored)."""
+    path = _decisions_file(tmp_path, _decisions())
+    outside = tmp_path / "elsewhere" / f"{CASE}.yaml"
+    write(outside, draft_dict("holdout"))
+    argv = _argv(tmp_path, outside, "--reviewer", "jdoe", "--decisions", str(path))
+    assert verify.main(argv, interactive=False) == 2
+    assert "only under .cache/" in capsys.readouterr().err
+    argv = ["--draft", str(holdout), "--out-dir", str(tmp_path / "handoff"),
+            "--reviewer", "jdoe", "--decisions", str(path)]  # fmt: skip
+    assert verify.main(argv, interactive=False) == 2
+    assert "only under .cache/" in capsys.readouterr().err
+    assert not (tmp_path / "handoff").exists()
+
+
+def test_the_drafter_cannot_verify_a_holdout_draft(tmp_path, holdout, capsys):
+    path = _decisions_file(tmp_path, _decisions())
+    argv = _argv(tmp_path, holdout, "--reviewer", "case-owner", "--decisions", str(path))
+    assert verify.main(argv, interactive=False) == 2
+    assert "the drafter cannot be the reviewer" in capsys.readouterr().err

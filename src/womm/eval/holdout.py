@@ -75,6 +75,9 @@ PRIVATE_DIR = REPO_ROOT / "evals" / "private"
 SCENARIOS_PATH = PRIVATE_DIR / "holdout_scenarios.yaml"
 HANDOFF_FORMAT = "womm-holdout-handoff/1"
 METRICS = ("coverage", "omissions_addressed", "grounding")
+# Fewer proposals than this and a proposal-clustered bootstrap CI means nothing: CIs are null.
+MIN_PROPOSALS = 5
+FAILURE_POLICIES = ("abort", "score_zero")
 _LOCK_ID = 727002  # distinct from the API migrations' advisory lock
 
 
@@ -271,6 +274,29 @@ def prepare_import(
 # ----------------------------------------------------------------------------- store
 
 
+_IA_ROW_KEYS = ("celex", "ia_reference", "ia_celex", "ia_date", "rsb_ref")
+
+
+def _ia_row(case: GoldenCase, ia: IaRecord) -> dict[str, Any]:
+    return {
+        "celex": ia.celex,
+        "ia_reference": case.ia_reference,
+        "ia_celex": ia.ia_celex,
+        "ia_date": None if ia.ia_date is None else str(ia.ia_date),
+        "rsb_ref": ia.rsb_ref,
+    }
+
+
+def _same_import(row: Mapping[str, Any], bundle: ImportBundle) -> bool:
+    """The stored case, scenario and IA record all equal the bundle's."""
+    stored_ia = {k: None if row.get(k) is None else str(row[k]) for k in _IA_ROW_KEYS}
+    return (
+        row["body_sha256"] == bundle.body_sha256
+        and row["scenario"] == bundle.scenario.model_dump(mode="json")
+        and stored_ia == _ia_row(bundle.case, bundle.ia)
+    )
+
+
 class HoldoutStore:
     """The holdout database. Every connection is short-lived; nothing is cached in memory."""
 
@@ -313,20 +339,22 @@ class HoldoutStore:
         return applied_now
 
     async def import_case(self, bundle: ImportBundle) -> str:
-        """Upsert the case, its scenario and its IA ids; 'inserted', 'updated' or 'unchanged'."""
+        """Upsert the case, its scenario and its IA ids; 'inserted', 'updated' or 'unchanged'
+        (only when the case body, the scenario and the IA record all match what is stored)."""
         case, sc = bundle.case, bundle.scenario
         async with await self._connect() as conn, conn.transaction():
             row = await (
                 await conn.execute(
-                    "SELECT c.body_sha256, s.scenario FROM holdout.cases c JOIN holdout.scenarios"
-                    " s USING (fixture, scenario_id) WHERE c.case_id = %s",
+                    "SELECT c.body_sha256, s.scenario, i.celex, i.ia_reference, i.ia_celex,"
+                    " i.ia_date, i.rsb_ref FROM holdout.cases c JOIN holdout.scenarios s"
+                    " USING (fixture, scenario_id) LEFT JOIN holdout.ia_references i"
+                    " USING (fixture) WHERE c.case_id = %s",
                     (case.case_id,),
                 )
             ).fetchone()
-            scenario_json = sc.model_dump(mode="json")
-            same = row and row["scenario"] == scenario_json
-            if same and row["body_sha256"] == bundle.body_sha256:
+            if row and _same_import(row, bundle):
                 return "unchanged"
+            scenario_json = sc.model_dump(mode="json")
             ia = bundle.ia
             await conn.execute(
                 "INSERT INTO holdout.ia_references"
@@ -396,7 +424,10 @@ class HoldoutStore:
 
 class MetricDelta(StrictModel):
     mean_delta: float | None = Field(description="candidate minus baseline, mean over cases")
-    ci95_low: float | None
+    ci95_low: float | None = Field(
+        description="Null unless every case the metric applies to is paired and there are at "
+        f"least {MIN_PROPOSALS} proposals."
+    )
     ci95_high: float | None
     n_cases: int
 
@@ -419,7 +450,19 @@ class HoldoutComparison(StrictModel):
     n_proposals: int
     scored_runs: dict[str, int]
     errored_runs: dict[str, int]
-    aborted: bool = Field(description="True when a rate limit stopped the comparison early.")
+    aborted: bool = Field(
+        description="True when no deltas are reported: a rate limit stopped the comparison, or "
+        "a sealed case lacks a scored value on either side under failure_policy 'abort'."
+    )
+    failure_policy: str = Field(description="'abort' (default) or 'score_zero'.")
+    missing_cases: dict[str, int] = Field(
+        description="Per side, how many sealed cases lack a scored value for some metric (counts "
+        "only). Under 'score_zero' those values were scored as 0."
+    )
+    flags: list[str] = Field(
+        description="'rate_limited', 'missing_scores', 'insufficient_proposals' (fewer than "
+        f"{MIN_PROPOSALS} proposals: CIs are null)."
+    )
     deltas: dict[str, MetricDelta]
     noise: dict[str, PooledNoise]
     bootstrap: dict[str, Any]
@@ -489,13 +532,22 @@ async def compare(
     code: CodeIdentity,
     n_boot: int = 2000,
     seed: int = 0,
+    failure_policy: str = "abort",
 ) -> HoldoutComparison:
     """Run ``candidate`` and ``baseline`` on every sealed holdout case, ``repetitions`` times
     each, and return only aggregate deltas (R28 interface). Both are scored by the baseline's
     judge so a candidate cannot change the yardstick. ``backends`` and ``decisions`` are either
-    shared or a factory per system version. The result is also written to the audit table."""
+    shared or a factory per system version. The result is also written to the audit table.
+
+    A case that is not scored on both sides is never silently dropped: with ``failure_policy``
+    'abort' (the default) any sealed case lacking a scored value on either side aborts the
+    comparison with no deltas (the audit row records only the counts); with 'score_zero' the
+    missing side scores 0 for that case. With fewer than ``MIN_PROPOSALS`` proposals the CIs
+    are null and the result is flagged ``insufficient_proposals``."""
     if repetitions < 1:
         raise HoldoutError("repetitions must be at least 1")
+    if failure_policy not in FAILURE_POLICIES:
+        raise HoldoutError(f"failure_policy must be one of {FAILURE_POLICIES}")
     # Holdout material never reaches LangSmith: no traces, no datasets, no experiments.
     with tracing_context(enabled=False):
         sealed = await store._sealed()
@@ -507,6 +559,12 @@ async def compare(
         judge_prompt = baseline.prompt_text(judge_role)
         keys = {case.case_id: f"k{i}" for i, (case, _) in enumerate(sealed)}
         cluster_of = {keys[c.case_id]: c.fixture for c, _ in sealed}
+        # Which cases each metric applies to: omissions only where the case lists some.
+        applies = {
+            "coverage": set(cluster_of),
+            "grounding": set(cluster_of),
+            "omissions_addressed": {keys[c.case_id] for c, _ in sealed if c.important_omissions},
+        }
         scores: dict[str, list[CaseScore]] = {"candidate": [], "baseline": []}
         aborted = False
         for label, sv in (("candidate", candidate), ("baseline", baseline)):
@@ -529,8 +587,9 @@ async def compare(
             if aborted:
                 break
         result = _summarise(
-            candidate, baseline, repetitions, scores, cluster_of, aborted, n_boot, seed
-        )
+            candidate, baseline, repetitions, scores, cluster_of, aborted, n_boot, seed,
+            applies=applies, failure_policy=failure_policy,
+        )  # fmt: skip
         await store.record_audit(result, code.git_sha)
     return result
 
@@ -559,13 +618,41 @@ def _summarise(
     aborted: bool,
     n_boot: int,
     seed: int,
+    *,
+    applies: dict[str, set[str]] | None = None,
+    failure_policy: str = "abort",
 ) -> HoldoutComparison:
+    applies = applies or {m: set(cluster_of) for m in METRICS}
+    n_proposals = len(set(cluster_of.values()))
+    flags = ["rate_limited"] if aborted else []
+    means = {
+        label: {m: _means(scores[label], m) for m in METRICS} for label in ("candidate", "baseline")
+    }
+    missing = {
+        label: {k for m in METRICS for k in applies[m] - means[label][m].keys()} for label in means
+    }
+    if not aborted and any(missing.values()):
+        flags.append("missing_scores")
+        if failure_policy == "score_zero":
+            for label in means:
+                for m in METRICS:
+                    for k in applies[m] - means[label][m].keys():
+                        means[label][m][k] = 0.0
+        else:
+            aborted = True
+    small = n_proposals < MIN_PROPOSALS
+    if small:
+        flags.append("insufficient_proposals")
     deltas: dict[str, MetricDelta] = {}
     noise: dict[str, PooledNoise] = {}
     for metric in METRICS:
-        cand, base = _means(scores["candidate"], metric), _means(scores["baseline"], metric)
-        diffs = {} if aborted else {k: cand[k] - base[k] for k in cand.keys() & base.keys()}
+        cand, base = means["candidate"][metric], means["baseline"][metric]
+        wanted = applies[metric]
+        paired = wanted & cand.keys() & base.keys()
+        diffs = {} if aborted else {k: cand[k] - base[k] for k in paired}
         point, lo, hi = paired_cluster_bootstrap(diffs, cluster_of, n_boot, seed)
+        if small or len(diffs) != len(wanted):
+            lo = hi = None  # a CI only over every sealed case, and only with enough proposals
         deltas[metric] = MetricDelta(mean_delta=point, ci95_low=lo, ci95_high=hi,
                                      n_cases=len(diffs))  # fmt: skip
         noise[metric] = PooledNoise(
@@ -578,10 +665,13 @@ def _summarise(
         judge_version=baseline.version_id,
         repetitions=repetitions,
         n_cases=len(cluster_of),
-        n_proposals=len(set(cluster_of.values())),
+        n_proposals=n_proposals,
         scored_runs={k: sum(s.outcome == "scored" for s in v) for k, v in scores.items()},
         errored_runs={k: sum(s.outcome != "scored" for s in v) for k, v in scores.items()},
         aborted=aborted,
+        failure_policy=failure_policy,
+        missing_cases={label: len(keys) for label, keys in missing.items()},
+        flags=flags,
         deltas=deltas,
         noise=noise,
         bootstrap={"n_boot": n_boot, "seed": seed, "cluster": "proposal", "ci": 0.95},

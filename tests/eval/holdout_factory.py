@@ -18,6 +18,8 @@ from womm.llm.fake import FakeBackend
 from ..graph.conftest import good_script
 
 PROPOSALS = ("prop_alpha", "prop_beta")
+# Enough proposals for bootstrap CIs (womm.eval.holdout.MIN_PROPOSALS is 5).
+FIVE_PROPOSALS = (*PROPOSALS, "prop_gamma", "prop_delta", "prop_epsilon")
 SCENARIO_ID = "eval_sealed_sme"
 ARTICLES = ["53", "54", "55", "71"]
 SECRET_IMPACT = "SEALED-EXPECTED-IMPACT-TEXT"
@@ -25,14 +27,14 @@ _BASE = next(c for c in load_all_golden() if c.scenario_id == "eval_sme_impacts"
 
 
 def case_id(fixture: str) -> str:
-    return f"case_9{PROPOSALS.index(fixture)}_sealed_{fixture}"
+    return f"case_9{FIVE_PROPOSALS.index(fixture)}_sealed_{fixture}"
 
 
 def make_fixtures_root(tmp_path: Path) -> Path:
     """``ai_act`` plus one copy per holdout proposal, registered under its own id."""
     root = tmp_path / "fixtures"
     shutil.copytree(fixtures_module.DEFAULT_FIXTURE_DIR, root / "ai_act")
-    for name in PROPOSALS:
+    for name in FIVE_PROPOSALS:
         shutil.copytree(fixtures_module.DEFAULT_FIXTURE_DIR, root / name)
         for version_file in fixtures_module.VERSION_FILES:
             path = root / name / version_file
@@ -51,7 +53,7 @@ def scenario_specs() -> dict[str, list[HoldoutScenarioSpec]]:
         articles=ARTICLES,
         after_version="com2021_206",
     )
-    return {name: [spec] for name in PROPOSALS}
+    return {name: [spec] for name in FIVE_PROPOSALS}
 
 
 def write_scenarios(private_dir: Path) -> Path:
@@ -67,7 +69,7 @@ def ia_index() -> dict[str, IaRecord]:
         # Synthetic identifiers (year 2099): no real IA or RSB reference in tracked files.
         name: IaRecord(celex=f"52099PC000{n}", ia_celex=f"52099SC000{n}", ia_date="2026-01-15",
                        rsb_ref=f"SEC(2099) {n}")
-        for n, name in enumerate(PROPOSALS, start=1)
+        for n, name in enumerate(FIVE_PROPOSALS, start=1)
     }  # fmt: skip
 
 
@@ -82,7 +84,7 @@ def case_dict(fixture: str) -> dict:
     data = _BASE.model_dump(mode="json", exclude_none=True)
     cid = case_id(fixture)
     data.update(case_id=cid, fixture=fixture, split="holdout", scenario_id=SCENARIO_ID,
-                ia_reference=f"SWD(2099) {PROPOSALS.index(fixture) + 1} sealed")  # fmt: skip
+                ia_reference=f"SWD(2099) {FIVE_PROPOSALS.index(fixture) + 1} sealed")  # fmt: skip
     for n, item in enumerate(data["expected_impacts"], 1):
         item["expected_id"] = f"{cid}_e{n:02d}"
     data["expected_impacts"][0]["impact"] = f"{SECRET_IMPACT} {fixture}"

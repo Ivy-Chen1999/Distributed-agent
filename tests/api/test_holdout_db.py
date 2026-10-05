@@ -14,6 +14,7 @@ from womm.api.db import Database
 from womm.config import REPO_ROOT
 from womm.data import fixtures as fixtures_module
 from womm.decisions.stub import StubDecisionService
+from womm.eval import drafting as drafting_module
 from womm.eval import holdout
 from womm.models.run import CodeIdentity
 
@@ -43,6 +44,7 @@ def holdout_url(database_url):
 @pytest.fixture
 def roots(tmp_path, monkeypatch):
     monkeypatch.setattr(fixtures_module, "FIXTURES_ROOT", hf.make_fixtures_root(tmp_path))
+    monkeypatch.setattr(drafting_module, "CACHE_DIR", tmp_path / "cache")
     (tmp_path / "golden").mkdir()
     return tmp_path
 
@@ -95,6 +97,20 @@ async def test_import_is_idempotent_and_stores_case_scenario_and_ia_ids(roots, h
     assert sum(counts.values()) == len(bundle.case.expected_impacts)
 
 
+async def test_a_changed_ia_record_is_not_unchanged(roots, holdout_url):
+    """P3-2: 'unchanged' needs the IA record to match too, not only the case and scenario."""
+    store = holdout.HoldoutStore(holdout_url)
+    await store.migrate()
+    assert await store.import_case(_bundle(roots)) == "inserted"
+    index = hf.ia_index()
+    index["prop_alpha"] = index["prop_alpha"].model_copy(update={"rsb_ref": "SEC(2099) 77"})
+    moved = holdout.prepare_import(hf.handoff("prop_alpha"), hf.scenario_specs(), index,
+                                   golden_dir=roots / "golden")  # fmt: skip
+    assert await store.import_case(moved) == "updated"
+    assert _rows(holdout_url, "SELECT rsb_ref FROM holdout.ia_references") == [("SEC(2099) 77",)]
+    assert await store.import_case(moved) == "unchanged"
+
+
 def test_import_script_seals_then_deletes_the_plaintext(roots, holdout_url, monkeypatch):
     private = roots / "private"
     drafts = roots / "cache" / "drafts"
@@ -133,7 +149,8 @@ def test_import_script_refuses_without_its_own_database(roots, monkeypatch, caps
 def test_import_script_keeps_the_handoff_when_validation_fails(roots, monkeypatch, capsys):
     """Every handoff is validated before any database connection or deletion."""
     private = roots / "private"
-    handoff = roots / "handoff.yaml"
+    handoff = roots / "cache" / "handoff.yaml"
+    handoff.parent.mkdir(parents=True)
     bad = hf.handoff("prop_alpha")
     bad["case"]["scenario_id"] = "eval_unknown"
     handoff.write_text(yaml.safe_dump(bad))
@@ -185,3 +202,16 @@ async def test_compare_on_the_store_writes_only_the_audit_table(roots, database_
     for name in hf.PROPOSALS:
         assert hf.case_id(name) not in dump
     assert hf.SECRET_IMPACT not in dump
+
+
+def test_import_script_refuses_a_handoff_outside_the_cache(roots, monkeypatch, capsys):
+    handoff = roots / "handoff.yaml"
+    handoff.write_text(yaml.safe_dump(hf.handoff("prop_alpha")))
+    monkeypatch.setenv("HOLDOUT_DATABASE_URL", ADMIN_URL.rsplit("/", 1)[0] + "/unused")
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    private = roots / "private"
+    argv = [str(handoff), "--scenarios", str(hf.write_scenarios(private)),
+            "--private-dir", str(private), "--ia-index", str(hf.write_ia_index(private)),
+            "--golden-dir", str(roots / "golden")]  # fmt: skip
+    assert importer.main(argv) == 2
+    assert handoff.exists() and "only under .cache/" in capsys.readouterr().err

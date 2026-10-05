@@ -190,36 +190,37 @@ class MemoryStore(holdout.HoldoutStore):
         return len(self.audits)
 
 
-def _sealed(roots):
+def _sealed(roots, proposals=hf.PROPOSALS):
     out = []
-    for name in hf.PROPOSALS:
+    for name in proposals:
         b = holdout.prepare_import(hf.handoff(name), hf.scenario_specs(), hf.ia_index(),
                                    golden_dir=roots / "golden")  # fmt: skip
         out.append((b.case, Scenario.model_validate(b.scenario.model_dump())))
     return out
 
 
-async def _compare(store, reps=2):
+async def _compare(store, reps=2, backends=None, **kw):
     cand, base = fake_sv(), fake_sv()
-    backends = hf.compare_backends(runs_per_version=len(store.sealed) * reps)
+    backends = backends or hf.compare_backends(runs_per_version=len(store.sealed) * reps)
     return await holdout.compare(
         cand, base, reps, store=store,
         backends=lambda sv: backends["candidate"] if sv is cand else backends["baseline"],
-        decisions=StubDecisionService(), code=CLEAN, n_boot=200,
+        decisions=StubDecisionService(), code=CLEAN, n_boot=200, **kw,
     )  # fmt: skip
 
 
 async def test_compare_returns_aggregates_only(roots):
-    store = MemoryStore(_sealed(roots))
+    store = MemoryStore(_sealed(roots, hf.FIVE_PROPOSALS))
     result = await _compare(store)
     n_expected = len(store.sealed[0][0].expected_impacts)
     cov = result.deltas["coverage"]
     assert cov.mean_delta == pytest.approx(1 - 1 / n_expected)
     assert cov.ci95_low == pytest.approx(cov.mean_delta) == pytest.approx(cov.ci95_high)
-    assert cov.n_cases == 2 and result.n_cases == 2 and result.n_proposals == 2
+    assert cov.n_cases == 5 and result.n_cases == 5 and result.n_proposals == 5
+    assert result.flags == [] and result.missing_cases == {"candidate": 0, "baseline": 0}
     assert result.deltas["grounding"].mean_delta == pytest.approx(0.0)
     assert result.noise["coverage"].candidate_sd == 0.0  # deterministic fake: no noise
-    assert result.scored_runs == {"candidate": 4, "baseline": 4} and not result.aborted
+    assert result.scored_runs == {"candidate": 10, "baseline": 10} and not result.aborted
     assert set(result.noise["coverage"].model_dump()) == {"candidate_sd", "baseline_sd"}
 
     dumped = result.model_dump_json()
@@ -295,7 +296,67 @@ async def test_compare_stops_on_a_rate_limit_without_deltas(roots):
         decisions=StubDecisionService(), code=CLEAN, n_boot=50,
     )  # fmt: skip
     assert result.aborted and result.deltas["coverage"].mean_delta is None
+    assert "rate_limited" in result.flags
     assert len(store.audits) == 1
+
+
+# ----------------------------------------------------------------------------- failing cases (P1-2)
+
+
+def _backends_with_failed_candidate_case(n_cases, reps=1):
+    """The candidate's first run times out (an infrastructure error); every other run is
+    scored. The case is then errored on the candidate side for that repetition."""
+    from womm.llm.base import LLMError
+
+    backends = hf.compare_backends(runs_per_version=n_cases * reps)
+    script = hf.pipeline_script("CANDIDATE", n_cases * reps)
+    script["synthesis"] = [LLMError("timeout", "too slow")] + script["synthesis"][1:]
+    backends["candidate"] = {"fake": FakeBackend(script)}
+    return backends
+
+
+async def test_a_case_missing_on_one_side_aborts_without_deltas(roots):
+    store = MemoryStore(_sealed(roots, hf.FIVE_PROPOSALS))
+    result = await _compare(store, reps=1, backends=_backends_with_failed_candidate_case(5))
+    assert result.errored_runs["candidate"] == 1
+    assert result.aborted and "missing_scores" in result.flags
+    assert result.missing_cases == {"candidate": 1, "baseline": 0}
+    assert all(d.mean_delta is None and d.ci95_low is None and d.n_cases == 0
+               for d in result.deltas.values())  # fmt: skip
+    assert store.audits == [(result, "abc")], "the abort is recorded, counts only"
+    dumped = result.model_dump_json()
+    assert not any(c.case_id in dumped for c, _ in store.sealed)
+
+
+async def test_score_zero_policy_scores_the_missing_side_as_zero(roots):
+    store = MemoryStore(_sealed(roots, hf.FIVE_PROPOSALS))
+    result = await _compare(store, reps=1, backends=_backends_with_failed_candidate_case(5),
+                            failure_policy="score_zero")  # fmt: skip
+    assert not result.aborted and result.failure_policy == "score_zero"
+    assert "missing_scores" in result.flags and result.missing_cases["candidate"] == 1
+    cov = result.deltas["coverage"]
+    n_expected = len(store.sealed[0][0].expected_impacts)
+    # Four cases gain 1 - 1/n; the failed one scores 0 against the baseline's 1/n.
+    assert cov.n_cases == 5
+    assert cov.mean_delta == pytest.approx((4 * (1 - 1 / n_expected) - 1 / n_expected) / 5)
+    assert cov.ci95_low is not None
+
+
+async def test_compare_refuses_an_unknown_failure_policy(roots):
+    with pytest.raises(holdout.HoldoutError, match="failure_policy"):
+        await _compare(MemoryStore(_sealed(roots)), failure_policy="drop")
+
+
+# ----------------------------------------------------------------------------- small n (P2-4)
+
+
+async def test_fewer_than_five_proposals_give_null_cis(roots):
+    store = MemoryStore(_sealed(roots))
+    result = await _compare(store)
+    assert result.n_proposals == 2 and "insufficient_proposals" in result.flags
+    for delta in result.deltas.values():
+        assert delta.ci95_low is None and delta.ci95_high is None
+    assert result.deltas["coverage"].mean_delta is not None and not result.aborted
 
 
 async def test_compare_refuses_an_empty_store_and_bad_repetitions():
@@ -327,3 +388,63 @@ def _forbidden(name):
 
 def _tree(root: Path) -> set[str]:
     return {str(p) for p in root.rglob("*")} if root.exists() else set()
+
+
+# ----------------------------------------------------------------------------- plaintext cleanup
+
+
+def _importer():
+    import importlib.util
+    import sys
+
+    spec = importlib.util.spec_from_file_location(
+        "import_holdout_case", REPO_ROOT / "scripts/import_holdout_case.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["import_holdout_case"] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _plaintext(tmp_path, cid="case_90_x"):
+    drafts = tmp_path / "drafts"
+    drafts.mkdir()
+    draft = drafts / f"{cid}.yaml"
+    draft.write_text("plaintext holdout draft\n")
+    decisions = drafts / f"{cid}.decisions.yaml"
+    decisions.write_text("x: {decision: verified}\n")
+    handoff = tmp_path / "handoff.yaml"
+    handoff.write_text("h\n")
+    return drafts, draft, decisions, handoff
+
+
+def test_matching_draft_and_its_decisions_are_deleted(tmp_path):
+    import hashlib
+
+    drafts, draft, decisions, handoff = _plaintext(tmp_path)
+    sha = hashlib.sha256(draft.read_bytes()).hexdigest()
+    _importer().delete_plaintext(handoff, "case_90_x", sha, drafts)
+    assert not handoff.exists() and not draft.exists() and not decisions.exists()
+
+
+@pytest.mark.parametrize("sha", ["0" * 64, None])
+def test_a_changed_draft_keeps_its_decisions(tmp_path, capsys, sha):
+    """P3-2: the decisions belong to the draft on disk; deleting them would lose that review."""
+    drafts, draft, decisions, handoff = _plaintext(tmp_path)
+    _importer().delete_plaintext(handoff, "case_90_x", sha, drafts)
+    assert not handoff.exists()
+    assert draft.exists() and decisions.exists()
+    assert "it and its decisions stay" in capsys.readouterr().err
+
+
+def test_same_import_compares_the_ia_record_too(roots):
+    bundle = holdout.prepare_import(hf.handoff("prop_alpha"), hf.scenario_specs(), hf.ia_index(),
+                                    golden_dir=roots / "golden")  # fmt: skip
+    ia = bundle.ia
+    row = {"body_sha256": bundle.body_sha256, "scenario": bundle.scenario.model_dump(mode="json"),
+           "celex": ia.celex, "ia_reference": bundle.case.ia_reference, "ia_celex": ia.ia_celex,
+           "ia_date": ia.ia_date, "rsb_ref": ia.rsb_ref}  # fmt: skip
+    assert holdout._same_import(row, bundle)
+    assert not holdout._same_import(row | {"rsb_ref": "SEC(2099) 99"}, bundle)
+    assert not holdout._same_import(row | {"ia_celex": None}, bundle)
+    assert not holdout._same_import(row | {"body_sha256": "x"}, bundle)

@@ -15,7 +15,8 @@ context from the local IA cache. Without a terminal the script refuses to run un
     c20_m01: {decision: rejected, note: "already covered by c20_e03"}
 
 The verified case goes to a handoff file in .cache/holdout_import/ for the holdout importer
-(U6), never to evals/. Everything runs with LangSmith tracing disabled.
+(U6). The draft must be read from, and the handoff written to, a path under .cache/
+(gitignored); anything else is refused. Everything runs with LangSmith tracing disabled.
 """
 
 from __future__ import annotations
@@ -40,11 +41,13 @@ from womm.eval import ia_sources
 from womm.eval.drafting import (
     EVALS_DIR,
     DraftCandidate,
+    DraftingError,
     GoldenDraft,
     Review,
     _DraftItem,
     anchor_context,
     load_draft,
+    require_under_cache,
 )
 from womm.eval.golden import GoldenCase
 from womm.eval.golden_review import (
@@ -88,8 +91,13 @@ def info(msg: str) -> None:
 
 
 def _refuse_under_evals(path: Path, what: str) -> None:
+    """Holdout material only under .cache/ (gitignored), never under evals/ or elsewhere."""
     if path.resolve().is_relative_to(EVALS_DIR.resolve()):
         raise VerifyError(f"refusing {what} under evals/ ({path}); holdout material stays local")
+    try:
+        require_under_cache(path, what)
+    except DraftingError as exc:
+        raise VerifyError(str(exc)) from None
 
 
 def load_holdout_draft(path: Path) -> GoldenDraft:
