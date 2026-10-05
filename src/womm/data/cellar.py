@@ -96,9 +96,13 @@ def main_document(celex: str, items: list[ListingItem]) -> ListingItem:
 
 
 def celex_url(celex: str) -> str:
-    if not re.fullmatch(r"[0-9A-Z]+", celex):
+    """Cellar resource URL; a document suffix such as ``(01)`` must be percent-encoded, as
+    Cellar answers 404 to raw parentheses."""
+    m = re.fullmatch(r"([0-9A-Z]+)(?:\((\d{2})\))?", celex)
+    if not m:
         raise ValueError(f"not a CELEX number: {celex!r}")
-    return f"{CELLAR_BASE}/celex/{celex}"
+    suffix = f"%28{m.group(2)}%29" if m.group(2) else ""
+    return f"{CELLAR_BASE}/celex/{m.group(1)}{suffix}"
 
 
 def _cache_path(cache_dir: Path, url: str, accept: str, language: str) -> Path:

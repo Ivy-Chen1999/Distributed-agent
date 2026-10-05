@@ -78,6 +78,15 @@ def test_rejects_non_celex():
         celex_url("../etc/passwd")
 
 
+def test_celex_with_a_document_suffix_is_percent_encoded():
+    """IA CELEX ids such as 5YYYYSC0396(01) are valid in the IA index; Cellar answers 404 to
+    the raw parentheses and serves the document only when they are percent-encoded."""
+    assert celex_url("52099SC0001(01)").endswith("/celex/52099SC0001%2801%29")
+    for bad in ("52099SC0001(1)", "52099SC0001(01", "52099SC0001(01)x", "(01)"):
+        with pytest.raises(ValueError):
+            celex_url(bad)
+
+
 LISTING = (Path(__file__).parents[1] / "fixtures" / "cellar_300_com2022_454.html").read_text()
 CRA_ITEM = (
     "https://publications.europa.eu/resource/cellar/"
