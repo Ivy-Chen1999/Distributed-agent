@@ -1,6 +1,7 @@
 # Import settings for 52022PC0068; rerun scripts/import_proposal.py after editing.
-# strip_patterns / redactions / leak_allow are reviewed exceptions to the memorandum
-# leak guard. IA identifiers live only in the gitignored evals/private/ia_index.yaml.
+# strip_patterns / redactions / leak_allow / quant_allow are reviewed exceptions to the
+# memorandum leak guards (reasons stay here, never in sources.json).
+# IA identifiers live only in the gitignored evals/private/ia_index.yaml.
 celex: 52022PC0068
 regulation_id: data_act
 title: Data Act
@@ -9,6 +10,7 @@ date: null
 strip_patterns: {}
 redactions: []
 leak_allow: []
+quant_allow: []
 scenarios:
 - scenario_id: eval_cloud_switching
   description: Switching between providers of data processing services (cloud and edge), safeguards against

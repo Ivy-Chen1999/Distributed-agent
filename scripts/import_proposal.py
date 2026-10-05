@@ -11,7 +11,11 @@ resource itself, or its ``DOC_n`` act item when Cellar answers HTTP 300), pinned
 
 Every article becomes a provision with key ``<regulation_id>/proposal/art/<n>`` and its own
 source. The explanatory memorandum is stripped of impact-assessment material by topic pattern
-and must then pass the leak guard (``womm.data.memorandum``). The import fails, naming the
+and must then pass the leak guard and the quantitative guard (``womm.data.memorandum``): every
+kept sentence with an estimate, a percentage, a EUR amount or an "N out of ten" ratio must be
+redacted or allow-listed in ``import.yaml``. When the accompanying IA is cached locally
+(.cache/ia/<regulation_id>/), the memorandum must also not restate it (12-word n-gram overlap
+with the IA's impact cut, ``womm.eval.ia_sources.ngram_overlap``). The import fails, naming the
 CELEX, on zero articles, gaps or duplicate article numbers, an unrecognised memorandum or a
 leak, and then writes nothing: a proposal is imported whole or not at all.
 
@@ -53,13 +57,16 @@ from womm.data.fixtures import (
 from womm.data.ia_index import IA_FIELDS, IA_INDEX_PATH, IaRecord, load_ia_index, update_ia_index
 from womm.data.memorandum import (
     Allow,
+    QuantAllow,
     Redaction,
     leak_check_text,
     leak_guard,
     memorandum_sources,
+    quant_guard,
     redact_sentences,
     strip_topics,
 )
+from womm.eval import ia_sources
 from womm.models.base import StrictModel
 from womm.models.regulation import Provision, Regulation, RegulationVersion, Scenario, Source
 
@@ -98,6 +105,16 @@ class AllowSpec(StrictModel):
     )
 
 
+class QuantAllowSpec(StrictModel):
+    section: str = Field(min_length=1, description="Full heading or number of a kept section.")
+    sentence: str = Field(min_length=1, description="Exact sentence or a unique prefix of it.")
+    reason: str = Field(
+        min_length=1,
+        description="Why the figure is not an IA finding (e.g. a threshold the proposal sets); "
+        "kept here only, never in sources.json. Must not restate an IA conclusion.",
+    )
+
+
 class ImportConfig(StrictModel):
     celex: str = Field(pattern=_COM_CELEX.pattern)
     regulation_id: str = Field(pattern=r"^[a-z0-9][a-z0-9_]*$")
@@ -115,6 +132,11 @@ class ImportConfig(StrictModel):
     leak_allow: list[AllowSpec] = Field(
         default_factory=list,
         description="Section-scoped phrases (not about this IA) the leak guard ignores.",
+    )
+    quant_allow: list[QuantAllowSpec] = Field(
+        default_factory=list,
+        description="Kept sentences with an estimate, percentage, EUR amount or ratio that were "
+        "reviewed as not restating the IA.",
     )
     scenarios: list[ScenarioSpec] = Field(default_factory=list)
 
@@ -162,6 +184,11 @@ def build(config: ImportConfig, body: bytes) -> Imported:
         )
         leak_guard(
             redacted.kept, allow=[Allow(a.section, a.text) for a in config.leak_allow], label=celex
+        )
+        quant_guard(
+            redacted.kept,
+            allow=[QuantAllow(q.section, q.sentence, q.reason) for q in config.quant_allow],
+            label=celex,
         )
         for spec in config.scenarios:
             leak_check_text(spec.description, what=f"scenario {spec.scenario_id!r}", label=celex)
@@ -235,6 +262,28 @@ def build(config: ImportConfig, body: bytes) -> Imported:
     )
 
 
+def check_ia_overlap(imported: Imported, regulation_id: str, ia_root: Path | None = None) -> bool:
+    """When the accompanying IA is cached locally, fail if a memorandum source restates its
+    impact cut (12-word n-grams). Returns whether the check ran (False: no cached IA)."""
+    try:
+        cached = ia_sources.load_cached_ia(regulation_id, ia_root)
+    except ia_sources.IaSourceError as exc:
+        raise ImportFailed(f"{regulation_id}: cannot read the cached IA: {exc}") from None
+    if cached is None:
+        return False
+    for source in imported.sources:
+        if source.kind != "memorandum":
+            continue
+        hit = ia_sources.restates_ia(source.text, cached.cut_text)
+        if hit:
+            raise ImportFailed(
+                f"{imported.regulation.versions[0].source}: {source.source_id} restates the "
+                f"cached IA ({hit[0]:.1%} of its 12-grams, a {hit[1]}-word run); strip or "
+                "redact the passage in import.yaml"
+            )
+    return True
+
+
 def _dump_json(path: Path, payload) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
@@ -268,8 +317,9 @@ def write_fixture(
     (out_dir / "scenarios.yaml").write_text(header + body, encoding="utf-8")
     config_header = (
         f"# Import settings for {config.celex}; rerun scripts/import_proposal.py after editing.\n"
-        "# strip_patterns / redactions / leak_allow are reviewed exceptions to the memorandum\n"
-        "# leak guard. IA identifiers live only in the gitignored evals/private/ia_index.yaml.\n"
+        "# strip_patterns / redactions / leak_allow / quant_allow are reviewed exceptions to the\n"
+        "# memorandum leak guards (reasons stay here, never in sources.json).\n"
+        "# IA identifiers live only in the gitignored evals/private/ia_index.yaml.\n"
     )
     config_body = yaml.safe_dump(
         config.model_dump(mode="json"), sort_keys=False, allow_unicode=True, width=100
@@ -375,12 +425,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--ia-date", help="publication date of the IA, YYYY-MM-DD (local only)")
     parser.add_argument("--rsb-ref", help="SEC reference of the RSB opinion (local index only)")
     parser.add_argument("--ia-index", type=Path, default=IA_INDEX_PATH, help=argparse.SUPPRESS)
+    parser.add_argument("--ia-root", type=Path, default=None, help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
 
     out_dir, config = resolve_config(args)
     ia = ia_record(args, config)  # validated before anything is downloaded or written
     url, body = download(config, out_dir, refresh=args.refresh)
     imported = build(config, body)
+    overlap_checked = check_ia_overlap(imported, config.regulation_id, args.ia_root)
     config = config.model_copy(update={"document_url": url, "title": imported.regulation.title})
     try:
         write_fixture(out_dir, config, imported, {url: body}, accept=args.accept_upstream_changes)
@@ -401,7 +453,12 @@ def main(argv: list[str] | None = None) -> int:
     for heading, reasons in imported.redactions.items():  # log only; never in sources.json
         for reason in reasons:
             print(f"  {heading}: {reason}")
-    print("leak guard: clean")
+    print("leak guard: clean; quantitative guard: clean")
+    print(
+        "IA overlap: clean (12-grams vs the cached IA)"
+        if overlap_checked
+        else "IA overlap: not checked (no IA cached under .cache/ia/)"
+    )
     if ia is not None:
         print(f"IA identifiers: written to {args.ia_index} (local only)")
     return 0

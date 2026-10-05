@@ -1,6 +1,7 @@
 # Import settings for 52026PC0599; rerun scripts/import_proposal.py after editing.
-# strip_patterns / redactions / leak_allow are reviewed exceptions to the memorandum
-# leak guard. IA identifiers live only in the gitignored evals/private/ia_index.yaml.
+# strip_patterns / redactions / leak_allow / quant_allow are reviewed exceptions to the
+# memorandum leak guards (reasons stay here, never in sources.json).
+# IA identifiers live only in the gitignored evals/private/ia_index.yaml.
 celex: 52026PC0599
 regulation_id: affordable_housing
 title: Affordable Housing Act
@@ -9,4 +10,5 @@ date: null
 strip_patterns: {}
 redactions: []
 leak_allow: []
+quant_allow: []
 scenarios: []

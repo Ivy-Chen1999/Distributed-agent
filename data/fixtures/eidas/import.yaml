@@ -1,6 +1,7 @@
 # Import settings for 52021PC0281; rerun scripts/import_proposal.py after editing.
-# strip_patterns / redactions / leak_allow are reviewed exceptions to the memorandum
-# leak guard. IA identifiers live only in the gitignored evals/private/ia_index.yaml.
+# strip_patterns / redactions / leak_allow / quant_allow are reviewed exceptions to the
+# memorandum leak guards (reasons stay here, never in sources.json).
+# IA identifiers live only in the gitignored evals/private/ia_index.yaml.
 celex: 52021PC0281
 regulation_id: eidas
 title: European Digital Identity Regulation (amending eIDAS)
@@ -11,5 +12,18 @@ redactions:
 - section: 5.2.
   sentence: The new qualified trust service would be directly linked
   reason: links an article to measures assessed in the IA
+- section: 1.1.
+  sentence: As a result, only 59 % of EU residents
+  reason: 'quantified background statistic of the kind used to size the problem; manual review: redacted'
+- section: 5.2.
+  sentence: 75% of all use cases for electronic ledgers
+  reason: 'quantified background statistic of the kind used to size the problem; manual review: redacted'
+- section: 5.2.
+  sentence: Use cases for electronic ledgers are today increasingly diverse
+  reason: 'quantified background statistic of the kind used to size the problem; manual review: redacted'
 leak_allow: []
+quant_allow:
+- section: 1.1.
+  sentence: By offering a European Digital Identity framework
+  reason: a political target of another Union instrument or strategy, not an assessment finding
 scenarios: []

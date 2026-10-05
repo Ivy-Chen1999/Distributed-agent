@@ -1,6 +1,7 @@
 # Import settings for 52021PC0202; rerun scripts/import_proposal.py after editing.
-# strip_patterns / redactions / leak_allow are reviewed exceptions to the memorandum
-# leak guard. IA identifiers live only in the gitignored evals/private/ia_index.yaml.
+# strip_patterns / redactions / leak_allow / quant_allow are reviewed exceptions to the
+# memorandum leak guards (reasons stay here, never in sources.json).
+# IA identifiers live only in the gitignored evals/private/ia_index.yaml.
 celex: 52021PC0202
 regulation_id: machinery
 title: Machinery Regulation
@@ -12,4 +13,5 @@ redactions:
   sentence: In view of dealing with the elements highlighted in the evaluation
   reason: attributes the problem list to the IA report
 leak_allow: []
+quant_allow: []
 scenarios: []

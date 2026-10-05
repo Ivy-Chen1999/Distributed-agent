@@ -1,6 +1,7 @@
 # Import settings for 52026PC0990; rerun scripts/import_proposal.py after editing.
-# strip_patterns / redactions / leak_allow are reviewed exceptions to the memorandum
-# leak guard. IA identifiers live only in the gitignored evals/private/ia_index.yaml.
+# strip_patterns / redactions / leak_allow / quant_allow are reviewed exceptions to the
+# memorandum leak guards (reasons stay here, never in sources.json).
+# IA identifiers live only in the gitignored evals/private/ia_index.yaml.
 celex: 52026PC0990
 regulation_id: tcn_qualifications
 title: Third-Country Qualifications Directive
@@ -18,4 +19,5 @@ redactions:
   sentence: The preferred policy option is estimated
   reason: states the IA's chosen option and its monetised savings
 leak_allow: []
+quant_allow: []
 scenarios: []

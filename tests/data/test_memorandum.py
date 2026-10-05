@@ -10,11 +10,14 @@ from womm.data.cellar import cached
 from womm.data.memorandum import (
     Allow,
     MemorandumError,
+    QuantAllow,
     Redaction,
     leak_check_text,
     leak_guard,
     memorandum_sources,
     normalise,
+    quant_guard,
+    quant_hits,
     redact_sentences,
     sentence_starts,
     strip_topics,
@@ -420,3 +423,80 @@ def test_redactions_recorded_on_the_owning_source_only() -> None:
     assert "impact assessment" not in context.text
     assert legal.redactions == []
     assert "redactions" not in legal.model_dump() and "redactions" in context.model_dump()
+
+
+# ----------------------------------------------------------------------------- quantitative guard
+
+
+PLATFORMS = (
+    "Platforms have grown fast. Nine out of ten platforms active in the EU currently are "
+    "estimated to classify people working through them as self-employed. Workers need rights."
+)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Nine out of ten platforms classify workers as self-employed.",
+        "One in five SMEs would be affected.",
+        "Revenues are estimated to have grown.",
+        "According to one estimate, many people are at risk.",
+        "Fines reach 6% of turnover.",
+        "Uptake rose by 12.5 per cent.",
+        "The gap is EUR 65 billion a year.",
+        "The gap is € 3 million.",
+        "Costs of 2 million euros are expected.",
+        "3 out of 4 providers comply.",
+    ],
+)
+def test_quant_markers_flag_estimates_percentages_amounts_and_ratios(text: str) -> None:
+    assert quant_hits(text), text
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["Article 5 of Regulation (EU) 2019/1150 applies.", "One of the two options.",
+     "In 2020 the Commission adopted a strategy.", "Annex III lists the areas."],
+)  # fmt: skip
+def test_quant_markers_ignore_plain_numbers(text: str) -> None:
+    assert quant_hits(text) == []
+
+
+def _quant_sections(text: str = PLATFORMS) -> list[MemorandumSection]:
+    return [MemorandumSection("1.1.", "Reasons for and objectives of the proposal", 2, [text])]
+
+
+def test_quant_guard_fails_naming_the_flagged_sentence() -> None:
+    with pytest.raises(MemorandumError, match=r"(?s)52099PC0001: 1 kept sentence.*Nine out of ten"):
+        quant_guard(_quant_sections(), label="52099PC0001")
+
+
+def test_a_redacted_flagged_sentence_passes() -> None:
+    redacted = redact_sentences(
+        _quant_sections(), [Redaction("1.1.", "Nine out of ten platforms", "an estimate")]
+    )
+    quant_guard(redacted.kept)
+    assert "Nine" not in " ".join(redacted.kept[0].blocks)
+
+
+def test_an_allow_listed_sentence_passes_and_only_that_one() -> None:
+    text = PLATFORMS + " Fines reach 6% of turnover."
+    allow = [QuantAllow("1.1.", "Nine out of ten platforms", "reviewed")]
+    with pytest.raises(MemorandumError, match=r"(?s)1 kept sentence.*6% of turnover"):
+        quant_guard(_quant_sections(text), allow=allow)
+    allow.append(QuantAllow("1.1.", "Fines reach 6%", "a fine the proposal sets"))
+    quant_guard(_quant_sections(text), allow=allow)
+
+
+@pytest.mark.parametrize(
+    ("entry", "message"),
+    [
+        (QuantAllow("9.9.", "Nine out of ten", "r"), "matches 0 kept sections"),
+        (QuantAllow("1.1.", "Ten out of ten", "r"), "not found"),
+        (QuantAllow("1.1.", "Workers need rights", "r"), "no quantitative marker"),
+        (QuantAllow("1.1.", "Nine out of ten", " "), "empty sentence or reason"),
+    ],
+)
+def test_stale_or_empty_quant_allow_entries_fail(entry: QuantAllow, message: str) -> None:
+    with pytest.raises(MemorandumError, match=message):
+        quant_guard(_quant_sections(), allow=[entry])

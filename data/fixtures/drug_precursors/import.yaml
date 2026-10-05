@@ -1,6 +1,7 @@
 # Import settings for 52025PC0747; rerun scripts/import_proposal.py after editing.
-# strip_patterns / redactions / leak_allow are reviewed exceptions to the memorandum
-# leak guard. IA identifiers live only in the gitignored evals/private/ia_index.yaml.
+# strip_patterns / redactions / leak_allow / quant_allow are reviewed exceptions to the
+# memorandum leak guards (reasons stay here, never in sources.json).
+# IA identifiers live only in the gitignored evals/private/ia_index.yaml.
 celex: 52025PC0747
 regulation_id: drug_precursors
 title: Drug Precursors Regulation
@@ -11,5 +12,16 @@ redactions:
 - section: 1.2.
   sentence: Streamlined administrative procedures and a central electronic system
   reason: states the IA's net cost-saving conclusion
+- section: 1.1.
+  sentence: Within the EU, there were approximately 4 000 active licenses or registrations to trade in
+    drug precursors in 2023. 92 % of these companies
+  reason: 'quantified background statistic of the kind used to size the problem; manual review: redacted'
+- section: 1.1.
+  sentence: The Union chemical industry is a strategic sector
+  reason: 'quantified background statistic of the kind used to size the problem; manual review: redacted'
 leak_allow: []
+quant_allow:
+- section: 5.2.
+  sentence: Instead, they will simply register information on their activities
+  reason: describes what registrants must declare under the proposal, not an estimate of impacts
 scenarios: []

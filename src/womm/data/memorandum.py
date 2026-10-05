@@ -35,6 +35,15 @@ reviewable, never by loosening the guard:
   "environmental impact assessment" of another instrument). It names its kept section, must
   occur there exactly once, must contain a marker and must carry a qualifying word beyond it:
   "the impact assessment" or "IAs" would mask the marker itself and are refused.
+
+A second, **quantitative guard** (``quant_guard``) catches IA findings restated without any IA
+marker ("Nine out of ten platforms ..."): every kept sentence with an estimate ("estimate",
+"estimated"), a percentage, a EUR or euro amount, or an "N out of ten" / "one in five" ratio
+needs a manual decision at import. It must be either redacted (``redact_sentences``) or listed
+in the proposal's ``quant_allow`` (section, sentence or unique prefix, reason), e.g. a fine of
+"6% of total worldwide annual turnover" that the proposal itself sets. An allow entry that
+matches no flagged sentence fails, so a stale entry cannot pass silently. Reasons stay in
+``import.yaml``.
 """
 
 from __future__ import annotations
@@ -72,6 +81,20 @@ LEAK_MARKERS = (
     r"problem definition",  # IA template term for the problem analysis
 )
 _MARKERS = [re.compile(m) for m in LEAK_MARKERS]
+_NUM_WORD = (
+    r"(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|twenty|fifty|hundred"
+    r"|a hundred|a thousand|thousand)"
+)
+# Quantitative markers over ``normalise``d text: each flags its sentence for a manual decision.
+QUANT_MARKERS = (
+    r"\bestimat(?:e|es|ed)\b",
+    r"\d(?:[\d.,]*\d)?\s*(?:%|per\s?cent\b|percent\b|percentage points?\b)",
+    r"(?:\beur\b|€)\s*\d",
+    r"\d(?:[\d.,]*\d)?\s*(?:(?:bn|m|mn|million|billion|thousand|trillion)\s+)?(?:\beur\b|€|euros?\b)",
+    rf"\b(?:\d+|{_NUM_WORD})\s+out\s+of\s+(?:every\s+)?(?:\d+|{_NUM_WORD})\b",
+    rf"\b(?:\d+|{_NUM_WORD})\s+in\s+(?:every\s+)?{_NUM_WORD}\b",
+)
+_QUANT = [re.compile(m) for m in QUANT_MARKERS]
 # Words that cannot make an allow entry specific: what is left of "the impact assessment" or
 # "impact assessments" once the marker is removed.
 _FUNCTION_WORDS = frozenset(
@@ -345,6 +368,88 @@ def leak_guard(
         raise MemorandumError(
             f"{label}: {len(hits)} IA marker(s) in kept memorandum sections:\n  "
             + "\n  ".join(hits)
+        )
+
+
+@dataclass(frozen=True)
+class QuantAllow:
+    """One kept sentence with a quantitative marker, reviewed as not an IA finding."""
+
+    section: str  # the section's full heading or its number, as for ``Redaction``
+    sentence: str  # the exact sentence, or a prefix of it that starts exactly one sentence
+    reason: str
+
+
+def quant_hits(text: str) -> list[str]:
+    """The quantitative markers in ``text`` (normalised first), as matched snippets."""
+    norm = normalise(text)
+    return [m.group(0) for pattern in _QUANT for m in pattern.finditer(norm)]
+
+
+def sentences(text: str) -> list[str]:
+    """``text`` split into sentences (abbreviation-aware, whitespace collapsed)."""
+    block = _norm(text)
+    cuts = sorted(sentence_starts(block)) + [len(block)]
+    return [block[a:b].strip() for a, b in zip(cuts, cuts[1:], strict=False) if block[a:b].strip()]
+
+
+def quant_guard(
+    sections: list[MemorandumSection],
+    *,
+    allow: Iterable[QuantAllow] = (),
+    label: str = "memorandum",
+) -> None:
+    """Raise listing every kept sentence with a quantitative marker that no ``allow`` entry
+    covers, and every allow entry that is stale (no section, no sentence, several sentences,
+    or a sentence without a marker)."""
+    covered: set[tuple[int, int, int]] = set()  # (section id, block index, sentence start)
+    errors: list[str] = []
+    for a in allow:
+        target, count = _find_section(sections, a.section)
+        if target is None:
+            errors.append(
+                f"quant_allow {a.sentence[:50]!r}: section {a.section!r} matches {count} kept "
+                "sections"
+            )
+            continue
+        needle = _norm(a.sentence)
+        if not needle or not a.reason.strip():
+            errors.append(f"quant_allow in {target.full_heading!r}: empty sentence or reason")
+            continue
+        hits = []
+        for i, raw in enumerate(target.blocks):
+            block = _norm(raw)
+            hits += [(i, pos) for pos in sentence_starts(block) if block.startswith(needle, pos)]
+        if len(hits) != 1:
+            what = "not found" if not hits else f"starts {len(hits)} sentences"
+            errors.append(f"quant_allow {needle[:60]!r} in {target.full_heading!r}: {what}")
+            continue
+        i, pos = hits[0]
+        block = _norm(target.blocks[i])
+        end = next((e for e in _sentence_ends(block) if e > pos), len(block))
+        if not quant_hits(block[pos:end]):
+            errors.append(
+                f"quant_allow {needle[:60]!r} in {target.full_heading!r}: the sentence has no "
+                "quantitative marker (stale entry)"
+            )
+            continue
+        covered.add((id(target), i, pos))
+    if errors:
+        raise MemorandumError(f"{label}: quant_allow failed:\n  " + "\n  ".join(errors))
+    flagged: list[str] = []
+    for s in sections:
+        for i, raw in enumerate(s.blocks):
+            block = _norm(raw)
+            cuts = sorted(sentence_starts(block)) + [len(block)]
+            for a, b in zip(cuts, cuts[1:], strict=False):
+                sentence = block[a:b].strip()
+                if sentence and quant_hits(sentence) and (id(s), i, a) not in covered:
+                    flagged.append(f"{s.full_heading!r}: {sentence}")
+    if flagged:
+        raise MemorandumError(
+            f"{label}: {len(flagged)} kept sentence(s) with an estimate, percentage, EUR amount "
+            "or ratio need a manual decision (redact them, or list them in quant_allow with a "
+            "reason):\n  " + "\n  ".join(flagged)
         )
 
 

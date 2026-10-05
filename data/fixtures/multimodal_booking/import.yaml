@@ -1,6 +1,7 @@
 # Import settings for 52026PC0231; rerun scripts/import_proposal.py after editing.
-# strip_patterns / redactions / leak_allow are reviewed exceptions to the memorandum
-# leak guard. IA identifiers live only in the gitignored evals/private/ia_index.yaml.
+# strip_patterns / redactions / leak_allow / quant_allow are reviewed exceptions to the
+# memorandum leak guards (reasons stay here, never in sources.json).
+# IA identifiers live only in the gitignored evals/private/ia_index.yaml.
 celex: 52026PC0231
 regulation_id: multimodal_booking
 title: Multimodal Booking Regulation
@@ -11,5 +12,9 @@ redactions:
 - section: 1.3.
   sentence: As shown in the Commission staff working document
   reason: cites the accompanying IA document's climate-consistency finding
+- section: 1.1.
+  sentence: An analysis of 100 representative routes in the EU
+  reason: 'quantified background statistic of the kind used to size the problem; manual review: redacted'
 leak_allow: []
+quant_allow: []
 scenarios: []

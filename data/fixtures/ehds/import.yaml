@@ -1,6 +1,7 @@
 # Import settings for 52022PC0197; rerun scripts/import_proposal.py after editing.
-# strip_patterns / redactions / leak_allow are reviewed exceptions to the memorandum
-# leak guard. IA identifiers live only in the gitignored evals/private/ia_index.yaml.
+# strip_patterns / redactions / leak_allow / quant_allow are reviewed exceptions to the
+# memorandum leak guards (reasons stay here, never in sources.json).
+# IA identifiers live only in the gitignored evals/private/ia_index.yaml.
 celex: 52022PC0197
 regulation_id: ehds
 title: European Health Data Space Regulation
@@ -15,4 +16,8 @@ redactions:
   sentence: In the impact assessment, the evaluation of Article 14
   reason: restates the IA's evaluation result that soft instruments did not work
 leak_allow: []
+quant_allow:
+- section: 1.1.
+  sentence: The EHDS will help to attain the Commission’s vision
+  reason: a political target of another Union instrument or strategy, not an assessment finding
 scenarios: []

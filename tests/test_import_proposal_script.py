@@ -12,7 +12,8 @@ from womm.config import REPO_ROOT
 from womm.data import cellar
 from womm.data.fixtures import load_fixture
 from womm.data.ia_index import IA_FIELDS, load_ia_index
-from womm.data.memorandum import leak_check_text, marker_hits, normalise
+from womm.data.memorandum import leak_check_text, marker_hits, normalise, quant_hits, sentences
+from womm.eval import ia_sources
 
 spec = importlib.util.spec_from_file_location(
     "import_proposal", REPO_ROOT / "scripts/import_proposal.py"
@@ -53,7 +54,8 @@ def serve(monkeypatch):
 
 
 def _run(tmp_path, *args) -> int:
-    return import_proposal.main([*args, "--root", str(tmp_path)])
+    # --ia-root: an empty IA cache, so the developer's own .cache/ia/ never affects a test.
+    return import_proposal.main([*args, "--root", str(tmp_path), "--ia-root", str(tmp_path / "ia")])
 
 
 def test_data_act_sample_imports_to_a_loadable_fixture(tmp_path, serve):
@@ -397,6 +399,20 @@ def test_committed_imports_load_and_are_complete(name):
     published = (out / "sources.json").read_text(encoding="utf-8").casefold()
     for r in redactions:
         assert r["reason"].strip().casefold() not in published, (name, r["reason"])
+    # Every kept sentence with an estimate, percentage, EUR amount or ratio was decided: it is
+    # redacted (gone from the source) or allow-listed with a reason in import.yaml.
+    quant_allow = config.get("quant_allow") or []
+    allowed = [normalise(" ".join(q["sentence"].split())) for q in quant_allow]
+    assert all(q["reason"].strip() for q in quant_allow), name
+    for s in memo:
+        for block in s.text.split("\n\n"):
+            for sentence in sentences(block):
+                if quant_hits(sentence):
+                    assert any(normalise(sentence).startswith(a) for a in allowed), (
+                        name, s.source_id, sentence
+                    )  # fmt: skip
+    for q in quant_allow:
+        assert q["reason"].strip().casefold() not in published, (name, q["reason"])
     # Public scenarios carry no IA reference (golden cases do) and their text passes the guard.
     scenarios = yaml.safe_load((out / "scenarios.yaml").read_text()).get("scenarios") or []
     for sc in [*scenarios, *(config.get("scenarios") or [])]:
@@ -406,3 +422,89 @@ def test_committed_imports_load_and_are_complete(name):
     assert not any(k in config for k in IA_FIELDS), name
     raw = (out / "import.yaml").read_text()
     assert not re.search(r"\b5\d{4}SC\d{4}|SEC\(\d{4}\)|SWD\(\d{4}\)", raw), name
+
+
+# ----------------------------------------------------------------------------- quantitative guard
+
+
+QUANT = DATA_ACT.replace(
+    b"<span>Reasons for and objectives of the proposal</span>",
+    b"<span>Reasons for and objectives of the proposal</span>"
+    b"</p><p class='Normal'><span>Nine out of ten firms are estimated to lose data. "
+    b"Data is an asset.</span>",
+    1,
+)
+
+
+def test_quantitative_sentence_fails_the_import_until_decided(tmp_path, serve):
+    assert QUANT != DATA_ACT
+    serve(QUANT)
+    with pytest.raises(
+        import_proposal.ImportFailed, match=r"(?s)52022PC0068: 1 kept sentence.*Nine out of ten"
+    ):
+        _run(tmp_path, CELEX, "--id", "data_act")
+    assert not (tmp_path / "data_act").exists()
+    _write_config(
+        tmp_path,
+        redactions=[{"section": "1.1.", "sentence": "Nine out of ten", "reason": "an estimate"}],
+    )
+    assert _run(tmp_path, CELEX) == 0
+    published = (tmp_path / "data_act" / "sources.json").read_text()
+    assert "Nine out of ten" not in published and "an estimate" not in published
+
+
+def test_quantitative_sentence_may_be_allow_listed(tmp_path, serve):
+    serve(QUANT)
+    allow = [{"section": "1.1.", "sentence": "Nine out of ten", "reason": "reviewed: not the IA"}]
+    _write_config(tmp_path, quant_allow=allow)
+    assert _run(tmp_path, CELEX) == 0
+    out = tmp_path / "data_act"
+    assert "Nine out of ten" in (out / "sources.json").read_text()
+    assert "reviewed: not the IA" not in (out / "sources.json").read_text()
+    assert yaml.safe_load((out / "import.yaml").read_text())["quant_allow"] == allow
+
+
+# ----------------------------------------------------------------------------- cached IA overlap
+
+
+def _cache_ia(ia_root, text, fixture="data_act"):
+    """A cached synthetic IA whose impacts section is ``text`` (synthetic 2099 identifier)."""
+    from .eval.test_ia_sources import BASE, doc, h, p
+
+    body = doc(h(1, "6. What are the impacts of the policy options?") + p(text))
+    routes = {f"{BASE}/celex/52099SC0009": httpx.Response(200, content=body)}
+    client = httpx.Client(
+        transport=httpx.MockTransport(lambda r: routes.get(str(r.url), httpx.Response(404)))
+    )
+    ia_sources.cache_ia(fixture, "52099SC0009", None, root=ia_root, client=client)
+
+
+def test_memorandum_restating_the_cached_ia_fails_the_import(tmp_path, serve):
+    serve()
+    assert _run(tmp_path / "first", CELEX, "--id", "data_act") == 0
+    memo = [s for s in load_fixture(tmp_path / "first" / "data_act").sources.values()
+            if s.kind == "memorandum"]  # fmt: skip
+    _cache_ia(tmp_path / "ia", memo[0].text)
+    with pytest.raises(import_proposal.ImportFailed, match="restates the cached IA"):
+        _run(tmp_path, CELEX, "--id", "data_act")
+    assert not (tmp_path / "data_act").exists()
+
+
+def test_unrelated_cached_ia_passes(tmp_path, serve, capsys):
+    serve()
+    _cache_ia(tmp_path / "ia", "Widgets would cost five euros less per unit for all buyers. " * 5)
+    assert _run(tmp_path, CELEX, "--id", "data_act") == 0
+    assert "IA overlap: clean" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("name", COMMITTED)
+def test_committed_memoranda_do_not_restate_their_cached_ia(name):
+    """12-word n-gram overlap of each memorandum source with the fixture's own IA impact cut,
+    where that IA is cached locally (.cache/ia/ is gitignored, so CI usually skips)."""
+    cached = ia_sources.load_cached_ia(name)
+    if cached is None:
+        pytest.skip(f"no IA cached for {name} under .cache/ia/")
+    fixture = load_fixture(REPO_ROOT / "data" / "fixtures" / name)
+    for source in fixture.sources.values():
+        if source.kind == "memorandum":
+            assert ia_sources.restates_ia(source.text, cached.cut_text) is None, source.source_id

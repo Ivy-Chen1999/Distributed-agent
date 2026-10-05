@@ -1,6 +1,7 @@
 # Import settings for 52020PC0825; rerun scripts/import_proposal.py after editing.
-# strip_patterns / redactions / leak_allow are reviewed exceptions to the memorandum
-# leak guard. IA identifiers live only in the gitignored evals/private/ia_index.yaml.
+# strip_patterns / redactions / leak_allow / quant_allow are reviewed exceptions to the
+# memorandum leak guards (reasons stay here, never in sources.json).
+# IA identifiers live only in the gitignored evals/private/ia_index.yaml.
 celex: 52020PC0825
 regulation_id: dsa
 title: Digital Services Act
@@ -12,4 +13,11 @@ redactions:
   sentence: Sector-specific instruments do not cover all the regulatory gaps evidenced
   reason: states the IA's problem finding (regulatory gaps of sector-specific instruments)
 leak_allow: []
+quant_allow:
+- section: 1.1.
+  sentence: The operational threshold for service providers in scope of these obligations
+  reason: a target or threshold set by this proposal's own articles, not an assessment finding
+- section: 1.1.
+  sentence: This threshold is proportionate to the risks brought by the reach of the platforms
+  reason: a target or threshold set by this proposal's own articles, not an assessment finding
 scenarios: []
