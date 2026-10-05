@@ -8,15 +8,22 @@ gitignored evals/private/ia_index.yaml; ``--ia-section`` selects headings of its
 cut (default: the whole cut). Roles, models and prompts come from evals/drafting.yaml.
 
 Train/val drafts are written to evals/golden/drafts/<case>.yaml for PR review. Holdout drafts
-go only to .cache/drafts/ (gitignored); writing one under evals/ is refused, and a holdout run
-executes entirely with LangSmith tracing disabled. Holdout scenarios are not in public
-fixtures, so a holdout case passes ``--articles`` instead of ``--scenario``.
+go only under .cache/ (gitignored; default .cache/drafts/); any other destination is refused,
+and a holdout run executes entirely with LangSmith tracing disabled. Holdout scenarios are not
+in public fixtures, so a holdout case passes ``--articles`` instead of ``--scenario``. A train or
+val draft for a proposal registered as holdout in the gitignored local registry
+(evals/private/holdout_scenarios.yaml) is refused.
+
+The audit sample (20%, pinned) is drawn with a seed derived from the case id; it cannot be set
+here. ``--drafted-by`` (default: ``git config github.user``, else ``git config user.name``) is
+recorded in the draft; the review gate refuses the drafter as a reviewer.
 """
 
 from __future__ import annotations
 
 import argparse
 import asyncio
+import subprocess
 import sys
 from pathlib import Path
 
@@ -35,6 +42,7 @@ from womm.eval.drafting import (
     load_drafting_config,
     write_draft,
 )
+from womm.eval.golden_review import HOLDOUT_REGISTRY, ReviewError, refuse_holdout_fixture
 from womm.llm.base import LLMBackend, LLMError, get_backend
 from womm.llm.claude_code import ClaudeCodeBackend
 from womm.models.regulation import Scenario
@@ -82,8 +90,24 @@ def scenario_for(args: argparse.Namespace, fixture) -> Scenario:
     )
 
 
+def git_identity() -> str | None:
+    """The drafter's handle: ``git config github.user``, else ``git config user.name``."""
+    for key in ("github.user", "user.name"):
+        try:
+            out = subprocess.run(
+                ["git", "config", "--get", key], capture_output=True, text=True, check=False
+            ).stdout.strip()
+        except OSError:
+            return None
+        if out:
+            return out
+    return None
+
+
 async def run(args: argparse.Namespace, backends: dict[str, LLMBackend] | None = None) -> Path:
     draft_path(args.case, args.split, args.out_dir)  # refuse a bad destination before any work
+    if args.split != "holdout":
+        refuse_holdout_fixture(args.fixture, f"{args.split} drafting", args.holdout_registry)
     record = load_ia_index(args.ia_index).get(args.fixture)
     if record is None or not record.ia_celex:
         raise DraftingError(
@@ -122,7 +146,7 @@ async def run(args: argparse.Namespace, backends: dict[str, LLMBackend] | None =
         ),
         notes=args.notes or "",
         ia_record=record,
-        audit_seed=args.audit_seed,
+        drafted_by=args.drafted_by or git_identity(),
     )
     if backends is None:
         backends = await prepare_backends(config, skip_self_check=args.skip_self_check)
@@ -154,13 +178,18 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--ia-section", action="append", help="IA heading prefix or title to draft from"
     )
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
-    parser.add_argument("--audit-seed", type=int, help="default: derived from the case id")
+    parser.add_argument(
+        "--drafted-by", help="your GitHub handle (default: git config github.user / user.name)"
+    )
     parser.add_argument("--notes", help="free-text notes for reviewers")
     parser.add_argument("--out-dir", type=Path, help=argparse.SUPPRESS)
     parser.add_argument("--refresh", action="store_true", help="re-download the IA")
     parser.add_argument("--skip-self-check", action="store_true")
     parser.add_argument("--ia-index", type=Path, default=IA_INDEX_PATH, help=argparse.SUPPRESS)
     parser.add_argument("--ia-root", type=Path, default=None, help=argparse.SUPPRESS)
+    parser.add_argument(
+        "--holdout-registry", type=Path, default=HOLDOUT_REGISTRY, help=argparse.SUPPRESS
+    )
     return parser.parse_args(argv)
 
 
@@ -174,7 +203,7 @@ def main(argv: list[str] | None = None, backends: dict[str, LLMBackend] | None =
                 asyncio.run(run(args, backends))
         else:
             asyncio.run(run(args, backends))
-    except (DraftingError, ia_sources.IaSourceError, FixtureError, LLMError) as exc:
+    except (DraftingError, ReviewError, ia_sources.IaSourceError, FixtureError, LLMError) as exc:
         info(f"error: {exc}")
         return 2
     return 0

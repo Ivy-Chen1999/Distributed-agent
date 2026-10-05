@@ -9,7 +9,11 @@ evals/golden/<case_id>.yaml: rejected and unclear items are dropped, edited item
 written, accepted possibly_missing candidates become expected impacts with provenance
 ``human_confirmed_candidate``, and the notes record the reviewers and dates. A case keeping
 fewer than 3 expected impacts is refused. The published case must pass
-``check_against_fixture``; then the draft is deleted.
+``check_against_fixture``; then the draft is deleted and its audit counts are added to
+evals/golden/audit_tally.yaml (counts per fixture only), so a proposal's escalation spans PRs.
+
+A draft whose fixture is registered as a holdout proposal in the gitignored local registry
+(evals/private/holdout_scenarios.yaml) is refused: all cases of one proposal share a split.
 
 Holdout drafts never come here: they are verified locally with scripts/verify_golden_case.py.
 
@@ -31,14 +35,25 @@ from womm.config import REPO_ROOT
 from womm.eval.drafting import DRAFTS_DIR, GoldenDraft, load_draft
 from womm.eval.golden import GOLDEN_DIR, GoldenError, check_against_fixture
 from womm.eval.golden_review import (
+    AUDIT_TALLY_PATH,
+    HOLDOUT_REGISTRY,
     ReviewError,
+    Tally,
+    TallyError,
     audit_result,
     build_case,
     case_yaml_header,
     check_draft,
     escalated_fixtures,
+    fixture_audit,
+    holdout_fixtures,
+    load_audit_tally,
+    refuse_holdout_fixture,
     scenario_keys_for,
+    write_audit_tally,
 )
+
+_ZERO = audit_result([])
 
 
 def info(msg: str) -> None:
@@ -60,6 +75,8 @@ def publish_one(
     golden_dir: Path,
     today: dt.date,
     dry_run: bool,
+    tally: Tally | None = None,
+    registry: Path = HOLDOUT_REGISTRY,
 ) -> Path:
     """Write one case; raises ReviewError (or GoldenError) with the reasons when refused."""
     if draft.split == "holdout":
@@ -67,11 +84,12 @@ def publish_one(
             f"{draft.case_id}: holdout cases are never published to evals/; verify them with "
             "scripts/verify_golden_case.py and seal them in the holdout database"
         )
-    escalated = draft.fixture in escalated_fixtures(all_drafts)
+    refuse_holdout_fixture(draft.fixture, "publishing a train/val case", registry)
+    escalated = draft.fixture in escalated_fixtures(all_drafts, tally)
     problems = check_draft(draft, scenario_keys_for(draft), escalated=escalated)
     if problems:
         raise ReviewError("not fully decided:\n  " + "\n  ".join(problems))
-    audit = audit_result(d for d in all_drafts if d.fixture == draft.fixture)
+    audit = fixture_audit(draft.fixture, all_drafts, tally)
     case = build_case(draft, published_on=today, audit=audit)
     check_against_fixture(case)
     target = golden_dir / f"{case.case_id}.yaml"
@@ -94,6 +112,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--drafts-dir", type=Path, default=DRAFTS_DIR, help=argparse.SUPPRESS)
     parser.add_argument("--golden-dir", type=Path, default=GOLDEN_DIR, help=argparse.SUPPRESS)
     parser.add_argument("--today", type=dt.date.fromisoformat, help=argparse.SUPPRESS)
+    parser.add_argument("--tally", type=Path, default=AUDIT_TALLY_PATH, help=argparse.SUPPRESS)
+    parser.add_argument(
+        "--holdout-registry", type=Path, default=HOLDOUT_REGISTRY, help=argparse.SUPPRESS
+    )
     return parser.parse_args(argv)
 
 
@@ -118,16 +140,33 @@ def main(argv: list[str] | None = None) -> int:
     if not selected and not missing and not refused:
         info(f"no drafts in {_display(args.drafts_dir)}")
     all_drafts = [d for _, d in loaded]
+    try:
+        tally = load_audit_tally(args.tally)
+        holdout = holdout_fixtures(args.holdout_registry)
+    except (TallyError, ReviewError) as exc:
+        info(f"error: {exc}")
+        return 2
+    # Escalation is decided once, over the tally as it stood plus every open draft; each
+    # published draft then moves its counts from the drafts into the tally.
+    before = dict(tally)
     for path, draft in selected:
         try:
             target = publish_one(
                 draft, path, all_drafts=all_drafts, golden_dir=args.golden_dir,
-                today=today, dry_run=args.dry_run,
+                today=today, dry_run=args.dry_run, tally=before,
+                registry=args.holdout_registry,
             )  # fmt: skip
         except (ReviewError, GoldenError) as exc:
             info(f"refused {draft.case_id}: {exc}")
             refused += 1
             continue
+        if not args.dry_run:
+            tally[draft.fixture] = tally.get(draft.fixture, _ZERO) + audit_result([draft])
+            try:
+                write_audit_tally(tally, args.tally, holdout=holdout)
+            except TallyError as exc:
+                info(f"error: {exc}")
+                refused += 1
         verb = "would publish" if args.dry_run else "published"
         print(f"{verb} {draft.case_id} -> {_display(target)}")
     return 2 if refused else 0

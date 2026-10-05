@@ -15,12 +15,19 @@ Pipeline, all through the WOMM backend interface (roles in ``evals/drafting.yaml
    uncertain.
 5. **Review blocks**: an item judged ``agree`` with no flags is ``auto_accepted``
    (``provenance.status: llm_judged``); everything else is ``pending`` for a human. A random
-   ``audit_rate`` share of the auto-accepted items, drawn with a seed recorded in the draft, is
-   marked ``audit: true`` and set back to ``pending``.
+   20% (``AUDIT_RATE``, pinned) of the auto-accepted impacts and omissions is marked
+   ``audit: true`` and set back to ``pending``. ``possibly_missing`` candidates always go to a
+   human, so they are never audit-eligible. The seed is ``audit_seed_for(case_id)``; only tests
+   may pass another one, and such a draft is marked ``non_publishable_test_seed`` and refused by
+   the review gate.
+6. **Integrity record**: ``provenance.item_digests`` holds, per item, a sha256 over the canonical
+   JSON of its tool-written fields (``item_digest``), and ``provenance.audit.eligible_ids`` the
+   audit-eligible ids. The review gate recomputes both and the audit sample, so a tool-written
+   field changed on an ``auto_accepted`` or ``verified`` item, or an edited sample, fails CI.
 
-``write_draft`` puts train/val drafts in ``evals/golden/drafts/`` and holdout drafts only in
-``.cache/drafts/``; it refuses a holdout path under ``evals/``. Callers run holdout drafting inside
-``langsmith.tracing_context(enabled=False)`` (``scripts/draft_golden_case.py`` does).
+``write_draft`` puts train/val drafts in ``evals/golden/drafts/`` and holdout drafts only under
+``.cache/`` (gitignored); it refuses a holdout path anywhere else. Callers run holdout drafting
+inside ``langsmith.tracing_context(enabled=False)`` (``scripts/draft_golden_case.py`` does).
 
 No IA or RSB identifier is written: ``scrub_identifiers`` replaces the case's own identifiers
 (from the local IA index) in every drafted string before the file is written.
@@ -51,10 +58,14 @@ from womm.models.regulation import Scenario
 from womm.models.system_version import RoleConfig
 
 DRAFTS_DIR = REPO_ROOT / "evals" / "golden" / "drafts"
-HOLDOUT_DRAFTS_DIR = REPO_ROOT / ".cache" / "drafts"
+CACHE_DIR = REPO_ROOT / ".cache"
+HOLDOUT_DRAFTS_DIR = CACHE_DIR / "drafts"
 DEFAULT_CONFIG = REPO_ROOT / "evals" / "drafting.yaml"
 EVALS_DIR = REPO_ROOT / "evals"
 TOOL = "scripts/draft_golden_case.py"
+# Share of auto-accepted impacts and omissions re-checked by a human. Pinned: not configurable,
+# and the review gate refuses a draft whose recorded rate differs.
+AUDIT_RATE = 0.2
 
 Category = Literal[
     "compliance_cost",
@@ -115,7 +126,6 @@ class DraftingRoles(StrictModel):
 
 class DraftingConfig(StrictModel):
     roles: DraftingRoles
-    audit_rate: float = Field(default=0.2, ge=0.0, le=1.0)
     max_parallel_llm_calls: int = Field(default=3, ge=1)
     context_chars: int = Field(default=900, ge=100, description="Anchor context per side.")
     prompts: dict[str, str] = Field(default_factory=dict, exclude=True)
@@ -282,19 +292,30 @@ class DraftCandidate(_DraftItem):
 class AuditSample(StrictModel):
     seed: int
     rate: float
-    eligible: int = Field(description="Auto-accepted items before sampling.")
+    eligible: int = Field(description="Auto-accepted impacts and omissions before sampling.")
+    eligible_ids: list[str] = Field(description="Their ids; the sample is drawn from these.")
     sampled: list[str]
+    non_publishable_test_seed: bool = Field(
+        default=False,
+        description="True when a test passed its own seed; the review gate refuses such a draft.",
+    )
 
 
 class DraftProvenance(StrictModel):
     tool: str = TOOL
     drafted_on: dt.date
+    drafted_by: str | None = Field(
+        default=None, description="Who ran the drafting tool; may not be a named reviewer."
+    )
     drafting_model: str
     roles: dict[str, dict[str, str]] = Field(description="role -> {backend, model, prompt}")
     prompt_hashes: dict[str, str]
     ia_sections: list[str]
     rsb_status: str
     audit: AuditSample
+    item_digests: dict[str, str] = Field(
+        description="item id -> sha256 of its tool-written fields (``item_digest``)."
+    )
 
 
 class DraftStats(StrictModel):
@@ -351,6 +372,45 @@ def anchor_context(quote: str, text: str, chars: int) -> str | None:
         return None
     start, end = max(0, pos - chars), min(len(hay), pos + len(first) + chars)
     return ("..." if start else "") + hay[start:end] + ("..." if end < len(hay) else "")
+
+
+def auto_status(item: _DraftItem) -> Literal["auto_accepted", "pending"]:
+    """The tool's own decision for an item: auto-accepted when every judge agreed and no
+    deterministic check flagged it."""
+    return "auto_accepted" if item.judge.overall == "agree" and not item.flags else "pending"
+
+
+def audit_eligible(item: _DraftItem) -> bool:
+    """Auto-accepted impacts and omissions; candidates always go to a human anyway."""
+    return not isinstance(item, DraftCandidate) and auto_status(item) == "auto_accepted"
+
+
+def tool_fields(item: _DraftItem) -> dict[str, Any]:
+    """What the drafting tool wrote for an item: its content, checks, judge verdicts, origin and
+    auto status. Not the review block or ``provenance.status``, which a human decision sets."""
+    data = item.model_dump(mode="json")
+    data.pop("review")
+    data["provenance"] = {k: v for k, v in data["provenance"].items() if k != "status"}
+    data["auto_status"] = auto_status(item)
+    return data
+
+
+def item_digest(item: _DraftItem) -> str:
+    """sha256 over the canonical JSON of ``tool_fields``."""
+    canonical = json.dumps(
+        tool_fields(item), sort_keys=True, ensure_ascii=False, separators=(",", ":")
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def require_under_cache(path: Path, what: str) -> Path:
+    """``path`` resolved, refused unless it lies under ``.cache/`` (gitignored)."""
+    resolved = path.resolve()
+    if not resolved.is_relative_to(CACHE_DIR.resolve()):
+        raise DraftingError(
+            f"refusing {what} at {path}: holdout material lives only under .cache/ (gitignored)"
+        )
+    return resolved
 
 
 def audit_seed_for(case_id: str) -> int:
@@ -447,7 +507,8 @@ class DraftInputs(BaseModel):
     ia_reference: str
     notes: str = ""
     ia_record: Any = None  # IaRecord | None, only for scrubbing identifiers
-    audit_seed: int | None = None
+    test_audit_seed: int | None = None  # tests only: the draft is then marked non-publishable
+    drafted_by: str | None = None
     today: dt.date | None = None
 
 
@@ -619,9 +680,14 @@ async def draft_case(
         accepted = r["judge"]["overall"] == "agree" and not r["flags"]
         r["review"] = Review(decision="auto_accepted" if accepted else "pending").model_dump()
 
-    seed = inp.audit_seed if inp.audit_seed is not None else audit_seed_for(inp.case_id)
-    eligible = [r["id"] for _, r in rows if r["review"]["decision"] == "auto_accepted"]
-    sampled = draw_audit(eligible, config.audit_rate, seed)
+    test_seed = inp.test_audit_seed is not None
+    seed = inp.test_audit_seed if test_seed else audit_seed_for(inp.case_id)
+    eligible = [
+        r["id"]
+        for kind, r in rows
+        if kind != "candidate" and r["review"]["decision"] == "auto_accepted"
+    ]
+    sampled = draw_audit(eligible, AUDIT_RATE, seed)
     for kind, r in rows:
         if r["id"] in sampled:
             r["review"] = {**r["review"], "decision": "pending", "audit": True}
@@ -680,14 +746,21 @@ async def draft_case(
         notes=meta["notes"],
         provenance=DraftProvenance(
             drafted_on=inp.today or dt.date.today(),
+            drafted_by=inp.drafted_by,
             drafting_model=drafting_model,
             roles=roles,
             prompt_hashes=config.prompt_hashes,
             ia_sections=meta["ia_sections"],
             rsb_status=meta["rsb_status"],
             audit=AuditSample(
-                seed=seed, rate=config.audit_rate, eligible=len(eligible), sampled=sampled
+                seed=seed,
+                rate=AUDIT_RATE,
+                eligible=len(eligible),
+                eligible_ids=sorted(eligible),
+                sampled=sampled,
+                non_publishable_test_seed=test_seed,
             ),
+            item_digests={i.item_id: item_digest(i) for i in all_items},
         ),
         stats=stats,
         expected_impacts=impacts,
@@ -705,19 +778,23 @@ DRAFT_HEADER = (
     "# 'pending' (judge disagree/uncertain, a deterministic flag, or audit: true) and every\n"
     "# possibly_missing candidate as verified / edited / rejected / unclear, and set\n"
     "# review.reviewer to your GitHub username. Other auto-accepted items need no decision.\n"
+    "# Do not change tool-written fields of an item you keep as auto_accepted or verified (CI\n"
+    "# checks provenance.item_digests); the drafter (provenance.drafted_by) cannot review.\n"
     "# IA identifiers are kept in the gitignored evals/private/ia_index.yaml, never here.\n"
 )
 
 
 def draft_path(case_id: str, split: Split, out_dir: Path | None = None) -> Path:
-    """Where a draft goes; a holdout draft under evals/ is refused."""
+    """Where a draft goes; a holdout draft anywhere but under .cache/ is refused."""
     directory = out_dir or (HOLDOUT_DRAFTS_DIR if split == "holdout" else DRAFTS_DIR)
     path = (directory / f"{case_id}.yaml").resolve()
-    if split == "holdout" and path.is_relative_to(EVALS_DIR.resolve()):
-        raise DraftingError(
-            f"refusing to write holdout draft {case_id} under evals/ ({path}); holdout drafts "
-            "go only to .cache/drafts/"
-        )
+    if split == "holdout":
+        if path.is_relative_to(EVALS_DIR.resolve()):
+            raise DraftingError(
+                f"refusing to write holdout draft {case_id} under evals/ ({path}); holdout "
+                "drafts go only to .cache/drafts/"
+            )
+        require_under_cache(path, f"holdout draft {case_id}")
     return path
 
 

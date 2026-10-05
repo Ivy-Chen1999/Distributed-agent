@@ -7,12 +7,20 @@ Humans only where an LLM cannot be trusted. An item needs a human decision when:
 - it is in the random audit sample (``review.audit: true``);
 - it is a ``possibly_missing`` candidate (adding it to the case is a human call);
 - its proposal is escalated: more than 10% of the decided audit items of that fixture were
-  edited, rejected or marked unclear, so every item of the proposal goes to a human.
+  edited, rejected or marked unclear, so every item of the proposal goes to a human. The count
+  spans PRs: published drafts leave their audit counts in ``evals/golden/audit_tally.yaml``
+  (counts per fixture only), which ``escalated_fixtures`` adds to the open drafts.
 
 Auto-accepted, un-audited items of a non-escalated proposal need nothing. A human decision is
 ``verified``, ``edited`` (the fields were changed in place), ``rejected`` or ``unclear``; it
 needs a reviewer. ``rejected`` and ``unclear`` items are dropped when publishing: an item a
 human finds unclear is not an unambiguous task, so it is not kept as a coin flip.
+
+The gate does not trust author-editable fields. ``check_draft`` recomputes each item's digest of
+its tool-written fields and fails when one changed while the item is ``auto_accepted`` or
+``verified`` (a changed item must be ``edited``, with a reviewer); recomputes the audit sample as
+``draw_audit(eligible_ids, 0.2, audit_seed_for(case_id))``; refuses a draft whose rate is not the
+pinned 0.2 or that was drafted with a test-only seed; and refuses the drafter as a reviewer.
 
 ``check_draft`` returns the problems that block a draft; ``build_case`` turns a fully decided
 draft into a ``GoldenCase``. The CI test (``tests/eval/test_golden_drafts.py``), the publish
@@ -23,20 +31,28 @@ from __future__ import annotations
 
 import datetime as dt
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
+import yaml
+
+from womm.config import REPO_ROOT
 from womm.eval.drafting import (
+    AUDIT_RATE,
     DIMENSIONS,
     DraftCandidate,
     DraftImpact,
     DraftOmission,
     GoldenDraft,
     _DraftItem,
+    audit_eligible,
+    audit_seed_for,
+    draw_audit,
+    item_digest,
     overall,
 )
-from womm.eval.golden import ExpectedImpact, GoldenCase, Omission
+from womm.eval.golden import GOLDEN_DIR, ExpectedImpact, GoldenCase, Omission
 
 HUMAN_DECISIONS = ("verified", "edited", "rejected", "unclear")
 KEPT_DECISIONS = ("auto_accepted", "verified", "edited")
@@ -47,6 +63,10 @@ ESCALATION_RATE = 0.10
 MIN_KEPT_IMPACTS = 3
 # GitHub usernames: alphanumerics and single inner hyphens, at most 39 characters.
 GITHUB_USERNAME = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}$")
+# Audit counts of published drafts, per fixture (train/val only); see ``escalated_fixtures``.
+AUDIT_TALLY_PATH = GOLDEN_DIR / "audit_tally.yaml"
+# The gitignored local registry of holdout proposals (the same file womm.eval.holdout reads).
+HOLDOUT_REGISTRY = REPO_ROOT / "evals" / "private" / "holdout_scenarios.yaml"
 
 
 class ReviewError(ValueError):
@@ -93,6 +113,11 @@ class AuditResult:
     decided: int
     errors: int
 
+    def __add__(self, other: AuditResult) -> AuditResult:
+        return AuditResult(
+            self.sampled + other.sampled, self.decided + other.decided, self.errors + other.errors
+        )
+
     @property
     def rate(self) -> float | None:
         return self.errors / self.decided if self.decided else None
@@ -116,15 +141,165 @@ def audit_result(drafts: Iterable[GoldenDraft]) -> AuditResult:
     return AuditResult(sampled, decided, errors)
 
 
-def escalated_fixtures(drafts: Iterable[GoldenDraft]) -> set[str]:
-    by_fixture: dict[str, list[GoldenDraft]] = {}
-    for d in drafts:
-        by_fixture.setdefault(d.fixture, []).append(d)
-    return {f for f, ds in by_fixture.items() if audit_result(ds).escalated}
+Tally = dict[str, AuditResult]
+
+
+def fixture_audit(
+    fixture: str, drafts: Iterable[GoldenDraft], tally: Mapping[str, AuditResult] | None = None
+) -> AuditResult:
+    """Audit outcome of one proposal: its open drafts plus its published (tallied) ones."""
+    current = audit_result(d for d in drafts if d.fixture == fixture)
+    return current + (tally or {}).get(fixture, AuditResult(0, 0, 0))
+
+
+def escalated_fixtures(
+    drafts: Iterable[GoldenDraft], tally: Mapping[str, AuditResult] | None = None
+) -> set[str]:
+    """Fixtures whose audit error rate, over open drafts and the tally, is over 10%."""
+    drafts = list(drafts)
+    fixtures = {d.fixture for d in drafts} | set(tally or {})
+    return {f for f in fixtures if fixture_audit(f, drafts, tally).escalated}
+
+
+class TallyError(ValueError):
+    pass
+
+
+TALLY_HEADER = (
+    "# Audit outcomes of published golden-case drafts, per proposal fixture: counts only.\n"
+    "# Written by scripts/publish_golden_cases.py; read by the review gate so that escalation\n"
+    "# (audit error rate over 10%) spans PRs. Holdout proposals never appear here.\n"
+)
+
+
+def load_audit_tally(path: Path = AUDIT_TALLY_PATH) -> Tally:
+    """fixture -> AuditResult; empty when no draft has been published yet."""
+    if not path.exists():
+        return {}
+    try:
+        raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except (OSError, yaml.YAMLError) as exc:
+        raise TallyError(f"cannot read {path}: {exc}") from None
+    fixtures = raw.get("fixtures") if isinstance(raw, dict) else None
+    if not isinstance(fixtures, dict):
+        raise TallyError(f"{path}: expected a 'fixtures' mapping of fixture -> counts")
+    out: Tally = {}
+    for name, counts in fixtures.items():
+        if not isinstance(counts, dict) or set(counts) != {"sampled", "decided", "errors"}:
+            raise TallyError(f"{path}: {name}: expected exactly sampled, decided, errors")
+        values = [counts[k] for k in ("sampled", "decided", "errors")]
+        if not all(isinstance(v, int) and v >= 0 for v in values):
+            raise TallyError(f"{path}: {name}: counts must be non-negative integers")
+        sampled, decided, errors = values
+        if not errors <= decided <= sampled:
+            raise TallyError(f"{path}: {name}: need errors <= decided <= sampled")
+        out[str(name)] = AuditResult(sampled, decided, errors)
+    return out
+
+
+def write_audit_tally(
+    tally: Mapping[str, AuditResult],
+    path: Path = AUDIT_TALLY_PATH,
+    *,
+    holdout: Iterable[str] = (),
+) -> None:
+    """Write the tally (sorted, counts only); refuses a holdout fixture."""
+    sealed = sorted(set(tally) & set(holdout))
+    if sealed:
+        raise TallyError("refusing to write a holdout proposal to the public audit tally")
+    data = {
+        "fixtures": {
+            f: {"sampled": r.sampled, "decided": r.decided, "errors": r.errors}
+            for f, r in sorted(tally.items())
+        }
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(TALLY_HEADER + yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+
+
+def holdout_fixtures(path: Path = HOLDOUT_REGISTRY) -> set[str]:
+    """Fixture ids registered as holdout proposals in the gitignored local registry; empty when
+    the registry is absent (a machine without holdout material)."""
+    if not path.exists():
+        return set()
+    try:
+        raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except (OSError, yaml.YAMLError) as exc:
+        raise ReviewError(f"cannot read the local holdout registry: {exc}") from None
+    if not isinstance(raw, dict):
+        raise ReviewError("the local holdout registry is not a mapping of fixture ids")
+    return {str(k) for k in raw}
+
+
+def refuse_holdout_fixture(fixture: str, what: str, registry: Path = HOLDOUT_REGISTRY) -> None:
+    """Raise when ``fixture`` is sealed as holdout; names only that fixture."""
+    if fixture in holdout_fixtures(registry):
+        raise ReviewError(
+            f"fixture {fixture!r} is registered as a holdout proposal in the local registry; "
+            f"{what} refused (all cases of one proposal share a split)"
+        )
 
 
 def _valid_reviewer(reviewer: str | None) -> bool:
     return bool(reviewer) and bool(GITHUB_USERNAME.fullmatch(reviewer.lstrip("@")))
+
+
+def _person(name: str | None) -> str:
+    return (name or "").strip().lstrip("@").casefold()
+
+
+def integrity_problems(draft: GoldenDraft) -> list[str]:
+    """Tool-written fields, the audit sample and its parameters, recomputed (author-editable
+    fields are not trusted)."""
+    cid = draft.case_id
+    p = draft.provenance
+    audit = p.audit
+    problems: list[str] = []
+    if audit.non_publishable_test_seed:
+        problems.append(f"{cid}: drafted with a test-only audit seed; not publishable, re-draft")
+    if audit.rate != AUDIT_RATE:
+        problems.append(f"{cid}: audit rate {audit.rate} is not the pinned {AUDIT_RATE}")
+    seed = audit_seed_for(cid)
+    if audit.seed != seed and not audit.non_publishable_test_seed:
+        problems.append(f"{cid}: audit seed is not the one derived from the case id")
+    if audit.eligible != len(audit.eligible_ids):
+        problems.append(f"{cid}: audit.eligible does not count audit.eligible_ids")
+    if sorted(audit.sampled) != draw_audit(audit.eligible_ids, AUDIT_RATE, seed):
+        problems.append(
+            f"{cid}: audit sample does not match draw_audit(eligible_ids, {AUDIT_RATE}, "
+            "audit_seed_for(case_id))"
+        )
+    by_id = {i.item_id: i for i in draft.items()}
+    eligible = set(audit.eligible_ids)
+    for eid in sorted(eligible):
+        if eid not in by_id or isinstance(by_id[eid], DraftCandidate):
+            problems.append(f"{cid}/{eid}: audit-eligible id is not an impact or omission")
+    for item in draft.items():
+        where = f"{cid}/{item.item_id}"
+        tool_item = item.provenance.origin != "human_added"
+        checkable = tool_item and item.review.decision != "edited"
+        if checkable and audit_eligible(item) != (item.item_id in eligible):
+            problems.append(f"{where}: audit eligibility does not match its verdicts and flags")
+        stored = p.item_digests.get(item.item_id)
+        if stored is None:
+            if tool_item:
+                problems.append(f"{where}: no tool digest recorded for this item")
+        elif stored != item_digest(item) and item.review.decision in ("auto_accepted", "verified"):
+            problems.append(
+                f"{where}: tool-written fields changed but the decision is "
+                f"{item.review.decision!r}; a changed item must be 'edited' with a reviewer"
+            )
+    for gone in sorted(set(p.item_digests) - set(by_id)):
+        problems.append(f"{cid}/{gone}: item removed from the draft; decide it 'rejected' instead")
+    drafter = _person(p.drafted_by)
+    if drafter:
+        for item in draft.items():
+            if item.review.reviewer and _person(item.review.reviewer) == drafter:
+                problems.append(
+                    f"{cid}/{item.item_id}: reviewer {item.review.reviewer!r} drafted this case; "
+                    "the drafter cannot be the reviewer"
+                )
+    return problems
 
 
 def check_draft(
@@ -150,6 +325,7 @@ def check_draft(
     for dup in sorted({i for i in ids if ids.count(i) > 1}):
         problems.append(f"{cid}/{dup}: duplicate item id")
     # The tool-written blocks must not be edited to dodge a review.
+    problems.extend(integrity_problems(draft))
     sampled = set(draft.provenance.audit.sampled)
     for item in draft.items():
         dims = {d: getattr(item.judge, d) for d in DIMENSIONS}

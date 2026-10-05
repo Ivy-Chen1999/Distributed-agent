@@ -19,14 +19,18 @@ from pydantic import ValidationError
 from womm.config import REPO_ROOT
 from womm.eval.drafting import DRAFTS_DIR, EVALS_DIR, load_draft
 from womm.eval.golden_review import (
+    AuditResult,
+    TallyError,
     audit_result,
     check_draft,
     escalated_fixtures,
     human_reasons,
+    load_audit_tally,
     scenario_keys_for,
+    write_audit_tally,
 )
 
-from .draft_factory import KEYS, decide, draft_dict, fully_decided, to_draft
+from .draft_factory import DRAFTER, KEYS, decide, draft_dict, fully_decided, seal, to_draft
 
 DRAFT_PR = os.environ.get("WOMM_DRAFT_PR", "").strip().lower() == "true"
 DRAFT_FILES = sorted(DRAFTS_DIR.glob("*.yaml"))
@@ -57,7 +61,7 @@ def test_draft_is_reviewed(path):
     except (ValidationError, yaml.YAMLError) as exc:
         pytest.fail(f"{path.name}: the draft is not schema-valid after editing:\n{exc}")
     others = [load_draft(p) for p in DRAFT_FILES]
-    escalated = draft.fixture in escalated_fixtures(others)
+    escalated = draft.fixture in escalated_fixtures(others, load_audit_tally())
     problems = check_draft(
         draft, scenario_keys_for(draft), allow_pending=DRAFT_PR, escalated=escalated
     )
@@ -139,7 +143,7 @@ def test_flagged_and_uncertain_items_need_a_human():
     data["expected_impacts"][0]["flags"] = ["anchor_not_found"]
     data["expected_impacts"][1]["judge"]["category"]["verdict"] = "unknown"
     data["expected_impacts"][1]["judge"]["overall"] = "uncertain"
-    problems = _check(data | {})
+    problems = _check(seal(data))  # as the tool would have written it
     assert any("c90_e01" in p and "flagged" in p for p in problems)
     assert any("c90_e02" in p and "judge uncertain" in p for p in problems)
     assert not any("does not match" in p for p in problems)
@@ -194,13 +198,143 @@ def test_audit_errors_over_ten_percent_escalate_the_proposal():
     data = decide(fully_decided(), "c90_e06", "edited", impact="Impact 6, fixed")
     draft = to_draft(data)
     result = audit_result([draft])
-    assert (result.sampled, result.decided, result.errors) == (1, 1, 1) and result.escalated
+    assert (result.sampled, result.decided, result.errors) == (2, 2, 1) and result.escalated
     assert escalated_fixtures([draft]) == {"data_act"}
     problems = check_draft(draft, set(KEYS), escalated=True)
     assert {p.split(":")[0].split("/")[1] for p in problems} == {
-        "c90_e01", "c90_e02", "c90_e03", "c90_e04", "c90_o01",
+        "c90_e01", "c90_e02", "c90_e03", "c90_e04",
     }  # fmt: skip
     assert escalated_fixtures([to_draft(fully_decided())]) == set()
+
+
+# ----------------------------------------------------------------------------- integrity (P1-1)
+
+
+def test_audit_sample_excludes_candidates():
+    audit = to_draft(draft_dict()).provenance.audit
+    assert audit.eligible_ids == ["c90_e01", "c90_e02", "c90_e03", "c90_e04", "c90_e06", "c90_o01"]
+    assert not any(i.startswith("c90_m") for i in audit.sampled)
+
+
+@pytest.mark.parametrize("decision", ["auto_accepted", "verified"])
+def test_changed_tool_field_needs_an_edited_decision(decision):
+    data = fully_decided()
+    data["expected_impacts"][0]["impact"] = "Impact 1, quietly changed"
+    if decision == "verified":
+        data = decide(data, "c90_e01", "verified")
+    problems = _check(data)
+    assert problems == [
+        "case_90_widget_switching/c90_e01: tool-written fields changed but the decision is "
+        f"'{decision}'; a changed item must be 'edited' with a reviewer"
+    ]
+    assert _check(decide(data, "c90_e01", "edited", note="fixed")) == []
+
+
+def test_rejected_item_may_differ_from_its_digest():
+    data = decide(fully_decided(), "c90_e05", "rejected", note="wrong", impact="x")
+    assert _check(data) == []
+
+
+def test_flipping_judges_and_decision_to_auto_accept_is_caught():
+    data = fully_decided()
+    e05 = data["expected_impacts"][4]
+    for dim in ("anchor_faithfulness", "derivability", "category"):
+        e05["judge"][dim]["verdict"] = "agree"
+    e05["judge"]["overall"] = "agree"
+    e05["review"].update(decision="auto_accepted", reviewer=None, note=None)
+    e05["impact"] = "Impact 5"
+    problems = _check(data)
+    assert any("c90_e05: tool-written fields changed" in p for p in problems)
+    assert any("c90_e05: audit eligibility does not match" in p for p in problems)
+
+
+def test_removed_item_and_missing_digest_are_caught():
+    data = fully_decided()
+    del data["expected_impacts"][0]
+    assert any("c90_e01: item removed" in p for p in _check(data))
+    data = fully_decided()
+    del data["provenance"]["item_digests"]["c90_e02"]
+    assert any("c90_e02: no tool digest" in p for p in _check(data))
+
+
+def test_ci_recomputes_the_audit_sample():
+    # Drop o01 from the sample and accept it automatically: the recomputed sample differs.
+    data = fully_decided()
+    data["provenance"]["audit"]["sampled"] = ["c90_e06"]
+    o01 = data["important_omissions"][0]
+    o01["review"].update(decision="auto_accepted", audit=False, reviewer=None)
+    assert any("audit sample does not match draw_audit" in p for p in _check(data))
+    # Also drop it from the eligible list: its verdicts still make it eligible.
+    data["provenance"]["audit"].update(
+        eligible_ids=["c90_e01", "c90_e02", "c90_e03", "c90_e04", "c90_e06"], eligible=5
+    )
+    problems = _check(data)
+    assert any("c90_o01: audit eligibility does not match" in p for p in problems)
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("rate", 0.05, "is not the pinned 0.2"),
+        ("seed", 1, "audit seed is not the one derived from the case id"),
+        ("non_publishable_test_seed", True, "test-only audit seed"),
+        ("eligible", 3, "does not count audit.eligible_ids"),
+    ],
+)
+def test_audit_parameters_are_pinned(field, value, message):
+    data = fully_decided()
+    data["provenance"]["audit"][field] = value
+    assert any(message in p for p in _check(data, allow_pending=True))
+
+
+def test_audit_rate_cannot_be_configured():
+    from womm.eval.drafting import DraftingConfig
+
+    with pytest.raises(ValidationError):
+        DraftingConfig.model_validate({"roles": {}, "audit_rate": 0.05})
+
+
+@pytest.mark.parametrize("name", [DRAFTER, DRAFTER.upper(), f"@{DRAFTER}"])
+def test_the_drafter_cannot_be_the_reviewer(name):
+    data = decide(fully_decided(), "c90_e06", "verified", reviewer=name)
+    problems = _check(data)
+    assert problems == [
+        f"case_90_widget_switching/c90_e06: reviewer {name!r} drafted this case; the drafter "
+        "cannot be the reviewer"
+    ]
+
+
+# ----------------------------------------------------------------------------- tally (P2-2)
+
+
+def test_tally_escalates_a_proposal_across_prs():
+    clean = to_draft(fully_decided())
+    assert escalated_fixtures([clean]) == set()
+    # Published drafts of the same proposal had 1 error in 5 decided audit items (20%).
+    assert escalated_fixtures([clean], {"data_act": AuditResult(5, 5, 1)}) == {"data_act"}
+    # 1 in 10 is not over 10%; one more error in the open draft (2 of 12) is.
+    assert escalated_fixtures([clean], {"data_act": AuditResult(10, 10, 1)}) == set()
+    edited = to_draft(decide(fully_decided(), "c90_e06", "edited", impact="fixed"))
+    assert escalated_fixtures([edited], {"data_act": AuditResult(10, 10, 1)}) == {"data_act"}
+    # The tally alone escalates a proposal with no open draft.
+    assert escalated_fixtures([], {"dsa": AuditResult(3, 3, 1)}) == {"dsa"}
+
+
+def test_tally_round_trip_and_refusals(tmp_path):
+    path = tmp_path / "audit_tally.yaml"
+    assert load_audit_tally(path) == {}
+    write_audit_tally({"dsa": AuditResult(4, 3, 1), "dma": AuditResult(2, 2, 0)}, path)
+    assert load_audit_tally(path) == {"dma": AuditResult(2, 2, 0), "dsa": AuditResult(4, 3, 1)}
+    text = path.read_text()
+    assert text.index("dma") < text.index("dsa") and "case_" not in text
+    with pytest.raises(TallyError, match="holdout"):
+        write_audit_tally({"space_act": AuditResult(1, 1, 0)}, path, holdout={"space_act"})
+    path.write_text("fixtures: {dsa: {sampled: 1, decided: 2, errors: 0}}\n")
+    with pytest.raises(TallyError, match="errors <= decided <= sampled"):
+        load_audit_tally(path)
+    path.write_text("fixtures: {dsa: {sampled: 1, decided: 1, errors: 0, case: x}}\n")
+    with pytest.raises(TallyError, match="exactly"):
+        load_audit_tally(path)
 
 
 def test_tampering_with_judge_or_audit_blocks_is_caught():
@@ -216,6 +350,13 @@ def test_duplicate_item_ids_fail():
     data = draft_dict()
     data["expected_impacts"][1]["expected_id"] = "c90_e01"
     assert any("duplicate item id" in p for p in _check(data, allow_pending=True))
+
+
+def test_golden_files_need_the_owner_as_code_owner():
+    rules = (REPO_ROOT / ".github" / "CODEOWNERS").read_text().splitlines()
+    rules = [r.split() for r in rules if r.strip() and not r.startswith("#")]
+    assert ["/evals/golden/drafts/", "@Ivy-Chen1999"] in rules
+    assert ["/evals/golden/*.yaml", "@Ivy-Chen1999"] in rules
 
 
 def test_holdout_pattern_catches_yaml_and_json():

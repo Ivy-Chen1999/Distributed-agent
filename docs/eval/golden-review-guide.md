@@ -20,12 +20,15 @@ must never contain an unreviewed draft. Each item has:
 **Only review items that need a human:**
 
 - items whose `review.decision` is `pending`. These are judge disagreements or uncertain items,
-  flagged items, and the random 20% audit sample (`audit: true`);
+  flagged items, and the random 20% audit sample (`audit: true`). The sample is drawn only from
+  auto-accepted impacts and omissions; candidates always need you anyway;
 - every `possibly_missing` candidate, even when it shows `auto_accepted`.
 
 Leave the other `auto_accepted` items alone. There is one exception: if the CI check says the
 proposal is **escalated**, every item needs a decision. A proposal is escalated when more than
-10% of its audited items were edited, rejected or marked unclear.
+10% of its audited items were edited, rejected or marked unclear. The count spans PRs: when a
+draft is published, its audit counts go into `evals/golden/audit_tally.yaml` (counts per
+proposal only), and later drafts of the same proposal are judged on the running total.
 
 To check an item, open the IA (the PR description links it) and search for the anchor quote. Read
 the paragraph around it.
@@ -133,6 +136,31 @@ the IA anchor. The case owner adds it.
    draft while the review is open.
 
 Do not edit `judge`, `anchor`, `flags` or `provenance`. Those blocks record what the tools saw.
+
+## What CI checks, and who may review
+
+CI does not trust the fields an author can edit:
+
+- **Tool digests.** The drafting tool records, per item, a sha256 over the fields it wrote (the
+  claim, evidence, checks, judge verdicts and its own auto-accept decision) in
+  `provenance.item_digests`. CI recomputes them. If an item's tool-written fields changed while
+  its decision is `auto_accepted` or `verified`, CI fails: a changed item must be `edited`, with
+  your GitHub username as reviewer. Deleting an item also fails; reject it instead.
+- **Audit sample.** CI recomputes the sample as
+  `draw_audit(eligible_ids, 0.2, audit_seed_for(case_id))` and fails on any difference. The
+  rate is pinned at 0.2 and the seed comes from the case id; neither can be configured, and a
+  draft made with a test-only seed is refused.
+- **Drafter is not a reviewer.** The draft records who ran the drafting tool
+  (`provenance.drafted_by`). That person cannot be the `reviewer` of any item.
+- **Code-owner review.** `.github/CODEOWNERS` makes the repository owner the code owner of
+  `evals/golden/drafts/` and `evals/golden/*.yaml`. This only blocks a merge when branch
+  protection on `main` has **"Require review from Code Owners"** enabled. That is a manual
+  GitHub setting (Settings → Branches → branch protection rule for `main`) that the repository
+  owner must turn on; the repository cannot enforce it by itself.
+
+A digest in the same file is tamper-evident, not tamper-proof: someone determined could
+recompute it. The digest and sample checks catch accidental and casual edits; the code-owner
+review is what stops a deliberate one.
 
 ## Worked examples (AI Act cases)
 

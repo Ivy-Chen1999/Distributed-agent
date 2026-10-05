@@ -13,6 +13,7 @@ from langsmith import traceable, tracing_context
 from womm.config import REPO_ROOT
 from womm.data.fixtures import fixture_dir, load_fixture
 from womm.data.ia_index import IaRecord, update_ia_index
+from womm.eval import drafting as drafting_module
 from womm.eval.drafting import (
     DraftingConfig,
     DraftingError,
@@ -21,6 +22,7 @@ from womm.eval.drafting import (
     draft_case,
     draft_path,
     draw_audit,
+    item_digest,
     load_draft,
     load_drafting_config,
     write_draft,
@@ -61,13 +63,12 @@ A_RSB = "explain how the switching costs fall on smaller providers"
 ROLE_NAMES = ("drafter", "recall", "judge_anchor", "judge_derivability", "judge_category")
 
 
-def config(audit_rate=0.2) -> DraftingConfig:
+def config() -> DraftingConfig:
     roles = {
         n: RoleConfig(backend="fake", model=f"model-{n}", prompt=f"p/{n}.md") for n in ROLE_NAMES
     }
     return DraftingConfig(
         roles=roles,
-        audit_rate=audit_rate,
         prompts={f"p/{n}.md": f"SYSTEM PROMPT {n}" for n in ROLE_NAMES},
         prompt_hashes={f"p/{n}.md": "h" for n in ROLE_NAMES},
     )
@@ -160,16 +161,14 @@ def inputs(fixture, split="train", record=None, seed=None, ia=IA) -> DraftInputs
         rsb_status="opinion none found in Cellar; using the IA's procedural-information annex",
         ia_reference="Synthetic IA, section 6.2.3",
         ia_record=record,
-        audit_seed=seed,
+        test_audit_seed=seed,
         today=dt.date(2026, 10, 4),
     )
 
 
 async def run_draft(fixture, script, **kw):
     fake = FakeBackend(script)
-    draft = await draft_case(
-        inputs(fixture, **kw), config(kw.pop("audit_rate", 0.2)), {"fake": fake}
-    )
+    draft = await draft_case(inputs(fixture, **kw), config(), {"fake": fake})
     return draft, fake
 
 
@@ -317,14 +316,41 @@ async def test_audit_sample_recorded_in_draft_and_reproducible(data_act):
     b, _ = await run_draft(data_act, script_for(), seed=7)
     assert a.provenance.audit == b.provenance.audit
     audit = a.provenance.audit
-    assert audit.seed == 7 and audit.rate == 0.2 and audit.eligible == 7
-    assert len(audit.sampled) == 2  # ceil(0.2 x 7)
+    # Six auto-accepted impacts and omissions are eligible; the candidate never is.
+    assert audit.seed == 7 and audit.rate == 0.2 and audit.eligible == 6
+    assert audit.eligible_ids == sorted(i.item_id for i in [*a.expected_impacts,
+                                                            *a.important_omissions])  # fmt: skip
+    assert len(audit.sampled) == 2  # ceil(0.2 x 6)
+    assert not any(i.startswith("c90_m") for i in audit.sampled)
     sampled = [i for i in a.items() if i.review.audit]
     assert sorted(i.item_id for i in sampled) == audit.sampled
     assert all(i.review.decision == "pending" for i in sampled)
     assert a.stats.audited == 2 and a.stats.auto_accepted == 5
+    assert a.possibly_missing[0].review.decision == "auto_accepted"  # a human decides it anyway
+    assert audit.non_publishable_test_seed, "a test seed marks the draft non-publishable"
     default, _ = await run_draft(data_act, script_for())
     assert default.provenance.audit.seed == audit_seed_for(CASE)
+    assert not default.provenance.audit.non_publishable_test_seed
+
+
+async def test_draft_records_a_digest_per_item_and_the_drafter(data_act):
+    draft, _ = await run_draft(data_act, script_for())
+    digests = draft.provenance.item_digests
+    assert set(digests) == {i.item_id for i in draft.items()}
+    assert all(digests[i.item_id] == item_digest(i) for i in draft.items())
+    # The digest covers tool-written fields, not the review block a human fills in.
+    item = draft.expected_impacts[0]
+    reviewed = item.model_copy(update={"review": item.review.model_copy(update={
+        "decision": "verified", "reviewer": "octo-cat"})})  # fmt: skip
+    assert item_digest(reviewed) == digests[item.item_id]
+    changed = item.model_copy(update={"impact": "something else"})
+    assert item_digest(changed) != digests[item.item_id]
+    named = await draft_case(
+        inputs(data_act).model_copy(update={"drafted_by": "case-owner"}),
+        config(),
+        {"fake": FakeBackend(script_for())},
+    )
+    assert named.provenance.drafted_by == "case-owner"
 
 
 # ----------------------------------------------------------------------------- identifiers
@@ -355,11 +381,22 @@ def test_holdout_never_written_under_evals():
     )
 
 
-async def test_write_draft_refuses_holdout_under_evals(data_act, tmp_path):
+@pytest.mark.parametrize("where", ["docs", "data/fixtures", "src", ""])
+def test_holdout_drafts_only_under_the_cache(where):
+    with pytest.raises(DraftingError, match=r"only under \.cache/"):
+        draft_path(CASE, "holdout", REPO_ROOT / where)
+    elsewhere = draft_path(CASE, "holdout", REPO_ROOT / ".cache" / "elsewhere")
+    assert elsewhere.parent.name == "elsewhere"
+
+
+async def test_write_draft_refuses_holdout_under_evals(data_act, tmp_path, monkeypatch):
     draft, _ = await run_draft(data_act, script_for(), split="holdout")
     with pytest.raises(DraftingError):
         write_draft(draft, REPO_ROOT / "evals" / "golden" / "drafts")
     assert not (REPO_ROOT / "evals/golden/drafts" / f"{CASE}.yaml").exists()
+    with pytest.raises(DraftingError, match=r"only under \.cache/"):
+        write_draft(draft, tmp_path)
+    monkeypatch.setattr(drafting_module, "CACHE_DIR", tmp_path)
     assert write_draft(draft, tmp_path).parent == tmp_path
 
 
@@ -398,10 +435,39 @@ def local_ia(tmp_path):
 
 def argv(local_ia, split, out_dir, *extra):
     ia_root, index = local_ia
+    registry = index.parent / "private" / "holdout_scenarios.yaml"  # absent unless a test adds it
     return [
         "--fixture", "data_act", "--case", CASE, "--split", split, "--ia-index", str(index),
-        "--ia-root", str(ia_root), "--out-dir", str(out_dir), *extra,
+        "--ia-root", str(ia_root), "--out-dir", str(out_dir), "--holdout-registry", str(registry),
+        "--drafted-by", "case-owner", *extra,
     ]  # fmt: skip
+
+
+@pytest.mark.parametrize("split", ["train", "val"])
+def test_script_refuses_train_val_drafting_of_a_holdout_proposal(
+    local_ia, tmp_path, monkeypatch, capsys, split
+):
+    monkeypatch.setattr(script, "load_drafting_config", lambda _p: config())
+    registry = tmp_path / "private" / "holdout_scenarios.yaml"
+    registry.parent.mkdir()
+    registry.write_text(
+        "data_act:\n  - {scenario_id: eval_hidden_one, description: d, articles: ['1']}\n"
+        "space_act:\n  - {scenario_id: eval_hidden_two, description: d, articles: ['2']}\n"
+    )
+    fake = FakeBackend({})
+    out = tmp_path / "drafts"
+    rc = script.main(argv(local_ia, split, out, "--scenario", SCENARIO), {"fake": fake})
+    assert rc == 2 and fake.calls == [] and not out.exists()
+    err = capsys.readouterr().err
+    assert "'data_act' is registered as a holdout proposal" in err
+    for secret in ("eval_hidden_one", "eval_hidden_two", "space_act"):
+        assert secret not in err
+
+
+def test_script_has_no_audit_seed_option(local_ia, tmp_path):
+    with pytest.raises(SystemExit):
+        script.parse_args(argv(local_ia, "train", tmp_path, "--scenario", SCENARIO,
+                               "--audit-seed", "7"))  # fmt: skip
 
 
 def test_script_writes_train_draft(local_ia, tmp_path, monkeypatch):
@@ -430,6 +496,7 @@ def test_script_refuses_holdout_under_evals_before_any_call(local_ia, monkeypatc
 
 def test_holdout_drafting_posts_zero_langsmith_runs(local_ia, tmp_path, monkeypatch):
     monkeypatch.setattr(script, "load_drafting_config", lambda _p: config())
+    monkeypatch.setattr(drafting_module, "CACHE_DIR", tmp_path)
     # Positive control: the same traced backend on a train split does post runs.
     train_client = MagicMock()
     with tracing_context(enabled=True, client=train_client, project_name="t"):
@@ -465,4 +532,4 @@ def test_repo_drafting_config_loads_with_isolated_claude_code_roles():
     assert len(judge_prompts) == 3  # one prompt per dimension
     assert roles["drafter"].model != roles["judge_anchor"].model  # judges do not grade own draft
     assert set(cfg.prompt_hashes) == {r.prompt for r in roles.values()}
-    assert cfg.audit_rate == 0.2
+    assert not hasattr(cfg, "audit_rate") and drafting_module.AUDIT_RATE == 0.2

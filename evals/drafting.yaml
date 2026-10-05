@@ -3,7 +3,7 @@
 # subscription and must pass its isolation self-check first, like the experts.
 # The three judges are separate calls with separate prompts (one dimension each) and use a
 # different model from the drafter, so a judge does not grade its own draft.
-audit_rate: 0.2
+# The audit rate is pinned at 0.2 in womm.eval.drafting.AUDIT_RATE and cannot be set here.
 max_parallel_llm_calls: 3
 context_chars: 900
 roles:

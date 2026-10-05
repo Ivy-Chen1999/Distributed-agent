@@ -7,8 +7,9 @@ import yaml
 
 from womm.config import REPO_ROOT
 from womm.eval.golden import check_against_fixture, load_all_golden, load_golden
+from womm.eval.golden_review import AuditResult, load_audit_tally, write_audit_tally
 
-from .eval.draft_factory import decide, draft_dict, fully_decided, write
+from .eval.draft_factory import decide, draft_dict, fully_decided, seal, write
 
 spec = importlib.util.spec_from_file_location(
     "publish_golden_cases", REPO_ROOT / "scripts/publish_golden_cases.py"
@@ -22,7 +23,9 @@ CASE = "case_90_widget_switching"
 
 def _run(tmp_path, *extra):
     argv = ["--drafts-dir", str(tmp_path / "drafts"), "--golden-dir", str(tmp_path / "golden"),
-            "--today", "2026-10-20", *extra]  # fmt: skip
+            "--today", "2026-10-20", "--tally", str(tmp_path / "golden" / "audit_tally.yaml"),
+            "--holdout-registry", str(tmp_path / "private" / "holdout_scenarios.yaml"),
+            *extra]  # fmt: skip
     return publish.main(argv)
 
 
@@ -121,3 +124,70 @@ def test_unknown_case_is_refused(tmp_path, capsys):
     write(tmp_path / "drafts" / f"{CASE}.yaml", fully_decided())
     assert _run(tmp_path, "--case", "case_91_nothing") == 2
     assert "no draft" in capsys.readouterr().err
+
+
+# ----------------------------------------------------------------------------- audit tally (P2-2)
+
+
+def test_publishing_adds_the_audit_counts_to_the_tally(tmp_path):
+    write(tmp_path / "drafts" / f"{CASE}.yaml", fully_decided())
+    assert _run(tmp_path) == 0
+    tally_path = tmp_path / "golden" / "audit_tally.yaml"
+    assert load_audit_tally(tally_path) == {"data_act": AuditResult(2, 2, 0)}
+    assert CASE not in tally_path.read_text()  # counts per fixture only
+    # A second case of the same proposal adds to it.
+    other = "case_91_widget_switching"
+    write(tmp_path / "drafts" / f"{other}.yaml", _fully_decided_as(other))
+    assert _run(tmp_path) == 0
+    assert load_audit_tally(tally_path)["data_act"].sampled > 2
+
+
+def test_dry_run_leaves_the_tally_alone(tmp_path):
+    write(tmp_path / "drafts" / f"{CASE}.yaml", fully_decided())
+    assert _run(tmp_path, "--dry-run") == 0
+    assert not (tmp_path / "golden" / "audit_tally.yaml").exists()
+
+
+def test_tallied_errors_escalate_a_later_draft_of_the_same_proposal(tmp_path, capsys):
+    write_audit_tally({"data_act": AuditResult(5, 5, 1)}, tmp_path / "golden" / "audit_tally.yaml")
+    write(tmp_path / "drafts" / f"{CASE}.yaml", fully_decided())
+    assert _run(tmp_path) == 2
+    assert "proposal escalated" in capsys.readouterr().err
+
+
+# ----------------------------------------------------------------------------- holdout registry
+
+
+def test_a_proposal_sealed_as_holdout_is_never_published(tmp_path, capsys):
+    registry = tmp_path / "private" / "holdout_scenarios.yaml"
+    registry.parent.mkdir()
+    registry.write_text(
+        "data_act:\n  - {scenario_id: eval_secret_case_x, description: d, articles: ['1']}\n"
+    )
+    write(tmp_path / "drafts" / f"{CASE}.yaml", fully_decided())
+    assert _run(tmp_path) == 2
+    err = capsys.readouterr().err
+    assert "'data_act' is registered as a holdout proposal" in err
+    assert "eval_secret_case_x" not in err
+    assert not (tmp_path / "golden" / f"{CASE}.yaml").exists()
+
+
+def _fully_decided_as(case_id):
+    data = draft_dict(case_id=case_id)
+    for section in ("expected_impacts", "important_omissions", "possibly_missing"):
+        for item in data[section]:
+            for key in ("expected_id", "omission_id", "candidate_id"):
+                if key in item:
+                    item[key] = item[key].replace("c90_", "c91_")
+    data = seal(data)
+    for item_id, decision in _human_items(data):
+        data = decide(data, item_id, decision, note="dup" if decision == "rejected" else None)
+    return data
+
+
+def _human_items(data):
+    for section in ("expected_impacts", "important_omissions", "possibly_missing"):
+        for item in data[section]:
+            ident = item.get("expected_id") or item.get("omission_id") or item.get("candidate_id")
+            if item["review"]["decision"] == "pending" or section == "possibly_missing":
+                yield ident, "verified"

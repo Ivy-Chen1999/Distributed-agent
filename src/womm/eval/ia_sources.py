@@ -465,6 +465,17 @@ def _words(text: str) -> list[str]:
     return re.findall(r"[a-z0-9]+", normalize(text))
 
 
+# A fixture source restates its IA when it shares more than this share of its 12-grams with the
+# IA's impact cut, or a run of this many words (measured 2026-10-04: at most 0.4% and 21 words).
+RESTATE_MAX_SHARE, RESTATE_MAX_RUN = 0.02, 30
+
+
+def restates_ia(text: str, cut_text: str) -> tuple[float, int] | None:
+    """(share, run) when ``text`` restates the IA cut beyond the thresholds, else None."""
+    share, run = ngram_overlap(text, cut_text)
+    return (share, run) if share > RESTATE_MAX_SHARE or run >= RESTATE_MAX_RUN else None
+
+
 def ngram_overlap(source: str, reference: str, n: int = 12) -> tuple[float, int]:
     """(share of ``source``'s word n-grams also in ``reference``, longest shared run in words).
 
