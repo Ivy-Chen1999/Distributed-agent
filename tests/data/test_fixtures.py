@@ -5,6 +5,7 @@ import pytest
 
 from womm.data.fixtures import (
     DEFAULT_FIXTURE_DIR,
+    FIXTURES_ROOT,
     FixtureError,
     load_crosswalk,
     load_fixture,
@@ -190,3 +191,28 @@ def test_imported_fixture_scenarios_may_not_carry_an_ia_reference(tmp_path: Path
     (tmp_path / "scenarios.yaml").write_text(scenario + "  ia_reference: null\n")
     with pytest.raises(FixtureError, match="ia_reference"):
         load_fixture(tmp_path)
+
+
+COMMITTED_FIXTURES = sorted(p.name for p in FIXTURES_ROOT.iterdir() if p.is_dir())
+
+
+def test_every_fixture_directory_is_checked():
+    assert len(COMMITTED_FIXTURES) >= 20, COMMITTED_FIXTURES
+
+
+@pytest.mark.parametrize("name", COMMITTED_FIXTURES)
+def test_committed_fixture_has_no_empty_provision_text(name):
+    # Provision texts are what the experts read: an empty one silently starves them.
+    fixture = load_fixture(FIXTURES_ROOT / name)
+    empty = [
+        p.provision_key
+        for v in fixture.regulation.versions
+        for p in v.provisions
+        if not p.text.strip()
+    ]
+    empty += [
+        s.source_id
+        for s in fixture.sources.values()
+        if s.kind == "provision" and not s.text.strip()
+    ]
+    assert not empty, (name, empty)
