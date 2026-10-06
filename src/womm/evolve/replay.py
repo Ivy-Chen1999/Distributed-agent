@@ -6,12 +6,18 @@ work items that survive a crash or redeploy.
   Improvement Planner's evaluation reads.
 - Workers claim items with ``FOR UPDATE SKIP LOCKED`` and heartbeat the item they run (the
   ``womm.api.jobs`` pattern). On start, and before every claim, items whose owner stopped
-  heartbeating go back to ``pending``; finished items are never re-run.
+  heartbeating go back to ``pending``; done items are never re-run.
+- An errored item is ``infra`` (rate limit, timeout, network, missing backend: says nothing
+  about the candidate) or ``deterministic`` (final). Any worker, including one started by a
+  re-submitted batch, retries infra-errored items until ``max_attempts``; a batch with an
+  infra-errored item is not complete, records no metric and fails the CLI.
 - The judge is pinned per batch to the seed's judge (``judge_sv``), so a candidate cannot move
   its own yardstick.
 - Holdout cases cannot be enqueued: cases come from ``load_all_golden(split=...)``, which refuses
   the holdout split, and every case id must belong to the batch's split.
-- A rate-limit error marks the item ``errored`` and halts the batch: no new claims.
+- A rate-limit error marks the item ``errored`` (infra) and halts the batch: no new claims
+  until ``resume`` (``womm evolve replay|worker --resume``) lifts the halt and gives exhausted
+  infra-errored items a new attempt budget.
 """
 
 from __future__ import annotations
@@ -26,26 +32,30 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import psycopg
 from psycopg.types.json import Jsonb
 
 from womm import tracing
 from womm.api.db import Database, _without_nul
 from womm.data.fixtures import Fixture
 from womm.decisions.service import DecisionService
-from womm.eval.evaluators import CaseScore, score_case
+from womm.eval.evaluators import INFRA_ERRORS, CaseScore, score_case
 from womm.eval.golden import GoldenCase, GoldenError, load_all_golden, load_case_fixture
 from womm.eval.run_eval import _hit_rate_limit
 from womm.eval.trajectory import trajectory_metrics
 from womm.evolve.archive import Archive, metric_rows
 from womm.evolve.failure_memory import case_run, failure_events
 from womm.graph.build import run_scenario
-from womm.llm.base import LLMBackend
+from womm.llm.base import LLMBackend, LLMError
 from womm.models.run import CodeIdentity, RunResult
 from womm.models.system_version import SystemVersion
 
 log = logging.getLogger("womm.replay")
 REPLAY_SPLITS = ("train", "val")
 STATUSES = ("pending", "running", "done", "errored")
+MAX_ATTEMPTS = 3
+# Exceptions that say nothing about the candidate: retried, never final.
+_INFRA_EXCEPTIONS = (ConnectionError, TimeoutError, psycopg.OperationalError)
 _IN_BATCH = (
     "i.version_id = b.version_id AND i.judge_version = b.judge_version"
     " AND i.git_sha = b.git_sha AND i.case_id = ANY(b.case_ids)"
@@ -71,12 +81,34 @@ def _load_split(split: str) -> list[GoldenCase]:
     return load_all_golden(split=split)
 
 
+class ReplayRefused(RuntimeError):
+    """A worker cannot run this batch faithfully (wrong judge, code or missing backend)."""
+
+
+class ReplayIncomplete(RuntimeError):
+    """A batch ended with items left to run (halted, or infra errors past the cap)."""
+
+
+class MissingBackend(LookupError):
+    pass
+
+
+def _is_infra(exc: BaseException) -> bool:
+    if isinstance(exc, LLMError):
+        return exc.error_kind in INFRA_ERRORS
+    return isinstance(exc, (MissingBackend, *_INFRA_EXCEPTIONS))
+
+
 class ReplayStore:
     def __init__(
-        self, db: Database, load_cases: Callable[[str], list[GoldenCase]] = _load_split
+        self,
+        db: Database,
+        load_cases: Callable[[str], list[GoldenCase]] = _load_split,
+        max_attempts: int = MAX_ATTEMPTS,
     ) -> None:
         self.db = db
         self.load_cases = load_cases
+        self.max_attempts = max_attempts
 
     def cases(self, split: str) -> dict[str, GoldenCase]:
         if split not in REPLAY_SPLITS:
@@ -145,17 +177,20 @@ class ReplayStore:
             return cur.rowcount
 
     async def claim(self, batch_id: str, owner: str) -> dict | None:
-        """The next pending item of a batch that is not halted, now running for ``owner``."""
+        """The next pending (or retryable infra-errored) item of a batch that is not halted,
+        now running for ``owner``."""
         async with self.db.pool.connection() as conn:
             cur = await conn.execute(
                 "UPDATE replay_items SET status = 'running', owner = %s, heartbeat_at = now(),"
                 " attempts = attempts + 1 WHERE item_id = ("
                 "  SELECT i.item_id FROM replay_items i JOIN replay_batches b"
                 f"   ON b.batch_id = %s AND b.halted IS NULL AND {_IN_BATCH}"
-                "  WHERE i.status = 'pending' ORDER BY i.case_id, i.repetition"
+                "  WHERE i.status = 'pending' OR (i.status = 'errored'"
+                "   AND i.error_kind = 'infra' AND i.attempts < %s)"
+                "  ORDER BY i.case_id, i.repetition"
                 "  FOR UPDATE OF i SKIP LOCKED LIMIT 1"
                 ") RETURNING *",
-                (owner, batch_id),
+                (owner, batch_id, self.max_attempts),
             )
             return await cur.fetchone()
 
@@ -178,17 +213,21 @@ class ReplayStore:
         score: CaseScore | None = None,
         trajectory: dict | None = None,
         error: str | None = None,
+        error_kind: str | None = None,
     ) -> bool:
         """Record a finished item; False when it is no longer this owner's (reclaimed)."""
+        if status == "errored" and error_kind not in ("infra", "deterministic"):
+            raise ValueError(f"errored needs error_kind infra|deterministic, not {error_kind!r}")
         payload = _without_nul(score.model_dump(mode="json")) if score else None
         async with self.db.pool.connection() as conn:
             cur = await conn.execute(
                 "UPDATE replay_items SET status = %s, run_id = %s, score = %s, trajectory = %s,"
-                " error = %s, finished_at = now()"
+                " error = %s, error_kind = %s, finished_at = now()"
                 " WHERE item_id = %s AND owner = %s AND status = 'running'",
                 (status, run_id, Jsonb(payload) if payload else None,
                  Jsonb(_without_nul(trajectory)) if trajectory is not None else None,
-                 (error or "")[:2000] or None, item_id, owner),
+                 (error or "")[:2000] or None, error_kind if status == "errored" else None,
+                 item_id, owner),
             )  # fmt: skip
             return cur.rowcount == 1
 
@@ -198,19 +237,46 @@ class ReplayStore:
                 "UPDATE replay_batches SET halted = %s WHERE batch_id = %s", (reason, batch_id)
             )
 
+    async def resume(self, batch_id: str) -> None:
+        """Lift a halt and give the batch's infra-errored items a new attempt budget.
+        Deterministic errors stay final (a fix is a new git sha, hence new items)."""
+        await self.batch(batch_id)
+        async with self.db.pool.connection() as conn, conn.transaction():
+            await conn.execute(
+                "UPDATE replay_batches SET halted = NULL WHERE batch_id = %s", (batch_id,)
+            )
+            await conn.execute(
+                "UPDATE replay_items i SET attempts = 0 FROM replay_batches b"
+                f" WHERE b.batch_id = %s AND {_IN_BATCH}"
+                " AND i.status = 'errored' AND i.error_kind = 'infra'",
+                (batch_id,),
+            )
+
     async def status(self, batch_id: str) -> dict:
+        """Item counts by status. ``infra_errored`` items (of which ``retryable`` are under
+        the attempts cap) are still owed a result: the batch is complete only when every item
+        is done or deterministically errored."""
         batch = await self.batch(batch_id)
         async with self.db.pool.connection() as conn:
             rows = await (await conn.execute(
-                "SELECT i.status, count(*) AS n FROM replay_items i JOIN replay_batches b"
-                f" ON b.batch_id = %s AND {_IN_BATCH} GROUP BY i.status", (batch_id,),
+                "SELECT i.status, i.error_kind, i.attempts < %s AS retry, count(*) AS n"
+                " FROM replay_items i JOIN replay_batches b"
+                f" ON b.batch_id = %s AND {_IN_BATCH} GROUP BY 1, 2, 3",
+                (self.max_attempts, batch_id),
             )).fetchall()  # fmt: skip
-        counts = dict.fromkeys(STATUSES, 0) | {r["status"]: r["n"] for r in rows}
+        counts = dict.fromkeys(STATUSES, 0)
+        infra = retryable = 0
+        for r in rows:
+            counts[r["status"]] += r["n"]
+            if r["status"] == "errored" and r["error_kind"] == "infra":
+                infra += r["n"]
+                retryable += r["n"] if r["retry"] else 0
         total = len(batch["case_ids"]) * batch["repetitions"]
         return {
             "batch_id": batch_id, "version_id": batch["version_id"], "split": batch["split"],
-            **counts, "total": total, "halted": batch["halted"],
-            "complete": counts["done"] + counts["errored"] == total,
+            **counts, "infra_errored": infra, "retryable": retryable, "total": total,
+            "halted": batch["halted"],
+            "complete": counts["done"] + counts["errored"] - infra == total,
         }  # fmt: skip
 
     async def results(self, batch_id: str) -> list[CaseScore]:
@@ -244,8 +310,12 @@ class ReplayWorker:
         item running; it is reclaimed once its heartbeat is stale."""
         batch = await self.store.batch(batch_id)
         if batch["judge_version"] != judge_version(self.judge_sv):
-            raise ValueError(f"batch {batch_id} is pinned to another judge")
+            raise ReplayRefused(f"batch {batch_id} is pinned to another judge")
         sv = await self.archive.load_candidate(batch["version_id"])
+        needed = {r.backend for r in sv.spec.roles().values()} | {self.judge_sv.spec.judge.backend}
+        if missing := sorted(needed - set(self.backends)):
+            raise ReplayRefused(f"batch {batch_id} needs backend(s) {missing} (candidate roles "
+                                "and the pinned judge); this worker has none of them")  # fmt: skip
         cases = self.store.cases(batch["split"])
         while True:
             if n := await self.store.reclaim_stale(self.stale_after_s):
@@ -256,6 +326,7 @@ class ReplayWorker:
             case = cases.get(item["case_id"])
             if case is None:
                 await self.store.finish(item["item_id"], self.owner, status="errored",
+                                        error_kind="deterministic",
                                         error="case no longer in the golden set")  # fmt: skip
                 continue
             await self._run_item(batch_id, item, sv, case)
@@ -282,15 +353,20 @@ class ReplayWorker:
             except asyncio.CancelledError:
                 raise
             except Exception as exc:  # noqa: BLE001 - record, never lose an item silently
+                kind = "infra" if _is_infra(exc) else "deterministic"
                 await self.store.finish(item["item_id"], self.owner, status="errored",
+                                        error_kind=kind,
                                         error=f"{type(exc).__name__}: {exc}")  # fmt: skip
                 return
             limited = _hit_rate_limit(run, score)
-            errored = score.outcome == "errored"
+            # An infra-errored run, or one that hit a rate limit anywhere, is no verdict on the
+            # candidate: errored (infra), so it is retried instead of cached.
+            errored = score.outcome == "errored" or limited
             await self.store.finish(
                 item["item_id"], self.owner, status="errored" if errored else "done",
                 run_id=run.run_id, score=score, trajectory=traj,
-                error=score.error if errored else None,
+                error=(score.error or "rate_limit") if errored else None,
+                error_kind="infra" if errored else None,
             )  # fmt: skip
             if limited:
                 await self.store.halt(batch_id, f"rate_limit during {case.case_id} "
@@ -304,6 +380,8 @@ class ReplayWorker:
         split, rep = item["split"], item["repetition"]
         fixture = load_case_fixture(case, self._fixtures)
         judge = self.judge_sv.spec.judge
+        if judge.backend not in self.backends:
+            raise MissingBackend(f"judge backend {judge.backend!r} is not prepared")
 
         async def one() -> tuple[RunResult, CaseScore, dict]:
             run = await run_scenario(

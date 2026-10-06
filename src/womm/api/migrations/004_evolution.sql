@@ -100,6 +100,9 @@ CREATE TABLE replay_items (
     owner         text,
     heartbeat_at  timestamptz,
     attempts      integer NOT NULL DEFAULT 0,
+    -- 'infra' (rate limit, timeout, network, missing backend) is retried up to a cap;
+    -- 'deterministic' is final for this (version, case, repetition, judge, code) key.
+    error_kind    text CHECK (error_kind IN ('infra', 'deterministic')),
     run_id        text,
     score         jsonb,
     trajectory    jsonb,

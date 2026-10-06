@@ -347,10 +347,20 @@ async def cmd_evolve_materialize(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+async def _replay_backends(sv: SystemVersion, judge_sv: SystemVersion, args: argparse.Namespace):
+    """The candidate's backends plus the pinned judge's (``judge_sv`` may use another one)."""
+    backends, cli_version, _ = await prepare_backends(sv, skip_self_check=args.skip_self_check)
+    if judge_sv.spec.judge.backend not in backends:
+        extra, judge_cli, _ = await prepare_backends(judge_sv, skip_self_check=args.skip_self_check)
+        backends = {**extra, **backends}
+        cli_version = cli_version or judge_cli
+    return backends, cli_version
+
+
 async def _replay(args: argparse.Namespace, batch_id: str | None) -> int:
     """Submit (when ``batch_id`` is None) and run a replay batch in this process (U4)."""
     from womm.evolve.archive import Archive
-    from womm.evolve.replay import ReplayStore, ReplayWorker
+    from womm.evolve.replay import ReplayRefused, ReplayStore, ReplayWorker
 
     seed = load_system_version(Path(args.seed), REPO_ROOT)
     async with _evolve_db("womm evolve replay") as db:
@@ -366,24 +376,31 @@ async def _replay(args: argparse.Namespace, batch_id: str | None) -> int:
             batch = await store.batch(batch_id)
         except KeyError as exc:
             raise UsageError(str(exc.args[0])) from None
+        if args.resume:
+            await store.resume(batch_id)
+            info(f"resumed batch {batch_id}: halt lifted, infra-errored items retried")
         if args.no_run:
             status = await store.status(batch_id)
         else:
             sv = await archive.load_candidate(batch["version_id"])
             settings = load_settings()
             decisions = make_decision_service(sv, settings)
-            backends, cli_version, _ = await prepare_backends(
-                sv, skip_self_check=args.skip_self_check
-            )
+            backends, cli_version = await _replay_backends(sv, seed, args)
             worker = ReplayWorker(
                 store=store, archive=archive, judge_sv=seed, backends=backends,
                 decisions=decisions, code=code_identity(cli_version),
                 runs_dir=Path(args.runs_dir),
             )  # fmt: skip
-            status = await worker.run_batch(batch_id)
+            try:
+                status = await worker.run_batch(batch_id)
+            except ReplayRefused as exc:
+                raise UsageError(str(exc)) from None
     text = ", ".join(f"{k}={status[k]}" for k in ("done", "errored", "running", "pending"))
-    emit(args, status, f"batch {batch_id}: {text}" + (f" halted: {status['halted']}"
-                                                       if status["halted"] else ""))  # fmt: skip
+    if status["infra_errored"]:
+        text += f", infra_errored={status['infra_errored']} (retryable={status['retryable']})"
+    if status["halted"]:
+        text += f" halted: {status['halted']} (lift with --resume)"
+    emit(args, status, f"batch {batch_id}: {text}")
     return EXIT_OK if status["complete"] or args.no_run else EXIT_FAILED
 
 
@@ -416,7 +433,7 @@ async def cmd_evolve_cycle(args: argparse.Namespace) -> int:
     from womm.evolve.cycle import ReplayEvaluator, run_cycle
     from womm.evolve.planner_view import HoldoutEnvRefused, PlannerView, refuse_holdout_env
     from womm.evolve.proposers import Proposer, load_evolution_config
-    from womm.evolve.replay import ReplayStore, ReplayWorker
+    from womm.evolve.replay import ReplayIncomplete, ReplayRefused, ReplayStore, ReplayWorker
 
     try:
         refuse_holdout_env()
@@ -435,9 +452,7 @@ async def cmd_evolve_cycle(args: argparse.Namespace) -> int:
             base = await archive.load_candidate(args.base)
         except KeyError as exc:
             raise UsageError(f"{exc.args[0]} (womm evolve seed?)") from None
-        backends, cli_version, _ = await prepare_backends(
-            base, skip_self_check=args.skip_self_check
-        )
+        backends, cli_version = await _replay_backends(base, seed, args)
         role = config.roles.reflect
         backend = await _proposer_backend(role.backend, backends, args, role.model)
         worker = ReplayWorker(
@@ -453,6 +468,11 @@ async def cmd_evolve_cycle(args: argparse.Namespace) -> int:
                     proposer=Proposer(backend, config), budget=config.budget,
                     stage=args.stage, cycle_id=cycle_id, run_dir=args.gepa_dir,
                 )  # fmt: skip
+            except ReplayRefused as exc:
+                raise UsageError(str(exc)) from None
+            except ReplayIncomplete as exc:
+                info(f"error: {exc}")
+                return EXIT_FAILED
             except ValueError as exc:
                 raise UsageError(str(exc)) from None
     prompt, topo = result.prompt, result.topology
@@ -548,6 +568,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="SystemVersion whose judge every replay is pinned to (default: %(default)s)",
     )
     replay_common.add_argument("--no-run", action="store_true", help="only enqueue / report")
+    replay_common.add_argument(
+        "--resume", action="store_true",
+        help="lift a halt (e.g. after a rate limit) and retry the batch's infra-errored items",
+    )  # fmt: skip
     replay_common.add_argument("--skip-self-check", action="store_true", help="dev only")
     p_replay = evolve.add_parser(
         "replay", parents=[common, replay_common],

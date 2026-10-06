@@ -19,7 +19,7 @@ from womm.evolve.edits import EditRejected, build_candidate, render_diff, valida
 from womm.evolve.gepa_adapter import CandidateEvaluator, CaseRef, WommAdapter
 from womm.evolve.planner_view import PlannerView
 from womm.evolve.proposers import Budget, Proposer, pattern_key
-from womm.evolve.replay import ReplayStore, ReplayWorker
+from womm.evolve.replay import ReplayIncomplete, ReplayStore, ReplayWorker
 from womm.llm.base import LLMError
 from womm.models.system_version import SystemVersion
 
@@ -53,7 +53,15 @@ class ReplayEvaluator:
             code=self.worker.code,
             case_ids=case_ids,
         )
-        await self.worker.run_batch(batch)
+        status = await self.worker.run_batch(batch)
+        if not status["complete"]:
+            why = (
+                f"halted: {status['halted']}"
+                if status["halted"]
+                else (f"{status['infra_errored']} infra-errored item(s) past the attempts cap")
+            )
+            raise ReplayIncomplete(f"replay batch {batch} is incomplete ({why}); resume it with "
+                                   f"womm evolve worker {batch} --resume")  # fmt: skip
         return await self.store.results(batch)
 
 

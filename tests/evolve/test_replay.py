@@ -8,7 +8,14 @@ import pytest
 from womm.decisions.stub import StubDecisionService
 from womm.eval.golden import GoldenError
 from womm.evolve.archive import Archive
-from womm.evolve.replay import ReplayStore, ReplayWorker, judge_version
+from womm.evolve.cycle import ReplayEvaluator
+from womm.evolve.replay import (
+    ReplayIncomplete,
+    ReplayRefused,
+    ReplayStore,
+    ReplayWorker,
+    judge_version,
+)
 from womm.llm.base import LLMError
 from womm.llm.fake import FakeBackend
 from womm.models.run import CodeIdentity
@@ -122,9 +129,84 @@ async def test_rate_limit_marks_errored_and_stops_claiming(setup, tmp_path):
     s["judge"] = [LLMError("rate_limit", "usage limit reached")] + s["judge"][1:]
     backend = FakeBackend(s)
     status = await worker(store, archive, sv, backend, tmp_path).run_batch(batch)
-    assert (status["errored"], status["pending"]) == (1, 3)
+    assert (status["errored"], status["infra_errored"], status["pending"]) == (1, 1, 3)
     assert status["halted"].startswith("rate_limit") and not status["complete"]
     assert planner_calls(backend) == 1
+
+    # A halt holds across workers and re-submissions until it is lifted explicitly.
+    idle = FakeBackend({})
+    assert await store.submit(sv.version_id, "train", 2, judge_sv=sv, code=CODE) == batch
+    status = await worker(store, archive, sv, idle, tmp_path).run_batch(batch)
+    assert status["halted"] and status["pending"] == 3 and idle.calls == []
+
+    await store.resume(batch)
+    again = FakeBackend(script(4))
+    status = await worker(store, archive, sv, again, tmp_path).run_batch(batch)
+    assert status["done"] == 4 and status["complete"] and status["halted"] is None
+    assert planner_calls(again) == 4  # the rate-limited item was retried
+
+
+async def test_infra_error_is_retried(setup, tmp_path):
+    sv, archive, store = setup
+    batch = await store.submit(sv.version_id, "train", 1, judge_sv=sv, code=CODE)
+    s = script(3)
+    s["judge"] = [LLMError("timeout", "judge timed out")] + s["judge"][1:]
+    status = await worker(store, archive, sv, FakeBackend(s), tmp_path).run_batch(batch)
+    assert status["done"] == 2 and status["complete"] and status["errored"] == 0
+    assert len(await store.results(batch)) == 2
+
+
+async def test_infra_retries_stop_at_the_attempts_cap_and_resume_resets_them(db, tmp_path):
+    sv = fake_sv()
+    archive = Archive(db)
+    await archive.archive(sv, origin="seed")
+    store = ReplayStore(db, load_cases=lambda split: CASES.get(split, []), max_attempts=2)
+    batch = await store.submit(sv.version_id, "train", 1, judge_sv=sv, code=CODE,
+                               case_ids=[CASE.case_id])  # fmt: skip
+    s = script(2)
+    s["judge"] = [LLMError("timeout", "judge timed out")] * 2
+    backend = FakeBackend(s)
+    status = await worker(store, archive, sv, backend, tmp_path).run_batch(batch)
+    assert (status["errored"], status["infra_errored"], status["retryable"]) == (1, 1, 0)
+    assert not status["complete"] and planner_calls(backend) == 2
+    assert await archive.metrics(sv.version_id) == []  # an incomplete batch records no metric
+
+    # A new worker does not retry an exhausted item; an explicit resume gives it a new budget.
+    idle = FakeBackend({})
+    status = await worker(store, archive, sv, idle, tmp_path).run_batch(batch)
+    assert not status["complete"] and idle.calls == []
+    await store.resume(batch)
+    status = await worker(store, archive, sv, FakeBackend(script(1)), tmp_path).run_batch(batch)
+    assert status["complete"] and status["done"] == 1
+
+
+async def test_deterministic_error_is_final(db, tmp_path):
+    sv = fake_sv()
+    archive = Archive(db)
+    await archive.archive(sv, origin="seed")
+    cases = {"train": [CASE, CASE_B]}
+    store = ReplayStore(db, load_cases=lambda split: cases.get(split, []))
+    batch = await store.submit(sv.version_id, "train", 1, judge_sv=sv, code=CODE)
+    cases["train"] = [CASE]  # CASE_B left the golden set: a deterministic failure
+    backend = FakeBackend(script(1))
+    status = await worker(store, archive, sv, backend, tmp_path).run_batch(batch)
+    assert (status["done"], status["errored"], status["infra_errored"]) == (1, 1, 0)
+    assert status["complete"]
+    idle = FakeBackend({})
+    await store.resume(batch)
+    status = await worker(store, archive, sv, idle, tmp_path).run_batch(batch)
+    assert status["complete"] and idle.calls == []
+
+
+async def test_worker_refuses_without_the_judge_backend(setup, tmp_path):
+    sv, archive, store = setup
+    batch = await store.submit(sv.version_id, "train", 1, judge_sv=sv, code=CODE)
+    w = ReplayWorker(store=store, archive=archive, judge_sv=sv, backends={},
+                     decisions=StubDecisionService(), code=CODE)  # fmt: skip
+    with pytest.raises(ReplayRefused, match="fake"):
+        await w.run_batch(batch)
+    status = await store.status(batch)
+    assert status["pending"] == 2 and status["errored"] == 0
 
 
 async def test_holdout_cannot_be_enqueued(db):
@@ -153,3 +235,14 @@ def test_judge_version_ignores_everything_but_the_judge():
     a = fake_sv()
     b = fake_sv(experts=["legal"])
     assert a.version_id != b.version_id and judge_version(a) == judge_version(b)
+
+
+async def test_evaluator_refuses_an_incomplete_batch(setup, tmp_path):
+    """A halted batch must not reach GEPA as a set of missing (zero) scores."""
+    sv, archive, store = setup
+    s = script(2)
+    s["judge"] = [LLMError("rate_limit", "usage limit reached")] + s["judge"][1:]
+    w = worker(store, archive, sv, FakeBackend(s), tmp_path)
+    evaluator = ReplayEvaluator(archive_store=archive, store=store, worker=w)
+    with pytest.raises(ReplayIncomplete, match="halted"):
+        await evaluator.evaluate(sv, "train", [CASE.case_id, CASE_B.case_id], 1)
