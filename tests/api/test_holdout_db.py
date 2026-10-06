@@ -68,7 +68,8 @@ async def test_holdout_migrations_are_separate_from_the_api(database_url, holdou
         await api.close()
     assert _rows(database_url, "SELECT 1 FROM pg_namespace WHERE nspname = 'holdout'") == []
     store = holdout.HoldoutStore(holdout_url)
-    assert await store.migrate() == ["001_holdout", "002_compare_progress"]
+    applied = ["001_holdout", "002_compare_progress", "003_budget_reservations"]
+    assert await store.migrate() == applied
     assert await store.migrate() == []
     assert _rows(holdout_url, "SELECT to_regclass('public.runs')") == [(None,)]
 
