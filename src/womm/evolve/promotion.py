@@ -5,19 +5,20 @@ in ``tests/evolve/test_planner_boundary.py``); nothing Planner-side imports this
 
 - **Pre-registered policy.** ``evals/promotion_policy.yaml`` fixes the primary metric, the
   guard tolerances, repetitions, ``failure_policy``, the formal mode, the holdout budget and
-  ``publish_summary`` before any result. Every field is required. The statistical and weak
-  modes refuse to run until a person has signed it (``signed_by``) and committed it.
+  ``publish_summary`` before any result. Every field is required. Every mode, dev included,
+  refuses to run until a person has signed it (``signed_by``) and committed it: each mode reads
+  the sealed holdout and spends its budget.
 - **Mode before results.** ``dev`` when any role of either version is not on the api backend
   (labelled dev-only, never deployable); otherwise the policy's formal mode, falling back to
   ``weak`` when no minimum-detectable-delta report says the gate can resolve the expected gain.
   The one later change is data-driven, never result-driven: a statistical comparison whose
   primary CI is null (``insufficient_proposals``) is decided as weak, and the downgrade is
   recorded.
-- **Preconditions** (each a refusal before any holdout run): both versions on the same
-  backends (per shared role; a role only one version has, such as a new expert, on a backend
-  and model the other already uses); for formal modes a signed, committed policy, a
+- **Preconditions** (each a refusal before any holdout run): a signed, committed policy (every
+  mode); both versions on the same backends (per shared role; a role only one version has,
+  such as a new expert, on a backend and model the other already uses); for formal modes a
   coverage-judge calibration of at least 85% for the gate's judge and an R34 formal noise run
-  on record; holdout budget left (per cycle and in total).
+  on record (dev mode skips both); holdout budget left (per cycle and in total).
 - **Decision.** Statistical: the primary metric's CI95 lower bound above 0. Weak and dev: its
   mean delta above 0. Every guard metric's mean delta at least minus its tolerance. An aborted
   comparison is rejected as ``inconclusive``, consumes no budget, and a repeated abort on the
@@ -288,15 +289,16 @@ async def preflight(
         raise GateRefused("candidate and incumbent must use the same backends (compare api twins "
                           f"with api twins, dev versions with dev versions): {why}")  # fmt: skip
     choice = choose_mode(policy, records, candidate, incumbent)
+    # Every mode reads the sealed holdout, so every mode (dev included) needs the policy signed
+    # and committed; only the formal modes also need the judge calibration and the R34 run.
+    if not policy.signed:
+        raise GateRefused("the promotion policy is not signed (signed_by, signed_on): a person "
+                          "pre-registers it before any holdout comparison, dev mode "
+                          "included")  # fmt: skip
+    if not policy_committed:
+        raise GateRefused("the promotion policy or records have uncommitted changes; a holdout "
+                          "comparison runs only on committed, pre-registered files")  # fmt: skip
     if choice.mode != "dev":
-        if not policy.signed:
-            raise GateRefused("the promotion policy is not signed (signed_by, signed_on): a "
-                              "person pre-registers it before any formal comparison")  # fmt: skip
-        if not policy_committed:
-            raise GateRefused(
-                "the promotion policy or records have uncommitted changes; a "
-                "formal comparison runs only on committed, pre-registered files"
-            )
         jv = judge_version(incumbent)
         calibration = records.calibration(jv)
         if calibration is None:

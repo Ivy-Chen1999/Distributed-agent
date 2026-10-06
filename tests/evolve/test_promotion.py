@@ -169,10 +169,24 @@ async def _preflight(cand, base, p=None, recs=None, committed=True, store=None):
                               policy_committed=committed)  # fmt: skip
 
 
-async def test_dev_mode_runs_unsigned_and_uncalibrated():
+async def test_dev_mode_runs_uncalibrated_and_without_r34():
     cand, base = versions("fake")
-    choice = await _preflight(cand, base, p=policy(), recs=pm.PromotionRecords())
+    choice = await _preflight(cand, base, recs=pm.PromotionRecords())
     assert choice.mode == "dev"
+
+
+@pytest.mark.parametrize(("kw", "message"), [
+    ({"p": policy()}, "not signed"),
+    ({"committed": False}, "uncommitted"),
+])  # fmt: skip
+async def test_dev_mode_on_the_sealed_holdout_needs_a_signed_committed_policy(kw, message):
+    """User decision: every gate mode reads the sealed holdout, so every mode, dev included,
+    runs only under a signed, committed policy (dev still skips calibration and R34)."""
+    cand, base = versions("fake")
+    store = GateStore([])
+    with pytest.raises(pm.GateRefused, match=message):
+        await _preflight(cand, base, recs=pm.PromotionRecords(), store=store, **kw)
+    assert store.compared == 0
 
 
 @pytest.mark.parametrize(
@@ -329,11 +343,11 @@ def _gate_backends(cand, n_runs):
 async def test_a_dev_gate_promotes_and_records_in_the_audit_only(roots):
     cand, base = versions("fake")
     store = GateStore(_sealed(roots))  # 2 proposals: insufficient for CIs
-    p = policy(repetitions=2)
+    p = policy(repetitions=2, **SIGNED)
     d = await pm.run_gate(
         candidate=cand, incumbent=base, policy=p, policy_sha256="sha",
         records=pm.PromotionRecords(), store=store, backends=_gate_backends(cand, 4),
-        decisions=StubDecisionService(), code=CLEAN, cycle_id="c1", policy_committed=False,
+        decisions=StubDecisionService(), code=CLEAN, cycle_id="c1", policy_committed=True,
     )  # fmt: skip
     assert d.mode == "dev" and d.decision == "promoted" and not d.deployable
     assert store.decisions == {d.gate_id: d.model_dump(mode="json")}
@@ -348,10 +362,10 @@ async def test_publish_summary_needs_a_database(roots):
     store = GateStore(_sealed(roots))
     with pytest.raises(pm.GateRefused, match="no main database"):
         await pm.run_gate(
-            candidate=cand, incumbent=base, policy=policy(repetitions=2, publish_summary=True),
-            policy_sha256="sha", records=pm.PromotionRecords(), store=store,
-            backends=_gate_backends(cand, 4), decisions=StubDecisionService(), code=CLEAN,
-            cycle_id="c1", policy_committed=False,
+            candidate=cand, incumbent=base,
+            policy=policy(repetitions=2, publish_summary=True, **SIGNED), policy_sha256="sha",
+            records=pm.PromotionRecords(), store=store, backends=_gate_backends(cand, 4),
+            decisions=StubDecisionService(), code=CLEAN, cycle_id="c1", policy_committed=True,
         )  # fmt: skip
     assert store.compared == 0 and store.audits == []
 
@@ -381,10 +395,11 @@ async def test_gate_records_on_postgres(roots, db, database_url, holdout_url, pu
     store = await _sealed_store(roots, holdout_url)
     cand, base = versions("fake")
     d = await pm.run_gate(
-        candidate=cand, incumbent=base, policy=policy(repetitions=2, publish_summary=publish),
-        policy_sha256="sha", records=pm.PromotionRecords(), store=store,
-        backends=_gate_backends(cand, 4), decisions=StubDecisionService(),
-        code=CodeIdentity(git_sha="abc", dirty=False), cycle_id="c1", policy_committed=False,
+        candidate=cand, incumbent=base,
+        policy=policy(repetitions=2, publish_summary=publish, **SIGNED), policy_sha256="sha",
+        records=pm.PromotionRecords(), store=store, backends=_gate_backends(cand, 4),
+        decisions=StubDecisionService(), code=CodeIdentity(git_sha="abc", dirty=False),
+        cycle_id="c1", policy_committed=True,
         summary_db=db,
     )  # fmt: skip
     (audit,) = _rows(holdout_url, "SELECT gate_id, cycle_id, decision FROM holdout.compare_audit")

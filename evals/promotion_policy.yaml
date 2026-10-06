@@ -2,12 +2,14 @@
 # fixed before any holdout comparison and read by `womm evolve promote` only. Every field is
 # required; the gate refuses an incomplete file.
 #
-# HUMAN STEP: a person signs this policy before the first formal holdout comparison by setting
-# `signed_by` and `signed_on` and committing the file. Until then the gate refuses the
-# statistical and weak modes; the dev mode (any role not on the api backend, labelled
-# "dev-only, not deployable") runs unsigned for development. A formal comparison also refuses
-# while this file or evals/promotion_records.yaml has uncommitted changes, and every decision
-# records this file's sha256, so a moved goalpost is visible in the audit.
+# HUMAN STEP: a person signs this policy before the first holdout comparison by setting
+# `signed_by` and `signed_on` and committing the file. Until then the gate refuses EVERY mode,
+# the dev mode included (any role not on the api backend, labelled "dev-only, not
+# deployable"): every mode reads the sealed holdout and spends its budget. Dev mode only skips
+# the coverage-judge calibration and the R34 formal noise run that the statistical and weak
+# modes also need. Every mode also refuses while this file or evals/promotion_records.yaml has
+# uncommitted changes, and every decision records this file's sha256, so a moved goalpost is
+# visible in the audit.
 #
 # The values below are the plan's proposed defaults for the user's open decisions (plan, Open
 # Questions, "Needs the User" 1-3). Change them before signing, never after a comparison.
