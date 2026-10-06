@@ -1,3 +1,6 @@
+-- FROZEN: tests/api/test_db.py pins this file's sha256. It was revised before it was ever
+-- applied to a shared database; from here on, any schema change goes into 005+, never here
+-- (Database.migrate skips a migration it has applied, so an edit would silently not run).
 -- Self-evolution cycle (plan 2026-10-06-001). Train/val data only: every split column below is
 -- constrained, so holdout cases, results or metrics can never be stored in this database.
 

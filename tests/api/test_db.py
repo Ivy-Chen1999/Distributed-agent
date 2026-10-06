@@ -1,4 +1,6 @@
-from womm.api.db import Database, result_error_kind
+import hashlib
+
+from womm.api.db import MIGRATIONS_DIR, Database, result_error_kind
 from womm.decisions.stub import StubDecisionService
 from womm.graph.build import run_scenario
 from womm.llm.fake import FakeBackend
@@ -20,6 +22,22 @@ async def test_migrate_is_idempotent(database_url):
         assert await database.migrate() == []
     finally:
         await database.close()
+
+
+# Applied migrations are never edited: Database.migrate skips one it has applied, so an edit
+# would silently not reach an existing database. A schema change is a new migration (005+).
+FROZEN_MIGRATIONS = {
+    "001_init.sql": "c80129fb50cb58c8016aa493c0707f457907553b13c368deba76fb9b2145ba28",
+    "002_run_ownership.sql": "de28c62563c4477571ce3c9346f4e92fe3020a808afeac6a757ca15f79dfdeab",
+    "003_decision_usage.sql": "96b3e70aa153b00284add9af2179a9844063c03179dd6e3bca86fa16cff7c4d3",
+    "004_evolution.sql": "0ac92a93be6ebc7b34a27007a989f8e385487ee13323d8134c15e2cb42bb069d",
+}
+
+
+def test_applied_migrations_are_frozen():
+    for name, digest in FROZEN_MIGRATIONS.items():
+        actual = hashlib.sha256((MIGRATIONS_DIR / name).read_bytes()).hexdigest()
+        assert actual == digest, f"{name} changed: add a new migration (005+) instead"
 
 
 async def test_events_roundtrip_in_order(db):
