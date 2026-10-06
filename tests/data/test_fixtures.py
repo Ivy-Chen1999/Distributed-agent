@@ -1,3 +1,4 @@
+import re
 import shutil
 from pathlib import Path
 
@@ -5,11 +6,13 @@ import pytest
 
 from womm.data.fixtures import (
     DEFAULT_FIXTURE_DIR,
+    FIXTURES_ROOT,
     FixtureError,
     load_crosswalk,
     load_fixture,
     validate_fixture,
 )
+from womm.data.parse_proposal import looks_like_title
 from womm.models.regulation import Scenario
 
 
@@ -231,3 +234,43 @@ def test_imported_fixture_scenarios_may_not_carry_an_ia_reference(tmp_path: Path
     (tmp_path / "scenarios.yaml").write_text(scenario + "  ia_reference: null\n")
     with pytest.raises(FixtureError, match="ia_reference"):
         load_fixture(tmp_path)
+
+
+COMMITTED_FIXTURES = sorted(p.name for p in FIXTURES_ROOT.iterdir() if p.is_dir())
+
+
+def test_every_fixture_directory_is_checked():
+    assert len(COMMITTED_FIXTURES) >= 20, COMMITTED_FIXTURES
+
+
+@pytest.mark.parametrize("name", COMMITTED_FIXTURES)
+def test_committed_fixture_has_no_empty_provision_text(name):
+    # Provision texts are what the experts read: an empty one silently starves them.
+    fixture = load_fixture(FIXTURES_ROOT / name)
+    empty = [
+        p.provision_key
+        for v in fixture.regulation.versions
+        for p in v.provisions
+        if not p.text.strip()
+    ]
+    empty += [
+        s.source_id
+        for s in fixture.sources.values()
+        if s.kind == "provision" and not s.text.strip()
+    ]
+    assert not empty, (name, empty)
+
+
+@pytest.mark.parametrize("name", COMMITTED_FIXTURES)
+def test_committed_fixture_has_no_title_left_in_an_untitled_provision(name):
+    # A title the parser missed reaches the experts as the first line of the provision text,
+    # with an untitled source ("COM(2023) 94, Article 1" instead of "...: Subject matter").
+    fixture = load_fixture(FIXTURES_ROOT / name)
+    left = [
+        s.source_id
+        for s in fixture.sources.values()
+        if s.kind == "provision"
+        and re.search(r", Article \w+$", s.title)
+        and looks_like_title(s.text.split("\n", 1)[0])
+    ]
+    assert not left, (name, left)

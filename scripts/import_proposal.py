@@ -16,8 +16,9 @@ kept sentence with an estimate, a percentage, a EUR amount or an "N out of ten" 
 redacted or allow-listed in ``import.yaml``. When the accompanying IA is cached locally
 (.cache/ia/<regulation_id>/), the memorandum must also not restate it (12-word n-gram overlap
 with the IA's impact cut, ``womm.eval.ia_sources.ngram_overlap``). The import fails, naming the
-CELEX, on zero articles, gaps or duplicate article numbers, an unrecognised memorandum or a
-leak, and then writes nothing: a proposal is imported whole or not at all.
+CELEX, on zero articles, gaps or duplicate article numbers, "Article N" headings that did not
+become articles, articles with empty text, an unrecognised memorandum or a leak, and then
+writes nothing: a proposal is imported whole or not at all.
 
 Per-proposal settings live in ``import.yaml`` (hand-editable, reviewed in PRs): extra strip
 patterns, sentence redactions, leak-guard allow-list entries and the evaluation scenarios
@@ -37,7 +38,7 @@ import datetime as dt
 import json
 import re
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import httpx
@@ -149,6 +150,8 @@ class Imported:
     stripped: list[str]
     topics: dict[str, list[str]]
     redactions: dict[str, list[str]]
+    # Untitled articles whose text starts with a title-like line (a missed title); warned.
+    title_lines: list[str] = field(default_factory=list)
 
 
 def version_ids(celex: str) -> tuple[str, str]:
@@ -171,7 +174,11 @@ def build(config: ImportConfig, body: bytes) -> Imported:
     try:
         root = parse_proposal.parse_document(body)
         articles = parse_proposal.parse_articles(root)
+        if articles:  # else check_article_sequence reports "no articles found"
+            # Names the headings a markup variant hid, before they show up as a gap.
+            parse_proposal.check_article_headings(articles, root, celex)
         parse_proposal.check_article_sequence(articles, celex)
+        parse_proposal.check_article_texts(articles, celex)
         stripped = strip_topics(
             parse_proposal.parse_memorandum(root),
             extra_patterns=config.strip_patterns,
@@ -258,7 +265,13 @@ def build(config: ImportConfig, body: bytes) -> Imported:
     except FixtureError as exc:
         raise ImportFailed(f"{celex}: {exc}") from None
     return Imported(
-        regulation, sources, scenarios, stripped.removed, stripped.topics, redacted.records
+        regulation,
+        sources,
+        scenarios,
+        stripped.removed,
+        stripped.topics,
+        redacted.records,
+        parse_proposal.untitled_articles_with_title_lines(articles),
     )
 
 
@@ -453,6 +466,11 @@ def main(argv: list[str] | None = None) -> int:
     for heading, reasons in imported.redactions.items():  # log only; never in sources.json
         for reason in reasons:
             print(f"  {heading}: {reason}")
+    if imported.title_lines:
+        print(
+            f"WARNING: title-like first line in untitled Articles {imported.title_lines}; "
+            "a title in markup the parser does not know? Check the provision texts."
+        )
     print("leak guard: clean; quantitative guard: clean")
     print(
         "IA overlap: clean (12-grams vs the cached IA)"
