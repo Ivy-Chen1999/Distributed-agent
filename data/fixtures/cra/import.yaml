@@ -14,4 +14,17 @@ redactions:
   reason: 'quantified estimate restated in the memorandum; manual review: redacted'
 leak_allow: []
 quant_allow: []
-scenarios: []
+scenarios:
+- scenario_id: eval_manufacturer_obligations
+  description: Cybersecurity obligations of manufacturers, importers and distributors of products with
+    digital elements, including vulnerability handling, reporting of actively exploited vulnerabilities
+    and incidents, technical documentation and conformity assessment (proposal only, no prior version).
+  articles:
+  - '5'
+  - '6'
+  - '10'
+  - '11'
+  - '13'
+  - '14'
+  - '23'
+  - '24'

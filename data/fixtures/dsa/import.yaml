@@ -20,4 +20,22 @@ quant_allow:
 - section: 1.1.
   sentence: This threshold is proportionate to the risks brought by the reach of the platforms
   reason: a target or threshold set by this proposal's own articles, not an assessment finding
-scenarios: []
+scenarios:
+- scenario_id: eval_due_diligence_obligations
+  description: Due diligence obligations of intermediary services, hosting services, online platforms
+    and very large online platforms, including legal representatives, transparency reporting, notice and
+    action, complaint handling, advertising transparency, risk management, audits and compliance officers
+    (proposal only, no prior version).
+  articles:
+  - '11'
+  - '13'
+  - '14'
+  - '16'
+  - '17'
+  - '18'
+  - '24'
+  - '26'
+  - '27'
+  - '28'
+  - '30'
+  - '32'
