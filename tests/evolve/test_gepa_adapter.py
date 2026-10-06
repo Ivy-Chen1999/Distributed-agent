@@ -103,6 +103,7 @@ def graph_script() -> dict:
         * LONG,
         "expert/fiscal": [fiscal] * LONG,
         "expert/stakeholder": [{"findings": []}] * LONG,
+        "expert": [{"findings": []}] * LONG,  # any expert a topology candidate adds
         "synthesis": [synth] * LONG,
         "judge": [judge] * LONG,
     }

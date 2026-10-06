@@ -15,10 +15,12 @@ import gepa
 
 from womm.eval.evaluators import CaseScore
 from womm.evolve.archive import Archive
-from womm.evolve.gepa_adapter import CaseRef, WommAdapter
+from womm.evolve.edits import EditRejected, build_candidate, render_diff, validate_diff
+from womm.evolve.gepa_adapter import CandidateEvaluator, CaseRef, WommAdapter
 from womm.evolve.planner_view import PlannerView
-from womm.evolve.proposers import Budget, Proposer
+from womm.evolve.proposers import Budget, Proposer, pattern_key
 from womm.evolve.replay import ReplayStore, ReplayWorker
+from womm.llm.base import LLMError
 from womm.models.system_version import SystemVersion
 
 log = logging.getLogger("womm.evolve.cycle")
@@ -86,7 +88,7 @@ async def run_prompt_stage(
     *,
     base: SystemVersion,
     view: PlannerView,
-    evaluator,
+    evaluator: CandidateEvaluator,
     proposer: Proposer,
     budget: Budget,
     cycle_id: str | None = None,
@@ -169,3 +171,168 @@ async def choose_candidate(
         if cov > best_cov:
             best_id, best_cov = vid, cov
     return best_id
+
+
+# ---------------------------------------------------------------- topology stage
+
+
+MAX_EXAMPLES = 20
+
+
+def unowned_patterns(patterns: list[dict], min_proposals: int = 2) -> list[dict]:
+    """Persistent ``(missed_impact, category, owner = none)`` patterns spanning at least
+    ``min_proposals`` proposals (fixtures), most persistent first. Single-run data
+    (persistence unknown) never qualifies."""
+    return [
+        p
+        for p in patterns
+        if p["kind"] == "missed_impact"
+        and p["owner"] == "none"
+        and p["persistence"] == "known"
+        and p["persistent_misses"] > 0
+        and len(p["proposals"]) >= min_proposals
+    ]
+
+
+@dataclass
+class TopologyResult:
+    candidate: SystemVersion | None
+    reason: str
+    target: dict | None = None
+    proposal: dict | None = None
+    rejections: list[dict] = field(default_factory=list)
+    spent_usd: float = 0.0
+
+
+async def _examples(view: PlannerView, version_id: str, target: dict) -> list[dict]:
+    """The missed impacts behind ``target``: train/val golden text only."""
+    cases = {cid: c for split in ("train", "val") for cid, c in view.cases(split).items()}
+    seen, out = set(), []
+    for e in await view.failure_events(version_id):
+        key = (e.case_id, e.item_id)
+        if (e.kind, e.category, e.owner) != ("missed_impact", target["category"], "none"):
+            continue
+        if key in seen or e.case_id not in target["cases"] or e.case_id not in cases:
+            continue
+        seen.add(key)
+        item = next((i for i in cases[e.case_id].expected_impacts if i.expected_id == e.item_id),
+                    None)  # fmt: skip
+        if item is not None:
+            out.append({"proposal": e.fixture, "affected_actor": item.affected_actor,
+                        "mechanism": item.mechanism, "impact": item.impact,
+                        "provision_keys": item.provision_keys})  # fmt: skip
+    return out[:MAX_EXAMPLES]
+
+
+async def run_topology_stage(
+    *,
+    seed: SystemVersion,
+    parent: SystemVersion,
+    view: PlannerView,
+    evaluator: CandidateEvaluator,
+    proposer: Proposer,
+    budget: Budget,
+    cycle_id: str | None = None,
+) -> TopologyResult:
+    """Propose one new expert (registry entry, prompt, router gloss) on top of ``parent``, the
+    prompt stage's choice, only when an unowned miss pattern persists on it across enough
+    proposals. A candidate has at most ``seed``'s expert count + 1. The candidate is archived
+    (origin topology) and replayed on val."""
+    if len(parent.spec.experts) > len(seed.spec.experts):
+        return TopologyResult(None, "expert cap reached: the parent already adds an expert")
+    targets = unowned_patterns(
+        await view.failure_patterns(parent.version_id), budget.min_pattern_proposals
+    )
+    if not targets:
+        return TopologyResult(
+            None,
+            "no persistent (missed_impact, category, owner none) pattern spanning "
+            f"{budget.min_pattern_proposals}+ proposals",
+        )
+    target = targets[0]
+    start_usd = proposer.spent_usd
+    if budget.max_usd is not None and start_usd >= budget.max_usd:
+        return TopologyResult(None, "budget: max_usd reached before the topology stage", target)
+    experts = [{"id": e.id, "domain": e.domain, "router_gloss": e.router_gloss}
+               for e in parent.spec.experts]  # fmt: skip
+    examples = await _examples(view, parent.version_id, target)
+    rejections: list[dict] = []
+    try:
+        proposal = await proposer.propose_expert(target, examples, experts)
+    except LLMError as exc:
+        rejections.append({"op": "add_expert", "reason": f"proposer_error: {exc}"})
+        return TopologyResult(None, "the expert proposal failed", target, None, rejections)
+    raw = proposal.model_dump()
+    if proposal.target_pattern.strip() != pattern_key(target):
+        reason = f"proposal targets {proposal.target_pattern!r}, not {pattern_key(target)!r}"
+        rejections.append({"op": "add_expert", "reason": reason})
+        return TopologyResult(None, "proposal rejected", target, raw, rejections)
+    op = {"op": "add_expert", "id": proposal.id, "domain": proposal.domain,
+          "prompt_text": proposal.prompt_text, "router_gloss": proposal.router_gloss}  # fmt: skip
+    try:
+        diff = validate_diff(parent, [op])
+    except EditRejected as exc:
+        rejections.append({"op": exc.op or "add_expert", "reason": str(exc)})
+        return TopologyResult(None, "proposal rejected", target, raw, rejections)
+    child = build_candidate(parent, diff)
+    await evaluator.archive(
+        child, parent_id=parent.version_id, origin="topology", cycle_id=cycle_id,
+        diff={"ops": diff.ops_json(), "rendered": render_diff(parent, child),
+              "rationale": proposal.rationale, "target_pattern": pattern_key(target)},
+        proposer=proposer.provenance("expert"),
+    )  # fmt: skip
+    val = sorted(view.cases("val"))
+    scores = await evaluator.evaluate(child, "val", val, budget.val_repetitions) if val else []
+    spent = proposer.spent_usd - start_usd + sum(s.cost_usd for s in scores)
+    return TopologyResult(child, "proposed", target, raw, rejections, spent)
+
+
+# ---------------------------------------------------------------- the cycle
+
+
+@dataclass
+class CycleResult:
+    chosen: SystemVersion
+    prompt: PromptStageResult | None
+    topology: TopologyResult | None
+
+
+async def run_cycle(
+    *,
+    base: SystemVersion,
+    view: PlannerView,
+    evaluator: CandidateEvaluator,
+    proposer: Proposer,
+    budget: Budget,
+    stage: str = "both",
+    cycle_id: str | None = None,
+    run_dir: str | None = None,
+) -> CycleResult:
+    """Prompt stage, then (``both`` or ``topology``) the topology stage on its choice, then one
+    candidate for the gate: the better of the two by val coverage, grounding within
+    tolerance."""
+    if stage not in ("prompt", "topology", "both"):
+        raise ValueError(f"unknown stage {stage!r}")
+    prompt = None
+    parent = base
+    if stage in ("prompt", "both"):
+        prompt = await run_prompt_stage(base=base, view=view, evaluator=evaluator,
+                                        proposer=proposer, budget=budget, cycle_id=cycle_id,
+                                        run_dir=run_dir)  # fmt: skip
+        parent = prompt.best
+    topology = None
+    if stage in ("topology", "both"):
+        topology = await run_topology_stage(seed=base, parent=parent, view=view,
+                                            evaluator=evaluator, proposer=proposer,
+                                            budget=budget, cycle_id=cycle_id)  # fmt: skip
+    chosen = parent
+    if topology and topology.candidate is not None:
+        val = sorted(view.cases("val"))
+        await evaluator.evaluate(base, "val", val, budget.val_repetitions)  # cached when replayed
+        front = [v for v in (parent.version_id, topology.candidate.version_id)
+                 if v != base.version_id]  # fmt: skip
+        best = await choose_candidate(view, base, front, budget.grounding_tolerance)
+        chosen = {parent.version_id: parent, topology.candidate.version_id: topology.candidate}.get(
+            best, base
+        )
+    return CycleResult(chosen, prompt, topology)

@@ -1,0 +1,248 @@
+"""U5 cycle on the fake backend: the topology stage (one new expert for a persistent unowned
+pattern), budgets, and the cycle's single candidate for the gate."""
+
+import pytest
+
+from womm.evolve.cycle import run_cycle, run_prompt_stage, run_topology_stage, unowned_patterns
+from womm.evolve.edits import build_candidate, validate_diff
+from womm.evolve.failure_memory import CaseRun, FailureEvent
+from womm.evolve.proposers import Budget
+from womm.llm.fake import FakeBackend
+
+from .test_gepa_adapter import CASE, CASES, MARKER, TRAIN
+
+OTHER = CASE.model_copy(update={"case_id": "case_other_act", "fixture": "other_act"})
+CATEGORY = "social_environmental"
+TARGET = f"missed_impact/{CATEGORY}/none"
+PROMPT = (
+    "You are the Workforce Analyst in a regulatory impact assessment system for EU legislation. "
+    "Your lens: effects on workers, employment, skills and working conditions. Report impacts "
+    "as findings with provision_key, affected_actor, mechanism, impact, verbatim evidence of at "
+    "least 8 words and confidence; an empty list is better than an unsupported finding."
+)
+
+
+def proposal(**over):
+    def step(_system, _user):
+        return {
+            "id": "workforce",
+            "domain": "workforce",
+            "prompt_text": PROMPT,
+            "router_gloss": "employment, skills and working conditions",
+            "rationale": "no expert covers workforce effects",
+            "target_pattern": TARGET,
+            **over,
+        }
+
+    return step
+
+
+async def seed_pattern(db, version_id, cases=(CASE, OTHER), runs=2, missed=2, owner="none"):
+    """Failure Memory rows: each case's first expected impact, categorised, missed in
+    ``missed`` of ``runs`` runs, owned by ``owner``."""
+    events, case_runs = [], []
+    for case in cases:
+        item = case.expected_impacts[0]
+        for rep in range(1, runs + 1):
+            run_id = f"seed_{case.case_id}_{rep}"
+            case_runs.append(
+                CaseRun(
+                    case_id=case.case_id,
+                    fixture=case.fixture,
+                    split="train",
+                    run_id=run_id,
+                    repetition=rep,
+                    system_version=version_id,
+                )
+            )
+            if rep <= missed:
+                events.append(
+                    FailureEvent(
+                        kind="missed_impact",
+                        case_id=case.case_id,
+                        fixture=case.fixture,
+                        split="train",
+                        item_id=item.expected_id,
+                        category=CATEGORY,
+                        touching_agents=[] if owner == "none" else [owner],
+                        owner=owner,
+                        run_id=run_id,
+                        repetition=rep,
+                        system_version=version_id,
+                    )
+                )
+    await db.record_failure_events(events, case_runs)
+
+
+@pytest.fixture
+def two_proposals(monkeypatch):
+    monkeypatch.setitem(CASES, "train", [*TRAIN, OTHER])
+
+
+def topology_kw(env, **budget):
+    return dict(
+        seed=env["sv"],
+        parent=env["sv"],
+        view=env["view"],
+        evaluator=env["evaluator"],
+        proposer=env["proposer"],
+        budget=Budget(val_repetitions=2, **budget),
+        cycle_id="c1",
+    )
+
+
+# ---------------------------------------------------------------- topology stage
+
+
+async def test_persistent_unowned_pattern_yields_one_new_expert(env, two_proposals):
+    await seed_pattern(env["db"], env["sv"].version_id)
+    env["proposer"].backend = FakeBackend({"improvement_planner/topology": [proposal()]})
+    result = await run_topology_stage(**topology_kw(env))
+    child = result.candidate
+    assert result.reason == "proposed" and child is not None
+    assert [e.id for e in child.spec.experts] == ["legal", "fiscal", "stakeholder", "workforce"]
+    new = child.spec.experts[-1]
+    assert new.router_gloss == "employment, skills and working conditions"
+    assert child.prompt_text(new.role) == PROMPT
+    row = await env["archive"].get(child.version_id)
+    assert (row["origin"], row["parent_id"]) == ("topology", env["sv"].version_id)
+    assert row["diff"]["target_pattern"] == TARGET
+    assert row["diff"]["rendered"]["summary"]["experts_added"] == ["workforce"]
+    assert row["proposer"]["prompt"] == "prompts/evolution/propose_expert.md"
+    # The proposer saw the pattern and the missed train impacts of both proposals.
+    user = env["proposer"].backend.calls[0].user_content
+    assert TARGET in user and "other_act" in user
+    assert CASE.expected_impacts[0].affected_actor in user
+    # The candidate was replayed on val with four expert nodes.
+    assert any(c.agent == "workforce" for c in env["graph"].calls)
+
+
+async def test_pattern_in_one_proposal_does_not_trigger(env, two_proposals):
+    await seed_pattern(env["db"], env["sv"].version_id, cases=(CASE,))
+    env["proposer"].backend = FakeBackend({})
+    result = await run_topology_stage(**topology_kw(env))
+    assert result.candidate is None and "2+ proposals" in result.reason
+    assert env["proposer"].backend.calls == []
+
+
+async def test_owned_or_unknown_persistence_does_not_trigger(env, two_proposals):
+    await seed_pattern(env["db"], env["sv"].version_id, owner="fiscal")
+    rows = await env["view"].failure_patterns(env["sv"].version_id)
+    assert unowned_patterns(rows) == []
+    single = [
+        {
+            "kind": "missed_impact",
+            "owner": "none",
+            "persistence": "unknown",
+            "persistent_misses": 0,
+            "proposals": ["a", "b"],
+        }
+    ]
+    assert unowned_patterns(single) == []
+
+
+async def test_invalid_expert_proposals_are_rejected(env, two_proposals):
+    await seed_pattern(env["db"], env["sv"].version_id)
+    env["proposer"].backend = FakeBackend(
+        {
+            "improvement_planner/topology": [
+                proposal(target_pattern="missed_impact/other/none"),
+                proposal(id="fiscal"),
+            ]
+        }
+    )
+    wrong = await run_topology_stage(**topology_kw(env))
+    assert wrong.candidate is None and "targets" in wrong.rejections[0]["reason"]
+    dup = await run_topology_stage(**topology_kw(env))
+    assert dup.candidate is None and "already exists" in dup.rejections[0]["reason"]
+    assert await env["archive"].children(env["sv"].version_id) == []
+
+
+async def test_expert_count_is_capped_at_the_seed_plus_one(env, two_proposals):
+    sv = env["sv"]
+    op = {
+        "op": "add_expert",
+        "id": "workforce",
+        "domain": "workforce",
+        "prompt_text": PROMPT,
+        "router_gloss": "employment effects",
+    }
+    parent = build_candidate(sv, validate_diff(sv, [op]))
+    await seed_pattern(env["db"], parent.version_id)
+    env["proposer"].backend = FakeBackend({})
+    result = await run_topology_stage(**{**topology_kw(env), "parent": parent})
+    assert result.candidate is None and "cap" in result.reason
+
+
+# ---------------------------------------------------------------- budgets
+
+
+async def test_max_usd_stops_before_any_proposal(env):
+    result = await run_prompt_stage(
+        base=env["sv"],
+        view=env["view"],
+        evaluator=env["evaluator"],
+        proposer=env["proposer"],
+        budget=Budget(max_usd=0.0),
+    )
+    assert result.best.version_id == env["sv"].version_id
+    assert result.archived == [] and env["planner_llm"].calls == []
+
+
+async def test_metric_budget_reached_mid_stage_keeps_every_candidate(env):
+    budget = Budget(max_metric_calls=8, train_repetitions=1, val_repetitions=1)
+    result = await run_prompt_stage(
+        base=env["sv"],
+        view=env["view"],
+        evaluator=env["evaluator"],
+        proposer=env["proposer"],
+        budget=budget,
+    )
+    assert result.archived and MARKER not in "".join(result.best.prompts.values())
+    for vid in result.archived:
+        assert (await env["archive"].load_candidate(vid)).version_id == vid
+
+
+# ---------------------------------------------------------------- the cycle
+
+
+async def test_cycle_both_stages_names_one_candidate(env):
+    budget = Budget(max_metric_calls=60, train_repetitions=1, val_repetitions=2)
+    result = await run_cycle(
+        base=env["sv"],
+        view=env["view"],
+        evaluator=env["evaluator"],
+        proposer=env["proposer"],
+        budget=budget,
+        cycle_id="c1",
+    )
+    assert result.chosen.version_id == result.prompt.best.version_id != env["sv"].version_id
+    # The prompt edit removed every miss, so no topology change is proposed.
+    assert result.topology.candidate is None and "pattern" in result.topology.reason
+
+
+async def test_topology_only_cycle_keeps_the_base_when_the_expert_does_not_help(env, two_proposals):
+    await seed_pattern(env["db"], env["sv"].version_id)
+    env["proposer"].backend = FakeBackend({"improvement_planner/topology": [proposal()]})
+    result = await run_cycle(
+        base=env["sv"],
+        view=env["view"],
+        evaluator=env["evaluator"],
+        proposer=env["proposer"],
+        budget=Budget(val_repetitions=2),
+        stage="topology",
+    )
+    assert result.topology.candidate is not None
+    assert result.chosen.version_id == env["sv"].version_id  # same val coverage: no change
+
+
+async def test_unknown_stage_is_refused(env):
+    with pytest.raises(ValueError, match="stage"):
+        await run_cycle(
+            base=env["sv"],
+            view=env["view"],
+            evaluator=env["evaluator"],
+            proposer=env["proposer"],
+            budget=Budget(),
+            stage="judge",
+        )
