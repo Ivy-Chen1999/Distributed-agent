@@ -1,0 +1,1099 @@
+# DRAFT golden case written by scripts/draft_golden_case.py; not scored until published.
+# Reviewer? Start with docs/eval/reviewer-quickstart.md. The helper lists what to decide:
+#   uv run python scripts/review_draft.py <this file>
+# Decide every item whose review.decision is 'pending' and every possibly_missing candidate
+# as verified / edited / rejected / unclear, with your GitHub username in review.reviewer.
+# Other auto-accepted items need no decision. Do not change tool-written fields of an item
+# you keep as auto_accepted or verified (CI checks provenance.item_digests); the drafter
+# (provenance.drafted_by) cannot review. review_links opens the public IA and proposal on
+# EUR-Lex (train/val only); holdout identifiers never appear in a tracked file.
+case_id: case_10_platform_work_employment_status_algorithmic_management
+scenario_id: eval_employment_status_algorithmic_management
+fixture: platform_work
+split: train
+ia_reference: 'Impact assessment accompanying the Platform Work Directive proposal (identifiers in the
+  local IA index); sections: Annex 3: Who is affected and how?; Annex 4: Impacts of the policy options'
+notes: ''
+review_links:
+  ia: https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:52021SC0396%2801%29
+  proposal: https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:52021PC0762
+  ia_parts: 1
+  anchor_parts: {}
+provenance:
+  tool: scripts/draft_golden_case.py
+  drafted_on: '2026-10-06'
+  drafted_by: Chen Yuxin
+  drafting_model: claude-opus-5-5
+  roles:
+    drafter:
+      backend: claude_code
+      model: claude-opus-5-5
+      prompt: prompts/tools/draft_golden_case.md
+    recall:
+      backend: claude_code
+      model: claude-opus-5-5
+      prompt: prompts/tools/recall_golden_case.md
+    judge_anchor:
+      backend: claude_code
+      model: claude-sonnet-5
+      prompt: prompts/tools/judge_anchor.md
+    judge_derivability:
+      backend: claude_code
+      model: claude-sonnet-5
+      prompt: prompts/tools/judge_derivability.md
+    judge_category:
+      backend: claude_code
+      model: claude-sonnet-5
+      prompt: prompts/tools/judge_category.md
+  prompt_hashes:
+    prompts/tools/draft_golden_case.md: c72bd341e2c3ef75
+    prompts/tools/recall_golden_case.md: 36f0a5dcc15a57c6
+    prompts/tools/judge_anchor.md: 0d81eb4d5d2b43bd
+    prompts/tools/judge_derivability.md: 97471d88c14d32c3
+    prompts/tools/judge_category.md: 8b1885320b65b60f
+  ia_sections:
+  - 'Annex 3: Who is affected and how?'
+  - 'Annex 4: Impacts of the policy options'
+  rsb_status: opinion none found in Cellar; using the IA's procedural-information annex
+  audit:
+    seed: 123069157
+    rate: 0.2
+    eligible: 10
+    eligible_ids:
+    - c10_e01
+    - c10_e02
+    - c10_e03
+    - c10_e04
+    - c10_e06
+    - c10_e07
+    - c10_e08
+    - c10_e09
+    - c10_e10
+    - c10_o03
+    sampled:
+    - c10_e03
+    - c10_o03
+    non_publishable_test_seed: false
+  item_digests:
+    c10_e01: c3a331b8f789f3b8fb27a68307e8ee2ea7eef7241edeb1f45f7fd814e7b3c464
+    c10_e02: d26c0bf79c51e8b28c4c90a083e46185e6f663d46e09d2143f70aebaa80a3dc5
+    c10_e03: 1e50d8a195a1b61458684e5545ce01ff05a2aa26e34441786f923850e998951b
+    c10_e04: 1b3fc6297aed915d56a0d06f81b4550a0046377b4fdf67ac8d2fb7d8df394431
+    c10_e05: 4b02a93b7048e9add4e7852557d444606e988305dda18d170eba3495586c4e05
+    c10_e06: 4762d91720cac93e22265ac9aa1857744957c79c30f3ccd83dc3c8e77c2d35d7
+    c10_e07: 9aab330b0e1579be3356ef17cd750daadc4d37f1c1142ec698c96f4f1083960e
+    c10_e08: e8f209f6ca409fd96fcde0982ea45041f1e410aa6b4ed805989163e24c18cd9c
+    c10_e09: f70829d90fb9e965b958358b6ff926085af1b0ae5f77c8102fb5c45962122925
+    c10_e10: 4424904a8eefc886aaff4af2398acb4ded3165a7d1a1b783f9e1a21d05beb2a0
+    c10_o01: 96d7667a5f20660ef200ca72c61683f1e6eb0c399cc2740b2d89e7dcbba7b427
+    c10_o02: c2ff26127916e34695ffeb588f5b5b4319bb1b127dc2f61024ad0a7c200517ed
+    c10_o03: 23945363c0128f502fdaad9c304d97658cd26844ecb7295687ae98c287a75e35
+    c10_o04: 2df42ff8c45f64dc6fd00b6781fcbf7202c87bf6f76d0bedbbe8de8fa0bbcdc9
+    c10_m01: 63299ee6b304edf454eab21e6b1da1d4fdcb948a967f5464a5839c6135b3021b
+    c10_m02: 3dfd73797d88924a8d008cd50a2ff65e0978092f0139b8f703921f3b0d29d9eb
+    c10_m03: 32a41390217e181c8aa4c8df04a756af2af2450c04f677d81c0c6470cabb54ae
+    c10_m04: 5c78094badae2c4066864776b8a6a9722889ff23cc80f94fc10bdd4ae9d428c0
+    c10_m05: 9cb29567aa875e622f825e2738130477a70343a3507309d6ed2638ca891662a1
+    c10_m06: 9055b9384794145e3f24e8194e628dd8483cb7c4b037cf56794853f8ac16826f
+    c10_m07: 264560878d48f9e2816fa7407254b3a40dc6c3e85b6350d6f56cf0a2bf31fc43
+    c10_m08: 44d808a694deaf7f74b83794148db6ce5a99238f2aa9d83a566c1218aae901d3
+stats:
+  items: 22
+  expected_impacts: 10
+  important_omissions: 4
+  possibly_missing: 8
+  anchors_verified: 22
+  judge_agree: 14
+  judge_disagree: 1
+  judge_uncertain: 7
+  auto_accepted: 10
+  pending: 12
+  audited: 2
+  human_decisions_needed: 14
+expected_impacts:
+- expected_id: c10_e01
+  affected_actor: Digital labour platforms that control the performance of work (mainly low-skill on-location
+    platforms, some online micro-tasking platforms)
+  mechanism: The legal presumption of employment, triggered when at least two control criteria are met,
+    pushes platforms to reclassify the people working through them as employees, directly or through temporary
+    work agencies, either voluntarily or after losing court cases.
+  impact: One-off costs of changing the business model, plus higher recurrent wage costs (bringing pay
+    up to the minimum wage) and non-wage costs (employer social contributions). The IA puts the annual
+    cost of reclassification at EUR 1.87 – 4.46 billion.
+  provision_keys:
+  - platform_work/proposal/art/4
+  ia_section: 'Annex 3: Who is affected and how? – Impacts on platforms'
+  ia_anchor: The costs for platforms will relate not only to one-off expenses of changing the platform
+    business models, but also increased recurrent wage and non-wage expenses.
+  anchor:
+    status: verified
+    against: ia
+  category: compliance_cost
+  derivability:
+    verdict: 'yes'
+    reason: Article 4 presumes an employment relationship wherever the control criteria are met, so an
+      expert can foresee that platforms will face employer wage and social contribution costs.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor and context describe platforms reclassifying workers (directly or via agencies) and
+        facing one-off plus recurrent wage/non-wage costs, matching the claimed actor and mechanism; the
+        cited billion-euro figure appears consistently elsewhere in the same IA cost tables.
+    derivability:
+      verdict: agree
+      reason: Article 4's presumption of employment directly implies employer wage and social-contribution
+        costs for platforms meeting the control criteria.
+    category:
+      verdict: agree
+      reason: Higher wage and non-wage costs plus business-model changes are substantive costs of meeting
+        employment requirements, i.e. compliance_cost.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c10_e02
+  affected_actor: Digital labour platforms
+  mechanism: The presumption applies in all administrative and legal proceedings. Rebutting it puts the
+    burden of proof on the platform, and a rebuttal does not suspend the presumption. This makes it easier
+    and cheaper for workers and authorities to challenge employment status.
+  impact: Legal and non-compliance costs, currently tens to hundreds of millions of euros for on-location
+    platforms, rise in the short to medium term. The IA expects them to fall below the baseline in the
+    long run because the control criteria give legal certainty.
+  provision_keys:
+  - platform_work/proposal/art/4
+  - platform_work/proposal/art/5
+  ia_section: A3.2 Overview of costs of the preferred option
+  ia_anchor: As Policy Option A3b would make it easier and less costly for people working through platforms
+    to challenge their legal status, the legal and non-compliance costs are likely to be even higher in
+    the short to medium term.
+  anchor:
+    status: verified
+    against: ia
+  category: compliance_cost
+  derivability:
+    verdict: 'yes'
+    reason: Articles 4 and 5 shift the burden of proof onto platforms and allow all parties and authorities
+      to rely on the presumption in proceedings, which points directly to more litigation exposure.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context states legal/non-compliance costs are tens to hundreds of millions, rise in short/medium
+        term due to easier challenges, then fall below baseline long-term, matching the claim exactly.
+    derivability:
+      verdict: agree
+      reason: Articles 4 and 5 together give the presumption universal procedural effect and shift the
+        burden of proof to platforms, supporting greater litigation exposure.
+    category:
+      verdict: agree
+      reason: Legal and non-compliance costs from rebutting the presumption are substantive costs of meeting
+        the legal requirement, fitting compliance_cost.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c10_e03
+  affected_actor: People working through platforms who are reclassified as employees
+  mechanism: Applying the legal presumption gives misclassified people employee status and the employment
+    rights that come with it.
+  impact: Between 1.7 and 4.1 million people are reclassified. They gain more stable income, paid leave,
+    social protection and better health and safety. Net wages rise by EUR 203-484 million a year in total
+    (an average of EUR 121.07 per person per year), and paid leave is worth EUR 349-830 million a year.
+  provision_keys:
+  - platform_work/proposal/art/4
+  ia_section: A3.1 Overview of benefits of the preferred option
+  ia_anchor: This results in a total increase of EUR 203-484 million for all platform workers in EU-27,
+    or an average increase per person of EUR 121.07 per year.
+  anchor:
+    status: verified
+    against: ia
+  category: social_environmental
+  derivability:
+    verdict: 'yes'
+    reason: Reclassification under Article 4 plainly brings workers into employee protection such as the
+      minimum wage, paid leave and social insurance.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context confirms the 1.7-4.1 million reclassification range, the EUR 203-484 million wage
+        increase, the EUR 121.07 per-person average, and the EUR 349-830 million paid leave value, all
+        matching the claim.
+    derivability:
+      verdict: agree
+      reason: Reclassification as employees under Article 4 plainly brings standard employment protections
+        such as pay floors, leave and social insurance.
+    category:
+      verdict: agree
+      reason: Gains in wages, leave and social protection for reclassified workers are employment effects,
+        fitting social_environmental.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: needs_human
+    drafting_model: claude-opus-5-5
+  review:
+    decision: pending
+    audit: true
+    reviewer: null
+    note: null
+- expected_id: c10_e04
+  affected_actor: Platform workers subject to algorithmic management
+  mechanism: Workers get rights to information on automated monitoring and decision-making systems, limits
+    on personal data processing, human monitoring of automated decisions, an explanation from a contact
+    person, a written statement of reasons, and review, rectification or compensation for significant
+    decisions.
+  impact: Workers understand algorithmic criteria better, have more control over how their data are used,
+    and can challenge decisions such as account suspension. This leads indirectly to better working conditions.
+    The IA says up to 28.29 million people working through platforms are covered.
+  provision_keys:
+  - platform_work/proposal/art/6
+  - platform_work/proposal/art/7
+  - platform_work/proposal/art/8
+  ia_section: A3.1 Overview of benefits of the preferred option
+  ia_anchor: This will apply to up to 28.29 million people currently working through platforms.
+  anchor:
+    status: verified
+    against: ia
+  category: fundamental_rights
+  derivability:
+    verdict: partly
+    reason: The rights for platform workers are explicit in Articles 6-8. The IA's coverage of self-employed
+      people depends on an extension provision that is not in the scenario.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context explicitly states the transparency/consultation/oversight/redress rights apply to
+        up to 28.29 million people working through platforms, matching the claim.
+    derivability:
+      verdict: agree
+      reason: Articles 6-8 explicitly grant the listed worker rights, while the extended coverage to self-employed
+        persons is not established by these provisions, matching the partly verdict.
+    category:
+      verdict: agree
+      reason: Rights to information, data-processing limits and review of automated decisions are data
+        protection/fundamental rights matters.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c10_e05
+  affected_actor: Digital labour platforms (all types)
+  mechanism: Platforms must give workers a written document on their automated monitoring and decision-making
+    systems (main parameters and grounds for decisions), update it when the systems change substantially,
+    and supply it to worker representatives and labour authorities on request.
+  impact: One-off costs of providing algorithmic transparency and a slight rise in administrative burden
+    for all platforms. The IA does not quantify the cost.
+  provision_keys:
+  - platform_work/proposal/art/6
+  ia_section: A3.2 Overview of costs of the preferred option
+  ia_anchor: One-off costs of providing more algorithmic transparency for people working through platforms.
+  anchor:
+    status: verified
+    against: ia
+  category: administrative_burden
+  derivability:
+    verdict: 'yes'
+    reason: Article 6(3)-(4) sets out document-based information duties that platforms must meet.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: unknown
+      reason: The anchor only states generic 'one-off costs of providing more algorithmic transparency';
+        the specific mechanism details (written document content, updates, supply to worker reps/authorities)
+        are not confirmed in this context.
+    derivability:
+      verdict: agree
+      reason: Article 6(3)-(4) explicitly creates the documented information and disclosure duties described.
+    category:
+      verdict: agree
+      reason: Producing and updating a written document on algorithmic systems is a documentation/reporting
+        duty, i.e. administrative_burden.
+    overall: uncertain
+  provenance:
+    origin: llm_drafted
+    status: needs_human
+    drafting_model: claude-opus-5-5
+  review:
+    decision: pending
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c10_e06
+  affected_actor: Digital labour platforms (all types)
+  mechanism: Platforms must provide enough competent human staff to monitor automated decisions, assess
+    the health and safety risks of the systems, designate trained contact persons, give written reasons,
+    review contested decisions within one week, and rectify decisions or pay compensation.
+  impact: Recurring costs for human oversight, written explanations, complaint handling and redress mechanisms.
+    The cost per platform depends on whether the platform already has complaint procedures and on how
+    many people work through it.
+  provision_keys:
+  - platform_work/proposal/art/7
+  - platform_work/proposal/art/8
+  ia_section: A3.2 Overview of costs of the preferred option
+  ia_anchor: The recurring cost of ensuring human oversight and review of significant decisions taken
+    by algorithms, providing written explanations of these decisions, and internal complaint-handling
+    procedures.
+  anchor:
+    status: verified
+    against: ia
+  category: compliance_cost
+  derivability:
+    verdict: 'yes'
+    reason: Articles 7(3) and 8 explicitly require staff, contact persons, review deadlines and rectification
+      or compensation.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context lists recurring costs for human oversight, written explanations, complaint-handling
+        and redress mechanisms for platforms, matching the actor, mechanism and impact of the claim.
+    derivability:
+      verdict: agree
+      reason: Articles 7(3) and 8 explicitly require human staffing, contact persons, review deadlines,
+        and rectification/compensation.
+    category:
+      verdict: agree
+      reason: Staffing for human oversight, risk assessment and redress mechanisms are substantive organisational/staff
+        costs, i.e. compliance_cost.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c10_e07
+  affected_actor: Consumers of on-location platform services
+  mechanism: Platforms that reclassify workers under the presumption pass the higher labour costs on to
+    customers through prices.
+  impact: Prices for on-location services rise by 0-40%, with 24% as the most realistic estimate. Services
+    may also become less available and waiting times longer.
+  provision_keys:
+  - platform_work/proposal/art/4
+  ia_section: 'Annex 3: Who is affected and how? – Impacts on consumers'
+  ia_anchor: Reclassification may increase the prices for consumers of on-location services 0-40%, with
+    the most realistic estimate of 24% based on available case studies
+  anchor:
+    status: verified
+    against: ia
+  category: consumers_users
+  derivability:
+    verdict: partly
+    reason: The provisions create employer costs, but the pass-through to consumer prices is an indirect
+      market effect that the expert has to infer.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context states reclassification may raise consumer prices 0-40% with 24% as most realistic,
+        and mentions reduced availability/longer waiting times, matching the claim exactly.
+    derivability:
+      verdict: agree
+      reason: Higher employer costs follow from Article 4, but price pass-through to consumers is an inferred
+        market response not stated in the text.
+    category:
+      verdict: agree
+      reason: Higher prices and reduced availability for customers directly affect consumers_users.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c10_e08
+  affected_actor: National labour inspectorates and enforcement authorities
+  mechanism: Member States must publish information on the presumption, develop guidance, proactively
+    target non-compliant platforms and strengthen controls and field inspections. Courts and authorities
+    also handle more misclassification cases.
+  impact: New or changed enforcement procedures and extra resources for more inspections and court cases
+    in the short to medium term. The IA does not consider these costs significant relative to overall
+    spending on labour market supervision.
+  provision_keys:
+  - platform_work/proposal/art/4
+  - platform_work/proposal/art/5
+  ia_section: A3.2 Overview of costs of the preferred option
+  ia_anchor: Extra resources will be needed in order to carry out and conclude the increased number of
+    inspections, however they are not considered significant in view of the overall public spending on
+    labour market supervision.
+  anchor:
+    status: verified
+    against: ia
+  category: public_enforcement_cost
+  derivability:
+    verdict: 'yes'
+    reason: Article 4(3)(c)-(d) explicitly requires guidance for enforcement and stronger inspections.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context confirms increased inspections/court cases requiring extra resources that are not
+        considered significant relative to overall labour market supervision spending, matching the claim.
+    derivability:
+      verdict: agree
+      reason: Article 4(3)(c)-(d) explicitly mandates enforcement guidance and strengthened inspections,
+        and Article 5 supports increased proceedings.
+    category:
+      verdict: agree
+      reason: Extra inspections, guidance and court resources are costs for public authorities, fitting
+        public_enforcement_cost.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c10_e09
+  affected_actor: Public budgets (tax authorities and social security institutions)
+  mechanism: Employees are taxed and pay social contributions at higher rates than the self-employed,
+    so reclassification under the presumption widens the tax and contribution base.
+  impact: Extra public revenue of EUR 0.93-2.64 billion a year from on-location platforms and EUR 0.74-1.33
+    billion a year from online platforms.
+  provision_keys:
+  - platform_work/proposal/art/4
+  ia_section: 'Annex 3: Who is affected and how? – Impacts on public authorities'
+  ia_anchor: The preferred option under Policy Area A is likely to have budgetary implications in terms
+    of extra income that could be collected in the case of reclassification
+  anchor:
+    status: verified
+    against: ia
+  category: other
+  derivability:
+    verdict: partly
+    reason: Employer social contributions follow from employee status under Article 4, but the net fiscal
+      effect requires inference beyond the text.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context states the preferred option has budgetary implications from higher taxation of employees
+        versus self-employed, consistent with the mechanism; the specific billion-euro figures appear
+        in the same IA's public-sector cost table.
+    derivability:
+      verdict: agree
+      reason: Employer social contributions follow from Article 4 reclassification, but the net fiscal
+        impact is an inference beyond the text.
+    category:
+      verdict: agree
+      reason: Effects on tax and social contribution revenue don't match any specific category and are
+        best labelled other.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c10_e10
+  affected_actor: National labour and social protection authorities
+  mechanism: Platforms that are employers must declare platform work to the authorities of the Member
+    State where the work is performed and share relevant data with them, including in cross-border situations.
+  impact: Authorities get clarity on social protection coverage and on the contributions due, which helps
+    labour inspectorates, social protection institutions and tax authorities enforce the rules. Platforms
+    bear no cost above the baseline because they already have to comply with these rules as employers.
+  provision_keys:
+  - platform_work/proposal/art/11
+  ia_section: 'Annex 3: Who is affected and how? – Impacts on public authorities'
+  ia_anchor: Thanks to the Clarification on the obligation to declare platform work, including in cross-border
+    situations, national authorities will obtain clarity on the social protection coverage of people working
+    through platforms as workers, and on the relevant contributions which are due.
+  anchor:
+    status: verified
+    against: ia
+  category: public_enforcement_cost
+  derivability:
+    verdict: 'yes'
+    reason: Article 11 directly requires platforms to declare work and share data with the competent authorities.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: 'Context closely paraphrases the claim: clarification on declaring platform work gives authorities
+        clarity on social protection coverage and contributions, aiding enforcement, with no extra platform
+        cost beyond baseline.'
+    derivability:
+      verdict: agree
+      reason: Article 11 directly imposes the declaration and data-sharing duty on platform employers.
+    category:
+      verdict: agree
+      reason: The declaration/data-sharing duty is framed around helping authorities supervise and enforce,
+        fitting public_enforcement_cost.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+important_omissions:
+- omission_id: c10_o01
+  description: The duties on algorithmic transparency, human oversight, risk assessment and review fall
+    harder on SME platforms, which the IA estimates make up 70-92% of digital labour platforms. Large
+    platforms often already disclose algorithm information and run dispute systems, so these duties cost
+    them relatively less. This is why Article 8(2) allows SMEs a two-week deadline instead of one week.
+  source: ia
+  provision_keys:
+  - platform_work/proposal/art/6
+  - platform_work/proposal/art/7
+  - platform_work/proposal/art/8
+  ia_section: A3.3 The SME test
+  ia_anchor: Policy options presented in Policy Area B may have stronger effects on SME digital labour
+    platforms
+  anchor:
+    status: verified
+    against: ia
+  category: sme_specific
+  derivability:
+    verdict: 'yes'
+    reason: Article 8(2) itself singles out SMEs, which signals that the burden is uneven.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: unknown
+      reason: Context supports SME platforms being more affected by Policy Area B duties, but does not
+        mention Article 8(2) or a two-week deadline for SMEs.
+    derivability:
+      verdict: agree
+      reason: Article 8(2)'s explicit SME carve-out signals that the compliance burden under Articles
+        6-8 is recognized as heavier for smaller platforms.
+    category:
+      verdict: agree
+      reason: The claim is explicitly about the disproportionate burden on SME platforms, fitting sme_specific.
+    overall: uncertain
+  provenance:
+    origin: llm_drafted
+    status: needs_human
+    drafting_model: claude-opus-5-5
+  review:
+    decision: pending
+    audit: false
+    reviewer: null
+    note: null
+- omission_id: c10_o02
+  description: Platforms may pull out of less profitable markets (small towns, regions or whole countries)
+    or leave the EU instead of reclassifying. This reduces service availability, competition and innovation,
+    and cuts work opportunities for people who work through platforms as self-employed or part-time.
+  source: ia
+  provision_keys:
+  - platform_work/proposal/art/4
+  ia_section: 'Annex 3: Who is affected and how? – Impacts on platforms'
+  ia_anchor: On-location platforms might quit less profitable markets, at local (e.g., town, city, region)
+    or national level.
+  anchor:
+    status: verified
+    against: ia
+  category: market_competition
+  derivability:
+    verdict: partly
+    reason: Market exit is a plausible behavioural response to the employer costs created by Article 4,
+      but the text does not state it.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context states on-location platforms might quit less profitable markets and online platforms
+        may leave the EU, causing reduced competition and innovation, matching the claim.
+    derivability:
+      verdict: agree
+      reason: Market exit is a plausible but unstated behavioural response to the cost increases Article
+        4 creates.
+    category:
+      verdict: unknown
+      reason: The impact explicitly spans reduced competition and reduced innovation about equally, so
+        market_competition and innovation_investment both fit.
+    overall: uncertain
+  provenance:
+    origin: llm_drafted
+    status: needs_human
+    drafting_model: claude-opus-5-5
+  review:
+    decision: pending
+    audit: false
+    reviewer: null
+    note: null
+- omission_id: c10_o03
+  description: Reclassified workers gain protection but may lose the flexibility and autonomy of independent
+    contractor status, such as choosing their hours or working for several platforms at the same time.
+    The IA puts this at around 1.72 – 4.09 million people.
+  source: ia
+  provision_keys:
+  - platform_work/proposal/art/4
+  ia_section: 'Annex 3: Who is affected and how? – Impacts on people working through platforms'
+  ia_anchor: Some of them, however, might lose some flexibility related to independent contractor status.
+  anchor:
+    status: verified
+    against: ia
+  category: social_environmental
+  derivability:
+    verdict: 'yes'
+    reason: The control criteria in Article 4(2)(d) concern restricting freedom over working hours and
+      tasks, so the trade-off for reclassified workers can be foreseen.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context confirms reclassified workers 'might lose some flexibility related to independent
+        contractor status,' and the 1.72-4.09 million figure for reclassified workers is established elsewhere
+        in the same IA.
+    derivability:
+      verdict: agree
+      reason: Article 4(2)(d)'s control criteria concerning restrictions on hours and task acceptance
+        support the inference of a flexibility-protection trade-off.
+    category:
+      verdict: agree
+      reason: Loss of flexibility/autonomy for workers is a working-conditions/employment effect, fitting
+        social_environmental.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: needs_human
+    drafting_model: claude-opus-5-5
+  review:
+    decision: pending
+    audit: true
+    reviewer: null
+    note: null
+- omission_id: c10_o04
+  description: Businesses that rely on platforms, especially SME restaurants that use delivery platforms,
+    bear part of the reclassification costs indirectly through higher commissions or fewer orders. On
+    the Spanish experience, the IA estimates the loss at around 0.16% - 1.0% of restaurant revenue.
+  source: ia
+  provision_keys:
+  - platform_work/proposal/art/4
+  ia_section: A3.2 Overview of costs of the preferred option
+  ia_anchor: Based on the case of Spain, around 0.16% - 1.0% of restaurant revenue lost.
+  anchor:
+    status: verified
+    against: ia
+  category: market_competition
+  derivability:
+    verdict: partly
+    reason: This indirect cost pass-through to business users of platforms has to be inferred from the
+      employer costs that Article 4 creates.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context states the exact 0.16%-1.0% restaurant revenue loss figure based on the Spanish
+        case, matching the claim precisely.
+    derivability:
+      verdict: agree
+      reason: Downstream cost pass-through to platform-dependent businesses is an inferred, not stated,
+        consequence of the cost increases in Article 4.
+    category:
+      verdict: unknown
+      reason: The effect is framed both as a price/commission (market_competition) issue and as specifically
+        hitting SME restaurants (sme_specific), so either fits.
+    overall: uncertain
+  provenance:
+    origin: llm_drafted
+    status: needs_human
+    drafting_model: claude-opus-5-5
+  review:
+    decision: pending
+    audit: false
+    reviewer: null
+    note: null
+possibly_missing:
+- candidate_id: c10_m01
+  affected_actor: People working through platforms who are reclassified as employees
+  mechanism: Being reclassified under the presumption means losing the flexibility and autonomy of independent
+    contractor status, including the option to work for several platforms at the same time.
+  impact: About 1.72 to 4.09 million reclassified people lose some flexibility and autonomy. Low-skill
+    on-location workers are hit hardest.
+  why_missing: The drafted pair on reclassified workers covers only the rights they gain, not the flexibility
+    and autonomy they lose.
+  provision_keys:
+  - platform_work/proposal/art/4
+  ia_section: A3.2 Overview of costs of the preferred option
+  ia_anchor: Some loss of flexibility and autonomy for those people (around 1.72 – 4.09 million people)
+  anchor:
+    status: verified
+    against: ia
+  category: social_environmental
+  derivability:
+    verdict: partly
+    reason: Employment status implies employer control, but the size of the loss and who it falls on come
+      only from the IA.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context confirms 'some loss of flexibility and autonomy for those people (around 1.72-4.09
+        million people)' reclassified, matching actor, mechanism and numbers in the claim.
+    derivability:
+      verdict: agree
+      reason: Employment status implies employer-side control, but the specific scale of flexibility loss
+        is not derivable from the text.
+    category:
+      verdict: agree
+      reason: Loss of flexibility/autonomy for reclassified workers is an employment/working-conditions
+        effect, fitting social_environmental.
+    overall: agree
+  provenance:
+    origin: llm_recall
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c10_m02
+  affected_actor: Self-employed people working through platforms, including EU-based online freelancers
+  mechanism: Platforms cut their workforce under new business models or leave EU or local markets. This
+    reduces part-time self-employment opportunities and increases price competition, including from freelancers
+    outside the EU.
+  impact: Platforms estimate that 41-80% of delivery and ride-hailing workers would have fewer work opportunities.
+    EU-based freelancers may see lower demand and lower income.
+  why_missing: No drafted pair covers lost work opportunities for people who are not reclassified.
+  provision_keys:
+  - platform_work/proposal/art/4
+  ia_section: 'Annex 3: Who is affected and how? – Impacts on people working through platforms'
+  ia_anchor: Platforms optimizing their workforce under the new business models and/or leaving the EU
+    or specific markets would reduce the opportunities for part-time self-employment
+  anchor:
+    status: verified
+    against: ia
+  category: social_environmental
+  derivability:
+    verdict: 'no'
+    reason: Workforce cuts, market exit and competition from outside the EU are behavioural responses
+      that the provision text does not describe.
+  flags:
+  - not_derivable_from_provisions
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context states platforms optimizing workforce or leaving markets reduces part-time self-employment
+        opportunities and increases competition, and reclassified EU freelancers face decreasing demand,
+        matching the claim.
+    derivability:
+      verdict: agree
+      reason: Workforce cuts, market exit, and competition from non-EU freelancers are speculative behavioural
+        responses not described in Article 4.
+    category:
+      verdict: agree
+      reason: Reduced work opportunities and income for self-employed/freelancers is an employment effect,
+        fitting social_environmental.
+    overall: agree
+  provenance:
+    origin: llm_recall
+    status: needs_human
+    drafting_model: claude-opus-5-5
+  review:
+    decision: pending
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c10_m03
+  affected_actor: People working through platforms who become genuinely self-employed
+  mechanism: Platforms rewrite their terms and conditions to reduce control so that they no longer meet
+    the presumption criteria. This gives the people working through them real autonomy, for example to
+    set their own working time and rates.
+  impact: Up to 3.78 million people currently at risk of misclassification become genuinely self-employed,
+    with better working conditions.
+  why_missing: The draft covers only reclassification as employees, not the route of platforms moving
+    to genuine self-employment.
+  provision_keys:
+  - platform_work/proposal/art/4
+  ia_section: 'Annex 3: Who is affected and how? – Impacts on people working through platforms'
+  ia_anchor: The working conditions should also improve, in terms of autonomy and flexibility, for people
+    who work through platforms that will ensure the genuine self-employment
+  anchor:
+    status: verified
+    against: ia
+  category: social_environmental
+  derivability:
+    verdict: partly
+    reason: The control criteria in Article 4(2) suggest platforms could loosen control to stay outside
+      the presumption, but the number of people affected comes from the IA.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: unknown
+      reason: Context confirms improved autonomy/flexibility for genuinely self-employed people, but the
+        specific figure of 'up to 3.78 million people' is not stated in this context.
+    derivability:
+      verdict: agree
+      reason: Article 4(2)'s control criteria suggest platforms could loosen control to avoid the presumption,
+        though the scale of resulting genuine self-employment is not derivable.
+    category:
+      verdict: agree
+      reason: Workers gaining genuine autonomy and better working conditions is an employment effect,
+        fitting social_environmental.
+    overall: uncertain
+  provenance:
+    origin: llm_recall
+    status: needs_human
+    drafting_model: claude-opus-5-5
+  review:
+    decision: pending
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c10_m04
+  affected_actor: Traditional businesses competing with platforms (e.g. taxi companies, nanny agencies)
+  mechanism: Reclassification removes the cost advantage that platforms gain from false self-employment
+    compared with businesses that employ their workers.
+  impact: A more level playing field. Competing SMEs are likely to benefit more than large businesses.
+  why_missing: No drafted pair covers businesses that compete with platforms.
+  provision_keys:
+  - platform_work/proposal/art/4
+  ia_section: A3.1 Overview of benefits of the preferred option
+  ia_anchor: Removal of the unfair competitive advantage of platforms relying on false self-employment
+    vis-à-vis the companies that currently employ their workers.
+  anchor:
+    status: verified
+    against: ia
+  category: market_competition
+  derivability:
+    verdict: partly
+    reason: The competitive effect follows from higher labour costs for platforms, but the provisions
+      do not name competing businesses.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context confirms removal of platforms' unfair competitive advantage from false self-employment
+        creates a level playing field with traditional businesses, matching the claim's actor and mechanism.
+    derivability:
+      verdict: agree
+      reason: The levelling of competition with traditional businesses is an inferred economic consequence
+        of Article 4's cost effects, not stated in the text.
+    category:
+      verdict: agree
+      reason: A more level playing field between platforms and traditional competitors is a market structure
+        effect, fitting market_competition.
+    overall: agree
+  provenance:
+    origin: llm_recall
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c10_m05
+  affected_actor: Businesses relying on platforms (especially SME restaurants using delivery platforms)
+  mechanism: Platforms pass part of their higher labour costs on through higher commissions and lower
+    service availability, which cuts revenue for businesses that depend on them.
+  impact: Based on the Spanish case, restaurants lose about 0.16%–1.0% of revenue (up to EUR 3.8 billion
+    across the EU-27). SME restaurants are at a disadvantage.
+  why_missing: The draft covers cost pass-through only to consumers, not to business users such as restaurants.
+  provision_keys:
+  - platform_work/proposal/art/4
+  ia_section: A3.2 Overview of costs of the preferred option
+  ia_anchor: Based on the case of Spain, around 0.16% - 1.0% of restaurant revenue lost.
+  anchor:
+    status: verified
+    against: ia
+  category: market_competition
+  derivability:
+    verdict: 'no'
+    reason: The provisions do not mention indirect effects on business users of platforms.
+  flags:
+  - not_derivable_from_provisions
+  judge:
+    anchor_faithfulness:
+      verdict: unknown
+      reason: Context confirms the 0.16%-1.0% restaurant revenue loss based on the Spanish case, but does
+        not state the EUR 3.8 billion EU-27 figure or explicit SME disadvantage in this passage.
+    derivability:
+      verdict: disagree
+      reason: This mechanism (cost pass-through to platform-dependent businesses via commissions) is essentially
+        identical to item o04's, which was rightly rated partly derivable from Article 4's cost effects,
+        so 'no' is inconsistent and too strict.
+    category:
+      verdict: unknown
+      reason: The claim mixes a general commission/revenue (market_competition) effect with an explicit
+        SME-specific disadvantage, so sme_specific fits about equally.
+    overall: disagree
+  provenance:
+    origin: llm_recall
+    status: needs_human
+    drafting_model: claude-opus-5-5
+  review:
+    decision: pending
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c10_m06
+  affected_actor: Consumers of on-location platform services
+  mechanism: Platforms leave less profitable or smaller markets and fewer workers are available at peak
+    times. Supply falls and waiting times get longer, while training and supervision by platforms improves
+    service quality.
+  impact: Fewer services, especially in smaller towns, longer waiting times, and mixed but mostly positive
+    effects on quality.
+  why_missing: The drafted consumer pair covers only price increases, not availability or quality of service.
+  provision_keys:
+  - platform_work/proposal/art/4
+  ia_section: 'Annex 3: Who is affected and how? – Impacts on consumers'
+  ia_anchor: The availability/ supply of services provided by platforms is likely to decrease as platforms
+    exit specific markets
+  anchor:
+    status: verified
+    against: ia
+  category: consumers_users
+  derivability:
+    verdict: 'no'
+    reason: Market exit and the effects on quality are behavioural responses that the provision text does
+      not describe.
+  flags:
+  - not_derivable_from_provisions
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context confirms decreased availability/supply as platforms exit markets, longer waiting
+        times, and mixed but mostly positive quality effects, matching the claim.
+    derivability:
+      verdict: agree
+      reason: Market exit reducing supply and training-driven quality improvements are speculative effects
+        with no basis in Article 4's text.
+    category:
+      verdict: agree
+      reason: Fewer services, longer waits and quality changes for service users are consumer effects,
+        fitting consumers_users.
+    overall: agree
+  provenance:
+    origin: llm_recall
+    status: needs_human
+    drafting_model: claude-opus-5-5
+  review:
+    decision: pending
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c10_m07
+  affected_actor: Digital labour platforms and the wider market (competition and innovation)
+  mechanism: Some online and on-location platforms try to avoid litigation and fines, or find that employment
+    undermines their business model, so they go out of business or leave EU markets.
+  impact: Indirect costs from less competition and innovation, and possible negative effects on GDP, investment
+    and net exports.
+  why_missing: The drafted platform pairs cover reclassification and procedural burden, not platforms
+    leaving the market or the loss of innovation.
+  provision_keys:
+  - platform_work/proposal/art/4
+  ia_section: 'Annex 3: Who is affected and how? – Impacts on platforms'
+  ia_anchor: will either go out of business or leave the EU markets. This may cause indirect costs of
+    reduced competition and innovation.
+  anchor:
+    status: verified
+    against: ia
+  category: innovation_investment
+  derivability:
+    verdict: 'no'
+    reason: Platforms leaving the market and the knock-on effect on innovation are not described in the
+      provision text.
+  flags:
+  - not_derivable_from_provisions
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context confirms some platforms will go out of business or leave EU markets to avoid litigation/fines
+        or because employment undermines their model, causing indirect costs of reduced competition and
+        innovation, matching the claim.
+    derivability:
+      verdict: agree
+      reason: Platforms exiting markets and resulting effects on competition and innovation are not described
+        in Article 4.
+    category:
+      verdict: unknown
+      reason: The impact names both reduced competition and reduced innovation/investment equally, so
+        market_competition and innovation_investment both fit.
+    overall: uncertain
+  provenance:
+    origin: llm_recall
+    status: needs_human
+    drafting_model: claude-opus-5-5
+  review:
+    decision: pending
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c10_m08
+  affected_actor: SME digital labour platforms
+  mechanism: Unlike large platforms, SMEs often lack existing algorithmic transparency and dispute-resolution
+    systems. Transparency, human oversight, risk assessment and review obligations therefore weigh relatively
+    more on them. Member States may soften this by extending the review deadline to two weeks.
+  impact: SME platforms (70-92% of all platforms) carry a disproportionately higher compliance burden.
+  why_missing: The drafted pairs on algorithmic management obligations treat all platforms alike and do
+    not cover the extra burden on SMEs.
+  provision_keys:
+  - platform_work/proposal/art/6
+  - platform_work/proposal/art/7
+  - platform_work/proposal/art/8
+  ia_section: A3.3 The SME test
+  ia_anchor: Policy options presented in Policy Area B may have stronger effects on SME digital labour
+    platforms
+  anchor:
+    status: verified
+    against: ia
+  category: sme_specific
+  derivability:
+    verdict: partly
+    reason: Article 8(2) allows a longer deadline for SMEs, which signals a higher burden on them, but
+      the reasons and scale come from the IA.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: unknown
+      reason: Context supports SME platforms facing disproportionate compliance burden since large platforms
+        already have transparency/dispute systems, but does not mention a two-week deadline extension
+        for SMEs.
+    derivability:
+      verdict: agree
+      reason: Article 8(2)'s SME deadline extension signals a recognized heavier burden on SME platforms,
+        though the overall scale is not derivable from the text.
+    category:
+      verdict: agree
+      reason: Disproportionate compliance burden on SME platforms is explicitly an SME-specific effect,
+        fitting sme_specific.
+    overall: uncertain
+  provenance:
+    origin: llm_recall
+    status: needs_human
+    drafting_model: claude-opus-5-5
+  review:
+    decision: pending
+    audit: false
+    reviewer: null
+    note: null
