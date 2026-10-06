@@ -204,13 +204,33 @@ EVOLVE_ARGV = {
     "replay": ["replay", "sv_x", "--split", "train"],
     "worker": ["worker", "rb_x"],
     "cycle": ["cycle", "--base", "sv_x"],
+    "diffcheck": ["diffcheck", "sv_x"],
+}
+# The promotion side: the only evolve commands that may (and must) reach the holdout.
+HOLDOUT_ARGV = {
+    "promote": ["promote", "sv_x", "--incumbent", "sv_y"],
+    "show": ["show", "sv_x"],
 }
 
 
 def test_every_evolve_subcommand_is_covered():
     from womm import cli
 
-    assert set(EVOLVE_ARGV) == set(cli.EVOLVE_HANDLERS)
+    assert set(EVOLVE_ARGV) | set(HOLDOUT_ARGV) == set(cli.EVOLVE_HANDLERS)
+    assert set(HOLDOUT_ARGV) == cli.HOLDOUT_SIDE_EVOLVE
+
+
+@pytest.mark.parametrize("cmd", sorted(HOLDOUT_ARGV))
+def test_promotion_side_commands_need_the_holdout_url(cmd, monkeypatch, capsys):
+    from womm import cli
+
+    def no_db(*_a, **_k):
+        raise AssertionError("touched the main database before finding the holdout")
+
+    monkeypatch.delenv(HOLDOUT_URL_ENV, raising=False)
+    monkeypatch.setattr(cli, "_evolve_db", no_db)
+    assert cli.main(["evolve", *HOLDOUT_ARGV[cmd]]) == cli.EXIT_USAGE
+    assert HOLDOUT_URL_ENV in capsys.readouterr().err
 
 
 @pytest.mark.parametrize("cmd", sorted(EVOLVE_ARGV))

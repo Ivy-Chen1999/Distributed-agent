@@ -498,6 +498,135 @@ async def cmd_evolve_cycle(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _holdout_store():
+    """The sealed holdout store; only the promotion-side commands reach it."""
+    from womm.eval.holdout import HoldoutError, HoldoutStore, holdout_database_url
+
+    try:
+        return HoldoutStore(holdout_database_url())
+    except HoldoutError as exc:
+        raise UsageError(str(exc)) from None
+
+
+async def cmd_evolve_promote(args: argparse.Namespace) -> int:
+    """The promotion gate (U7): one resumable holdout comparison of an archived candidate
+    against the incumbent, decided under the pre-registered policy. Holdout side only."""
+    from womm.evolve import promotion as pm
+    from womm.evolve.archive import Archive
+    from womm.evolve.diff_regression import load_reference, r37_report
+
+    try:
+        policy, policy_sha = pm.load_policy(Path(args.policy))
+        records = pm.load_records(Path(args.records))
+    except pm.GateRefused as exc:
+        raise UsageError(str(exc)) from None
+    store = _holdout_store()
+    settings = load_settings()
+    async with _evolve_db("womm evolve promote") as db:
+        archive = Archive(db)
+        try:
+            candidate = await archive.load_candidate(args.candidate)
+            incumbent = await archive.load_candidate(args.incumbent)
+        except KeyError as exc:
+            raise UsageError(f"{exc.args[0]} (only archived versions go to the gate)") from None
+        row = await archive.get(candidate.version_id)
+        cycle_id = args.cycle_id or row["cycle_id"]
+        if not cycle_id and row["twin_of"]:
+            cycle_id = (await archive.get(row["twin_of"]))["cycle_id"]
+        if not cycle_id:
+            raise UsageError(f"{candidate.version_id} has no cycle id in the archive; pass "
+                             "--cycle-id (one holdout comparison per cycle)")  # fmt: skip
+        r37 = await r37_report(archive, candidate.version_id, incumbent.version_id,
+                               load_reference())  # fmt: skip
+        await store.migrate()
+        committed = pm.files_committed([Path(args.policy), Path(args.records)])
+        try:  # refuse before preparing any backend; run_gate checks again
+            await pm.preflight(policy, records, candidate, incumbent, store=store,
+                               cycle_id=cycle_id, policy_committed=committed)  # fmt: skip
+        except pm.GateRefused as exc:
+            raise UsageError(f"promotion gate refused: {exc}") from None
+        backends, cli_version, _ = await prepare_backends(
+            candidate, skip_self_check=args.skip_self_check
+        )
+        extra, other_cli, _ = await prepare_backends(
+            incumbent, skip_self_check=args.skip_self_check
+        )
+        backends = {**extra, **backends}
+        try:
+            decision = await pm.run_gate(
+                candidate=candidate, incumbent=incumbent, policy=policy,
+                policy_sha256=policy_sha, records=records, store=store, backends=backends,
+                decisions=lambda sv: make_decision_service(sv, settings),
+                code=code_identity(cli_version or other_cli), cycle_id=cycle_id,
+                policy_committed=committed, r37=r37, summary_db=db,
+            )  # fmt: skip
+        except pm.GateRefused as exc:
+            raise UsageError(f"promotion gate refused: {exc}") from None
+    emit(args, decision.model_dump(mode="json"), pm.format_decision(decision))
+    return EXIT_OK
+
+
+async def cmd_evolve_show(args: argparse.Namespace) -> int:
+    """The gate decisions recorded in the sealed holdout audit for one candidate (local only;
+    aggregates, never case ids)."""
+    from womm.evolve.promotion import format_decision
+
+    store = _holdout_store()
+    await store.migrate()
+    rows = await store.decisions_for(args.candidate)
+    text = "\n\n".join(f"{r['recorded_at']}\n{format_decision(r)}" for r in rows)
+    emit(args, rows, text or f"no gate decision recorded for {args.candidate}")
+    return EXIT_OK
+
+
+async def cmd_evolve_diffcheck(args: argparse.Namespace) -> int:
+    """The R37 diff regression check (U8): score an archived version on the R2 demo diff
+    against hand-written reference answers. Monitoring only, never a gate."""
+    from womm.evolve.archive import Archive
+    from womm.evolve.diff_regression import DIFF_CHECK_SPLIT, diff_check_score, load_reference
+    from womm.evolve.replay import ReplayRefused, ReplayStore, ReplayWorker
+
+    reference = load_reference(Path(args.reference))
+    if not reference.available:
+        emit(args, {"version_id": args.version_id, "status": "not_available",
+                    "reason": reference.reason},
+             f"R37 diff check: not_available ({reference.reason})")  # fmt: skip
+        return EXIT_OK
+    seed = load_system_version(Path(args.seed), REPO_ROOT)
+    async with _evolve_db("womm evolve diffcheck") as db:
+        archive = Archive(db)
+        store = ReplayStore(db, diff_check_cases=lambda: [reference.case])
+        try:
+            sv = await archive.load_candidate(args.version_id)
+        except KeyError as exc:
+            raise UsageError(f"{exc.args[0]} (womm evolve seed?)") from None
+        backends, cli_version = await _replay_backends(sv, seed, args)
+        code = code_identity(cli_version)
+        try:
+            batch_id = await store.submit(sv.version_id, DIFF_CHECK_SPLIT, args.repetitions,
+                                          judge_sv=seed, code=code)  # fmt: skip
+        except ValueError as exc:
+            raise UsageError(str(exc)) from None
+        worker = ReplayWorker(
+            store=store, archive=archive, judge_sv=seed, backends=backends,
+            decisions=make_decision_service(sv, load_settings()), code=code,
+            runs_dir=Path(args.runs_dir),
+        )  # fmt: skip
+        try:
+            status = await worker.run_batch(batch_id)
+        except ReplayRefused as exc:
+            raise UsageError(str(exc)) from None
+        score = await diff_check_score(archive, sv.version_id)
+    data = {"version_id": sv.version_id, "status": "available", "batch": status, "score": score}
+    if not status["complete"]:
+        emit(args, data, f"R37 diff check batch {batch_id} incomplete (rerun to resume)")
+        return EXIT_FAILED
+    mean = "n/a" if not score or score["mean"] is None else f"{score['mean']:.3f}"
+    emit(args, data, f"R37 diff check of {sv.version_id}: coverage {mean} "
+                     f"over {score['n'] if score else 0} run(s) (monitoring only)")  # fmt: skip
+    return EXIT_OK
+
+
 def build_parser() -> argparse.ArgumentParser:
     settings = load_settings()
     common = argparse.ArgumentParser(add_help=False)
@@ -595,6 +724,39 @@ def build_parser() -> argparse.ArgumentParser:
     p_cycle.add_argument("--max-metric-calls", type=int, help="override the config budget")
     p_cycle.add_argument("--cycle-id", help="default: cycle_<UTC timestamp>")
     p_cycle.add_argument("--gepa-dir", help="GEPA state directory, to resume a stopped stage")
+    p_diff = evolve.add_parser(
+        "diffcheck", parents=[common, replay_common],
+        help="R37: score an archived version on the demo diff (monitoring, never a gate)",
+    )  # fmt: skip
+    p_diff.add_argument("version_id")
+    p_diff.add_argument("--repetitions", type=int, default=3)
+    p_diff.add_argument(
+        "--reference", default=str(REPO_ROOT / "evals" / "diff_regression" /
+                                   "demo_penalties_amended.yaml"),
+        help="hand-written reference answers (default: %(default)s)",
+    )  # fmt: skip
+    p_promote = evolve.add_parser(
+        "promote", parents=[common],
+        help="promotion gate: one holdout comparison under the pre-registered policy "
+             "(needs HOLDOUT_DATABASE_URL)",
+    )  # fmt: skip
+    p_promote.add_argument("candidate", help="archived version id (an api twin for formal modes)")
+    p_promote.add_argument("--incumbent", required=True, help="archived version id")
+    p_promote.add_argument("--cycle-id", help="default: the candidate's archived cycle id")
+    p_promote.add_argument(
+        "--policy", default=str(REPO_ROOT / "evals" / "promotion_policy.yaml"),
+        help="pre-registered promotion policy (default: %(default)s)",
+    )  # fmt: skip
+    p_promote.add_argument(
+        "--records", default=str(REPO_ROOT / "evals" / "promotion_records.yaml"),
+        help="judge calibration, R34 and MDD records (default: %(default)s)",
+    )  # fmt: skip
+    p_promote.add_argument("--skip-self-check", action="store_true", help="dev only")
+    p_show = evolve.add_parser(
+        "show", parents=[common],
+        help="gate decisions from the sealed holdout audit (local; needs HOLDOUT_DATABASE_URL)",
+    )  # fmt: skip
+    p_show.add_argument("candidate")
     return parser
 
 
@@ -613,12 +775,15 @@ EVOLVE_HANDLERS = {
     "replay": cmd_evolve_replay,
     "worker": cmd_evolve_worker,
     "cycle": cmd_evolve_cycle,
+    "diffcheck": cmd_evolve_diffcheck,
+    "promote": cmd_evolve_promote,
+    "show": cmd_evolve_show,
 }
 
 
 # `womm evolve` subcommands allowed to run with the holdout URL set: only the promotion gate
-# (U7) will be. Every other evolve command is Improvement-Planner side.
-HOLDOUT_SIDE_EVOLVE = frozenset[str]()
+# (U7) and the local reader of its audit. Every other evolve command is Improvement-Planner side.
+HOLDOUT_SIDE_EVOLVE = frozenset({"promote", "show"})
 
 
 def _refuse_holdout_for_planner_side(args: argparse.Namespace) -> None:
