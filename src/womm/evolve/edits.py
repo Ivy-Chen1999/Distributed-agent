@@ -222,9 +222,11 @@ def _evolved_path(parent_id: str, role: str, text: str) -> str:
 
 def apply_diff(parent: SystemVersion, diff: ConfigDiff) -> tuple[SystemVersionSpec, dict[str, str]]:
     """The child spec and its prompt texts by path. Changed prompts get virtual paths; the rest
-    keep the parent's paths and texts."""
+    keep the parent's paths and texts. The diff is validated again here: a ConfigDiff built
+    directly, without ``validate_diff``, cannot skip the allow-list and bounds."""
     if diff.parent_id != parent.version_id:
         raise EditRejected(None, f"diff is against {diff.parent_id}, not {parent.version_id}")
+    validate_diff(parent, diff.ops_json())
     data = parent.spec.model_dump()
     prompts = dict(parent.prompts)
     for op in diff.ops:

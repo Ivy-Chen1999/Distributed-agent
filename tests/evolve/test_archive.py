@@ -13,7 +13,7 @@ from womm.evolve.archive import (
     metric_rows,
     seed_archive,
 )
-from womm.evolve.edits import validate_diff
+from womm.evolve.edits import ConfigDiff, EditRejected, SetRetrieval, validate_diff
 from womm.models.system_version import load_system_version
 
 from .test_edits import EXTRA, _add_workforce
@@ -174,3 +174,13 @@ def test_metric_rows_per_case_proposal_and_split():
     assert cov[("split", "")]["mean"] == pytest.approx((0.6 + 1.0 + 0.2) / 3)
     assert cov[("case", "c")]["n"] == 1 and cov[("case", "c")]["sd"] is None
     assert not [r for r in rows if r["metric"] == "omissions_addressed"]
+
+
+async def test_archive_child_refuses_a_hand_built_out_of_bounds_diff(db):
+    archive = Archive(db)
+    await seed_archive(archive, REPO_ROOT)
+    diff = ConfigDiff(parent_id=BASE.version_id,
+                      ops=(SetRetrieval(max_provisions=100, max_prompt_chars=20_000),))  # fmt: skip
+    with pytest.raises(EditRejected, match="max_provisions"):
+        await archive_child(archive, BASE, diff, origin="manual")
+    assert await archive.children(BASE.version_id) == []

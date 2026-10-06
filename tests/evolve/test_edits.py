@@ -5,7 +5,11 @@ import pytest
 from womm.config import REPO_ROOT
 from womm.decisions.stub import StubDecisionService
 from womm.evolve.edits import (
+    ConfigDiff,
+    EditPrompt,
     EditRejected,
+    SetRetrieval,
+    SetRouterGloss,
     build_candidate,
     materialize,
     render_diff,
@@ -178,3 +182,19 @@ def test_render_diff_has_a_summary_and_unified_prompt_diffs():
     assert rendered["summary"]["prompts_changed"] == ["expert:fiscal"]
     assert "+Also name the cost driver" in rendered["prompts"]["expert:fiscal"]
     assert rendered["prompts"]["expert:workforce"].startswith("--- /dev/null")
+
+
+@pytest.mark.parametrize(
+    ("op", "reason"),
+    [
+        (SetRetrieval(max_provisions=100, max_prompt_chars=20_000), "max_provisions"),
+        (SetRetrieval(max_provisions=8, max_prompt_chars=10), "max_prompt_chars"),
+        (EditPrompt(role="judge", new_text="x" * 400), "judge"),
+        (SetRouterGloss(expert_id="legal", text="x"), "gloss"),
+    ],
+)
+def test_build_candidate_refuses_a_hand_built_out_of_bounds_diff(op, reason):
+    """A ConfigDiff built directly, skipping validate_diff, is validated again on build."""
+    diff = ConfigDiff(parent_id=BASE.version_id, ops=(op,))
+    with pytest.raises(EditRejected, match=reason):
+        build_candidate(BASE, diff)
