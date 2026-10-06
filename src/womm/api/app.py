@@ -21,6 +21,13 @@ from langsmith import tracing_context
 from pydantic import BaseModel, Field
 
 from womm.api.db import Database
+from womm.api.evolution import (
+    CandidateDetail,
+    CandidateDiff,
+    EvolutionView,
+    Lineage,
+    read_publish_summary,
+)
 from womm.api.jobs import JobRunner, QueueFull
 from womm.backends import prepare_backends
 from womm.config import REPO_ROOT, ConfigError, Settings, load_settings
@@ -41,6 +48,8 @@ from womm.models.system_version import (
 MIN_TOKEN_LENGTH = 16
 WEB_DIST = REPO_ROOT / "web" / "dist"
 ASK_PROMPT = REPO_ROOT / "prompts" / "ask.md"
+# Read only for its publish_summary flag; absent in the API image (no evals/), which is fine.
+PROMOTION_POLICY = REPO_ROOT / "evals" / "promotion_policy.yaml"
 FINISHED = {"succeeded", "degraded", "failed", "no_changes"}
 WITH_DOSSIER = {"succeeded", "degraded", "no_changes"}
 
@@ -87,6 +96,7 @@ def create_app(
     max_concurrent_asks: int = 4,
     ask_timeout_s: float = 120.0,
     web_dist: Path | None = WEB_DIST,
+    promotion_policy_path: Path | None = PROMOTION_POLICY,
 ) -> FastAPI:
     settings = settings or load_settings()
     if not settings.api_token or len(settings.api_token) < MIN_TOKEN_LENGTH:
@@ -311,6 +321,33 @@ def create_app(
                 for s in fixture.scenario_sources(scenario_id)
             ],
         }
+
+    async def evolution(request: Request) -> EvolutionView:
+        db: Database = request.app.state.db
+        return EvolutionView(
+            await db.evolution_archive(), await db.evolution_metrics(),
+            await db.promotion_decisions(), read_publish_summary(promotion_policy_path),
+        )  # fmt: skip
+
+    def known(view: EvolutionView, version_id: str) -> None:
+        if version_id not in view.rows:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, f"unknown version {version_id}")
+
+    @app.get("/evolution/lineage", dependencies=auth)
+    async def evolution_lineage(request: Request) -> Lineage:
+        return (await evolution(request)).lineage()
+
+    @app.get("/evolution/candidates/{version_id}", dependencies=auth)
+    async def evolution_candidate(version_id: str, request: Request) -> CandidateDetail:
+        view = await evolution(request)
+        known(view, version_id)
+        return view.detail(version_id)
+
+    @app.get("/evolution/candidates/{version_id}/diff", dependencies=auth)
+    async def evolution_diff(version_id: str, request: Request) -> CandidateDiff:
+        view = await evolution(request)
+        known(view, version_id)
+        return view.diff(version_id)
 
     @app.get("/runs", dependencies=auth)
     async def list_runs(request: Request, limit: Annotated[int, Query(ge=1, le=200)] = 20) -> dict:

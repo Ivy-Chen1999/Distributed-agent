@@ -328,3 +328,35 @@ class Database:
         from womm.evolve.failure_memory import patterns
 
         return patterns(*await self.failure_memory(system_version))
+
+    # ------------------------------------------------------------------ evolution page (R36 p4)
+
+    async def evolution_archive(self) -> list[dict]:
+        """Every archived version (no prompt texts), oldest first."""
+        async with self.pool.connection() as conn:
+            return await (await conn.execute(
+                "SELECT version_id, parent_id, twin_of, cycle_id, origin, name, spec, diff,"
+                " proposer, created_at FROM sv_archive ORDER BY created_at, version_id"
+            )).fetchall()  # fmt: skip
+
+    async def evolution_metrics(self) -> list[dict]:
+        """Archive metrics (train, val, R37 diff check; never holdout): per version, the latest
+        full-split batch per (split, judge)."""
+        async with self.pool.connection() as conn:
+            return await (await conn.execute(
+                "SELECT version_id, split, judge_version, batch_id, level, subject, metric, n,"
+                " mean, sd FROM sv_metrics WHERE (version_id, batch_id) IN ("
+                "  SELECT DISTINCT ON (version_id, split, judge_version) version_id, batch_id"
+                "  FROM sv_metrics WHERE full_split"
+                "  ORDER BY version_id, split, judge_version, updated_at DESC, batch_id DESC"
+                ") ORDER BY version_id, split, judge_version, level, subject, metric"
+            )).fetchall()  # fmt: skip
+
+    async def promotion_decisions(self) -> list[dict]:
+        """Published decision summaries (aggregates only), oldest first."""
+        async with self.pool.connection() as conn:
+            return await (await conn.execute(
+                "SELECT gate_id, created_at, cycle_id, candidate_version, incumbent_version, mode,"
+                " deployable, decision, label, reasons, notes, deltas, n_proposals, flags, r37"
+                " FROM promotion_decisions ORDER BY created_at, gate_id"
+            )).fetchall()  # fmt: skip

@@ -1,0 +1,668 @@
+{
+  "$defs": {
+    "DecisionOut": {
+      "description": "A published promotion decision summary (aggregates only).",
+      "properties": {
+        "gate_id": {
+          "title": "Gate Id",
+          "type": "string"
+        },
+        "created_at": {
+          "title": "Created At",
+          "type": "string"
+        },
+        "candidate_version": {
+          "title": "Candidate Version",
+          "type": "string"
+        },
+        "incumbent_version": {
+          "title": "Incumbent Version",
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "statistical",
+            "weak",
+            "dev"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "deployable": {
+          "title": "Deployable",
+          "type": "boolean"
+        },
+        "decision": {
+          "enum": [
+            "promoted",
+            "rejected"
+          ],
+          "title": "Decision",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Reasons",
+          "type": "array"
+        },
+        "notes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Notes",
+          "type": "array"
+        },
+        "deltas": {
+          "additionalProperties": {
+            "$ref": "#/$defs/DeltaOut"
+          },
+          "title": "Deltas",
+          "type": "object"
+        },
+        "n_proposals": {
+          "title": "N Proposals",
+          "type": "integer"
+        },
+        "flags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Flags",
+          "type": "array"
+        }
+      },
+      "required": [
+        "gate_id",
+        "created_at",
+        "candidate_version",
+        "incumbent_version",
+        "mode",
+        "deployable",
+        "decision",
+        "label",
+        "reasons",
+        "notes",
+        "deltas",
+        "n_proposals",
+        "flags"
+      ],
+      "title": "DecisionOut",
+      "type": "object"
+    },
+    "DeltaOut": {
+      "properties": {
+        "mean_delta": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Mean Delta"
+        },
+        "ci95_low": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Ci95 Low"
+        },
+        "ci95_high": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Ci95 High"
+        },
+        "n_cases": {
+          "title": "N Cases",
+          "type": "integer"
+        },
+        "noise_sd": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Noise Sd"
+        }
+      },
+      "required": [
+        "mean_delta",
+        "ci95_low",
+        "ci95_high",
+        "n_cases"
+      ],
+      "title": "DeltaOut",
+      "type": "object"
+    },
+    "ExpertOut": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "domain": {
+          "title": "Domain",
+          "type": "string"
+        },
+        "router_gloss": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Router Gloss"
+        }
+      },
+      "required": [
+        "id",
+        "domain",
+        "router_gloss"
+      ],
+      "title": "ExpertOut",
+      "type": "object"
+    },
+    "HoldoutPanel": {
+      "properties": {
+        "status": {
+          "enum": [
+            "published",
+            "not_submitted",
+            "sealed"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "decisions": {
+          "items": {
+            "$ref": "#/$defs/DecisionOut"
+          },
+          "title": "Decisions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "status",
+        "message",
+        "decisions"
+      ],
+      "title": "HoldoutPanel",
+      "type": "object"
+    },
+    "LineageNode": {
+      "properties": {
+        "version_id": {
+          "title": "Version Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "parent_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Parent Id"
+        },
+        "cycle_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Cycle Id"
+        },
+        "origin": {
+          "enum": [
+            "seed",
+            "gepa",
+            "topology",
+            "twin",
+            "manual"
+          ],
+          "title": "Origin",
+          "type": "string"
+        },
+        "created_at": {
+          "title": "Created At",
+          "type": "string"
+        },
+        "badges": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Badges",
+          "type": "array"
+        },
+        "twins": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Twins",
+          "type": "array"
+        },
+        "decision": {
+          "anyOf": [
+            {
+              "enum": [
+                "promoted",
+                "rejected"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Decision"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Label"
+        },
+        "new_expert": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "New Expert"
+        },
+        "r37_regression": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "R37 Regression"
+        }
+      },
+      "required": [
+        "version_id",
+        "name",
+        "parent_id",
+        "cycle_id",
+        "origin",
+        "created_at",
+        "badges",
+        "twins",
+        "decision",
+        "label",
+        "new_expert",
+        "r37_regression"
+      ],
+      "title": "LineageNode",
+      "type": "object"
+    },
+    "MetricOut": {
+      "properties": {
+        "mean": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Mean"
+        },
+        "sd": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Sd"
+        },
+        "n": {
+          "title": "N",
+          "type": "integer"
+        },
+        "noise_sd": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Noise Sd"
+        }
+      },
+      "required": [
+        "mean",
+        "sd",
+        "n",
+        "noise_sd"
+      ],
+      "title": "MetricOut",
+      "type": "object"
+    },
+    "NewExpert": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "domain": {
+          "title": "Domain",
+          "type": "string"
+        },
+        "router_gloss": {
+          "title": "Router Gloss",
+          "type": "string"
+        },
+        "prompt_text": {
+          "title": "Prompt Text",
+          "type": "string"
+        },
+        "target_pattern": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Target Pattern"
+        },
+        "rationale": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Rationale"
+        }
+      },
+      "required": [
+        "id",
+        "domain",
+        "router_gloss",
+        "prompt_text",
+        "target_pattern",
+        "rationale"
+      ],
+      "title": "NewExpert",
+      "type": "object"
+    },
+    "R37Out": {
+      "properties": {
+        "status": {
+          "enum": [
+            "available",
+            "not_run"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "score": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Score"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reference_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Reference Version"
+        },
+        "reference_score": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Score"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "regression": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Regression"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "score",
+        "reference_version",
+        "reference_score",
+        "regression",
+        "message"
+      ],
+      "title": "R37Out",
+      "type": "object"
+    },
+    "Score": {
+      "properties": {
+        "mean": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Mean"
+        },
+        "sd": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Sd"
+        },
+        "n": {
+          "title": "N",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "mean",
+        "sd",
+        "n"
+      ],
+      "title": "Score",
+      "type": "object"
+    },
+    "SplitMetrics": {
+      "properties": {
+        "split": {
+          "enum": [
+            "train",
+            "val"
+          ],
+          "title": "Split",
+          "type": "string"
+        },
+        "judge_version": {
+          "title": "Judge Version",
+          "type": "string"
+        },
+        "metrics": {
+          "additionalProperties": {
+            "$ref": "#/$defs/MetricOut"
+          },
+          "title": "Metrics",
+          "type": "object"
+        }
+      },
+      "required": [
+        "split",
+        "judge_version",
+        "metrics"
+      ],
+      "title": "SplitMetrics",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "node": {
+      "$ref": "#/$defs/LineageNode"
+    },
+    "experts": {
+      "items": {
+        "$ref": "#/$defs/ExpertOut"
+      },
+      "title": "Experts",
+      "type": "array"
+    },
+    "summary": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Summary"
+    },
+    "rationale": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Rationale"
+    },
+    "proposer": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Proposer"
+    },
+    "new_expert": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/NewExpert"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "metrics": {
+      "items": {
+        "$ref": "#/$defs/SplitMetrics"
+      },
+      "title": "Metrics",
+      "type": "array"
+    },
+    "holdout": {
+      "$ref": "#/$defs/HoldoutPanel"
+    },
+    "r37": {
+      "$ref": "#/$defs/R37Out"
+    }
+  },
+  "required": [
+    "node",
+    "experts",
+    "summary",
+    "rationale",
+    "proposer",
+    "new_expert",
+    "metrics",
+    "holdout",
+    "r37"
+  ],
+  "title": "CandidateDetail",
+  "type": "object"
+}
