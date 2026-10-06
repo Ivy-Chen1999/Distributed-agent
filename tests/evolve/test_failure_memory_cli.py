@@ -6,10 +6,10 @@ from womm import cli
 from womm.eval.evaluators import JudgeOutput
 
 from ..eval.test_run_eval_fake import CASE, _script
-from ..test_cli import _args, fake_version, use_script  # noqa: F401
+from ..test_cli import _args
 
 
-def test_train_eval_then_failure_patterns(fake_version, tmp_path, capsys, use_script):  # noqa: F811
+def test_train_eval_then_failure_patterns(fake_version, tmp_path, capsys, use_script):
     script = _script(reps=2)
     judge = JudgeOutput(
         expected=[{"expected_id": e.expected_id, "covered": False, "impact_id": None,

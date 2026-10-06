@@ -339,6 +339,54 @@ async def cmd_evolve_materialize(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+async def _replay(args: argparse.Namespace, batch_id: str | None) -> int:
+    """Submit (when ``batch_id`` is None) and run a replay batch in this process (U4)."""
+    from womm.evolve.archive import Archive
+    from womm.evolve.replay import ReplayStore, ReplayWorker
+
+    seed = load_system_version(Path(args.seed), REPO_ROOT)
+    async with _evolve_db("womm evolve replay") as db:
+        archive, store = Archive(db), ReplayStore(db)
+        if batch_id is None:
+            if await archive.get(args.version_id) is None:
+                raise UsageError(f"{args.version_id} is not archived (womm evolve seed?)")
+            code = code_identity()
+            batch_id = await store.submit(args.version_id, args.split, args.repetitions,
+                                          judge_sv=seed, code=code, case_ids=args.case)  # fmt: skip
+            info(f"replay batch {batch_id}")
+        try:
+            batch = await store.batch(batch_id)
+        except KeyError as exc:
+            raise UsageError(str(exc.args[0])) from None
+        if args.no_run:
+            status = await store.status(batch_id)
+        else:
+            sv = await archive.load_candidate(batch["version_id"])
+            settings = load_settings()
+            decisions = make_decision_service(sv, settings)
+            backends, cli_version, _ = await prepare_backends(
+                sv, skip_self_check=args.skip_self_check
+            )
+            worker = ReplayWorker(
+                store=store, archive=archive, judge_sv=seed, backends=backends,
+                decisions=decisions, code=code_identity(cli_version),
+                runs_dir=Path(args.runs_dir),
+            )  # fmt: skip
+            status = await worker.run_batch(batch_id)
+    text = ", ".join(f"{k}={status[k]}" for k in ("done", "errored", "running", "pending"))
+    emit(args, status, f"batch {batch_id}: {text}" + (f" halted: {status['halted']}"
+                                                       if status["halted"] else ""))  # fmt: skip
+    return EXIT_OK if status["complete"] or args.no_run else EXIT_FAILED
+
+
+async def cmd_evolve_replay(args: argparse.Namespace) -> int:
+    return await _replay(args, None)
+
+
+async def cmd_evolve_worker(args: argparse.Namespace) -> int:
+    return await _replay(args, args.batch_id)
+
+
 def build_parser() -> argparse.ArgumentParser:
     settings = load_settings()
     common = argparse.ArgumentParser(add_help=False)
@@ -399,6 +447,26 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_mat.add_argument("version_id")
     p_mat.add_argument("--out", default=str(REPO_ROOT), help="repository root to write under")
+    replay_common = argparse.ArgumentParser(add_help=False)
+    replay_common.add_argument(
+        "--seed",
+        default=str(REPO_ROOT / "system_versions" / "v1.0-unscoped.yaml"),
+        help="SystemVersion whose judge every replay is pinned to (default: %(default)s)",
+    )
+    replay_common.add_argument("--no-run", action="store_true", help="only enqueue / report")
+    replay_common.add_argument("--skip-self-check", action="store_true", help="dev only")
+    p_replay = evolve.add_parser(
+        "replay", parents=[common, replay_common],
+        help="replay an archived version on train/val as resumable work items",
+    )  # fmt: skip
+    p_replay.add_argument("version_id")
+    p_replay.add_argument("--split", choices=SELECTABLE_SPLITS, required=True)
+    p_replay.add_argument("--repetitions", type=int, default=1)
+    p_replay.add_argument("--case", action="append", help="only this case (repeatable)")
+    p_worker = evolve.add_parser(
+        "worker", parents=[common, replay_common], help="resume an existing replay batch"
+    )
+    p_worker.add_argument("batch_id")
     return parser
 
 
@@ -414,6 +482,8 @@ EVOLVE_HANDLERS = {
     "failures": cmd_evolve_failures,
     "seed": cmd_evolve_seed,
     "materialize": cmd_evolve_materialize,
+    "replay": cmd_evolve_replay,
+    "worker": cmd_evolve_worker,
 }
 
 

@@ -72,3 +72,40 @@ CREATE TABLE sv_metrics (
     updated_at timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (version_id, split, level, subject, metric)
 );
+
+-- U4 Resumable batch replay (R29). An item is one (version, case, repetition) scored by a pinned
+-- judge at one code version; items outlive batches, so a re-submitted batch reuses finished ones.
+CREATE TABLE replay_batches (
+    batch_id      text PRIMARY KEY,
+    version_id    text NOT NULL REFERENCES sv_archive (version_id),
+    split         text NOT NULL CHECK (split IN ('train', 'val', 'diff_check')),
+    case_ids      text[] NOT NULL,
+    repetitions   integer NOT NULL CHECK (repetitions >= 1),
+    judge_version text NOT NULL,
+    git_sha       text NOT NULL,
+    halted        text,
+    created_at    timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE replay_items (
+    item_id       bigserial PRIMARY KEY,
+    version_id    text NOT NULL REFERENCES sv_archive (version_id),
+    case_id       text NOT NULL,
+    repetition    integer NOT NULL CHECK (repetition >= 1),
+    judge_version text NOT NULL,
+    git_sha       text NOT NULL,
+    split         text NOT NULL CHECK (split IN ('train', 'val', 'diff_check')),
+    status        text NOT NULL DEFAULT 'pending'
+                  CHECK (status IN ('pending', 'running', 'done', 'errored')),
+    owner         text,
+    heartbeat_at  timestamptz,
+    attempts      integer NOT NULL DEFAULT 0,
+    run_id        text,
+    score         jsonb,
+    trajectory    jsonb,
+    error         text,
+    created_at    timestamptz NOT NULL DEFAULT now(),
+    finished_at   timestamptz,
+    UNIQUE (version_id, case_id, repetition, judge_version, git_sha)
+);
+CREATE INDEX replay_items_status_idx ON replay_items (status);
