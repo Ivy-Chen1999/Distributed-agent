@@ -536,3 +536,29 @@ def test_committed_memoranda_do_not_restate_their_cached_ia(name):
     for source in fixture.sources.values():
         if source.kind == "memorandum":
             assert ia_sources.restates_ia(source.text, cached.cut_text) is None, source.source_id
+
+
+_ART9_TITLE = (
+    b"<br/>\n               <span>C</span><span>ompensation for making data available </span>\n"
+    b"            </p>\n"
+)
+
+
+def test_title_left_in_the_text_of_an_untitled_article_is_warned(tmp_path, serve, capsys):
+    # Article 9's title in a paragraph class the parser does not take titles from.
+    body = DATA_ACT.replace(
+        _ART9_TITLE,
+        b'</p>\n<p class="Unknowntitle"><span>Compensation for making data available</span></p>\n',
+        1,
+    )
+    assert body != DATA_ACT
+    serve(body)
+    assert _run(tmp_path, CELEX, "--id", "data_act") == 0
+    out = capsys.readouterr().out
+    assert "WARNING: title-like first line in untitled Articles ['9']" in out
+
+
+def test_clean_import_prints_no_title_warning(tmp_path, serve, capsys):
+    serve()
+    assert _run(tmp_path, CELEX, "--id", "data_act") == 0
+    assert "WARNING" not in capsys.readouterr().out

@@ -1,3 +1,4 @@
+import re
 import shutil
 from pathlib import Path
 
@@ -11,6 +12,7 @@ from womm.data.fixtures import (
     load_fixture,
     validate_fixture,
 )
+from womm.data.parse_proposal import looks_like_title
 from womm.models.regulation import Scenario
 
 
@@ -216,3 +218,18 @@ def test_committed_fixture_has_no_empty_provision_text(name):
         if s.kind == "provision" and not s.text.strip()
     ]
     assert not empty, (name, empty)
+
+
+@pytest.mark.parametrize("name", COMMITTED_FIXTURES)
+def test_committed_fixture_has_no_title_left_in_an_untitled_provision(name):
+    # A title the parser missed reaches the experts as the first line of the provision text,
+    # with an untitled source ("COM(2023) 94, Article 1" instead of "...: Subject matter").
+    fixture = load_fixture(FIXTURES_ROOT / name)
+    left = [
+        s.source_id
+        for s in fixture.sources.values()
+        if s.kind == "provision"
+        and re.search(r", Article \w+$", s.title)
+        and looks_like_title(s.text.split("\n", 1)[0])
+    ]
+    assert not left, (name, left)

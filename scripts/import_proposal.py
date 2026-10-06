@@ -38,7 +38,7 @@ import datetime as dt
 import json
 import re
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import httpx
@@ -150,6 +150,8 @@ class Imported:
     stripped: list[str]
     topics: dict[str, list[str]]
     redactions: dict[str, list[str]]
+    # Untitled articles whose text starts with a title-like line (a missed title); warned.
+    title_lines: list[str] = field(default_factory=list)
 
 
 def version_ids(celex: str) -> tuple[str, str]:
@@ -263,7 +265,13 @@ def build(config: ImportConfig, body: bytes) -> Imported:
     except FixtureError as exc:
         raise ImportFailed(f"{celex}: {exc}") from None
     return Imported(
-        regulation, sources, scenarios, stripped.removed, stripped.topics, redacted.records
+        regulation,
+        sources,
+        scenarios,
+        stripped.removed,
+        stripped.topics,
+        redacted.records,
+        parse_proposal.untitled_articles_with_title_lines(articles),
     )
 
 
@@ -458,6 +466,11 @@ def main(argv: list[str] | None = None) -> int:
     for heading, reasons in imported.redactions.items():  # log only; never in sources.json
         for reason in reasons:
             print(f"  {heading}: {reason}")
+    if imported.title_lines:
+        print(
+            f"WARNING: title-like first line in untitled Articles {imported.title_lines}; "
+            "a title in markup the parser does not know? Check the provision texts."
+        )
     print("leak guard: clean; quantitative guard: clean")
     print(
         "IA overlap: clean (12-grams vs the cached IA)"

@@ -9,8 +9,10 @@ class says what they are:
   "Article 9" + ``<br/>`` + title, or "Article 9" alone with the title in the next ``Normal``
   paragraph; a heading in that class that is not "Article N" is the title when it directly
   follows an untitled "Article N" (COM(2021) 202, COM(2021) 731), the body when it follows a
-  titled one (COM(2026) 599), and otherwise a chapter heading. A next ``Normal`` paragraph that
-  reads as a sentence (ends in ".", ":" or ";") is the body of an untitled article, not a title
+  titled one (COM(2026) 599), and otherwise a chapter heading. The title may instead sit in the
+  next ``NormalCentered`` (COM(2023) 94 and others) or ``Text1`` paragraph if it is at most
+  250 characters. A next paragraph that reads as a sentence (ends in ".", ":" or ";") is the
+  body of an untitled article, not a title
 - numbered paragraphs: ``li ManualNumPar1`` (or ``li Point0`` numbered "1."); points
   ``li Point0/1/2``, dashes ``li ListDash*``, running text ``Text1`` / ``Normal`` belong to the
   paragraph they follow
@@ -47,6 +49,11 @@ _ARTICLE_END = {
     "Fichefinanciretitre",
 }
 _PARAGRAPH_NUM = re.compile(r"\d+[a-z]?\.")
+# Paragraph classes that may hold the title of an "Article N" heading without <br/>.
+_TITLE_CLASSES = {"Normal", "NormalCentered", "Text1"}
+_SENTENCE_END = (".", ":", ";")
+# Longest article title seen is 221 characters (COM(2020) 798, Article 39).
+_TITLE_MAX_CHARS = 250
 _MEMO_END = {"Statut", "Typedudocument", "Titreobjet"}
 _HEADING_RE = re.compile(r"\bManualHeading(\d)\b")
 
@@ -239,13 +246,14 @@ def parse_articles(root: etree._Element) -> list[Article]:
         if cls in _ARTICLE_END or _HEADING_RE.search(cls):
             close()
             continue
-        if not current[1] and not paragraphs and cls == "Normal" and _num(el) is None:
+        if not current[1] and not paragraphs and cls in _TITLE_CLASSES and _num(el) is None:
             text = _text(el)
-            if not text.endswith((".", ":", ";")):
+            if not text.endswith(_SENTENCE_END) and (cls == "Normal" or looks_like_title(text)):
                 # Heading without <br/>: the first plain paragraph is the article title, unless
                 # it reads as a sentence, i.e. the body of an untitled article ("This Regulation
                 # shall enter into force ...", "Regulation (EU) 910/2014 is amended as follows:"
-                # in COM(2021) 281).
+                # in COM(2021) 281). Centred titles (NormalCentered, COM(2023) 94 and others;
+                # once Text1) must also be short: a long one is a body paragraph.
                 current = (current[0], text)
                 continue
         if etree.QName(el).localname == "table":
@@ -334,6 +342,20 @@ def check_article_texts(articles: list[Article], label: str) -> None:
     empty = [a.number for a in articles if not any(p.text.strip() for p in a.paragraphs)]
     if empty:
         raise ValueError(f"{label}: empty text in Articles {empty}")
+
+
+def looks_like_title(line: str) -> bool:
+    """Whether ``line`` reads as an article title: short and not ending like a sentence."""
+    line = line.strip()
+    return 0 < len(line) <= _TITLE_MAX_CHARS and not line.endswith(_SENTENCE_END)
+
+
+def untitled_articles_with_title_lines(articles: list[Article]) -> list[str]:
+    """Numbers of untitled articles whose text starts with a title-like line: a title in
+    markup the parser does not know, left as the first line of the body. Importers warn."""
+    return [
+        a.number for a in articles if not a.title and looks_like_title(a.text.split("\n", 1)[0])
+    ]
 
 
 # Enacting terms end here; annexes and the financial statement may cite "Article N" alone.
