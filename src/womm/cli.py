@@ -301,12 +301,8 @@ async def cmd_evolve_failures(args: argparse.Namespace) -> int:
     """Failure Memory patterns (U1) of one system version, from saved train/val eval reports
     or, with --from-db, from Postgres."""
     from womm.evolve.failure_memory import format_patterns, load_report_events, patterns
-    from womm.evolve.planner_view import HoldoutEnvRefused, PlannerView, refuse_holdout_env
+    from womm.evolve.planner_view import PlannerView
 
-    try:
-        refuse_holdout_env()  # Planner-side input: never in a process that can reach the holdout
-    except HoldoutEnvRefused as exc:
-        raise UsageError(str(exc)) from None
     version_id = args.sv or _load_sv(args).version_id
     if args.from_db:
         url = load_settings().database_url
@@ -436,14 +432,10 @@ async def cmd_evolve_cycle(args: argparse.Namespace) -> int:
     then one candidate named for the promotion gate. Never touches the holdout."""
     from womm.evolve.archive import Archive
     from womm.evolve.cycle import ReplayEvaluator, run_cycle
-    from womm.evolve.planner_view import HoldoutEnvRefused, PlannerView, refuse_holdout_env
+    from womm.evolve.planner_view import PlannerView
     from womm.evolve.proposers import Proposer, load_evolution_config
     from womm.evolve.replay import ReplayIncomplete, ReplayRefused, ReplayStore, ReplayWorker
 
-    try:
-        refuse_holdout_env()
-    except HoldoutEnvRefused as exc:
-        raise UsageError(str(exc)) from None
     config = load_evolution_config(Path(args.config))
     if args.max_metric_calls:
         budget = config.budget.model_copy(update={"max_metric_calls": args.max_metric_calls})
@@ -624,11 +616,27 @@ EVOLVE_HANDLERS = {
 }
 
 
+# `womm evolve` subcommands allowed to run with the holdout URL set: only the promotion gate
+# (U7) will be. Every other evolve command is Improvement-Planner side.
+HOLDOUT_SIDE_EVOLVE = frozenset[str]()
+
+
+def _refuse_holdout_for_planner_side(args: argparse.Namespace) -> None:
+    from womm.evolve.planner_view import HoldoutEnvRefused, refuse_holdout_env
+
+    if args.cmd == "evolve" and args.evolve_cmd not in HOLDOUT_SIDE_EVOLVE:
+        try:
+            refuse_holdout_env()
+        except HoldoutEnvRefused as exc:
+            raise UsageError(str(exc)) from None
+
+
 def main(argv: list[str] | None = None) -> int:
     load_dotenv(REPO_ROOT / ".env", override=False)
     args = build_parser().parse_args(argv)
     handler = EVOLVE_HANDLERS[args.evolve_cmd] if args.cmd == "evolve" else HANDLERS[args.cmd]
     try:
+        _refuse_holdout_for_planner_side(args)
         return asyncio.run(handler(args))
     except (UsageError, FixtureError, GoldenError, BaselineRefused, ConfigError) as exc:
         info(f"error: {exc}")

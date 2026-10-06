@@ -3,12 +3,13 @@
 Holdout cases, holdout results and promotion decisions must never reach the Improvement Planner
 (R23, R28, AE3, AE4). That is enforced by structure, not convention:
 
-- **Import boundary.** Planner-side modules (this one, ``failure_memory``, ``edits``,
-  ``archive``, ``replay``, ``proposers``, ``gepa_adapter`` and ``cycle``) never
-  import ``womm.eval.holdout`` or ``womm.evolve.promotion``, directly or transitively;
-  ``tests/evolve/test_planner_boundary.py`` walks the import graph.
+- **Import boundary.** Every ``womm.evolve`` module except ``promotion`` is Planner-side
+  (a new module is by default) and never imports ``womm.eval.holdout`` or
+  ``womm.evolve.promotion``, directly, transitively or through ``importlib.import_module`` /
+  ``__import__`` string literals; ``tests/evolve/test_planner_boundary.py`` walks the graph.
 - **Process boundary.** A PlannerView refuses to exist in a process whose environment holds
-  ``HOLDOUT_DATABASE_URL``; only the promotion command needs that URL.
+  ``HOLDOUT_DATABASE_URL``, and so does every ``womm evolve`` command (checked in
+  ``womm.cli.main`` before any handler runs); only the promotion command needs that URL.
 - **Query boundary.** Every query is a fixed string in ``QUERIES`` over ``ALLOWED_TABLES``; there
   is no free-form SQL, and the connection is read-only. Metrics are train/val only, so the R37
   diff check is not something the Planner can optimise.

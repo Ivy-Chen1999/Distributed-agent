@@ -30,9 +30,19 @@ from womm.models.run import CodeIdentity, RunResult, RunStatus
 from .test_archive import BASE, PROVENANCE, _fiscal_edit
 
 SRC = Path(womm.__file__).parent
-PLANNER_SIDE = ("planner_view", "failure_memory", "edits", "archive", "replay",
-                "proposers", "gepa_adapter", "cycle")  # fmt: skip
+# The one womm.evolve module allowed to reach the holdout: the promotion gate (U7).
+HOLDOUT_SIDE = frozenset({"promotion"})
 FORBIDDEN = ("womm.eval.holdout", "womm.evolve.promotion")
+DYNAMIC_IMPORTS = frozenset({"import_module", "__import__"})
+
+
+def planner_side(root: Path) -> list[str]:
+    """Every module of the ``womm.evolve`` package except the promotion gate: a new module is
+    Planner-side by default."""
+    names = [p.stem for p in (root / "evolve").glob("*.py")]
+    return sorted(n for n in names if n not in HOLDOUT_SIDE)
+
+
 CANARY = "CANARY_7f3a_holdout_decision"
 
 
@@ -56,6 +66,14 @@ def _imports(root: Path, name: str) -> set[str]:
     package = name if path.name == "__init__.py" else name.rsplit(".", 1)[0]
     out: set[str] = set()
     for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+        if isinstance(node, ast.Call) and node.args:
+            # importlib.import_module("womm...") / __import__("womm..."): a string literal
+            # anywhere in the arguments counts as an import of that module.
+            func = node.func
+            fname = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", None)
+            if fname in DYNAMIC_IMPORTS:
+                out |= {a.value for a in ast.walk(node) if isinstance(a, ast.Constant)
+                        and isinstance(a.value, str) and a.value.startswith("womm")}  # fmt: skip
         if isinstance(node, ast.Import):
             out |= {a.name for a in node.names}
         elif isinstance(node, ast.ImportFrom):
@@ -70,16 +88,14 @@ def _imports(root: Path, name: str) -> set[str]:
         if mod == "womm" or mod.startswith("womm."):
             parts = mod.split(".")
             found |= {".".join(parts[:i]) for i in range(2, len(parts) + 1)}
-    return {m for m in found if _module_file(root, m) is not None}
+    return {m for m in found if _module_file(root, m) is not None or m in FORBIDDEN}
 
 
 def forbidden_reach(root: Path) -> dict[str, list[str]]:
     """For each existing Planner-side module, the import chain to a forbidden module, if any."""
     bad: dict[str, list[str]] = {}
-    for short in PLANNER_SIDE:
+    for short in planner_side(root):
         start = f"womm.evolve.{short}"
-        if _module_file(root, start) is None:
-            continue
         parent: dict[str, str | None] = {start: None}
         queue = [start]
         while queue:
@@ -115,6 +131,32 @@ def test_import_graph_check_catches_an_added_import(tmp_path):
     assert "womm.evolve.archive" in bad
 
 
+@pytest.mark.parametrize(
+    "source",
+    [
+        'import importlib\nholdout = importlib.import_module("womm.eval.holdout")\n',
+        'from importlib import import_module\nh = import_module("womm.eval.holdout")\n',
+        'h = __import__("womm.eval.holdout", fromlist=["x"])\n',
+        'import importlib\np = importlib.import_module("womm.evolve.promotion")\n',
+    ],
+)
+def test_import_graph_check_catches_a_dynamic_import(tmp_path, source):
+    tree = tmp_path / "womm"
+    shutil.copytree(SRC, tree, ignore=shutil.ignore_patterns("__pycache__"))
+    (tree / "evolve" / "proposers.py").write_text(source)
+    assert "womm.evolve.proposers" in forbidden_reach(tree)
+
+
+def test_a_new_evolve_module_is_planner_side_by_default(tmp_path):
+    tree = tmp_path / "womm"
+    shutil.copytree(SRC, tree, ignore=shutil.ignore_patterns("__pycache__"))
+    (tree / "evolve" / "brand_new.py").write_text("from womm.eval import holdout  # noqa\n")
+    (tree / "evolve" / "promotion.py").write_text("from womm.eval import holdout  # noqa\n")
+    bad = forbidden_reach(tree)
+    assert "womm.evolve.brand_new" in bad and "womm.evolve.promotion" not in bad
+    assert {"replay", "cycle", "planner_view"} <= set(planner_side(SRC))
+
+
 # ---------------------------------------------------------------- process boundary
 
 
@@ -131,11 +173,32 @@ def test_planner_view_refuses_a_process_with_the_holdout_url(tmp_path):
     refuse_holdout_env({})
 
 
-def test_evolve_command_refuses_the_holdout_url(monkeypatch, capsys):
+EVOLVE_ARGV = {
+    "failures": ["failures", "--sv", "sv_x", "--from-db"],
+    "seed": ["seed"],
+    "materialize": ["materialize", "sv_x"],
+    "replay": ["replay", "sv_x", "--split", "train"],
+    "worker": ["worker", "rb_x"],
+    "cycle": ["cycle", "--base", "sv_x"],
+}
+
+
+def test_every_evolve_subcommand_is_covered():
     from womm import cli
 
+    assert set(EVOLVE_ARGV) == set(cli.EVOLVE_HANDLERS)
+
+
+@pytest.mark.parametrize("cmd", sorted(EVOLVE_ARGV))
+def test_evolve_command_refuses_the_holdout_url(cmd, monkeypatch, capsys):
+    from womm import cli
+
+    def no_db(*_a, **_k):
+        raise AssertionError("an evolve command touched the database before the holdout check")
+
     monkeypatch.setenv(HOLDOUT_URL_ENV, "postgresql://x/holdout")
-    assert cli.main(["evolve", "failures", "--sv", "sv_x", "--from-db"]) == cli.EXIT_USAGE
+    monkeypatch.setattr(cli, "_evolve_db", no_db)
+    assert cli.main(["evolve", *EVOLVE_ARGV[cmd]]) == cli.EXIT_USAGE
     assert HOLDOUT_URL_ENV in capsys.readouterr().err
 
 
