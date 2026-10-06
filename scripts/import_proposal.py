@@ -16,8 +16,9 @@ kept sentence with an estimate, a percentage, a EUR amount or an "N out of ten" 
 redacted or allow-listed in ``import.yaml``. When the accompanying IA is cached locally
 (.cache/ia/<regulation_id>/), the memorandum must also not restate it (12-word n-gram overlap
 with the IA's impact cut, ``womm.eval.ia_sources.ngram_overlap``). The import fails, naming the
-CELEX, on zero articles, gaps or duplicate article numbers, an unrecognised memorandum or a
-leak, and then writes nothing: a proposal is imported whole or not at all.
+CELEX, on zero articles, gaps or duplicate article numbers, "Article N" headings that did not
+become articles, articles with empty text, an unrecognised memorandum or a leak, and then
+writes nothing: a proposal is imported whole or not at all.
 
 Per-proposal settings live in ``import.yaml`` (hand-editable, reviewed in PRs): extra strip
 patterns, sentence redactions, leak-guard allow-list entries and the evaluation scenarios
@@ -171,7 +172,11 @@ def build(config: ImportConfig, body: bytes) -> Imported:
     try:
         root = parse_proposal.parse_document(body)
         articles = parse_proposal.parse_articles(root)
+        if articles:  # else check_article_sequence reports "no articles found"
+            # Names the headings a markup variant hid, before they show up as a gap.
+            parse_proposal.check_article_headings(articles, root, celex)
         parse_proposal.check_article_sequence(articles, celex)
+        parse_proposal.check_article_texts(articles, celex)
         stripped = strip_topics(
             parse_proposal.parse_memorandum(root),
             extra_patterns=config.strip_patterns,

@@ -13,7 +13,10 @@ import pytest
 
 from womm.data.parse_proposal import (
     Article,
+    Paragraph,
+    check_article_headings,
     check_article_sequence,
+    check_article_texts,
     parse_articles,
     parse_document,
     parse_memorandum,
@@ -142,3 +145,107 @@ def test_paragraph_spilled_into_a_heading_number_goes_back_to_its_section():
         ("2.4. Choice of the instrument", ["Directives may be used."]),
         ("3. RESULTS OF STAKEHOLDER CONSULTATIONS", ["Consulted."]),
     ]
+
+
+# ------------------------------------------------- article markup variants (synthetic snippets)
+
+
+def _doc(body: str):
+    return parse_document(
+        f'<html xmlns="http://www.w3.org/1999/xhtml"><body>{body}</body></html>'.encode()
+    )
+
+
+def _p(cls: str, *spans: str, num: str | None = None) -> str:
+    n = f'<span class="num"><span>{num}</span></span>' if num else ""
+    return f'<p class="{cls}">{n}' + "".join(f"<span>{s}</span>" for s in spans) + "</p>"
+
+
+def test_title_in_a_second_article_heading_paragraph():
+    # COM(2021) 202 and COM(2021) 731: "Article N" and its title are two consecutive
+    # paragraphs, both in the article heading class.
+    doc = _doc(
+        _p("Titrearticle", "Article 1")
+        + _p("Titrearticle", "Subject matter")
+        + _p("Normal", "This Regulation lays down rules.")
+        + _p("Titrearticle", "Article 2")
+        + _p("Titrearticle", "Scope")
+        + _p("li ManualNumPar1", "It applies to products.", num="1.")
+        + _p("li Point1", "machinery;", num="(a)")
+        + _p("Fait", "Done at Brussels,")
+    )
+    articles = parse_articles(doc)
+    assert [(a.number, a.title, a.text) for a in articles] == [
+        ("1", "Subject matter", "This Regulation lays down rules."),
+        ("2", "Scope", "1. It applies to products.\n(a) machinery;"),
+    ]
+
+
+def test_body_in_the_article_heading_class_after_a_titled_heading():
+    # COM(2026) 599, Article 11: the one-paragraph body carries the heading's class.
+    doc = _doc(
+        '<p class="Titrearticle"><span>Article 11</span><br/><span>Review</span></p>'
+        + _p("Titrearticle", "Persons affected shall have access to judicial review.")
+        + '<p class="Titrearticle"><span>Article 12</span><br/><span>Duration</span></p>'
+        + _p("li ManualNumPar1", "Measures shall last five years.", num="1.")
+        + _p("Titrearticle", "Chapter 3 Final provisions")
+        + '<p class="Titrearticle"><span>Article 13</span><br/><span>Entry</span></p>'
+        + _p("Normal", "It enters into force.")
+    )
+    articles = parse_articles(doc)
+    assert [(a.number, a.title, a.text) for a in articles] == [
+        ("11", "Review", "Persons affected shall have access to judicial review."),
+        ("12", "Duration", "1. Measures shall last five years."),
+        ("13", "Entry", "It enters into force."),
+    ]
+
+
+def test_untitled_article_keeps_its_only_paragraph_as_body():
+    # COM(2021) 281, Article 2: no title, a single Normal paragraph, then the closing formula.
+    # That paragraph is the article's body, not its title.
+    doc = _doc(
+        _p("Titrearticle", "Article 1")
+        + _p("Normal", "Regulation (EU) 910/2014 is amended as follows:")
+        + _p("li Point0", "Article 5 is replaced by the following:", num="(1)")
+        + _p("Text1", "‘", "Article 5")
+        + _p("Text1", "Pseudonyms in electronic transactions")
+        + _p("Text1", "Article 6b")
+        + _p("Titrearticle", "Article 2")
+        + _p("Normal", "This Regulation shall enter into force on the twentieth day.")
+        + _p("Applicationdirecte", "This Regulation shall be binding in its entirety.")
+    )
+    articles = parse_articles(doc)
+    assert [(a.number, a.title) for a in articles] == [("1", ""), ("2", "")]
+    assert articles[1].text == "This Regulation shall enter into force on the twentieth day."
+    assert "Article 6b" in articles[0].text
+    # Headings quoted by an amending article are its text, not missed articles.
+    check_article_headings(articles, doc, "52099PC0001")
+    check_article_texts(articles, "52099PC0001")
+
+
+def test_empty_article_text_fails_naming_the_articles():
+    articles = [
+        Article("1", "t", (Paragraph(None, "Text."),)),
+        Article("2", "t", ()),
+        Article("3", "t", (Paragraph("1", " \n "),)),
+    ]
+    with pytest.raises(ValueError, match=r"52099PC0001: empty text in Articles \['2', '3'\]"):
+        check_article_texts(articles, "52099PC0001")
+
+
+def test_article_heading_the_parser_missed_fails_naming_it():
+    doc = _doc(
+        _p("Titrearticle", "Article 1")
+        + _p("Normal", "Text one.")
+        + '<p class="Normal"><span>Article 2</span><br/><span>Scope</span></p>'
+        + _p("Normal", "Text two.")
+        + _p("Titrearticle", "Article 3")
+        + _p("Normal", "Text three.")
+        + _p("Fait", "Done at Brussels,")
+        + _p("Normal", "Article 9")  # after the enacting terms: annex, financial statement
+    )
+    articles = parse_articles(doc)
+    with pytest.raises(
+        ValueError, match=r"52099PC0001: article headings not parsed as articles: \['2'\]"
+    ):
+        check_article_headings(articles, doc, "52099PC0001")

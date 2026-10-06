@@ -314,6 +314,34 @@ def test_bad_numbering_fails_naming_the_celex(tmp_path, serve, body, message):
     assert not (tmp_path / "data_act").exists()
 
 
+_ART41_HEADING = b'<p class="Titrearticleb">\n               <span>Article 41</span>'
+_ART41_BODY = b'<p class="Normal">\n               <span>By ['
+
+
+@pytest.mark.parametrize(
+    ("body", "message"),
+    [
+        # Article 41's body in a class that ends an article: it would be imported empty.
+        (
+            DATA_ACT.replace(_ART41_BODY, b'<p class="Fait">\n<span>By [', 1),
+            r"empty text in Articles \['41'\]",
+        ),
+        # Article 41's heading in a class the parser does not know.
+        (
+            DATA_ACT.replace(_ART41_HEADING, b'<p class="Normal">\n<span>Article 41</span>', 1),
+            r"article headings not parsed as articles: \['41'\]",
+        ),
+    ],
+    ids=["empty_text", "missed_heading"],
+)
+def test_incomplete_articles_fail_naming_them_and_write_nothing(tmp_path, serve, body, message):
+    assert body != DATA_ACT
+    serve(body)
+    with pytest.raises(import_proposal.ImportFailed, match=f"52022PC0068: {message}"):
+        _run(tmp_path, CELEX, "--id", "data_act")
+    assert not (tmp_path / "data_act").exists()
+
+
 def test_unrecognisable_300_listing_fails_naming_the_celex(tmp_path, monkeypatch):
     def handler(request):
         return httpx.Response(300, text=LISTING.replace("_ACT_part1", "_other_part1"))
