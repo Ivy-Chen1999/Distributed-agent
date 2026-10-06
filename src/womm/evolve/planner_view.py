@@ -4,7 +4,7 @@ Holdout cases, holdout results and promotion decisions must never reach the Impr
 (R23, R28, AE3, AE4). That is enforced by structure, not convention:
 
 - **Import boundary.** Planner-side modules (this one, ``failure_memory``, ``edits``,
-  ``archive``, ``replay`` and the future ``proposers``, ``gepa_adapter`` and ``cycle``) never
+  ``archive``, ``replay``, ``proposers``, ``gepa_adapter`` and ``cycle``) never
   import ``womm.eval.holdout`` or ``womm.evolve.promotion``, directly or transitively;
   ``tests/evolve/test_planner_boundary.py`` walks the import graph.
 - **Process boundary.** A PlannerView refuses to exist in a process whose environment holds
