@@ -1,0 +1,41 @@
+# Import settings for 52020PC0825; rerun scripts/import_proposal.py after editing.
+# strip_patterns / redactions / leak_allow / quant_allow are reviewed exceptions to the
+# memorandum leak guards (reasons stay here, never in sources.json).
+# IA identifiers live only in the gitignored evals/private/ia_index.yaml.
+celex: 52020PC0825
+regulation_id: dsa
+title: Digital Services Act
+document_url: https://publications.europa.eu/resource/celex/52020PC0825
+date: null
+strip_patterns: {}
+redactions:
+- section: 1.3.
+  sentence: Sector-specific instruments do not cover all the regulatory gaps evidenced
+  reason: states the IA's problem finding (regulatory gaps of sector-specific instruments)
+leak_allow: []
+quant_allow:
+- section: 1.1.
+  sentence: The operational threshold for service providers in scope of these obligations
+  reason: a target or threshold set by this proposal's own articles, not an assessment finding
+- section: 1.1.
+  sentence: This threshold is proportionate to the risks brought by the reach of the platforms
+  reason: a target or threshold set by this proposal's own articles, not an assessment finding
+scenarios:
+- scenario_id: eval_due_diligence_obligations
+  description: Due diligence obligations of intermediary services, hosting services, online platforms
+    and very large online platforms, including legal representatives, transparency reporting, notice and
+    action, complaint handling, advertising transparency, risk management, audits and compliance officers
+    (proposal only, no prior version).
+  articles:
+  - '11'
+  - '13'
+  - '14'
+  - '16'
+  - '17'
+  - '18'
+  - '24'
+  - '26'
+  - '27'
+  - '28'
+  - '30'
+  - '32'

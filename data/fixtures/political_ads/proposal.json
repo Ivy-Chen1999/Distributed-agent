@@ -1,0 +1,154 @@
+{
+  "regulation_id": "political_ads",
+  "title": "Political Advertising Regulation",
+  "versions": [
+    {
+      "version_id": "com2021_731",
+      "date": "2021-11-25",
+      "status": "proposal",
+      "source": "52021PC0731",
+      "provisions": [
+        {
+          "provision_key": "political_ads/proposal/art/1",
+          "article": "1",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_731/art_1"
+        },
+        {
+          "provision_key": "political_ads/proposal/art/2",
+          "article": "2",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_731/art_2"
+        },
+        {
+          "provision_key": "political_ads/proposal/art/3",
+          "article": "3",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_731/art_3"
+        },
+        {
+          "provision_key": "political_ads/proposal/art/4",
+          "article": "4",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_731/art_4"
+        },
+        {
+          "provision_key": "political_ads/proposal/art/5",
+          "article": "5",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_731/art_5"
+        },
+        {
+          "provision_key": "political_ads/proposal/art/6",
+          "article": "6",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_731/art_6"
+        },
+        {
+          "provision_key": "political_ads/proposal/art/7",
+          "article": "7",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_731/art_7"
+        },
+        {
+          "provision_key": "political_ads/proposal/art/8",
+          "article": "8",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_731/art_8"
+        },
+        {
+          "provision_key": "political_ads/proposal/art/9",
+          "article": "9",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_731/art_9"
+        },
+        {
+          "provision_key": "political_ads/proposal/art/10",
+          "article": "10",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_731/art_10"
+        },
+        {
+          "provision_key": "political_ads/proposal/art/11",
+          "article": "11",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_731/art_11"
+        },
+        {
+          "provision_key": "political_ads/proposal/art/12",
+          "article": "12",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_731/art_12"
+        },
+        {
+          "provision_key": "political_ads/proposal/art/13",
+          "article": "13",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_731/art_13"
+        },
+        {
+          "provision_key": "political_ads/proposal/art/14",
+          "article": "14",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_731/art_14"
+        },
+        {
+          "provision_key": "political_ads/proposal/art/15",
+          "article": "15",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_731/art_15"
+        },
+        {
+          "provision_key": "political_ads/proposal/art/16",
+          "article": "16",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_731/art_16"
+        },
+        {
+          "provision_key": "political_ads/proposal/art/17",
+          "article": "17",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_731/art_17"
+        },
+        {
+          "provision_key": "political_ads/proposal/art/18",
+          "article": "18",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_731/art_18"
+        },
+        {
+          "provision_key": "political_ads/proposal/art/19",
+          "article": "19",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_731/art_19"
+        },
+        {
+          "provision_key": "political_ads/proposal/art/20",
+          "article": "20",
+          "paragraph": null,
+          "text": "",
+          "source_id": "com2021_731/art_20"
+        }
+      ]
+    }
+  ]
+}

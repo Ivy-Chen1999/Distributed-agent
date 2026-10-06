@@ -1,0 +1,20 @@
+# Import settings for 52026PC0504; rerun scripts/import_proposal.py after editing.
+# strip_patterns / redactions / leak_allow / quant_allow are reviewed exceptions to the
+# memorandum leak guards (reasons stay here, never in sources.json).
+# IA identifiers live only in the gitignored evals/private/ia_index.yaml.
+celex: 52026PC0504
+regulation_id: chips_act_2
+title: Chips Act 2
+document_url: https://publications.europa.eu/resource/cellar/2c650725-5f40-11f1-aa6d-01aa75ed71a1.0001.03/DOC_1
+date: null
+strip_patterns: {}
+redactions:
+- section: 1.1.
+  sentence: · over EUR 52 billion has been committed
+  reason: 'quantified background statistic of the kind used to size the problem; manual review: redacted'
+- section: 1.1.
+  sentence: The EU produces less than 10% of global semiconductors
+  reason: 'quantified background statistic of the kind used to size the problem; manual review: redacted'
+leak_allow: []
+quant_allow: []
+scenarios: []

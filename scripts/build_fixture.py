@@ -33,12 +33,13 @@ import yaml
 
 from womm.citations import normalize
 from womm.data import parse_proposal, parse_regulation, parse_units
-from womm.data.cellar import XHTML, CellarError, cached, celex_url, fetch, sha256
+from womm.data.cellar import XHTML, CellarError, cached, celex_url, fetch
 from womm.data.fixtures import (
     DEFAULT_FIXTURE_DIR,
     Crosswalk,
     Fixture,
     FixtureError,
+    check_downloads,
     load_crosswalk,
     validate_fixture,
 )
@@ -334,30 +335,6 @@ def write_fixture(
         width=100,
     )
     (out_dir / "scenarios.yaml").write_text(header + body, encoding="utf-8")
-
-
-def check_downloads(
-    path: Path, bodies: dict[str, bytes], *, accept: bool, supersedes: str | None = None
-) -> None:
-    """Pin each upstream document by sha256 so a changed or tampered download fails loudly.
-
-    ``supersedes`` is a URL prefix whose pins this build replaces as a whole (the pipeline repo,
-    whose URLs carry the commit): a pinned URL under it that this build no longer fetches means
-    the pin moved, which counts as a change and is dropped once accepted.
-    """
-    pinned = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
-    current = {url: sha256(body) for url, body in bodies.items()}
-    changed = sorted(u for u, h in current.items() if u in pinned and pinned[u] != h)
-    stale = sorted(
-        u for u in pinned if supersedes and u.startswith(supersedes) and u not in current
-    )
-    if (changed or stale) and not accept:
-        raise FixtureError(
-            f"upstream documents changed since the fixture was pinned: {changed + stale}; "
-            "rerun with --accept-upstream-changes after reviewing the new text"
-        )
-    kept = {u: h for u, h in pinned.items() if u not in stale}
-    path.write_text(json.dumps({**kept, **current}, indent=2, sort_keys=True) + "\n")
 
 
 def fetch_upstream(url: str, *, accept: str = XHTML, refresh: bool) -> bytes:

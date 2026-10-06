@@ -1,0 +1,30 @@
+# Import settings for 52022PC0454; rerun scripts/import_proposal.py after editing.
+# strip_patterns / redactions / leak_allow / quant_allow are reviewed exceptions to the
+# memorandum leak guards (reasons stay here, never in sources.json).
+# IA identifiers live only in the gitignored evals/private/ia_index.yaml.
+celex: 52022PC0454
+regulation_id: cra
+title: Cyber Resilience Act
+document_url: https://publications.europa.eu/resource/cellar/864f472b-34e9-11ed-9c68-01aa75ed71a1.0001.03/DOC_1
+date: null
+strip_patterns: {}
+redactions:
+- section: 1.1.
+  sentence: Hardware and software products are increasingly subject to successful cyberattacks
+  reason: 'quantified estimate restated in the memorandum; manual review: redacted'
+leak_allow: []
+quant_allow: []
+scenarios:
+- scenario_id: eval_manufacturer_obligations
+  description: Cybersecurity obligations of manufacturers, importers and distributors of products with
+    digital elements, including vulnerability handling, reporting of actively exploited vulnerabilities
+    and incidents, technical documentation and conformity assessment (proposal only, no prior version).
+  articles:
+  - '5'
+  - '6'
+  - '10'
+  - '11'
+  - '13'
+  - '14'
+  - '23'
+  - '24'

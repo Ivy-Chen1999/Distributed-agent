@@ -1,0 +1,29 @@
+# Import settings for 52020PC0767; rerun scripts/import_proposal.py after editing.
+# strip_patterns / redactions / leak_allow / quant_allow are reviewed exceptions to the
+# memorandum leak guards (reasons stay here, never in sources.json).
+# IA identifiers live only in the gitignored evals/private/ia_index.yaml.
+celex: 52020PC0767
+regulation_id: dga
+title: Data Governance Act
+document_url: https://publications.europa.eu/resource/celex/52020PC0767
+date: null
+strip_patterns: {}
+redactions:
+- section: 2.4.
+  sentence: At the same time, the provisions of the Regulation are not overly prescriptive
+  reason: shares 12-word runs with the IA's impact cut (overlap test)
+- section: 2.1.
+  sentence: Pursuant to this Article, the EU has to adopt measures for the approximation
+  reason: shares 12-word runs with the IA's impact cut (overlap test)
+- section: 2.1.
+  sentence: Article 4(2) and (3) of the TFEU specifies that
+  reason: shares 12-word runs with the IA's impact cut (overlap test)
+- section: 2.1.
+  sentence: With a growing digitalisation of the economy and society, there is a risk
+  reason: shares 12-word runs with the IA's impact cut (overlap test)
+- section: 2.1.
+  sentence: Article 114 of the Treaty on the Functioning of the European Union (TFEU) is identified
+  reason: shares 12-word runs with the IA's impact cut (overlap test)
+leak_allow: []
+quant_allow: []
+scenarios: []
