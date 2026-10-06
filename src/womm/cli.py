@@ -395,6 +395,92 @@ async def cmd_evolve_worker(args: argparse.Namespace) -> int:
     return await _replay(args, args.batch_id)
 
 
+async def _proposer_backend(name: str, backends: dict, args: argparse.Namespace, model: str):
+    """The Improvement Planner's backend: the base's own instance when it uses the same one."""
+    from womm.llm.base import get_backend
+
+    if name in backends:
+        return backends[name]
+    if name == "fake":
+        raise UsageError("the fake backend is for tests; the base version does not use it")
+    backend = get_backend(name, load_settings())
+    if name == "claude_code" and not args.skip_self_check:
+        await backend.self_check(model)
+    return backend
+
+
+async def cmd_evolve_cycle(args: argparse.Namespace) -> int:
+    """One self-evolution cycle on train/val (U5): GEPA prompt stage, then the topology stage,
+    then one candidate named for the promotion gate. Never touches the holdout."""
+    from womm.evolve.archive import Archive
+    from womm.evolve.cycle import ReplayEvaluator, run_cycle
+    from womm.evolve.planner_view import HoldoutEnvRefused, PlannerView, refuse_holdout_env
+    from womm.evolve.proposers import Proposer, load_evolution_config
+    from womm.evolve.replay import ReplayStore, ReplayWorker
+
+    try:
+        refuse_holdout_env()
+    except HoldoutEnvRefused as exc:
+        raise UsageError(str(exc)) from None
+    config = load_evolution_config(Path(args.config))
+    if args.max_metric_calls:
+        budget = config.budget.model_copy(update={"max_metric_calls": args.max_metric_calls})
+        config = config.model_copy(update={"budget": budget})
+    seed = load_system_version(Path(args.seed), REPO_ROOT)
+    settings = load_settings()
+    cycle_id = args.cycle_id or f"cycle_{_stamp()}"
+    async with _evolve_db("womm evolve cycle") as db:
+        archive, store = Archive(db), ReplayStore(db)
+        try:
+            base = await archive.load_candidate(args.base)
+        except KeyError as exc:
+            raise UsageError(f"{exc.args[0]} (womm evolve seed?)") from None
+        backends, cli_version, _ = await prepare_backends(
+            base, skip_self_check=args.skip_self_check
+        )
+        role = config.roles.reflect
+        backend = await _proposer_backend(role.backend, backends, args, role.model)
+        worker = ReplayWorker(
+            store=store, archive=archive, judge_sv=seed, backends=backends,
+            decisions=make_decision_service(base, settings), code=code_identity(cli_version),
+            runs_dir=Path(args.runs_dir),
+        )  # fmt: skip
+        evaluator = ReplayEvaluator(archive_store=archive, store=store, worker=worker)
+        async with PlannerView(settings.database_url, runs_dir=Path(args.runs_dir)) as view:
+            try:
+                result = await run_cycle(
+                    base=base, view=view, evaluator=evaluator,
+                    proposer=Proposer(backend, config), budget=config.budget,
+                    stage=args.stage, cycle_id=cycle_id, run_dir=args.gepa_dir,
+                )  # fmt: skip
+            except ValueError as exc:
+                raise UsageError(str(exc)) from None
+    prompt, topo = result.prompt, result.topology
+    data = {
+        "cycle_id": cycle_id, "base": base.version_id, "chosen": result.chosen.version_id,
+        "prompt_stage": None if prompt is None else {
+            "best": prompt.best.version_id, "front": prompt.front, "archived": prompt.archived,
+            "rejections": prompt.rejections, "metric_calls": prompt.metric_calls,
+            "spent_usd": prompt.spent_usd,
+        },
+        "topology_stage": None if topo is None else {
+            "candidate": topo.candidate.version_id if topo.candidate else None,
+            "reason": topo.reason, "target": topo.target, "rejections": topo.rejections,
+        },
+    }  # fmt: skip
+    lines = [f"cycle {cycle_id} on {base.version_id}"]
+    if prompt is not None:
+        n, calls = len(prompt.archived), prompt.metric_calls
+        lines.append(f"prompt stage: {n} candidate(s) archived, {calls} metric calls, "
+                     f"best {prompt.best.version_id}")  # fmt: skip
+    if topo is not None:
+        made = topo.candidate.version_id if topo.candidate else "none"
+        lines.append(f"topology stage: {topo.reason} ({made})")
+    lines.append(f"candidate for the gate: {result.chosen.version_id}")
+    emit(args, data, "\n".join(lines))
+    return EXIT_OK
+
+
 def build_parser() -> argparse.ArgumentParser:
     settings = load_settings()
     common = argparse.ArgumentParser(add_help=False)
@@ -475,6 +561,19 @@ def build_parser() -> argparse.ArgumentParser:
         "worker", parents=[common, replay_common], help="resume an existing replay batch"
     )
     p_worker.add_argument("batch_id")
+    p_cycle = evolve.add_parser(
+        "cycle", parents=[common, replay_common],
+        help="one self-evolution cycle on train/val: prompt stage, topology stage, a candidate",
+    )  # fmt: skip
+    p_cycle.add_argument("--base", required=True, help="archived version id to evolve")
+    p_cycle.add_argument("--stage", choices=("prompt", "topology", "both"), default="both")
+    p_cycle.add_argument(
+        "--config", default=str(REPO_ROOT / "evals" / "evolution.yaml"),
+        help="Improvement Planner roles and budget (default: %(default)s)",
+    )  # fmt: skip
+    p_cycle.add_argument("--max-metric-calls", type=int, help="override the config budget")
+    p_cycle.add_argument("--cycle-id", help="default: cycle_<UTC timestamp>")
+    p_cycle.add_argument("--gepa-dir", help="GEPA state directory, to resume a stopped stage")
     return parser
 
 
@@ -492,6 +591,7 @@ EVOLVE_HANDLERS = {
     "materialize": cmd_evolve_materialize,
     "replay": cmd_evolve_replay,
     "worker": cmd_evolve_worker,
+    "cycle": cmd_evolve_cycle,
 }
 
 
