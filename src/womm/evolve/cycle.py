@@ -16,10 +16,22 @@ import gepa
 from womm.eval.evaluators import CaseScore
 from womm.evolve.archive import Archive
 from womm.evolve.edits import EditRejected, build_candidate, render_diff, validate_diff
-from womm.evolve.gepa_adapter import PROPOSAL_SPLITS, CandidateEvaluator, CaseRef, WommAdapter
+from womm.evolve.gepa_adapter import (
+    PROPOSAL_SPLITS,
+    CandidateEvaluator,
+    CaseRef,
+    WommAdapter,
+    population,
+)
 from womm.evolve.planner_view import PlannerView
 from womm.evolve.proposers import Budget, Proposer, pattern_key
-from womm.evolve.replay import ReplayIncomplete, ReplayStore, ReplayWorker, judge_version
+from womm.evolve.replay import (
+    ReplayIncomplete,
+    ReplayStore,
+    ReplayWorker,
+    code_version,
+    judge_version,
+)
 from womm.llm.base import LLMError
 from womm.models.system_version import SystemVersion
 
@@ -37,8 +49,13 @@ class ReplayEvaluator:
 
     @property
     def judge_version(self) -> str:
-        """The pinned judge: archive metrics are read for this judge only."""
+        """The pinned judge: archive metrics and failure patterns are read for this judge."""
         return judge_version(self.worker.judge_sv)
+
+    @property
+    def code_version(self) -> str:
+        """The code replays run on: failure patterns are read for this code only."""
+        return code_version(self.worker.code)
 
     async def archive(self, sv, *, parent_id, origin, cycle_id, diff, proposer) -> None:
         await self.archive_store.archive(
@@ -225,11 +242,13 @@ class TopologyResult:
     spent_usd: float = 0.0
 
 
-async def _examples(view: PlannerView, version_id: str, target: dict) -> list[dict]:
+async def _examples(
+    view: PlannerView, version_id: str, target: dict, population: dict
+) -> list[dict]:
     """The missed impacts behind ``target``: train golden text only."""
     cases = view.cases("train")
     seen, out = set(), []
-    for e in await view.failure_events(version_id, PROPOSAL_SPLITS):
+    for e in await view.failure_events(version_id, PROPOSAL_SPLITS, **population):
         key = (e.case_id, e.item_id)
         if (e.kind, e.category, e.owner) != ("missed_impact", target["category"], "none"):
             continue
@@ -262,7 +281,7 @@ async def run_topology_stage(
     if len(parent.spec.experts) > len(seed.spec.experts):
         return TopologyResult(None, "expert cap reached: the parent already adds an expert")
     targets = unowned_patterns(
-        await view.failure_patterns(parent.version_id, PROPOSAL_SPLITS),
+        await view.failure_patterns(parent.version_id, PROPOSAL_SPLITS, **population(evaluator)),
         budget.min_pattern_proposals,
     )
     if not targets:
@@ -277,7 +296,7 @@ async def run_topology_stage(
         return TopologyResult(None, "budget: max_usd reached before the topology stage", target)
     experts = [{"id": e.id, "domain": e.domain, "router_gloss": e.router_gloss}
                for e in parent.spec.experts]  # fmt: skip
-    examples = await _examples(view, parent.version_id, target)
+    examples = await _examples(view, parent.version_id, target, population(evaluator))
     rejections: list[dict] = []
     try:
         proposal = await proposer.propose_expert(target, examples, experts)

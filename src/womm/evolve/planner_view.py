@@ -130,25 +130,44 @@ class PlannerView:
     # ------------------------------------------------------------ Failure Memory
 
     async def failure_events(
-        self, system_version: str, splits: Sequence[str] = PLANNER_SPLITS
+        self,
+        system_version: str,
+        splits: Sequence[str] = PLANNER_SPLITS,
+        *,
+        judge_version: str | None = None,
+        git_sha: str | None = None,
     ) -> list[FailureEvent]:
-        """Failure events of ``system_version`` on ``splits`` (train and/or val). Proposal
-        inputs take ``("train",)``: val is for selection only."""
+        """Failure events of ``system_version`` on ``splits`` (train and/or val), only those
+        scored by ``judge_version`` on code ``git_sha`` when given. Proposal inputs take
+        ``("train",)``: val is for selection only."""
         rows = await self._all("failure_events", system_version, _splits(splits))
-        return [FailureEvent.model_validate(r) for r in rows]
+        return [FailureEvent.model_validate(r) for r in rows if _same(r, judge_version, git_sha)]
 
     async def case_runs(
-        self, system_version: str, splits: Sequence[str] = PLANNER_SPLITS
+        self,
+        system_version: str,
+        splits: Sequence[str] = PLANNER_SPLITS,
+        *,
+        judge_version: str | None = None,
+        git_sha: str | None = None,
     ) -> list[CaseRun]:
         rows = await self._all("case_runs", system_version, _splits(splits))
-        return [CaseRun.model_validate(r) for r in rows]
+        return [CaseRun.model_validate(r) for r in rows if _same(r, judge_version, git_sha)]
 
     async def failure_patterns(
-        self, system_version: str, splits: Sequence[str] = PLANNER_SPLITS
+        self,
+        system_version: str,
+        splits: Sequence[str] = PLANNER_SPLITS,
+        *,
+        judge_version: str | None = None,
+        git_sha: str | None = None,
     ) -> list[dict]:
+        """Patterns of one population: pass the evaluator's judge and code so stale verdicts
+        (another judge, older code) never drive a proposal."""
+        scope = {"judge_version": judge_version, "git_sha": git_sha}
         return patterns(
-            await self.failure_events(system_version, splits),
-            await self.case_runs(system_version, splits),
+            await self.failure_events(system_version, splits, **scope),
+            await self.case_runs(system_version, splits, **scope),
         )
 
     # ------------------------------------------------------------ archive
@@ -196,6 +215,12 @@ class PlannerView:
         if path.parent != self.runs_dir or not path.is_file():
             return None
         return RunResult.model_validate_json(path.read_text(encoding="utf-8"))
+
+
+def _same(row: dict, judge_version: str | None, git_sha: str | None) -> bool:
+    return (judge_version is None or row["judge_version"] == judge_version) and (
+        git_sha is None or row["git_sha"] == git_sha
+    )
 
 
 def _splits(splits: Sequence[str]) -> list[str]:

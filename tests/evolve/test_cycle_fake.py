@@ -11,9 +11,11 @@ from womm.evolve.edits import build_candidate, validate_diff
 from womm.evolve.failure_memory import CaseRun, FailureEvent
 from womm.evolve.gepa_adapter import CaseRef, WommAdapter
 from womm.evolve.proposers import Budget
+from womm.evolve.replay import judge_version
 from womm.llm.fake import FakeBackend
 
-from .test_gepa_adapter import CASE, CASES, MARKER, TRAIN
+from ..graph.conftest import fake_sv
+from .test_gepa_adapter import CASE, CASES, CODE, MARKER, TRAIN
 
 OTHER = CASE.model_copy(update={"case_id": "case_other_act", "fixture": "other_act"})
 CATEGORY = "social_environmental"
@@ -41,9 +43,12 @@ def proposal(**over):
     return step
 
 
-async def seed_pattern(db, version_id, cases=(CASE, OTHER), runs=2, missed=2, owner="none"):
+async def seed_pattern(db, version_id, cases=(CASE, OTHER), runs=2, missed=2, owner="none",
+                       judge=None, sha=CODE.git_sha):  # fmt: skip
     """Failure Memory rows: each case's first expected impact, categorised, missed in
-    ``missed`` of ``runs`` runs, owned by ``owner``, on the case's own split."""
+    ``missed`` of ``runs`` runs, owned by ``owner``, on the case's own split, scored by
+    ``judge`` (default: the seed's pinned judge) on code ``sha``."""
+    judge = judge or judge_version(fake_sv())
     events, case_runs = [], []
     for case in cases:
         item = case.expected_impacts[0]
@@ -57,6 +62,8 @@ async def seed_pattern(db, version_id, cases=(CASE, OTHER), runs=2, missed=2, ow
                     run_id=run_id,
                     repetition=rep,
                     system_version=version_id,
+                    judge_version=judge,
+                    git_sha=sha,
                 )
             )
             if rep <= missed:
@@ -73,6 +80,8 @@ async def seed_pattern(db, version_id, cases=(CASE, OTHER), runs=2, missed=2, ow
                         run_id=run_id,
                         repetition=rep,
                         system_version=version_id,
+                        judge_version=judge,
+                        git_sha=sha,
                     )
                 )
     await db.record_failure_events(events, case_runs)
@@ -263,6 +272,34 @@ async def test_reflective_patterns_aggregate_train_events_only(env, monkeypatch)
     data = await asyncio.to_thread(a.make_reflective_dataset, seed, out, ["expert:fiscal"])
     patterns = [p for r in data["expert:fiscal"] for p in r["Feedback"]["patterns"]]
     assert patterns and all("val_act" not in p["proposals"] for p in patterns)
+
+
+# ---------------------------------------------------------------- one judge, one code version
+
+
+@pytest.mark.parametrize("stale", [{"judge": "judge_old"}, {"sha": "sha_old"}])
+async def test_patterns_from_another_judge_or_code_do_not_trigger(env, two_proposals, stale):
+    await seed_pattern(env["db"], env["sv"].version_id, **stale)
+    env["proposer"].backend = FakeBackend({})
+    result = await run_topology_stage(**topology_kw(env))
+    assert result.candidate is None and "2+ proposals" in result.reason
+    assert env["proposer"].backend.calls == []
+
+
+async def test_reflective_patterns_are_this_judge_and_code_only(env):
+    a = WommAdapter(base=env["sv"], view=env["view"], evaluator=env["evaluator"],
+                    proposer=env["proposer"], budget=Budget(train_repetitions=2))  # fmt: skip
+    seed = a.seed_candidate()
+    out = await asyncio.to_thread(a.evaluate, [CaseRef("train", TRAIN[0].case_id)], seed, True)
+    e = next(e for e in await env["view"].failure_events(env["sv"].version_id)
+             if e.kind == "missed_impact")  # fmt: skip
+    stale = [e.model_copy(update={"fixture": f"stale_{k}", "run_id": f"stale_{k}", **upd})
+             for k, upd in (("judge", {"judge_version": "judge_old"}),
+                            ("code", {"git_sha": "sha_old"}))]  # fmt: skip
+    await env["db"].record_failure_events(stale, [])
+    data = await asyncio.to_thread(a.make_reflective_dataset, seed, out, ["expert:fiscal"])
+    patterns = [p for r in data["expert:fiscal"] for p in r["Feedback"]["patterns"]]
+    assert patterns and not any("stale" in "".join(p["proposals"]) for p in patterns)
 
 
 # ---------------------------------------------------------------- budgets

@@ -80,6 +80,15 @@ class CandidateEvaluator(Protocol):
     ) -> list[CaseScore]: ...
 
 
+def population(evaluator: CandidateEvaluator) -> dict[str, str | None]:
+    """The evaluator's (judge, code) population. Failure Memory rows scored by another judge
+    or on other code are stale and never feed a proposal."""
+    return {
+        "judge_version": getattr(evaluator, "judge_version", None),
+        "git_sha": getattr(evaluator, "code_version", None),
+    }
+
+
 def candidate_key(candidate: Mapping[str, str]) -> str:
     blob = json.dumps(dict(candidate), sort_keys=True, ensure_ascii=False)
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()
@@ -253,8 +262,9 @@ class WommAdapter:
     async def _reflective(
         self, sv: SystemVersion, trajectories: list[dict], components: list[str]
     ) -> dict[str, list[dict]]:
-        events = await self.view.failure_events(sv.version_id, PROPOSAL_SPLITS)
-        patterns = await self.view.failure_patterns(sv.version_id, PROPOSAL_SPLITS)
+        scope = population(self.evaluator)
+        events = await self.view.failure_events(sv.version_id, PROPOSAL_SPLITS, **scope)
+        patterns = await self.view.failure_patterns(sv.version_id, PROPOSAL_SPLITS, **scope)
         cases = self.view.cases("train")
         out: dict[str, list[dict]] = {c: [] for c in components}
         for traj in trajectories:
