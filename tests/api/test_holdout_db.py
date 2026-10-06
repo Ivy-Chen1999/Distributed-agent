@@ -68,7 +68,7 @@ async def test_holdout_migrations_are_separate_from_the_api(database_url, holdou
         await api.close()
     assert _rows(database_url, "SELECT 1 FROM pg_namespace WHERE nspname = 'holdout'") == []
     store = holdout.HoldoutStore(holdout_url)
-    assert await store.migrate() == ["001_holdout"]
+    assert await store.migrate() == ["001_holdout", "002_compare_progress"]
     assert await store.migrate() == []
     assert _rows(holdout_url, "SELECT to_regclass('public.runs')") == [(None,)]
 
@@ -215,3 +215,47 @@ def test_import_script_refuses_a_handoff_outside_the_cache(roots, monkeypatch, c
             "--golden-dir", str(roots / "golden")]  # fmt: skip
     assert importer.main(argv) == 2
     assert handoff.exists() and "only under .cache/" in capsys.readouterr().err
+
+
+# Applied holdout migrations are never edited either (HoldoutStore.migrate skips applied ones).
+FROZEN_HOLDOUT_MIGRATIONS = {
+    "001_holdout.sql": "75bc8c722a906520cd5be9f32fc85134e443c21cd1ba173dd0dc4f03a3649cab",
+    "002_compare_progress.sql": "9e4a3767bc12c4f5a2da1d61b621c8d5c51102dd96f94671eb8aca132ab2a54e",
+}
+
+
+def test_applied_holdout_migrations_are_frozen():
+    for name, digest in FROZEN_HOLDOUT_MIGRATIONS.items():
+        actual = hashlib.sha256((holdout.MIGRATIONS_DIR / name).read_bytes()).hexdigest()
+        assert actual == digest, f"{name} changed: add a new holdout migration instead"
+
+
+async def test_gate_bookkeeping_on_the_store(roots, holdout_url):
+    """U7: compare progress round-trips, decisions sit on the gate's audit row, the budget
+    counts only budget-consuming decisions, and aborted pairs are counted."""
+    from womm.eval.evaluators import CaseScore
+
+    store = holdout.HoldoutStore(holdout_url)
+    await store.migrate()
+    score = CaseScore(case_id="kabc", scenario_id="s", outcome="scored", coverage=0.5)
+    await store.save_progress("sv_a", "jv", "sha", "kabc", 1, score)
+    await store.save_progress("sv_a", "jv", "sha", "kabc", 1, score)  # idempotent
+    assert await store.load_progress(["sv_a", "sv_b"], "jv", "sha") == {("sv_a", "kabc", 1): score}
+    assert await store.load_progress(["sv_a"], "jv", "other") == {}
+
+    for n, (aborted, consumes) in enumerate([(False, True), (True, False), (False, True)]):
+        cand, base = fake_sv(), fake_sv()
+        result = holdout._summarise(cand, base, 1, {"candidate": [], "baseline": []}, {}, aborted,
+                                    10, 0)  # fmt: skip
+        await store.record_audit(result, "sha", gate_id=f"g{n}", cycle_id="c1" if n else "c0")
+        await store.record_decision(f"g{n}", {"decision": "rejected", "consumes_budget": consumes})
+    # A comparison outside the gate carries no decision and consumes nothing.
+    await store.record_audit(result, "sha")
+    assert await store.budget_used("c1") == (2, 1)
+    assert await store.budget_used("c9") == (2, 0)
+    assert await store.prior_aborts(cand.version_id, base.version_id) == 1
+    assert [d["consumes_budget"] for d in await store.decisions_for(cand.version_id)] == [
+        True, False, True,
+    ]  # fmt: skip
+    with pytest.raises(holdout.HoldoutError, match="no comparison"):
+        await store.record_decision("g_missing", {})

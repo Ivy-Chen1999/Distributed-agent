@@ -240,10 +240,13 @@ async def _populate(db, tmp_path):
                                                                          "sd": None}],
                                  **PROVENANCE | {"batch_id": "rb_diff"})  # fmt: skip
     async with db.pool.connection() as conn:
-        # What U7 will write: a decision summary and a sealed audit, both with canaries.
-        await conn.execute("CREATE TABLE promotion_decisions (candidate text, summary text)")
-        await conn.execute("INSERT INTO promotion_decisions VALUES (%s, %s)",
-                           (child.version_id, CANARY))  # fmt: skip
+        # What U7 writes: a decision summary and a sealed audit, both with canaries.
+        await conn.execute(
+            "INSERT INTO promotion_decisions (gate_id, candidate_version, incumbent_version, mode,"
+            " deployable, decision, label, reasons, n_proposals, policy_sha256) VALUES"
+            " ('g1', %s, %s, 'dev', false, 'rejected', %s, %s, 5, 'sha')",
+            (child.version_id, BASE.version_id, CANARY, json.dumps([CANARY])),
+        )  # fmt: skip
         await conn.execute("CREATE SCHEMA holdout")
         await conn.execute("CREATE TABLE holdout.compare_audit (result text)")
         await conn.execute("INSERT INTO holdout.compare_audit VALUES (%s)", (CANARY,))

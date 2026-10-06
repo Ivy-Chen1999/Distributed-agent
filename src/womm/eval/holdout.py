@@ -59,7 +59,7 @@ from womm.data.fixtures import (
 )
 from womm.data.ia_index import IaRecord
 from womm.decisions.service import DecisionService
-from womm.eval.evaluators import CaseScore, score_case
+from womm.eval.evaluators import CaseScore, judge_version, score_case
 from womm.eval.golden import GOLDEN_DIR, GoldenCase, GoldenError, check_against_fixture
 from womm.eval.run_eval import _hit_rate_limit
 from womm.graph.build import run_scenario
@@ -400,23 +400,119 @@ class HoldoutStore:
             for r in rows
         ]
 
-    async def record_audit(self, result: HoldoutComparison, git_sha: str | None) -> int:
+    async def record_audit(
+        self,
+        result: HoldoutComparison,
+        git_sha: str | None,
+        *,
+        gate_id: str | None = None,
+        cycle_id: str | None = None,
+    ) -> int:
         async with await self._connect() as conn:
             row = await (
                 await conn.execute(
-                    "INSERT INTO holdout.compare_audit"
-                    " (candidate_version, baseline_version, repetitions, git_sha, result)"
-                    " VALUES (%s, %s, %s, %s, %s) RETURNING id",
+                    "INSERT INTO holdout.compare_audit (candidate_version, baseline_version,"
+                    " repetitions, git_sha, result, gate_id, cycle_id)"
+                    " VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id",
                     (
                         result.candidate_version,
                         result.baseline_version,
                         result.repetitions,
                         git_sha,
                         Jsonb(result.model_dump(mode="json")),
+                        gate_id,
+                        cycle_id,
                     ),
                 )  # fmt: skip
             ).fetchone()
         return row["id"]
+
+    # ------------------------------------------------------------ compare progress (R29)
+
+    async def load_progress(
+        self, version_ids: list[str], judge_version: str, code_version: str
+    ) -> dict[tuple[str, str, int], CaseScore]:
+        """Finished scored runs, by (version id, internal case key, repetition)."""
+        async with await self._connect() as conn:
+            rows = await (
+                await conn.execute(
+                    "SELECT version_id, case_key, repetition, score FROM holdout.compare_progress"
+                    " WHERE version_id = ANY(%s) AND judge_version = %s AND code_version = %s",
+                    (version_ids, judge_version, code_version),
+                )
+            ).fetchall()
+        return {
+            (r["version_id"], r["case_key"], r["repetition"]): CaseScore.model_validate(r["score"])
+            for r in rows
+        }
+
+    async def save_progress(
+        self,
+        version_id: str,
+        judge_version: str,
+        code_version: str,
+        case_key: str,
+        repetition: int,
+        score: CaseScore,
+    ) -> None:
+        async with await self._connect() as conn:
+            await conn.execute(
+                "INSERT INTO holdout.compare_progress (version_id, judge_version, code_version,"
+                " case_key, repetition, score) VALUES (%s, %s, %s, %s, %s, %s)"
+                " ON CONFLICT DO NOTHING",
+                (version_id, judge_version, code_version, case_key, repetition,
+                 Jsonb(score.model_dump(mode="json"))),
+            )  # fmt: skip
+
+    # ------------------------------------------------------------ promotion gate (U7)
+
+    async def record_decision(self, gate_id: str, decision: dict[str, Any]) -> None:
+        """The gate's decision, next to the comparison it was made from (aggregates only)."""
+        async with await self._connect() as conn:
+            cur = await conn.execute(
+                "UPDATE holdout.compare_audit SET decision = %s WHERE gate_id = %s",
+                (Jsonb(decision), gate_id),
+            )
+            if cur.rowcount != 1:
+                raise HoldoutError(f"no comparison recorded for gate {gate_id}")
+
+    async def budget_used(self, cycle_id: str) -> tuple[int, int]:
+        """Holdout comparisons that consumed budget: (in total, in ``cycle_id``)."""
+        async with await self._connect() as conn:
+            row = await (
+                await conn.execute(
+                    "SELECT count(*) AS total, count(*) FILTER (WHERE cycle_id = %s) AS cycle"
+                    " FROM holdout.compare_audit WHERE decision IS NOT NULL"
+                    " AND (decision ->> 'consumes_budget')::boolean",
+                    (cycle_id,),
+                )
+            ).fetchone()
+        return row["total"], row["cycle"]
+
+    async def prior_aborts(self, candidate_version: str, baseline_version: str) -> int:
+        """Earlier gate comparisons of the same pair that were aborted."""
+        async with await self._connect() as conn:
+            row = await (
+                await conn.execute(
+                    "SELECT count(*) AS n FROM holdout.compare_audit WHERE gate_id IS NOT NULL"
+                    " AND candidate_version = %s AND baseline_version = %s"
+                    " AND (result ->> 'aborted')::boolean",
+                    (candidate_version, baseline_version),
+                )
+            ).fetchone()
+        return row["n"]
+
+    async def decisions_for(self, version_id: str) -> list[dict[str, Any]]:
+        """The gate decisions on comparisons where ``version_id`` was the candidate."""
+        async with await self._connect() as conn:
+            rows = await (
+                await conn.execute(
+                    "SELECT created_at, decision FROM holdout.compare_audit"
+                    " WHERE candidate_version = %s AND decision IS NOT NULL ORDER BY id",
+                    (version_id,),
+                )
+            ).fetchall()
+        return [r["decision"] | {"recorded_at": r["created_at"].isoformat()} for r in rows]
 
 
 # ----------------------------------------------------------------------------- compare
@@ -499,6 +595,20 @@ def _pooled_sd(scores: list[CaseScore], metric: str) -> float | None:
     return math.sqrt(ss / dof)
 
 
+def case_key(case: GoldenCase) -> str:
+    """A stable internal key for a sealed case: a hash of its whole body, so an edited case is
+    a new key (its old checkpoints are never reused). Never leaves the holdout side."""
+    return "k" + _sha(case.model_dump(mode="json", exclude_none=True))[:16]
+
+
+def code_version(code: CodeIdentity) -> str | None:
+    """The code a checkpointed run was scored on, or None when it cannot be identified (then
+    nothing is checkpointed): the git sha, plus a hash of the diff for a dirty tree."""
+    if not code.git_sha or (code.dirty and not code.diff_sha):
+        return None
+    return f"{code.git_sha}+dirty.{code.diff_sha}" if code.dirty else code.git_sha
+
+
 def paired_cluster_bootstrap(
     diffs: dict[str, float], cluster_of: dict[str, str], n_boot: int, seed: int
 ) -> tuple[float | None, float | None, float | None]:
@@ -533,6 +643,9 @@ async def compare(
     n_boot: int = 2000,
     seed: int = 0,
     failure_policy: str = "abort",
+    checkpoint: bool = False,
+    gate_id: str | None = None,
+    cycle_id: str | None = None,
 ) -> HoldoutComparison:
     """Run ``candidate`` and ``baseline`` on every sealed holdout case, ``repetitions`` times
     each, and return only aggregate deltas (R28 interface). Both are scored by the baseline's
@@ -543,7 +656,13 @@ async def compare(
     'abort' (the default) any sealed case lacking a scored value on either side aborts the
     comparison with no deltas (the audit row records only the counts); with 'score_zero' the
     missing side scores 0 for that case. With fewer than ``MIN_PROPOSALS`` proposals the CIs
-    are null and the result is flagged ``insufficient_proposals``."""
+    are null and the result is flagged ``insufficient_proposals``.
+
+    With ``checkpoint`` (the promotion gate) every scored run is saved in
+    ``holdout.compare_progress`` under (version, judge, code, internal case key, repetition) and
+    reused: a restarted comparison re-runs only what was not finished, and a later comparison
+    reuses the baseline's runs. Unscored runs are never checkpointed, so they are retried.
+    ``gate_id`` and ``cycle_id`` tag the audit row the gate records its decision on."""
     if repetitions < 1:
         raise HoldoutError("repetitions must be at least 1")
     if failure_policy not in FAILURE_POLICIES:
@@ -557,8 +676,14 @@ async def compare(
         judge_role = baseline.spec.judge
         judge_backend = _per(backends, baseline)[judge_role.backend]
         judge_prompt = baseline.prompt_text(judge_role)
-        keys = {case.case_id: f"k{i}" for i, (case, _) in enumerate(sealed)}
+        keys = {case.case_id: case_key(case) for case, _ in sealed}
         cluster_of = {keys[c.case_id]: c.fixture for c, _ in sealed}
+        jv, cv = judge_version(baseline), code_version(code)
+        save = checkpoint and cv is not None
+        done = (
+            await store.load_progress([candidate.version_id, baseline.version_id], jv, cv)
+            if save else {}
+        )  # fmt: skip
         # Which cases each metric applies to: omissions only where the case lists some.
         applies = {
             "coverage": set(cluster_of),
@@ -570,18 +695,25 @@ async def compare(
         for label, sv in (("candidate", candidate), ("baseline", baseline)):
             sv_backends, sv_decisions = _per(backends, sv), _per(decisions, sv)
             for case, _scenario in sealed:
-                for _ in range(repetitions):
+                key = keys[case.case_id]
+                for rep in range(1, repetitions + 1):
+                    if (cached := done.get((sv.version_id, key, rep))) is not None:
+                        scores[label].append(cached)
+                        continue
                     run = await run_scenario(
                         case.scenario_id, sv=sv, fixture=fixtures[case.fixture],
                         backends=sv_backends, decisions=sv_decisions, code_identity=code,
                         tags=["holdout"],
                     )  # fmt: skip
                     score, _ = await score_case(case, run, judge_backend, judge_role, judge_prompt)
-                    score = score.model_copy(update={"case_id": keys[case.case_id]})
+                    score = score.model_copy(update={"case_id": key})
                     scores[label].append(score)
                     if _hit_rate_limit(run, score):
                         aborted = True
                         break
+                    if save and score.outcome == "scored":
+                        await store.save_progress(sv.version_id, jv, cv, key, rep, score)
+                        done[(sv.version_id, key, rep)] = score
                 if aborted:
                     break
             if aborted:
@@ -590,7 +722,8 @@ async def compare(
             candidate, baseline, repetitions, scores, cluster_of, aborted, n_boot, seed,
             applies=applies, failure_policy=failure_policy,
         )  # fmt: skip
-        await store.record_audit(result, code.git_sha)
+        tags = {"gate_id": gate_id, "cycle_id": cycle_id} if gate_id else {}
+        await store.record_audit(result, code.git_sha, **tags)
     return result
 
 
@@ -649,7 +782,8 @@ def _summarise(
         cand, base = means["candidate"][metric], means["baseline"][metric]
         wanted = applies[metric]
         paired = wanted & cand.keys() & base.keys()
-        diffs = {} if aborted else {k: cand[k] - base[k] for k in paired}
+        # Sorted: the bootstrap's resampling order must not depend on set iteration order.
+        diffs = {} if aborted else {k: cand[k] - base[k] for k in sorted(paired)}
         point, lo, hi = paired_cluster_bootstrap(diffs, cluster_of, n_boot, seed)
         if small or len(diffs) != len(wanted):
             lo = hi = None  # a CI only over every sealed case, and only with enough proposals

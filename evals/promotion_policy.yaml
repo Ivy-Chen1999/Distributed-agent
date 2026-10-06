@@ -1,0 +1,50 @@
+# Promotion policy (self-evolution plan 2026-10-06-001, U7; origin R28). PRE-REGISTERED: it is
+# fixed before any holdout comparison and read by `womm evolve promote` only. Every field is
+# required; the gate refuses an incomplete file.
+#
+# HUMAN STEP: a person signs this policy before the first formal holdout comparison by setting
+# `signed_by` and `signed_on` and committing the file. Until then the gate refuses the
+# statistical and weak modes; the dev mode (any role not on the api backend, labelled
+# "dev-only, not deployable") runs unsigned for development. A formal comparison also refuses
+# while this file or evals/promotion_records.yaml has uncommitted changes, and every decision
+# records this file's sha256, so a moved goalpost is visible in the audit.
+#
+# The values below are the plan's proposed defaults for the user's open decisions (plan, Open
+# Questions, "Needs the User" 1-3). Change them before signing, never after a comparison.
+version: 1
+signed_by: null      # name of the person who pre-registered this policy
+signed_on: null      # YYYY-MM-DD
+
+# Decision 1: coverage is the primary metric; omissions and grounding are regression guards.
+primary_metric: coverage
+guards:
+  grounding:
+    max_drop: 0.02            # the candidate's mean grounding may drop at most 0.02
+  omissions_addressed:
+    max_drop_noise_sd: 1.0    # at most one pooled run-to-run noise SD (larger arm's)
+
+# The formal mode registered before any result. 'statistical' still falls back to 'weak' when
+# the data cannot support it (no MDD report, MDD above expected_gain, null CIs or
+# insufficient proposals); the fallback is recorded in the decision. 'weak' registers the weak
+# threshold outright.
+formal_mode: statistical
+# The primary-metric gain one cycle is expected to achieve (R30). An MDD report above it means
+# the gate cannot resolve it: weak mode. AE4's example gain; confirm when signing.
+expected_gain: 0.08
+
+repetitions: 3               # runs per holdout case and version
+failure_policy: abort         # a case without a score on either side aborts: rejected, inconclusive
+
+# Decision 2: the holdout is a scarce resource (reusable-holdout problem).
+holdout_budget:
+  per_cycle: 1
+  total: 6                    # for the whole of v1
+
+# Decision 3: write an aggregate decision summary to the main database (promotion_decisions) so
+# the evolution page can show holdout aggregates. Off until the user confirms: decisions then
+# live only in the holdout database's audit (`womm evolve show <candidate>` reads them locally).
+publish_summary: false
+
+bootstrap:
+  n_boot: 2000
+  seed: 0
