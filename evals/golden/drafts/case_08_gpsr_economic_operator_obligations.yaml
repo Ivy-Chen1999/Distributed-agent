@@ -1,0 +1,929 @@
+# DRAFT golden case written by scripts/draft_golden_case.py; not scored until published.
+# Reviewer? Start with docs/eval/reviewer-quickstart.md. The helper lists what to decide:
+#   uv run python scripts/review_draft.py <this file>
+# Decide every item whose review.decision is 'pending' and every possibly_missing candidate
+# as verified / edited / rejected / unclear, with your GitHub username in review.reviewer.
+# Other auto-accepted items need no decision. Do not change tool-written fields of an item
+# you keep as auto_accepted or verified (CI checks provenance.item_digests); the drafter
+# (provenance.drafted_by) cannot review. review_links opens the public IA and proposal on
+# EUR-Lex (train/val only); holdout identifiers never appear in a tracked file.
+case_id: case_08_gpsr_economic_operator_obligations
+scenario_id: eval_economic_operator_obligations
+fixture: gpsr
+split: train
+ia_reference: 'Impact assessment accompanying the General Product Safety Regulation proposal (identifiers
+  in the local IA index); sections: 6.3. Impacts of Option 3; 8.1. Preferred option – Option 3'
+notes: ''
+review_links:
+  ia: https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:52021SC0168
+  proposal: https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:52021PC0346
+  ia_parts: 1
+  anchor_parts: {}
+provenance:
+  tool: scripts/draft_golden_case.py
+  drafted_on: '2026-10-06'
+  drafted_by: Chen Yuxin
+  drafting_model: claude-opus-5-5
+  roles:
+    drafter:
+      backend: claude_code
+      model: claude-opus-5-5
+      prompt: prompts/tools/draft_golden_case.md
+    recall:
+      backend: claude_code
+      model: claude-opus-5-5
+      prompt: prompts/tools/recall_golden_case.md
+    judge_anchor:
+      backend: claude_code
+      model: claude-sonnet-5
+      prompt: prompts/tools/judge_anchor.md
+    judge_derivability:
+      backend: claude_code
+      model: claude-sonnet-5
+      prompt: prompts/tools/judge_derivability.md
+    judge_category:
+      backend: claude_code
+      model: claude-sonnet-5
+      prompt: prompts/tools/judge_category.md
+  prompt_hashes:
+    prompts/tools/draft_golden_case.md: c72bd341e2c3ef75
+    prompts/tools/recall_golden_case.md: 36f0a5dcc15a57c6
+    prompts/tools/judge_anchor.md: 0d81eb4d5d2b43bd
+    prompts/tools/judge_derivability.md: 97471d88c14d32c3
+    prompts/tools/judge_category.md: 8b1885320b65b60f
+  ia_sections:
+  - 6.3. Impacts of Option 3
+  - 8.1. Preferred option – Option 3
+  rsb_status: opinion none found in Cellar
+  audit:
+    seed: 1199704206
+    rate: 0.2
+    eligible: 8
+    eligible_ids:
+    - c08_e03
+    - c08_e05
+    - c08_e06
+    - c08_e07
+    - c08_e08
+    - c08_e10
+    - c08_o01
+    - c08_o03
+    sampled:
+    - c08_e06
+    - c08_e07
+    non_publishable_test_seed: false
+  item_digests:
+    c08_e01: e04fd3aaa0e5fd1275f0265ca237019da54284ecf54b6359e1b52a59b53f4588
+    c08_e02: 9e88723a545ae1a08ac96299dbf5efc036d7c6dff1f3e34bc56bfff8ceb999f9
+    c08_e03: 8487fb13ddd16a39f14de8063caf92965c557d1d21ccb85f3420bbc1a3df8298
+    c08_e04: ba0ae07d8215048a7df4f85cee0ee1984454366916100370dbc9310d758b1b9c
+    c08_e05: c9a489c763d026906091e628b7472dc33120922168a9c6101998760afe5b3500
+    c08_e06: 8dabc139ffd82c71585d8a292c014a0b70b646f07cabf20eb95f3b908b21965e
+    c08_e07: cd4ff3076c2b89551085b13f59dd0ab2ea3682caec2907bb9b4cd6352c5fd198
+    c08_e08: f30b1b6c28b78abec39325e1501d2fb1d2fa3d81d2c401f5f799c1772b8cb410
+    c08_e09: 67d879ed98fa3bfefadf882d69c01a8612fe896a1e6499b66a6e4f64d54fd32f
+    c08_e10: 5785423bcf1ae4a1cbd012efc679bde96fda79be5a9ec944a70fce1f2137413e
+    c08_o01: 2bb17d1f24f2f9700a589817354e46bda40d9c87de675b0664fd50255bafc3f6
+    c08_o02: 7898745c4ebf30ee0997f29e6b00b7d803aca2e4432fe887882df0e1aefedad3
+    c08_o03: 483966f1d385094d56a2b323a3e1b1ffdb5f082a3f9deef59afa251abb2404d5
+    c08_m01: 3fcef9a31e14ec764860a46e0b9f20b4fa27cc50c59487893c518ae64a43f550
+    c08_m02: bbc776b1dca06d1b6ceefafa09e4d077f3f06f5841633a3b670638ee3c1f5044
+    c08_m03: 2b729762605898384fa309a454daf4fa702191e7c8bf78ec914668c1f7c67256
+    c08_m04: a1744169c3c4cd628ff18d18db4d65159f6ccd3f54bd15c053930237751020a5
+    c08_m05: 8d9de4905054c6393a806a7589edb7b935bea7ab83df7bfe59804f309b8e3818
+stats:
+  items: 18
+  expected_impacts: 10
+  important_omissions: 3
+  possibly_missing: 5
+  anchors_verified: 18
+  judge_agree: 13
+  judge_disagree: 1
+  judge_uncertain: 4
+  auto_accepted: 10
+  pending: 8
+  audited: 2
+  human_decisions_needed: 12
+expected_impacts:
+- expected_id: c08_e01
+  affected_actor: Manufacturers, wholesalers/importers and retailers/distributors of non-harmonised consumer
+    products
+  mechanism: 'New due-diligence duties: technical documentation, complaint registers, identification and
+    contact labelling, checks before placing or making products available, corrective action and alerts
+    via the Safety Business Gateway (Arts 8, 10, 11)'
+  impact: Higher recurrent costs for extra staff, due-diligence resources, IT systems and external services,
+    plus one-off familiarisation and adaptation costs. The IA puts total business costs at EUR 196.6 million
+    in the first year, falling to EUR 177.8 million a year after that.
+  provision_keys:
+  - gpsr/proposal/art/8
+  - gpsr/proposal/art/10
+  - gpsr/proposal/art/11
+  ia_section: 6.3. Impacts of Option 3 – Economic impacts
+  ia_anchor: companies expect the implementation of Option 3 to cause changes in their recurrent costs,
+    e.g. costs related to additional staff and additional resources for due diligence measures including
+    the establishment of IT systems and external services
+  anchor:
+    status: verified
+    against: ia
+  category: compliance_cost
+  derivability:
+    verdict: 'yes'
+    reason: Articles 8, 10 and 11 plainly set out substantive duties that operators must resource with
+      staff and systems.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: The anchor and table confirm EUR 196.6 million first-year and EUR 177.8 million subsequent-year
+        business costs tied to the described due-diligence cost drivers.
+    derivability:
+      verdict: agree
+      reason: Articles 8, 10 and 11 jointly spell out concrete, resource-intensive duties (documentation,
+        registers, labelling, pre-market checks, corrective action, SBG alerts) that plainly require staff,
+        IT and procedural investment.
+    category:
+      verdict: unknown
+      reason: The duties mix information/record-keeping obligations (technical documentation, complaint
+        registers, labelling, Gateway alerts) with substantive checks and corrective action, so compliance_cost
+        and administrative_burden fit about equally.
+    overall: uncertain
+  provenance:
+    origin: llm_drafted
+    status: needs_human
+    drafting_model: claude-opus-5-5
+  review:
+    decision: pending
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c08_e02
+  affected_actor: Manufacturers (compared with wholesalers and retailers)
+  mechanism: 'Manufacturers carry the heaviest set of obligations: design to the general safety requirement,
+    technical documentation kept for 10 years, conformity procedures for series production, and complaint
+    handling (Art 8)'
+  impact: Manufacturers' recurrent compliance costs rise more than those of distributors, because they
+    may need to adjust several stages of the value-adding process. Table 11 shows EUR 111.7 million in
+    recurrent costs a year for manufacturing sectors.
+  provision_keys:
+  - gpsr/proposal/art/8
+  ia_section: 6.3. Impacts of Option 3 – Economic impacts
+  ia_anchor: Businesses expect that implementing Option 3 would increase companies’ recurrent regulatory
+    compliance costs, generally more for manufacturers than wholesalers and retailers
+  anchor:
+    status: verified
+    against: ia
+  category: compliance_cost
+  derivability:
+    verdict: 'yes'
+    reason: Article 8 gives manufacturers clearly broader duties than Articles 10 and 11 give importers
+      and distributors.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context explicitly states manufacturers face higher recurrent compliance cost increases
+        than wholesalers/retailers, matching the claim and the EUR 111.7 million figure in the table.
+    derivability:
+      verdict: disagree
+      reason: The claim is explicitly comparative ('heaviest... compared with wholesalers and retailers'),
+        but only Article 8 is cited; Articles 10 and 11, needed to establish that importers/distributors
+        bear lighter duties, are not among the provision_keys for this item.
+    category:
+      verdict: agree
+      reason: Designing to the general safety requirement and running conformity procedures are substantive
+        measures, making compliance_cost the best fit despite some documentation elements.
+    overall: disagree
+  provenance:
+    origin: llm_drafted
+    status: needs_human
+    drafting_model: claude-opus-5-5
+  review:
+    decision: pending
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c08_e03
+  affected_actor: SMEs among manufacturers, importers and distributors
+  mechanism: The same operator obligations apply whatever the size of the firm, so the fixed compliance
+    effort weighs more heavily on smaller firms
+  impact: SMEs face higher relative cost increases. The IA still judges the overall effect on SMEs moderate
+    and offset by about EUR 34 million in harmonisation savings.
+  provision_keys:
+  - gpsr/proposal/art/8
+  - gpsr/proposal/art/10
+  - gpsr/proposal/art/11
+  ia_section: 6.3. Impacts of Option 3 – Economic impacts
+  ia_anchor: Even though the relative cost increases are generally higher for the SMEs, the impact on
+    SMEs overall costs is still considered moderate
+  anchor:
+    status: verified
+    against: ia
+  category: sme_specific
+  derivability:
+    verdict: partly
+    reason: The provisions contain no SME exemption, so a heavier relative burden can be inferred, but
+      the offsetting savings come from the choice of a Regulation rather than from these articles.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor directly states relative cost increases are higher for SMEs yet overall impact is
+        moderate, offset by EUR 34 million SME savings, matching the claim.
+    derivability:
+      verdict: agree
+      reason: Articles 8, 10 and 11 apply the same obligations regardless of firm size, supporting the
+        inference of a relatively heavier burden on SMEs, while the specific €34m offset figure is rightly
+        flagged as not derivable from the text.
+    category:
+      verdict: agree
+      reason: The claim is specifically about disproportionate impact on SMEs, matching sme_specific.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c08_e04
+  affected_actor: Online marketplaces that have not signed the Product Safety Pledge
+  mechanism: 'Binding duties: a single contact point and registration on Safety Gate, acting on removal
+    orders within two working days, answering notices within five working days, and cooperating on recalls
+    and data access (Art 20)'
+  impact: Recurrent costs rise. The increase is limited for Pledge signatories, while non-signatory platforms
+    face extra compliance costs.
+  provision_keys:
+  - gpsr/proposal/art/20
+  ia_section: 6.3. Impacts of Option 3 – Economic impacts
+  ia_anchor: By contrast, non-signatory platforms would likely face additional compliance costs.
+  anchor:
+    status: verified
+    against: ia
+  category: compliance_cost
+  derivability:
+    verdict: partly
+    reason: Article 20 makes the cost-creating duties clear, but the split between Pledge signatories
+      and non-signatories rests on baseline knowledge outside the text.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context contrasts limited costs for Pledge signatories with additional compliance costs
+        for non-signatory platforms, matching actor and impact.
+    derivability:
+      verdict: agree
+      reason: Article 20's contact-point, two-day order and five-day notice duties are explicit, while
+        the Pledge-signatory distinction in the actor definition is not in the text, justifying 'partly'.
+    category:
+      verdict: unknown
+      reason: The listed duties mix administrative elements (registration, responding to notices) with
+        substantive operational actions (acting on removal orders, cooperating on recalls), so compliance_cost
+        and administrative_burden fit similarly well.
+    overall: uncertain
+  provenance:
+    origin: llm_drafted
+    status: needs_human
+    drafting_model: claude-opus-5-5
+  review:
+    decision: pending
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c08_e05
+  affected_actor: Small online platforms and potential new market entrants
+  mechanism: The fixed costs of meeting Article 20 duties (contact point, processing orders, interface
+    design, cooperation tools)
+  impact: These costs may hit small platforms hardest and discourage new entrants, which could weaken
+    competition between platforms.
+  provision_keys:
+  - gpsr/proposal/art/20
+  ia_section: 6.3. Impacts of Option 3 – Economic impacts
+  ia_anchor: These compliance costs might specifically affect small platforms and create a deterrent effect
+    on new market entrants
+  anchor:
+    status: verified
+    against: ia
+  category: market_competition
+  derivability:
+    verdict: 'yes'
+    reason: Article 20 applies to all online marketplaces with no size threshold, so its fixed costs plainly
+      weigh more on small platforms and entrants.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor quote matches verbatim, confirming small platforms and new entrants face a deterrent
+        effect on competition.
+    derivability:
+      verdict: agree
+      reason: Article 20 imposes the same fixed compliance duties on every online marketplace with no
+        size carve-out, supporting the inference that small platforms and new entrants are hit harder.
+    category:
+      verdict: agree
+      reason: The claim is about entry barriers and competitive effects on platforms, matching market_competition.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c08_e06
+  affected_actor: Online marketplaces and online sellers
+  mechanism: The marketplace interface must let traders show manufacturer details, the responsible person,
+    product identifiers and safety information on each listing (Art 20(5))
+  impact: Costs are very limited because the information already exists and goes no further than what
+    is on the packaging. Consumers get the same safety information online as offline.
+  provision_keys:
+  - gpsr/proposal/art/20
+  ia_section: 6.3. Impacts of Option 3 – Economic impacts
+  ia_anchor: We expect these costs to be very limited for both online platforms and online sellers, as
+    this information is already available and does not go beyond what is indicated on the packaging.
+  anchor:
+    status: verified
+    against: ia
+  category: administrative_burden
+  derivability:
+    verdict: 'yes'
+    reason: Article 20(5) lists the information to be displayed, and it mirrors the labelling already
+      required by Articles 8 and 10.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor quote matches verbatim regarding very limited costs for online platforms/sellers
+        since information already exists.
+    derivability:
+      verdict: agree
+      reason: Article 20(5) explicitly lists the manufacturer/responsible-person/product-identifier/safety
+        information to be displayed, mirroring existing Article 8/10 labelling duties.
+    category:
+      verdict: agree
+      reason: Displaying existing identification/safety information on listings is a disclosure obligation,
+        matching administrative_burden.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: needs_human
+    drafting_model: claude-opus-5-5
+  review:
+    decision: pending
+    audit: true
+    reviewer: null
+    note: null
+- expected_id: c08_e07
+  affected_actor: Non-EU manufacturers selling directly into the EU, and consumers and authorities dealing
+    with their products
+  mechanism: Every consumer product must have an EU-based responsible economic operator, named on the
+    product, packaging or parcel, with tasks including periodic sample testing (Art 15)
+  impact: Consumers and national authorities can always reach an operator based in the EU about product
+    safety issues, which tackles the problem of direct imports from outside the EU.
+  provision_keys:
+  - gpsr/proposal/art/15
+  ia_section: 8.1. Preferred option – Option 3
+  ia_anchor: could be extended to all consumer products to make sure that consumers and national authorities
+    can always address an operator based in the EU for any consumer product potential safety issue
+  anchor:
+    status: verified
+    against: ia
+  category: international
+  derivability:
+    verdict: 'yes'
+    reason: Article 15 extends Article 4 of Regulation 2019/1020 to all products and requires the responsible
+      person's details on the product.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context confirms the EU-based responsible operator requirement ensures consumers and authorities
+        can always reach an EU operator, addressing direct non-EU imports, matching the claim.
+    derivability:
+      verdict: agree
+      reason: Article 15 extends the EU responsible-person requirement and mandates contact details on
+        the product, directly creating the described mechanism for non-EU manufacturers.
+    category:
+      verdict: agree
+      reason: The claim concerns reachability of non-EU manufacturers via an EU-based operator, matching
+        international.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: needs_human
+    drafting_model: claude-opus-5-5
+  review:
+    decision: pending
+    audit: true
+    reviewer: null
+    note: null
+- expected_id: c08_e08
+  affected_actor: Consumers
+  mechanism: Stronger operator duties, product identification, online listing information and marketplace
+    takedown and cooperation obligations reduce the number of unsafe products on the market
+  impact: 'Lower consumer detriment from unsafe products: about EUR 1.0 billion in the first year, rising
+    to about EUR 5.5 billion over the next decade.'
+  provision_keys:
+  - gpsr/proposal/art/8
+  - gpsr/proposal/art/10
+  - gpsr/proposal/art/11
+  - gpsr/proposal/art/20
+  ia_section: 6.3. Impacts of Option 3 – Economic impacts
+  ia_anchor: This is expected to amount to approximately EUR 1.0 billion in the first year of implementation,
+    increasing to approximately EUR 5.5 billion over the next decade.
+  anchor:
+    status: verified
+    against: ia
+  category: consumers_users
+  derivability:
+    verdict: 'yes'
+    reason: The provisions' aim and mechanism, keeping dangerous products away from consumers, is clear
+      from the text.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor quote matches verbatim the EUR 1.0 billion first-year and EUR 5.5 billion decade
+        consumer detriment reduction figures tied to consumer protection improvements.
+    derivability:
+      verdict: agree
+      reason: The cited operator and marketplace obligations are all aimed at keeping unsafe products
+        off the market, so the general consumer-benefit mechanism is derivable even though the IA's monetary
+        estimate is not.
+    category:
+      verdict: agree
+      reason: Reduced consumer detriment from unsafe products is a direct consumer effect, matching consumers_users.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c08_e09
+  affected_actor: Consumers and public health systems
+  mechanism: Traceability systems for high-risk products, product identification numbers, and alerts to
+    consumers through the Safety Business Gateway (Arts 8(6), 8(11), 17)
+  impact: Recalls work better and fewer unsafe products stay in consumers' hands. Informing affected consumers
+    directly was estimated to save €73 million in 2019, and the health-care costs of product-related injuries
+    (about EUR 6.7 billion a year) could come down.
+  provision_keys:
+  - gpsr/proposal/art/17
+  - gpsr/proposal/art/8
+  - gpsr/proposal/art/10
+  ia_section: 6.3. Impacts of Option 3 – Social impacts
+  ia_anchor: The introduction of additional requirements for traceability and product recalls are expected
+    to improve the effectiveness of recalls of unsafe products from consumers.
+  anchor:
+    status: verified
+    against: ia
+  category: social_environmental
+  derivability:
+    verdict: partly
+    reason: The traceability and alert duties point clearly to better recalls, but the wider health-system
+      effect has to be inferred.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context confirms improved recall effectiveness (traceability-related), the EUR 73 million
+        2019 savings figure, and the EUR 6.7 billion annual health-care cost that could be reduced, matching
+        actor and numbers.
+    derivability:
+      verdict: agree
+      reason: Articles 8(6), 8(11), 10 and 17 clearly support better recall/traceability for consumers,
+        while the broader public-health-system savings claim goes beyond what the text itself establishes.
+    category:
+      verdict: unknown
+      reason: The claim addresses both consumer safety/savings and public health system costs, so consumers_users
+        and social_environmental fit about equally.
+    overall: uncertain
+  provenance:
+    origin: llm_drafted
+    status: needs_human
+    drafting_model: claude-opus-5-5
+  review:
+    decision: pending
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c08_e10
+  affected_actor: Law-abiding EU businesses competing with rogue traders
+  mechanism: All operators in the supply chain, including the EU responsible person for direct imports,
+    must meet the same safety obligations, which deters non-compliant traders
+  impact: A more level playing field, because every operator bears product safety compliance costs and
+    rogue traders are deterred.
+  provision_keys:
+  - gpsr/proposal/art/8
+  - gpsr/proposal/art/10
+  - gpsr/proposal/art/11
+  - gpsr/proposal/art/15
+  ia_section: 6.3. Impacts of Option 3 – Economic impacts
+  ia_anchor: Option 3 should also create a higher deterrent effect on rogue traders and therefore ensure
+    a better level-playing field for companies by ensuring that all bear the compliance costs with products
+    safety
+  anchor:
+    status: verified
+    against: ia
+  category: market_competition
+  derivability:
+    verdict: partly
+    reason: Applying the same duties to all operators implies a level playing field, but the deterrent
+      effect also depends on penalties outside the scenario.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor quote matches verbatim regarding a level playing field and deterrent effect on rogue
+        traders for businesses bearing compliance costs.
+    derivability:
+      verdict: agree
+      reason: Uniform obligations across the supply chain and for EU responsible persons under Articles
+        8, 10, 11 and 15 support a level-playing-field inference, though the deterrence-of-rogue-traders
+        element also depends on enforcement/penalty provisions not included here.
+    category:
+      verdict: agree
+      reason: A more level playing field among operators and deterrence of rogue traders is a market structure
+        effect, matching market_competition.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+important_omissions:
+- omission_id: c08_o01
+  description: Part of the costs created for manufacturers, importers, distributors and marketplaces will
+    be passed on to consumers. The overall price effect is negligible, but some cheap non-harmonised products,
+    especially those ordered through online platforms from non-EU traders, may cost more, and price-sensitive
+    low-income consumers may buy less.
+  source: ia
+  provision_keys:
+  - gpsr/proposal/art/15
+  - gpsr/proposal/art/20
+  - gpsr/proposal/art/10
+  ia_section: 6.3. Impacts of Option 3 – Economic impacts
+  ia_anchor: purchase prices for some non-harmonised products might be affected (e.g. products that are
+    most cheaply ordered through online platforms from non-EU/EEA traders), and low-income consumers with
+    high price-elasticity may reduce their purchases.
+  anchor:
+    status: verified
+    against: ia
+  category: consumers_users
+  derivability:
+    verdict: partly
+    reason: Pass-through from the EU responsible person and marketplace duties can be inferred, but who
+      it hits hardest depends on market knowledge.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context matches the claim about negligible overall price effect but possible price rises
+        for cheap non-EU online products and reduced purchases by low-income consumers.
+    derivability:
+      verdict: agree
+      reason: The cited provisions create cost-bearing duties for importers, responsible persons and marketplaces
+        that plausibly feed into prices, but which products/consumers are hit hardest is not something
+        the text itself specifies.
+    category:
+      verdict: agree
+      reason: Cost pass-through affecting consumer prices and purchasing behaviour matches consumers_users.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- omission_id: c08_o02
+  description: 'The size of the new operator costs compared with the regulated activity: about 0.02% of
+    the turnover of the sectors concerned. On that basis the IA expects no significant distortion of competition,
+    no significant harm to innovation, and no undue limit on the freedom to conduct a business.'
+  source: ia
+  provision_keys:
+  - gpsr/proposal/art/8
+  - gpsr/proposal/art/10
+  - gpsr/proposal/art/11
+  ia_section: 6.3. Impacts of Option 3 – Economic impacts
+  ia_anchor: Total costs for businesses in the EU27 in the first year of implementation are estimated
+    at EUR 196.6 million, equivalent to 0.02% of turnover of EU companies for manufacturing, wholesale
+    and retail of non-harmonised consumer products.
+  anchor:
+    status: verified
+    against: ia
+  category: compliance_cost
+  derivability:
+    verdict: partly
+    reason: The provisions show the costs exist, but judging how small they are needs turnover data.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor confirms EUR 196.6 million first-year costs equal 0.02% of turnover, matching the
+        claim's figure and framing.
+    derivability:
+      verdict: agree
+      reason: Articles 8, 10 and 11 show the costs exist, but assessing their proportion of turnover and
+        the resulting competition/innovation conclusions requires external cost/turnover data.
+    category:
+      verdict: unknown
+      reason: The claim spans the size of compliance costs plus conclusions on competition, innovation
+        and fundamental rights (business freedom), so no single category clearly dominates.
+    overall: uncertain
+  provenance:
+    origin: llm_drafted
+    status: needs_human
+    drafting_model: claude-opus-5-5
+  review:
+    decision: pending
+    audit: false
+    reviewer: null
+    note: null
+- omission_id: c08_o03
+  description: 'Market surveillance authorities take on extra work: receiving alerts through the Safety
+    Business Gateway, issuing and following up removal orders to online marketplaces, supervising sample
+    testing, and handling documentation requests. This adds recurrent public enforcement costs, partly
+    offset by efficiency gains.'
+  source: ia
+  provision_keys:
+  - gpsr/proposal/art/20
+  - gpsr/proposal/art/15
+  - gpsr/proposal/art/8
+  ia_section: 6.3. Impacts of Option 3 – Impacts on Member States
+  ia_anchor: the Study estimates that Option 3 would lead to total additional recurrent costs of MSAs
+    in EU27 of approx. EUR 6.7 million annually
+  anchor:
+    status: verified
+    against: ia
+  category: public_enforcement_cost
+  derivability:
+    verdict: partly
+    reason: Articles 20(2) and 8(11) give authorities new orders to issue and notifications to process,
+      though the IA's cost figure covers the whole option.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor confirms EUR 6.7 million annual additional recurrent MSA costs, matching the claim's
+        actor and impact.
+    derivability:
+      verdict: agree
+      reason: Articles 20(2) and 8(11) in particular give authorities concrete new tasks (orders, alerts),
+        supporting the mechanism, while the overall recurrent-cost figure for authorities is not derivable
+        from text alone.
+    category:
+      verdict: agree
+      reason: Extra recurrent work and costs for market surveillance authorities is a public enforcement
+        cost.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+possibly_missing:
+- candidate_id: c08_m01
+  affected_actor: Consumers, in particular low-income consumers buying cheap non-harmonised products from
+    non-EU/EEA traders via online platforms
+  mechanism: Businesses pass the compliance costs of the new operator, responsible-person and marketplace
+    obligations on to consumers through prices, which mostly affects products ordered cheaply online from
+    non-EU traders
+  impact: Overall effect on consumer prices is negligible, but prices of some cheap imported products
+    may rise. Price-sensitive low-income consumers may then buy less, with a possible limited effect on
+    affordability.
+  why_missing: The drafted consumer impacts cover only safety benefits, not the price or affordability
+    downside for consumers.
+  provision_keys:
+  - gpsr/proposal/art/15
+  - gpsr/proposal/art/20
+  - gpsr/proposal/art/8
+  - gpsr/proposal/art/10
+  ia_section: 6.3. Impacts of Option 3
+  ia_anchor: low-income consumers with high price-elasticity may reduce their purchases
+  anchor:
+    status: verified
+    against: ia
+  category: consumers_users
+  derivability:
+    verdict: partly
+    reason: The cost pass-through follows from the new obligations. The specific effect on low-income
+      consumers and non-EU online purchases is the IA's own assessment.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context matches the claim that cost pass-through mainly affects cheap non-EU online products
+        and low-income, price-elastic consumers may buy less.
+    derivability:
+      verdict: agree
+      reason: The cited provisions create compliance costs that could be passed through in prices, but
+        the specific focus on low-income consumers and non-EU online purchases is an added inference beyond
+        the text.
+    category:
+      verdict: agree
+      reason: Price pass-through effects on (low-income) consumers matches consumers_users.
+    overall: agree
+  provenance:
+    origin: llm_recall
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c08_m02
+  affected_actor: Market surveillance authorities
+  mechanism: Manufacturer and responsible-person details, product identifiers and safety information shown
+    on online listings (Art 20(5)), plus identification labelling (Arts 8(6)-(7), 15(3)), make products
+    easier to trace for market surveillance
+  impact: Better traceability of products sold online, which supports enforcement against dangerous online
+    offers
+  why_missing: The drafted Art 20(5) pair looks only at the burden on marketplaces and sellers, not at
+    the traceability benefit for authorities.
+  provision_keys:
+  - gpsr/proposal/art/20
+  - gpsr/proposal/art/8
+  - gpsr/proposal/art/15
+  ia_section: 8.1. Preferred option – Option 3
+  ia_anchor: This information allows better traceability of products needed for market surveillance and
+    better safety information in the online sales.
+  anchor:
+    status: verified
+    against: ia
+  category: public_enforcement_cost
+  derivability:
+    verdict: 'yes'
+    reason: The listing and labelling requirements clearly serve identification by authorities.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor quote matches verbatim that online listing information requirements improve traceability
+        for market surveillance.
+    derivability:
+      verdict: agree
+      reason: Article 20(5) listing requirements plus Article 8/15 labelling requirements together clearly
+        serve product identification and traceability for market surveillance authorities.
+    category:
+      verdict: agree
+      reason: Better traceability supporting enforcement by market surveillance authorities matches public_enforcement_cost.
+    overall: agree
+  provenance:
+    origin: llm_recall
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c08_m03
+  affected_actor: Businesses developing information and traceability solutions (economic operators and
+    technology providers)
+  mechanism: Traceability requirements and greater legal certainty encourage businesses to develop new
+    information and traceability systems
+  impact: Positive effects on competition-driven innovation, with no significant harm to overall innovative
+    capacity
+  why_missing: The draft treats traceability only as a consumer and health benefit, not as a driver of
+    innovation.
+  provision_keys:
+  - gpsr/proposal/art/17
+  - gpsr/proposal/art/8
+  ia_section: 6.3. Impacts of Option 3
+  ia_anchor: development of new innovative information and traceability systems
+  anchor:
+    status: verified
+    against: ia
+  category: innovation_investment
+  derivability:
+    verdict: partly
+    reason: Art 17 requires traceability systems. The effect on innovation is the IA's own inference.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context confirms positive innovation impacts tied to development of new information/traceability
+        systems, with no significant harm to overall innovative capacity.
+    derivability:
+      verdict: agree
+      reason: Article 17 directly mandates traceability systems, giving a textual basis for operator investment
+        in such systems, while the positive innovation-effect conclusion is the IA's own added judgment.
+    category:
+      verdict: agree
+      reason: Development of new traceability/information solutions and innovation effects matches innovation_investment.
+    overall: agree
+  provenance:
+    origin: llm_recall
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c08_m04
+  affected_actor: Economic operators (manufacturers, importers, distributors, online marketplaces)
+  mechanism: The additional operator obligations limit the freedom to conduct a business, but the IA finds
+    them necessary and proportionate because compliance costs are low relative to turnover
+  impact: No disproportionate interference with the Charter freedom to conduct a business
+  why_missing: No drafted pair covers the fundamental-rights dimension of the operator obligations.
+  provision_keys:
+  - gpsr/proposal/art/8
+  - gpsr/proposal/art/10
+  - gpsr/proposal/art/11
+  - gpsr/proposal/art/20
+  ia_section: 6.3. Impacts of Option 3
+  ia_anchor: The additional requirements imposed on economic operators do not affect the fundamental freedom
+    to conduct a business
+  anchor:
+    status: verified
+    against: ia
+  category: fundamental_rights
+  derivability:
+    verdict: partly
+    reason: The obligations are in the text. The proportionality assessment comes from the IA.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor quote matches verbatim that added operator requirements do not disproportionately
+        affect the freedom to conduct a business given low relative compliance costs.
+    derivability:
+      verdict: agree
+      reason: Articles 8, 10, 11 and 20 clearly impose obligations that constrain business freedom, but
+        the proportionality/necessity conclusion relative to turnover is not something derivable from
+        the articles themselves.
+    category:
+      verdict: agree
+      reason: Assessment of proportionality under the Charter freedom to conduct a business matches fundamental_rights.
+    overall: agree
+  provenance:
+    origin: llm_recall
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c08_m05
+  affected_actor: Online marketplaces that have signed the Product Safety Pledge
+  mechanism: Most Art 20 duties make existing Pledge commitments binding, so signatories already partly
+    comply
+  impact: Additional recurrent costs for signatories are relatively limited
+  why_missing: The draft covers only non-signatory marketplaces and small platforms, not the limited cost
+    for Pledge signatories.
+  provision_keys:
+  - gpsr/proposal/art/20
+  ia_section: 6.3. Impacts of Option 3
+  ia_anchor: The additional costs would generally be relatively limited for signatories of the Pledge.
+  anchor:
+    status: verified
+    against: ia
+  category: compliance_cost
+  derivability:
+    verdict: 'no'
+    reason: The text does not mention the Pledge, so the gap between signatories and non-signatories comes
+      from the IA.
+  flags:
+  - not_derivable_from_provisions
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor quote matches verbatim that additional costs are relatively limited for Pledge signatories.
+    derivability:
+      verdict: agree
+      reason: Article 20 makes no reference to the Product Safety Pledge, so the claimed overlap between
+        Pledge commitments and legal duties, and the resulting cost difference for signatories, cannot
+        be derived from the text.
+    category:
+      verdict: agree
+      reason: Limited additional recurrent costs for Pledge signatories is a compliance cost claim.
+    overall: agree
+  provenance:
+    origin: llm_recall
+    status: needs_human
+    drafting_model: claude-opus-5-5
+  review:
+    decision: pending
+    audit: false
+    reviewer: null
+    note: null
