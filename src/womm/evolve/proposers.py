@@ -63,6 +63,12 @@ class Budget(StrictModel):
     grounding_tolerance: float = Field(
         default=0.02, ge=0, description="Candidate choice: val grounding may drop this much."
     )
+    selection_k: float = Field(
+        default=1.0,
+        ge=0,
+        description="Candidate choice: val coverage must beat the reference by more than k "
+        "standard errors of the difference.",
+    )
     reflective_chars: int = Field(default=12_000, ge=1_000, description="Per component.")
     min_pattern_proposals: int = Field(
         default=2, ge=2, description="A topology trigger must span this many proposals."

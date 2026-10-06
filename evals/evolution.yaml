@@ -21,5 +21,6 @@ budget:
   val_repetitions: 3        # full val, Pareto front, persistence of failure patterns
   grounding_floor: 0.5      # a case run below this grounding scores 0
   grounding_tolerance: 0.02 # candidate choice: val grounding may drop this much
+  selection_k: 1.0          # candidate choice: val coverage gain must exceed k x SE of the gain
   reflective_chars: 12000   # reflective records per component
   min_pattern_proposals: 2  # a new expert needs an unowned pattern across 2+ proposals

@@ -6,7 +6,13 @@ import json
 
 import pytest
 
-from womm.evolve.cycle import run_cycle, run_prompt_stage, run_topology_stage, unowned_patterns
+from womm.evolve.cycle import (
+    choose_candidate,
+    run_cycle,
+    run_prompt_stage,
+    run_topology_stage,
+    unowned_patterns,
+)
 from womm.evolve.edits import build_candidate, validate_diff
 from womm.evolve.failure_memory import CaseRun, FailureEvent
 from womm.evolve.gepa_adapter import CaseRef, WommAdapter
@@ -300,6 +306,73 @@ async def test_reflective_patterns_are_this_judge_and_code_only(env):
     data = await asyncio.to_thread(a.make_reflective_dataset, seed, out, ["expert:fiscal"])
     patterns = [p for r in data["expert:fiscal"] for p in r["Feedback"]["patterns"]]
     assert patterns and not any("stale" in "".join(p["proposals"]) for p in patterns)
+
+
+# ---------------------------------------------------------------- selection beyond noise
+
+
+async def _with_val(env, text, coverage, grounding=0.9, n=4, sd=0.2, case_sd=None):
+    """An archived candidate (an edit of the fiscal prompt) with val split metrics."""
+    sv = env["sv"]
+    role = next(e for e in sv.spec.experts if e.id == "fiscal").role
+    if text is None:
+        cand = sv
+    else:
+        op = {"op": "edit_prompt", "role": "expert:fiscal",
+              "new_text": sv.prompt_text(role) + text}  # fmt: skip
+        cand = build_candidate(sv, validate_diff(sv, [op]))
+        await env["archive"].archive(cand, origin="gepa", parent_id=sv.version_id)
+    rows = [{"level": "split", "subject": "", "metric": m, "n": n, "mean": v, "sd": sd}
+            for m, v in (("coverage", coverage), ("grounding", grounding))]  # fmt: skip
+    if n == 1:
+        rows += [{"level": "case", "subject": "c1", "metric": "coverage", "n": 3,
+                  "mean": coverage, "sd": case_sd}]  # fmt: skip
+    await env["archive"].record_metrics(
+        cand.version_id, "val", rows, batch_id=f"rb_{cand.version_id[-8:]}",
+        judge_version=judge_version(sv), git_sha=CODE.git_sha, full_split=True,
+    )  # fmt: skip
+    return cand
+
+
+async def _choose(env, front, k=1.0, tolerance=0.02):
+    return await choose_candidate(env["view"], env["sv"], [c.version_id for c in front],
+                                  tolerance, judge_version(env["sv"]), k)  # fmt: skip
+
+
+SUFFIX = " Also weigh second-order effects on small firms, and say how strong the evidence is."
+
+
+async def test_a_gain_within_noise_keeps_the_base(env):
+    await _with_val(env, None, coverage=0.5)
+    small = await _with_val(env, SUFFIX, coverage=0.6)  # gain 0.1 < 1 x SE 0.141
+    assert await _choose(env, [small]) == env["sv"].version_id
+    assert await _choose(env, [small], k=0.5) == small.version_id  # 0.1 > 0.5 x 0.141
+
+
+async def test_a_gain_beyond_noise_is_chosen(env):
+    await _with_val(env, None, coverage=0.5)
+    small = await _with_val(env, SUFFIX, coverage=0.6)
+    big = await _with_val(env, SUFFIX + " Then check again.", coverage=0.8)
+    assert await _choose(env, [small, big]) == big.version_id
+
+
+async def test_grounding_outside_tolerance_keeps_the_base(env):
+    await _with_val(env, None, coverage=0.5, grounding=0.9)
+    loose = await _with_val(env, SUFFIX, coverage=0.9, grounding=0.8)
+    assert await _choose(env, [loose]) == env["sv"].version_id
+
+
+async def test_one_val_case_uses_the_repetition_spread(env):
+    await _with_val(env, None, coverage=0.5, n=1, sd=None, case_sd=0.3)
+    cand = await _with_val(env, SUFFIX, coverage=0.7, n=1, sd=None, case_sd=0.3)
+    # SE of the difference: sqrt(2 x 0.3^2 / 3) = 0.245 > 0.2
+    assert await _choose(env, [cand]) == env["sv"].version_id
+    assert await _choose(env, [cand], k=0.5) == cand.version_id
+
+
+async def test_a_base_without_val_metrics_is_kept(env):
+    cand = await _with_val(env, SUFFIX, coverage=0.9)
+    assert await _choose(env, [cand]) == env["sv"].version_id
 
 
 # ---------------------------------------------------------------- budgets

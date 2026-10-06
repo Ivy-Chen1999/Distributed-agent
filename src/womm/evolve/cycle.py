@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 from dataclasses import dataclass, field
 
 import gepa
@@ -163,8 +164,9 @@ async def run_prompt_stage(
     front = list(dict.fromkeys(versions[i] for i in front_idx))
     scores = {versions[i]: s for i, s in enumerate(result.val_aggregate_scores)}
     best = await choose_candidate(
-        view, base, front, budget.grounding_tolerance, getattr(evaluator, "judge_version", None)
-    )
+        view, base, front, budget.grounding_tolerance,
+        getattr(evaluator, "judge_version", None), budget.selection_k,
+    )  # fmt: skip
     by_id = {adapter.version_of(c).version_id: adapter.version_of(c) for c in result.candidates}
     return PromptStageResult(
         best=by_id.get(best, base),
@@ -178,14 +180,26 @@ async def run_prompt_stage(
     )
 
 
-async def _val_means(
+async def _val_stats(
     view: PlannerView, version_id: str, judge: str | None = None
-) -> dict[str, float]:
-    return {
-        m["metric"]: m["mean"]
-        for m in await view.metrics(version_id, judge_version=judge)
-        if m["split"] == "val" and m["level"] == "split"
-    }
+) -> dict[str, tuple[float, float]]:
+    """``{metric: (mean, standard error)}`` of the val split (archive metrics). The SE is the
+    spread of case means over sqrt(n); with one val case it is that case's spread over its
+    repetitions; with neither it is 0."""
+    rows = [m for m in await view.metrics(version_id, judge_version=judge) if m["split"] == "val"]
+    out: dict[str, tuple[float, float]] = {}
+    for m in rows:
+        if m["level"] != "split":
+            continue
+        se = 0.0
+        if m["n"] > 1 and m["sd"] is not None:
+            se = m["sd"] / math.sqrt(m["n"])
+        elif m["n"] == 1:
+            case = [r for r in rows if r["level"] == "case" and r["metric"] == m["metric"]]
+            if len(case) == 1 and case[0]["sd"] is not None and case[0]["n"] > 0:
+                se = case[0]["sd"] / math.sqrt(case[0]["n"])
+        out[m["metric"]] = (m["mean"], se)
+    return out
 
 
 async def choose_candidate(
@@ -194,18 +208,26 @@ async def choose_candidate(
     front: list[str],
     grounding_tolerance: float,
     judge: str | None = None,
+    k: float = 1.0,
 ) -> str:
-    """From the val Pareto front: the best mean val coverage whose val grounding is within
-    tolerance of the base's (archive metrics, read through PlannerView). Ties keep the earlier
-    candidate; the base wins when nothing beats it."""
-    base_m = await _val_means(view, base.version_id, judge)
-    best_id, best_cov = base.version_id, base_m.get("coverage", float("-inf"))
-    floor = base_m.get("grounding", 0.0) - grounding_tolerance
+    """From the val Pareto front: the best mean val coverage whose gain over ``base`` exceeds
+    ``k`` standard errors of the difference, sqrt(SE_candidate^2 + SE_base^2), and whose val
+    grounding is within tolerance of the base's (archive metrics, read through PlannerView).
+    Ties keep the earlier candidate; the base wins when nothing beats it beyond noise, and
+    when it has no val coverage to compare with."""
+    base_m = await _val_stats(view, base.version_id, judge)
+    if "coverage" not in base_m:
+        return base.version_id
+    base_cov, base_se = base_m["coverage"]
+    floor = base_m.get("grounding", (0.0, 0.0))[0] - grounding_tolerance
+    best_id, best_cov = base.version_id, base_cov
     for vid in front:
-        m = await _val_means(view, vid, judge)
-        cov = m.get("coverage")
-        if cov is None or m.get("grounding", 0.0) < floor:
+        m = await _val_stats(view, vid, judge)
+        if "coverage" not in m or m.get("grounding", (0.0, 0.0))[0] < floor:
             continue
+        cov, se = m["coverage"]
+        if cov - base_cov <= k * math.sqrt(se**2 + base_se**2):
+            continue  # within noise of the base
         if cov > best_cov:
             best_id, best_cov = vid, cov
     return best_id
@@ -350,8 +372,8 @@ async def run_cycle(
     run_dir: str | None = None,
 ) -> CycleResult:
     """Prompt stage, then (``both`` or ``topology``) the topology stage on its choice, then one
-    candidate for the gate: the better of the two by val coverage, grounding within
-    tolerance."""
+    candidate for the gate: the topology candidate only when its val coverage beats the
+    prompt stage's choice beyond noise (``selection_k``), grounding within tolerance."""
     if stage not in ("prompt", "topology", "both"):
         raise ValueError(f"unknown stage {stage!r}")
     prompt = None
@@ -368,14 +390,14 @@ async def run_cycle(
                                             budget=budget, cycle_id=cycle_id)  # fmt: skip
     chosen = parent
     if topology and topology.candidate is not None:
+        # The topology candidate must beat its own parent (the prompt stage's choice, or the
+        # base) beyond noise, by the same rule as the prompt stage; the parent wins ties.
         val = sorted(view.cases("val"))
-        await evaluator.evaluate(base, "val", val, budget.val_repetitions)  # cached when replayed
-        front = [v for v in (parent.version_id, topology.candidate.version_id)
-                 if v != base.version_id]  # fmt: skip
+        await evaluator.evaluate(parent, "val", val, budget.val_repetitions)  # cached if replayed
         best = await choose_candidate(
-            view, base, front, budget.grounding_tolerance, getattr(evaluator, "judge_version", None)
-        )
-        chosen = {parent.version_id: parent, topology.candidate.version_id: topology.candidate}.get(
-            best, base
-        )
+            view, parent, [topology.candidate.version_id], budget.grounding_tolerance,
+            getattr(evaluator, "judge_version", None), budget.selection_k,
+        )  # fmt: skip
+        if best == topology.candidate.version_id:
+            chosen = topology.candidate
     return CycleResult(chosen, prompt, topology)
