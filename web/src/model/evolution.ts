@@ -121,3 +121,11 @@ export const MODE_TEXT: Record<string, string> = {
 
 export const lineDiffKind = (line: string): 'add' | 'del' | 'hunk' | 'meta' | 'ctx' =>
   line.startsWith('+++') || line.startsWith('---') ? 'meta' : line.startsWith('@@') ? 'hunk' : line.startsWith('+') ? 'add' : line.startsWith('-') ? 'del' : 'ctx';
+
+/** Lines of one prompt diff rendered before a "show more" (long prompts stay responsive). */
+export const DIFF_LINE_CAP = 200;
+
+export function capLines(text: string, cap: number): { lines: string[]; hidden: number } {
+  const all = text.split('\n');
+  return all.length <= cap ? { lines: all, hidden: 0 } : { lines: all.slice(0, cap), hidden: all.length - cap };
+}

@@ -22,6 +22,7 @@ from pydantic import BaseModel, Field
 
 from womm.api.db import Database
 from womm.api.evolution import (
+    PANEL_SPLITS,
     CandidateDetail,
     CandidateDiff,
     EvolutionView,
@@ -323,15 +324,16 @@ def create_app(
         }
 
     async def evolution(request: Request) -> EvolutionView:
+        """The lineage index: ids, origins, diff-check metrics and published decisions; no
+        spec, diff or train/val bodies (those are read per candidate)."""
         db: Database = request.app.state.db
         return EvolutionView(
             await db.evolution_archive(), await db.evolution_metrics(),
             await db.promotion_decisions(), read_publish_summary(promotion_policy_path),
         )  # fmt: skip
 
-    def known(view: EvolutionView, version_id: str) -> None:
-        if version_id not in view.rows:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, f"unknown version {version_id}")
+    def unknown(version_id: str) -> HTTPException:
+        return HTTPException(status.HTTP_404_NOT_FOUND, f"unknown version {version_id}")
 
     @app.get("/evolution/lineage", dependencies=auth)
     async def evolution_lineage(request: Request) -> Lineage:
@@ -339,15 +341,21 @@ def create_app(
 
     @app.get("/evolution/candidates/{version_id}", dependencies=auth)
     async def evolution_candidate(version_id: str, request: Request) -> CandidateDetail:
+        db: Database = request.app.state.db
         view = await evolution(request)
-        known(view, version_id)
-        return view.detail(version_id)
+        if version_id not in view.rows:
+            raise unknown(version_id)
+        vid = view.logical(version_id)
+        row = await db.evolution_candidate(vid)
+        metrics = await db.evolution_metrics(version_ids=[vid], splits=PANEL_SPLITS)
+        return view.detail(vid, row, metrics)
 
     @app.get("/evolution/candidates/{version_id}/diff", dependencies=auth)
     async def evolution_diff(version_id: str, request: Request) -> CandidateDiff:
-        view = await evolution(request)
-        known(view, version_id)
-        return view.diff(version_id)
+        row = await request.app.state.db.evolution_candidate(version_id)
+        if row is None:
+            raise unknown(version_id)
+        return EvolutionView.diff(row)
 
     @app.get("/runs", dependencies=auth)
     async def list_runs(request: Request, limit: Annotated[int, Query(ge=1, le=200)] = 20) -> dict:

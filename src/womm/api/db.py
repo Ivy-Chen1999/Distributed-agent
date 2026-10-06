@@ -332,24 +332,46 @@ class Database:
     # ------------------------------------------------------------------ evolution page (R36 p4)
 
     async def evolution_archive(self) -> list[dict]:
-        """Every archived version (no prompt texts), oldest first."""
+        """Every archived version, oldest first, without spec, diff or proposer bodies: the
+        lineage reads only the ids, the origin and the id of an added expert (``new_expert``)."""
         async with self.pool.connection() as conn:
             return await (await conn.execute(
-                "SELECT version_id, parent_id, twin_of, cycle_id, origin, name, spec, diff,"
-                " proposer, created_at FROM sv_archive ORDER BY created_at, version_id"
+                "SELECT version_id, parent_id, twin_of, cycle_id, origin, name, created_at,"
+                " (SELECT op ->> 'id' FROM jsonb_array_elements(coalesce(diff -> 'ops',"
+                " '[]'::jsonb)) op WHERE op ->> 'op' = 'add_expert' LIMIT 1) AS new_expert"
+                " FROM sv_archive ORDER BY created_at, version_id"
             )).fetchall()  # fmt: skip
 
-    async def evolution_metrics(self) -> list[dict]:
+    async def evolution_candidate(self, version_id: str) -> dict | None:
+        """One archived version with its spec, diff (ops and rendered prompt diffs) and
+        proposer; no prompt texts."""
+        async with self.pool.connection() as conn:
+            return await (await conn.execute(
+                "SELECT version_id, parent_id, twin_of, cycle_id, origin, name, created_at, spec,"
+                " diff, proposer FROM sv_archive WHERE version_id = %s",
+                (version_id,),
+            )).fetchone()  # fmt: skip
+
+    async def evolution_metrics(
+        self,
+        *,
+        version_ids: list[str] | None = None,
+        splits: list[str] | tuple[str, ...] = ("diff_check",),
+    ) -> list[dict]:
         """Archive metrics (train, val, R37 diff check; never holdout): per version, the latest
-        full-split batch per (split, judge)."""
+        full-split batch per (split, judge), for ``splits`` (default: the diff check the
+        lineage needs) and, when given, only ``version_ids``."""
         async with self.pool.connection() as conn:
             return await (await conn.execute(
                 "SELECT version_id, split, judge_version, batch_id, level, subject, metric, n,"
                 " mean, sd, updated_at FROM sv_metrics WHERE (version_id, batch_id) IN ("
                 "  SELECT DISTINCT ON (version_id, split, judge_version) version_id, batch_id"
-                "  FROM sv_metrics WHERE full_split"
+                "  FROM sv_metrics WHERE full_split AND split = ANY(%(splits)s)"
+                "  AND (%(ids)s::text[] IS NULL OR version_id = ANY(%(ids)s))"
                 "  ORDER BY version_id, split, judge_version, updated_at DESC, batch_id DESC"
-                ") ORDER BY version_id, split, judge_version, level, subject, metric"
+                ") AND split = ANY(%(splits)s)"
+                " ORDER BY version_id, split, judge_version, level, subject, metric",
+                {"splits": list(splits), "ids": version_ids},
             )).fetchall()  # fmt: skip
 
     async def promotion_decisions(self) -> list[dict]:

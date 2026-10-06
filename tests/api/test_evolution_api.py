@@ -183,3 +183,26 @@ def test_r37_on_the_page_compares_under_a_shared_judge_only(database_url, tmp_pa
         r37 = c.get(f"/evolution/candidates/{ids['prompt']}", headers=AUTH).json()["r37"]
     assert r37["status"] == "available" and r37["regression"] is None
     assert r37["judge_version"] is None and "judge both versions share" in r37["message"]
+
+
+def test_the_lineage_reads_no_spec_diff_or_train_val_bodies(database_url, tmp_path):
+    """The lineage query carries neither prompt diffs nor specs, and only diff-check metrics;
+    a candidate's spec, diff and train/val metrics are fetched for that candidate only."""
+    ids = asyncio.run(_seed(database_url))
+
+    async def read():
+        db = Database(database_url)
+        await db.open()
+        try:
+            mine = await db.evolution_metrics(version_ids=[ids["topology"]], splits=["val"])
+            return (await db.evolution_archive(), await db.evolution_metrics(),
+                    await db.evolution_candidate(ids["topology"]), mine)  # fmt: skip
+        finally:
+            await db.close()
+
+    rows, metrics, full, mine = asyncio.run(read())
+    assert all({"spec", "diff", "proposer"}.isdisjoint(r) for r in rows)
+    assert {r["version_id"]: r["new_expert"] for r in rows}[ids["topology"]] == "workforce"
+    assert {m["split"] for m in metrics} == {"diff_check"}
+    assert full["diff"]["ops"][0]["op"] == "add_expert" and full["spec"]["experts"]
+    assert {(m["version_id"], m["split"]) for m in mine} == {(ids["topology"], "val")}

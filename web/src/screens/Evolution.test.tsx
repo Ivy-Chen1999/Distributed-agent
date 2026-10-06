@@ -96,6 +96,21 @@ describe('Evolution page', () => {
     expect(calls.filter((c) => c.endsWith('/diff'))).toEqual([`/evolution/candidates/${PROMPT.version_id}/diff`]);
   });
 
+  it('caps a long prompt diff with a "show more"', async () => {
+    const long = ['--- a', '+++ b', '@@ -1 +1,300 @@', ...Array.from({ length: 300 }, (_, i) => `+generated line ${i}`)].join('\n');
+    stub((p) => (p.endsWith('/diff') ? { status: 200, body: { ...diffs[PROMPT.version_id], prompts: { 'expert:fiscal': long } } } : undefined));
+    render(<Evolution />);
+    await screen.findByRole('list', { name: 'Lineage' });
+    pick(PROMPT.version_id);
+    fireEvent.click(await screen.findByText('Show prompt diffs'));
+    const block = (await screen.findByText('+generated line 0')).closest('[data-prompt-diff]')!;
+    expect(block.querySelectorAll('[data-line]').length).toBe(200);
+    expect(within(block as HTMLElement).queryByText('+generated line 299')).toBeNull();
+    fireEvent.click(within(block as HTMLElement).getByText('Show 103 more lines'));
+    expect(block.querySelectorAll('[data-line]').length).toBe(303);
+    expect(within(block as HTMLElement).getByText('+generated line 299')).toBeTruthy();
+  });
+
   it('has an empty state', async () => {
     stub((p) => (p === '/evolution/lineage' ? { status: 200, body: { nodes: [], publish_summary: false } } : undefined));
     render(<Evolution />);

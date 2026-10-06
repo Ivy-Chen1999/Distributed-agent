@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { badge, ciText, defaultSelection, fmtDelta, lineDiffKind, patternText, r37Line, summaryLines, treeRows, withNoise } from './evolution';
+import { DIFF_LINE_CAP, badge, capLines, ciText, defaultSelection, fmtDelta, lineDiffKind, patternText, r37Line, summaryLines, treeRows, withNoise } from './evolution';
 import { PROMPT, REJECTED, SEED, TOPOLOGY, details, lineage } from '../test/evolution';
 
 describe('evolution view models', () => {
@@ -54,5 +54,14 @@ describe('evolution view models', () => {
     expect(badge('dev-only').t).toBe('Dev-only');
     expect(badge('something').t).toBe('something');
     expect(['+++ b', '--- a', '@@ -1 +1 @@', '+x', '-y', ' z'].map(lineDiffKind)).toEqual(['meta', 'meta', 'hunk', 'add', 'del', 'ctx']);
+  });
+
+  it('caps a long prompt diff and counts the hidden lines', () => {
+    const long = Array.from({ length: DIFF_LINE_CAP + 25 }, (_, i) => `+line ${i}`).join('\n');
+    const capped = capLines(long, DIFF_LINE_CAP);
+    expect(capped.lines).toHaveLength(DIFF_LINE_CAP);
+    expect(capped.hidden).toBe(25);
+    expect(capLines('a\nb', DIFF_LINE_CAP)).toEqual({ lines: ['a', 'b'], hidden: 0 });
+    expect(capLines(long, Infinity).hidden).toBe(0);
   });
 });

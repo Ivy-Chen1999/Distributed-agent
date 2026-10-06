@@ -7,8 +7,10 @@ import { CARD, FONT, LABEL, RED, TABULAR, WARN_BG, WARN_INK } from '../design';
 import { useLoad } from '../hooks';
 import { Dot, EmptyCard, ErrorCard, LoadingCard, OUTLINE_BTN } from '../components/ui';
 import {
+  DIFF_LINE_CAP,
   MODE_TEXT,
   badge,
+  capLines,
   ciText,
   defaultSelection,
   fmtDelta,
@@ -139,21 +141,34 @@ function PromptDiffs({ versionId }: { versionId: string }) {
         Hide prompt diffs
       </button>
       {prompts.map(([role, text]) => (
-        <div key={role} data-prompt-diff={role}>
-          <div style={{ font: `700 12px ${FONT}`, marginBottom: 4 }}>{role}</div>
-          <pre style={{ margin: 0, padding: '8px 10px', background: 'var(--soft)', borderRadius: 6, overflowX: 'auto', font: `12px/1.5 ${MONO}`, color: 'var(--ink)' }}>
-            {text.split('\n').map((line, i) => {
-              const k = lineDiffKind(line);
-              const bg = k === 'add' ? 'rgba(30,158,106,.16)' : k === 'del' ? 'rgba(229,72,77,.16)' : 'transparent';
-              return (
-                <div key={i} data-line={k} style={{ background: bg, fontWeight: k === 'hunk' || k === 'meta' ? 700 : 400, whiteSpace: 'pre-wrap' }}>
-                  {line || ' '}
-                </div>
-              );
-            })}
-          </pre>
-        </div>
+        <PromptDiff key={role} role={role} text={text} />
       ))}
+    </div>
+  );
+}
+
+function PromptDiff({ role, text }: { role: string; text: string }) {
+  const [all, setAll] = useState(false);
+  const { lines, hidden } = capLines(text, all ? Infinity : DIFF_LINE_CAP);
+  return (
+    <div data-prompt-diff={role}>
+      <div style={{ font: `700 12px ${FONT}`, marginBottom: 4 }}>{role}</div>
+      <pre style={{ margin: 0, padding: '8px 10px', background: 'var(--soft)', borderRadius: 6, overflowX: 'auto', font: `12px/1.5 ${MONO}`, color: 'var(--ink)' }}>
+        {lines.map((line, i) => {
+          const k = lineDiffKind(line);
+          const bg = k === 'add' ? 'rgba(30,158,106,.16)' : k === 'del' ? 'rgba(229,72,77,.16)' : 'transparent';
+          return (
+            <div key={i} data-line={k} style={{ background: bg, fontWeight: k === 'hunk' || k === 'meta' ? 700 : 400, whiteSpace: 'pre-wrap' }}>
+              {line || ' '}
+            </div>
+          );
+        })}
+      </pre>
+      {hidden > 0 && (
+        <button type="button" onClick={() => setAll(true)} style={{ ...OUTLINE_BTN, alignSelf: 'flex-start', marginTop: 6 }}>
+          Show {hidden} more lines
+        </button>
+      )}
     </div>
   );
 }

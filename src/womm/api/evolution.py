@@ -161,7 +161,9 @@ def read_publish_summary(path: Path | None) -> bool | None:
 
 
 class EvolutionView:
-    """The archive, its metrics and the published decisions, indexed once per request."""
+    """The archive (ids and origins only), its diff-check metrics and the published decisions,
+    indexed once per request. A candidate's spec, diff and train/val metrics are read for that
+    candidate only and passed to ``detail`` / ``diff``."""
 
     def __init__(
         self,
@@ -258,7 +260,7 @@ class EvolutionView:
         row = self.rows[vid]
         decisions = self.node_decisions(vid)
         latest = decisions[-1] if decisions else None
-        expert = _added_expert(row)
+        expert = row.get("new_expert")
         badges = [row["origin"]]
         if expert and row["origin"] != "topology":
             badges.append("topology")
@@ -271,7 +273,7 @@ class EvolutionView:
             cycle_id=row["cycle_id"], origin=row["origin"], created_at=_iso(row["created_at"]),
             badges=badges, twins=self.twins.get(vid, []),
             decision=latest.decision if latest else None, label=latest.label if latest else None,
-            new_expert=expert["id"] if expert else None, r37_regression=self.r37(vid).regression,
+            new_expert=expert, r37_regression=self.r37(vid).regression,
         )  # fmt: skip
 
     def lineage(self) -> Lineage:
@@ -280,9 +282,10 @@ class EvolutionView:
 
     # ------------------------------------------------------------ one candidate
 
-    def detail(self, vid: str) -> CandidateDetail:
+    def detail(self, vid: str, row: dict, metrics: list[dict]) -> CandidateDetail:
+        """``row``: the full archive row of ``self.logical(vid)``; ``metrics``: its train/val
+        metric rows."""
         vid = self.logical(vid)
-        row = self.rows[vid]
         diff = row["diff"] or {}
         expert = _added_expert(row)
         spec = row["spec"] or {}
@@ -312,35 +315,37 @@ class EvolutionView:
                 target_pattern=diff.get("target_pattern"),
                 rationale=diff.get("rationale"),
             ),  # fmt: skip
-            metrics=self.split_metrics(vid),
+            metrics=split_metrics(metrics),
             holdout=holdout,
             r37=self.r37(vid),
         )
 
-    def split_metrics(self, vid: str) -> list[SplitMetrics]:
-        groups: dict[tuple[str, str], list[dict]] = {}
-        for m in self.metrics.get(vid, []):
-            if m["split"] in PANEL_SPLITS:
-                groups.setdefault((m["split"], m["judge_version"]), []).append(m)
-        out = []
-        for (split, jv), rows in sorted(groups.items()):
-            metrics = {}
-            for m in rows:
-                if m["level"] != "split":
-                    continue
-                cases = [c for c in rows if c["level"] == "case" and c["metric"] == m["metric"]]
-                metrics[m["metric"]] = MetricOut(mean=m["mean"], sd=m["sd"], n=m["n"],
-                                                 noise_sd=_pooled_sd(cases))  # fmt: skip
-            if metrics:
-                out.append(SplitMetrics(split=split, judge_version=jv, metrics=metrics))
-        return out
-
-    def diff(self, vid: str) -> CandidateDiff:
-        row = self.rows[vid]
+    @staticmethod
+    def diff(row: dict) -> CandidateDiff:
         rendered = (row["diff"] or {}).get("rendered") or {}
-        return CandidateDiff(version_id=vid, parent_id=row["parent_id"],
+        return CandidateDiff(version_id=row["version_id"], parent_id=row["parent_id"],
                              summary=rendered.get("summary"),
                              prompts=rendered.get("prompts") or {})  # fmt: skip
+
+
+def split_metrics(rows: list[dict]) -> list[SplitMetrics]:
+    """Split-level train/val aggregates per (split, judge), with the pooled case noise."""
+    groups: dict[tuple[str, str], list[dict]] = {}
+    for m in rows:
+        if m["split"] in PANEL_SPLITS:
+            groups.setdefault((m["split"], m["judge_version"]), []).append(m)
+    out = []
+    for (split, jv), group in sorted(groups.items()):
+        metrics = {}
+        for m in group:
+            if m["level"] != "split":
+                continue
+            cases = [c for c in group if c["level"] == "case" and c["metric"] == m["metric"]]
+            metrics[m["metric"]] = MetricOut(mean=m["mean"], sd=m["sd"], n=m["n"],
+                                             noise_sd=_pooled_sd(cases))  # fmt: skip
+        if metrics:
+            out.append(SplitMetrics(split=split, judge_version=jv, metrics=metrics))
+    return out
 
 
 def _score(s: dict | None) -> Score | None:
