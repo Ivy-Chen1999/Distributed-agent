@@ -217,6 +217,37 @@ async def test_the_budget_and_backends_are_checked():
         await _preflight(base, base)
 
 
+def topology(base, **role):
+    """A topology candidate: ``base`` plus a Workforce expert (role overrides for the new one)."""
+    from womm.evolve.edits import build_candidate, validate_diff
+    from womm.models.system_version import build_system_version_from_texts
+
+    from .test_edits import _add_workforce
+
+    cand = build_candidate(base, validate_diff(base, [_add_workforce()]))
+    if not role:
+        return cand
+    data = cand.spec.model_dump()
+    data["experts"][-1]["role"].update(role)
+    return build_system_version_from_texts(type(cand.spec).model_validate(data), cand.prompts)
+
+
+@pytest.mark.parametrize("backend", ["fake", "api"])
+async def test_a_new_expert_candidate_is_compared_with_its_incumbent(backend):
+    """The added role (``expert:workforce``) has no counterpart in the incumbent: the shared
+    roles match, and the new role is on the candidate's existing backend and model."""
+    _, base = versions(backend)
+    choice = await _preflight(topology(base), base)
+    assert choice.mode == ("dev" if backend == "fake" else "statistical")
+
+
+@pytest.mark.parametrize("role", [{"backend": "claude_code"}, {"model": "other-model"}])
+async def test_a_new_expert_on_another_backend_or_model_is_refused(role):
+    _, base = versions("api")
+    with pytest.raises(pm.GateRefused, match="expert:workforce"):
+        await _preflight(topology(base, **role), base)
+
+
 # ----------------------------------------------------------------------------- decision rule
 
 

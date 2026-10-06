@@ -14,9 +14,10 @@ in ``tests/evolve/test_planner_boundary.py``); nothing Planner-side imports this
   primary CI is null (``insufficient_proposals``) is decided as weak, and the downgrade is
   recorded.
 - **Preconditions** (each a refusal before any holdout run): both versions on the same
-  backends; for formal modes a signed, committed policy, a coverage-judge calibration of at
-  least 85% for the gate's judge and an R34 formal noise run on record; holdout budget left
-  (per cycle and in total).
+  backends (per shared role; a role only one version has, such as a new expert, on a backend
+  and model the other already uses); for formal modes a signed, committed policy, a
+  coverage-judge calibration of at least 85% for the gate's judge and an R34 formal noise run
+  on record; holdout budget left (per cycle and in total).
 - **Decision.** Statistical: the primary metric's CI95 lower bound above 0. Weak and dev: its
   mean delta above 0. Every guard metric's mean delta at least minus its tolerance. An aborted
   comparison is rejected as ``inconclusive``, consumes no budget, and a repeated abort on the
@@ -219,6 +220,25 @@ def _backends(sv: SystemVersion) -> dict[str, str]:
     return {name: role.backend for name, role in sv.spec.roles().items()}
 
 
+def backend_mismatch(candidate: SystemVersion, incumbent: SystemVersion) -> str | None:
+    """Why the two versions are not on the same backends, or None. Roles both versions have
+    (keyed ``planner``, ``expert:<id>``, ...) must use the same backend. A role only one of
+    them has (a topology candidate's new expert) must use a (backend, model) pair the other
+    version already uses, so an added expert cannot bring a new backend or model family."""
+    cand, inc = candidate.spec.roles(), incumbent.spec.roles()
+    for name in sorted(cand.keys() & inc.keys()):
+        if cand[name].backend != inc[name].backend:
+            return (f"{name} is on {cand[name].backend} in the candidate, "
+                    f"{inc[name].backend} in the incumbent")  # fmt: skip
+    for mine, other in ((cand, inc), (inc, cand)):
+        family = {(r.backend, r.model) for r in other.values()}
+        for name in sorted(mine.keys() - other.keys()):
+            if (mine[name].backend, mine[name].model) not in family:
+                return (f"{name} ({mine[name].backend}, {mine[name].model}) is only in one "
+                        "version and uses a backend and model the other does not")  # fmt: skip
+    return None
+
+
 def choose_mode(
     policy: PromotionPolicy, records: PromotionRecords, candidate: SystemVersion,
     incumbent: SystemVersion,
@@ -264,9 +284,9 @@ async def preflight(
     """Every precondition, before any holdout run; raises GateRefused with the reason."""
     if candidate.version_id == incumbent.version_id:
         raise GateRefused("the candidate is the incumbent")
-    if _backends(candidate) != _backends(incumbent):
-        raise GateRefused("candidate and incumbent must use the same backends (compare api "
-                          "twins with api twins, dev versions with dev versions)")  # fmt: skip
+    if (why := backend_mismatch(candidate, incumbent)) is not None:
+        raise GateRefused("candidate and incumbent must use the same backends (compare api twins "
+                          f"with api twins, dev versions with dev versions): {why}")  # fmt: skip
     choice = choose_mode(policy, records, candidate, incumbent)
     if choice.mode != "dev":
         if not policy.signed:
