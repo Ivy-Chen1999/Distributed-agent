@@ -50,4 +50,14 @@ quant_allow:
 - section: 5.3.
   sentence: The collection rates shall gradually increase
   reason: a target or threshold set by this proposal's own articles, not an assessment finding
-scenarios: []
+scenarios:
+- scenario_id: eval_sustainability_requirements
+  description: 'Sustainability and performance requirements for batteries: carbon footprint, recycled
+    content, performance and durability of portable and of rechargeable industrial and electric vehicle
+    batteries, and supply-chain due diligence obligations (proposal only, no prior version).'
+  articles:
+  - '7'
+  - '8'
+  - '9'
+  - '10'
+  - '39'

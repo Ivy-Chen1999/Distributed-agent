@@ -14,4 +14,15 @@ quant_allow:
 - section: 1.1.
   sentence: · the rules excessively limited the possibility of making compensation claims
   reason: a target or threshold of the existing legislation being revised, not an assessment finding
-scenarios: []
+scenarios:
+- scenario_id: eval_liability_software_burden_of_proof
+  description: Definitions including software as a product, defectiveness, the economic operators liable
+    for defective products, disclosure of evidence, the burden of proof and exemptions from liability
+    (proposal only, no prior version).
+  articles:
+  - '4'
+  - '6'
+  - '7'
+  - '8'
+  - '9'
+  - '10'

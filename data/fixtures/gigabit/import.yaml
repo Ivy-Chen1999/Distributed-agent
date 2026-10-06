@@ -17,4 +17,16 @@ redactions:
   reason: 'quantified background statistic of the kind used to size the problem; manual review: redacted'
 leak_allow: []
 quant_allow: []
-scenarios: []
+scenarios:
+- scenario_id: eval_infrastructure_access_and_permits
+  description: Access to and transparency on existing physical infrastructure, coordination and transparency
+    of civil works, permit-granting procedures, and in-building physical infrastructure, fibre wiring
+    and access to it (proposal only, no prior version).
+  articles:
+  - '3'
+  - '4'
+  - '5'
+  - '6'
+  - '7'
+  - '8'
+  - '9'
