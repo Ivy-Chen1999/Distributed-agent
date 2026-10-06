@@ -326,6 +326,8 @@ async def test_audit_sample_recorded_in_draft_and_reproducible(data_act):
     assert sorted(i.item_id for i in sampled) == audit.sampled
     assert all(i.review.decision == "pending" for i in sampled)
     assert a.stats.audited == 2 and a.stats.auto_accepted == 5
+    # Two sampled items plus the auto-accepted candidate need a human decision.
+    assert a.stats.pending == 2 and a.stats.human_decisions_needed == 3
     assert a.possibly_missing[0].review.decision == "auto_accepted"  # a human decides it anyway
     assert audit.non_publishable_test_seed, "a test seed marks the draft non-publishable"
     default, _ = await run_draft(data_act, script_for())
@@ -533,3 +535,26 @@ def test_repo_drafting_config_loads_with_isolated_claude_code_roles():
     assert roles["drafter"].model != roles["judge_anchor"].model  # judges do not grade own draft
     assert set(cfg.prompt_hashes) == {r.prompt for r in roles.values()}
     assert not hasattr(cfg, "audit_rate") and drafting_module.AUDIT_RATE == 0.2
+
+
+def test_prompts_share_the_derivability_rule_and_scope_omissions_to_provisions():
+    cfg = load_drafting_config()
+    roles = cfg.roles.as_dict()
+    drafter = " ".join(cfg.prompts[roles["drafter"].prompt].split())
+    judge = " ".join(cfg.prompts[roles["judge_derivability"].prompt].split())
+    rule = "Figures that appear only in the IA do not make an impact less derivable"
+    assert rule in drafter and rule in judge
+    assert "never a critique of the IA's method, baseline or estimates" in drafter
+
+
+def test_compliance_cost_and_administrative_burden_are_defined_alike_everywhere():
+    cfg = load_drafting_config()
+    roles = cfg.roles.as_dict()
+    guide = drafting_module.CATEGORY_GUIDE
+    assert "familiarisation" in guide["administrative_burden"]
+    assert "record-keeping" in guide["administrative_burden"]
+    assert "equipment" in guide["compliance_cost"] and "staff" in guide["compliance_cost"]
+    for role in ("drafter", "judge_category"):
+        text = " ".join(cfg.prompts[roles[role].prompt].split())
+        assert guide["administrative_burden"] in text, role
+        assert guide["compliance_cost"] in text, role

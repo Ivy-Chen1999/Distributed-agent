@@ -161,7 +161,8 @@ async def run(args: argparse.Namespace, backends: dict[str, LLMBackend] | None =
     print(
         f"judge: agree {s.judge_agree}, disagree {s.judge_disagree}, uncertain "
         f"{s.judge_uncertain}; auto-accepted {s.auto_accepted}, pending {s.pending}, "
-        f"audit sample {s.audited} (seed {draft.provenance.audit.seed})"
+        f"audit sample {s.audited} (seed {draft.provenance.audit.seed}); human decisions "
+        f"needed {s.human_decisions_needed}"
     )
     return path
 

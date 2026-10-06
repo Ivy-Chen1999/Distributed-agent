@@ -17,7 +17,8 @@ Pipeline, all through the WOMM backend interface (roles in ``evals/drafting.yaml
    (``provenance.status: llm_judged``); everything else is ``pending`` for a human. A random
    20% (``AUDIT_RATE``, pinned) of the auto-accepted impacts and omissions is marked
    ``audit: true`` and set back to ``pending``. ``possibly_missing`` candidates always go to a
-   human, so they are never audit-eligible. The seed is ``audit_seed_for(case_id)``; only tests
+   human, so they are never audit-eligible (``stats.human_decisions_needed`` counts the pending
+   items plus every candidate). The seed is ``audit_seed_for(case_id)``; only tests
    may pass another one, and such a draft is marked ``non_publishable_test_seed`` and refused by
    the review gate.
 6. **Integrity record**: ``provenance.item_digests`` holds, per item, a sha256 over the canonical
@@ -81,8 +82,14 @@ Category = Literal[
     "other",
 ]
 CATEGORY_GUIDE = {
-    "compliance_cost": "substantive costs of meeting obligations (technical, organisational)",
-    "administrative_burden": "information, documentation and reporting obligations",
+    "compliance_cost": (
+        "substantive costs of meeting the requirements themselves: technical and organisational "
+        "measures, equipment, and staff for meeting requirements"
+    ),
+    "administrative_burden": (
+        "costs of information obligations: familiarisation with the new rules, information, "
+        "reporting and record-keeping duties, documentation"
+    ),
     "public_enforcement_cost": "costs for public authorities, supervision and enforcement",
     "market_competition": "market structure, switching, lock-in, bargaining power, prices",
     "innovation_investment": "innovation, investment, new services, data value creation",
@@ -330,6 +337,8 @@ class DraftStats(StrictModel):
     auto_accepted: int
     pending: int
     audited: int
+    # Pending items plus every possibly_missing candidate (a human decides those anyway).
+    human_decisions_needed: int
 
 
 class GoldenDraft(StrictModel):
@@ -723,6 +732,9 @@ async def draft_case(
         auto_accepted=sum(i.review.decision == "auto_accepted" for i in all_items),
         pending=sum(i.review.decision == "pending" for i in all_items),
         audited=len(sampled),
+        human_decisions_needed=sum(
+            i.review.decision == "pending" or isinstance(i, DraftCandidate) for i in all_items
+        ),
     )
     roles = {
         name: {"backend": r.backend, "model": r.model, "prompt": r.prompt}
