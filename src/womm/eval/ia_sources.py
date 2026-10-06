@@ -9,7 +9,11 @@ Cellar serves IAs as Word-derived XHTML (``text/html`` since 2025), as one docum
 several parts behind an HTTP 300 listing (``1_EN_impact_assessment_part<n>``). Headings are
 ``p.li Heading1`` / ``p.li Heading2`` / ``p.Heading3`` (the ``li`` variants are list items whose
 level-1 numbering is often wrong, e.g. "1." for every chapter, so it is repaired from the first
-level-2 child). ``extract_sections`` keeps the impact-relevant cut:
+level-2 child). Some IAs carry no heading styles at all: their chapters are numbered list
+paragraphs (``p.li ListParagraph`` / ``p.li Normal`` with a ``span.num`` such as "6.1.") and
+their annexes "Annex N:" list paragraphs; only when a part has no styled heading are those used
+as headings, numbered ones nested one level under the annex they follow (annex numbering
+restarts at "1."). ``extract_sections`` keeps the impact-relevant cut:
 
 - ``impacts``: "What are the impacts of the policy options?"
 - ``preferred_option``: "Preferred option"
@@ -19,8 +23,9 @@ level-2 child). ``extract_sections`` keeps the impact-relevant cut:
 - ``procedural``: the "Procedural information" annex, which summarises the RSB opinion and how
   it was addressed; used as the RSB source when the opinion itself is not in Cellar (usual)
 
-It fails, listing every heading it saw, when neither an impacts nor a preferred-option section
-exists.
+An "Annex N:" heading counts as chapter-level whatever its style level (annexes-only volumes
+style annex titles below a volume title). It fails, listing every heading it saw, when neither
+an impacts nor a preferred-option section exists.
 
 Layout of ``.cache/ia/<fixture>/``: ``raw/`` (Cellar bodies), ``ia_full.txt`` (all parts, for
 anchor verification), ``cut.txt`` (the kept sections), ``rsb.txt`` (RSB source text) and
@@ -54,6 +59,9 @@ FORBIDDEN_ROOTS = (REPO_ROOT / "data", REPO_ROOT / "evals")
 _HEADING_CLASS = re.compile(r"^Heading([1-4])$")
 _SKIP_CLASSES = {"FootnoteText", "TOCHeading", "TOC1", "TOC2", "TOC3", "TOC4"}
 _NUMBER = re.compile(r"^((?:\d+\.)+\d*)\s*")
+_LIST_NUMBER = re.compile(r"^\d+(?:\.\d+)*\.?$")
+_ANNEX_NUMBER = re.compile(r"^Annex\s+\d+\b", re.I)
+_MAX_LIST_HEADING_CHARS = 250  # longer numbered list paragraphs are body text
 
 SECTION_PATTERNS: dict[str, re.Pattern[str]] = {
     "impacts": re.compile(r"impacts? of the (?:policy |retained |different )?options", re.I),
@@ -141,6 +149,33 @@ def _heading_level(el: etree._Element) -> int | None:
     return None
 
 
+def _list_heading(el: etree._Element, text: str) -> tuple[int, bool, str] | None:
+    """(depth, is_annex, title) of a numbered list paragraph that may stand for a heading."""
+    if "li" not in _classes(el) or not text or len(text) > _MAX_LIST_HEADING_CHARS:
+        return None
+    num = next((s for s in el.iter() if _local(s) == "span" and "num" in _classes(s)), None)
+    if num is None:
+        return None
+    number = _clean(_text(num))
+    rest = _clean(text[len(number) :] if text.startswith(number) else text)
+    if _ANNEX_NUMBER.match(number):
+        return 1, True, f"{number} {rest}"
+    if _LIST_NUMBER.match(number):
+        return number.rstrip(".").count(".") + 1, False, f"{number} {rest}"
+    return None
+
+
+def _list_headings(candidates: list[tuple[int, int, bool, str]], part: int) -> list[Heading]:
+    """Headings from numbered list paragraphs; numbering inside an annex nests under it."""
+    headings: list[Heading] = []
+    in_annex = False
+    for index, depth, is_annex, title in candidates:
+        in_annex = in_annex or is_annex
+        level = 1 if is_annex else depth + (1 if in_annex else 0)
+        headings.append(Heading(level, title, part, index))
+    return headings
+
+
 def _table_text(table: etree._Element) -> str:
     rows = []
     for tr in table.iter():
@@ -165,6 +200,7 @@ def parse_ia(body: bytes, part: int = 1) -> IaDocument:
         raise IaSourceError(f"IA part {part} is not well-formed XHTML: {exc}") from None
     blocks: list[str] = []
     headings: list[Heading] = []
+    list_candidates: list[tuple[int, int, bool, str]] = []
     for el in root.iter():
         name = _local(el)
         if name not in ("p", "table"):
@@ -182,7 +218,14 @@ def parse_ia(body: bytes, part: int = 1) -> IaDocument:
             headings.append(Heading(level, _clean(_tidy_number(text)), part, len(blocks)))
             blocks.append(_clean(_tidy_number(text)))
         else:
+            candidate = _list_heading(el, text)
+            if candidate is not None:
+                list_candidates.append((len(blocks), *candidate))
             blocks.append(text)
+    if not headings and list_candidates:
+        headings = _list_headings(list_candidates, part)
+        for x in headings:
+            blocks[x.index] = x.title
     _repair_chapter_numbers(headings)
     return IaDocument(part, blocks, headings)
 
@@ -238,8 +281,8 @@ def extract_sections(parts: list[IaDocument]) -> IaExtract:
             for h in doc.headings:
                 if not pattern.search(h.title) or _inside(doc, h, kept):
                     continue
-                if kind != "costs" and h.level > 2:
-                    continue  # chapter-level sections only; deeper matches are sub-topics
+                if kind != "costs" and h.level > 2 and not _ANNEX_NUMBER.match(h.title):
+                    continue  # chapter-level sections (or annexes) only; deeper are sub-topics
                 kept.append(h)
                 found.setdefault(kind, []).append((h, doc))
     if not set(found).intersection(REQUIRED_ANY):

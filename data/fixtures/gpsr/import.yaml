@@ -14,4 +14,16 @@ redactions:
   reason: shares 12-word runs with the IA's impact cut (overlap test)
 leak_allow: []
 quant_allow: []
-scenarios: []
+scenarios:
+- scenario_id: eval_economic_operator_obligations
+  description: Obligations of manufacturers, authorised representatives, importers and distributors of
+    consumer products, the responsible person for products, traceability, and specific obligations of
+    online marketplaces (proposal only, no prior version).
+  articles:
+  - '8'
+  - '9'
+  - '10'
+  - '11'
+  - '15'
+  - '17'
+  - '20'

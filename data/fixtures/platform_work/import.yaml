@@ -27,4 +27,15 @@ redactions:
   reason: 'quantified background statistic of the kind used to size the problem; manual review: redacted'
 leak_allow: []
 quant_allow: []
-scenarios: []
+scenarios:
+- scenario_id: eval_employment_status_algorithmic_management
+  description: Legal presumption of an employment relationship for platform work and its rebuttal, transparency
+    on automated monitoring and decision-making systems, human monitoring and review of significant decisions,
+    and declaration of platform work (proposal only, no prior version).
+  articles:
+  - '4'
+  - '5'
+  - '6'
+  - '7'
+  - '8'
+  - '11'

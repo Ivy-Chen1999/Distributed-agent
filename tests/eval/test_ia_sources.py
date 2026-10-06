@@ -132,6 +132,102 @@ def test_extracts_impacts_preferred_annex_and_procedural():
     assert extract.missing == []
 
 
+def li(style: str, num: str, title: str) -> str:
+    """A Word list paragraph with no heading style: the number sits in a nested span.num."""
+    return (
+        f'<p class="li {style}"><span><span class="num">{num}</span></span><span>{title}</span></p>'
+    )
+
+
+# Some IAs carry no HeadingN styles at all: chapters are numbered list paragraphs
+# ("li ListParagraph" / "li Normal") and annexes are "Annex N:" list paragraphs.
+LIST_STYLED = doc(
+    '<p class="li TOC1"><span class="num">6.</span>What are the impacts?</p>'
+    + li("AnnexHeading2", "1.", "Introduction")
+    + p("Intro text.")
+    + li("ListParagraph", "6.", "What are the impacts of the Policy Options?")
+    + li("ListParagraph", "6.1.", "Economic impacts")
+    + li("ListParagraph", "6.1.1.1", "Gadget authorities")
+    + p("Gadget authorities pay for the gadget register.")
+    + li("Normal", "\u00b7", "a bullet item that is not a heading")
+    + li("Normal", "a)", "a lettered item that is not a heading")
+    + li("ListParagraph", "7.", "How do the options compare?")
+    + p("Comparison text.")
+    + li("ListParagraph", "8.", "Preferred Option")
+    + p("Option 2 is preferred.")
+    + li("Normal", "Annex 1:", "Procedural information")
+    + li("ListParagraph", "1.", "Consultation of the Board")
+    + p("The Board asked for clearer gadget costs.")
+    + li("AnnexTitle", "Annex 3:", "Who is affected and how?")
+    + li("ListParagraph", "1.", "Practical implications of the initiative")
+    + p("Gadget owners save time.")
+    + li("AnnexTitle", "Annex 4:", "Analytical methods")
+    + p("Methods text.")
+)
+
+
+def test_numbered_list_paragraphs_are_headings_when_no_heading_styles_exist():
+    parsed = parse_ia(LIST_STYLED)
+    titles = [(x.level, x.title) for x in parsed.headings]
+    assert titles == [
+        (1, "1. Introduction"),
+        (1, "6. What are the impacts of the Policy Options?"),
+        (2, "6.1. Economic impacts"),
+        (4, "6.1.1.1 Gadget authorities"),
+        (1, "7. How do the options compare?"),
+        (1, "8. Preferred Option"),
+        (1, "Annex 1: Procedural information"),
+        (2, "1. Consultation of the Board"),  # numbering restarts inside an annex
+        (1, "Annex 3: Who is affected and how?"),
+        (2, "1. Practical implications of the initiative"),
+        (1, "Annex 4: Analytical methods"),
+    ]
+    extract = extract_sections([parsed])
+    kinds = [(x.kind, x.title) for x in extract.sections]
+    assert kinds == [
+        ("impacts", "6. What are the impacts of the Policy Options?"),
+        ("preferred_option", "8. Preferred Option"),
+        ("procedural", "Annex 1: Procedural information"),
+        ("who_is_affected", "Annex 3: Who is affected and how?"),
+    ]
+    impacts, _, procedural, annex = (x.text for x in extract.sections)
+    assert "register" in impacts and "bullet item" in impacts and "Comparison" not in impacts
+    assert "clearer gadget costs" in procedural
+    assert "save time" in annex and "Methods text" not in annex
+    assert [x.title for x in select_sections(extract, ["6.1.1.1"])] == [
+        "6.1.1.1 Gadget authorities"
+    ]
+
+
+def test_annex_titles_count_as_chapters_in_an_annexes_only_volume():
+    # An annexes-only volume styles its annex titles one level below a volume title.
+    annexes = doc(
+        h(1, "Annexes: Table of Contents")
+        + h(3, "Annex 3: Who is affected and how?", li=False)
+        + h(4, "A3.1 Overview of benefits", li=False)
+        + p("Gadget owners save time.")
+        + h(3, "Annex 4: Impacts of the policy options", li=False)
+        + p("Option 2 lowers gadget costs.")
+        + h(3, "Annex 5: Analytical methods", li=False)
+        + p("Methods text.")
+    )
+    extract = extract_sections([parse_ia(annexes)])
+    kinds = [(x.kind, x.title) for x in extract.sections]
+    assert kinds == [
+        ("who_is_affected", "Annex 3: Who is affected and how?"),
+        ("impacts", "Annex 4: Impacts of the policy options"),
+    ]
+    assert "save time" in extract.sections[0].text
+    assert "Methods text" not in extract.sections[1].text
+
+
+def test_list_paragraphs_are_not_headings_when_heading_styles_exist():
+    styled = doc(h(1, "6. What are the impacts of the policy options?") + li("Normal", "1.", "x"))
+    assert [x.title for x in parse_ia(styled).headings] == [
+        "6. What are the impacts of the policy options?"
+    ]
+
+
 def test_toc_entries_are_not_headings():
     doc_ = parse_ia(PART1)
     assert [x.title for x in doc_.headings][0] == "1. Introduction"

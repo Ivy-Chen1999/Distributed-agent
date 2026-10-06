@@ -20,4 +20,15 @@ redactions:
   reason: 'quantified background statistic of the kind used to size the problem; manual review: redacted'
 leak_allow: []
 quant_allow: []
-scenarios: []
+scenarios:
+- scenario_id: eval_gatekeeper_obligations
+  description: Obligations of designated gatekeepers for their core platform services, measures to comply
+    with them, the anti-circumvention rule, the duty to inform about concentrations and the audit of consumer
+    profiling techniques (proposal only, no prior version).
+  articles:
+  - '5'
+  - '6'
+  - '7'
+  - '11'
+  - '12'
+  - '13'

@@ -20,4 +20,15 @@ quant_allow:
 - section: 1.1.
   sentence: The EHDS will help to attain the Commission’s vision
   reason: a political target of another Union instrument or strategy, not an assessment finding
-scenarios: []
+scenarios:
+- scenario_id: eval_secondary_use_obligations
+  description: 'Secondary use of electronic health data: categories of data that data holders must make
+    available, permitted purposes, duties of data holders, fees, supervision by health data access bodies
+    and data permits (proposal only, no prior version).'
+  articles:
+  - '33'
+  - '34'
+  - '41'
+  - '42'
+  - '43'
+  - '46'

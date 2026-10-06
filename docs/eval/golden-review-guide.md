@@ -24,6 +24,9 @@ must never contain an unreviewed draft. Each item has:
   auto-accepted impacts and omissions; candidates always need you anyway;
 - every `possibly_missing` candidate, even when it shows `auto_accepted`.
 
+The draft's `stats.human_decisions_needed` counts exactly these items (pending items plus every
+candidate), so it tells you the size of the review before you start.
+
 Leave the other `auto_accepted` items alone. There is one exception: if the CI check says the
 proposal is **escalated**, every item needs a decision. A proposal is escalated when more than
 10% of its audited items were edited, rejected or marked unclear. The count spans PRs: when a
@@ -90,8 +93,8 @@ Fix a wrong category with an `edited` decision.
 
 | Category | Definition |
 |---|---|
-| `compliance_cost` | Substantive costs of meeting obligations (technical, organisational) |
-| `administrative_burden` | Information, documentation and reporting obligations |
+| `compliance_cost` | Substantive costs of meeting the requirements themselves: technical and organisational measures, equipment, and staff for meeting requirements |
+| `administrative_burden` | Costs of information obligations: familiarisation with the new rules, information, reporting and record-keeping duties, documentation |
 | `public_enforcement_cost` | Costs for public authorities, supervision and enforcement |
 | `market_competition` | Market structure, switching, lock-in, bargaining power, prices |
 | `innovation_investment` | Innovation, investment, new services, data value creation |

@@ -160,6 +160,7 @@ def draft_dict(split: str = "train", case_id: str = "case_90_widget_switching") 
             "auto_accepted": 5,
             "pending": 4,
             "audited": 2,
+            "human_decisions_needed": 5,
         },  # fmt: skip
         "expected_impacts": impacts,
         "important_omissions": [omission(1)],

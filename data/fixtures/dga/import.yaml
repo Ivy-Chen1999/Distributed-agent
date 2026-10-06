@@ -26,4 +26,14 @@ redactions:
   reason: shares 12-word runs with the IA's impact cut (overlap test)
 leak_allow: []
 quant_allow: []
-scenarios: []
+scenarios:
+- scenario_id: eval_data_intermediation
+  description: 'Data sharing services: the notification regime for providers, the conditions for providing
+    data sharing services, monitoring of compliance by competent authorities and the exclusions from the
+    chapter (proposal only, no prior version).'
+  articles:
+  - '9'
+  - '10'
+  - '11'
+  - '13'
+  - '14'
