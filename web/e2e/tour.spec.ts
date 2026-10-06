@@ -8,7 +8,7 @@ import type { Page, TestInfo } from '@playwright/test';
 
 const SHOTS = path.join(path.dirname(fileURLToPath(import.meta.url)), 'screenshots');
 const SLUG: Record<ScreenTitle, string> = {
-  Overview: 'overview', 'Run pipeline': 'pipeline', 'Run detail': 'detail', Agents: 'agents', Topology: 'topology', 'Ask WOMM': 'ask', Settings: 'settings',
+  Overview: 'overview', 'Run pipeline': 'pipeline', 'Run detail': 'detail', Agents: 'agents', Topology: 'topology', 'Ask WOMM': 'ask', Settings: 'settings', Evolution: 'evolution',
 };
 
 /** Attach to the report; refresh the committed reference set only on request (or when missing). */

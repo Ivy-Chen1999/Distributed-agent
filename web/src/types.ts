@@ -251,3 +251,109 @@ export interface AskAnswer {
   cites: string[];
   covered: boolean;
 }
+
+// Evolution page (R36 page 4): docs/ui/api-contract.md "Evolution page".
+
+export type EvolutionOrigin = 'seed' | 'gepa' | 'topology' | 'twin' | 'manual';
+export type GateMode = 'statistical' | 'weak' | 'dev';
+
+export interface LineageNode {
+  version_id: string;
+  name: string;
+  parent_id: string | null;
+  cycle_id: string | null;
+  origin: EvolutionOrigin;
+  created_at: string;
+  badges: string[];
+  twins: string[];
+  decision: 'promoted' | 'rejected' | null;
+  label: string | null;
+  new_expert: string | null;
+  r37_regression: boolean | null;
+}
+
+export interface Lineage {
+  nodes: LineageNode[];
+  publish_summary: boolean | null;
+}
+
+export interface MetricDeltaOut {
+  mean_delta: number | null;
+  ci95_low: number | null;
+  ci95_high: number | null;
+  n_cases: number;
+  noise_sd?: number | null;
+}
+
+export interface PromotionDecision {
+  gate_id: string;
+  created_at: string;
+  candidate_version: string;
+  incumbent_version: string;
+  mode: GateMode;
+  deployable: boolean;
+  decision: 'promoted' | 'rejected';
+  label: string;
+  reasons: string[];
+  notes: string[];
+  deltas: Record<string, MetricDeltaOut>;
+  n_proposals: number;
+  flags: string[];
+}
+
+export interface SplitMetrics {
+  split: 'train' | 'val';
+  judge_version: string;
+  metrics: Record<string, { mean: number | null; sd: number | null; n: number; noise_sd: number | null }>;
+}
+
+export interface DiffScore {
+  mean: number | null;
+  sd: number | null;
+  n: number;
+}
+
+export interface R37Check {
+  status: 'available' | 'not_run';
+  score: DiffScore | null;
+  reference_version: string | null;
+  reference_score: DiffScore | null;
+  regression: boolean | null;
+  message: string;
+}
+
+export interface NewExpert {
+  id: string;
+  domain: string;
+  router_gloss: string;
+  prompt_text: string;
+  target_pattern: Record<string, string> | null;
+  rationale: string | null;
+}
+
+export interface DiffSummary {
+  experts_added: string[];
+  added_experts: Record<string, { domain: string; router_gloss: string | null }>;
+  prompts_changed: string[];
+  router_gloss_changed: Record<string, { from: string | null; to: string | null }>;
+  retrieval: { from: Record<string, number>; to: Record<string, number> } | null;
+}
+
+export interface CandidateDetail {
+  node: LineageNode;
+  experts: { id: string; domain: string; router_gloss: string | null }[];
+  summary: DiffSummary | null;
+  rationale: string | null;
+  proposer: Record<string, unknown> | null;
+  new_expert: NewExpert | null;
+  metrics: SplitMetrics[];
+  holdout: { status: 'published' | 'not_submitted' | 'sealed'; message: string; decisions: PromotionDecision[] };
+  r37: R37Check;
+}
+
+export interface CandidateDiff {
+  version_id: string;
+  parent_id: string | null;
+  summary: DiffSummary | null;
+  prompts: Record<string, string>;
+}
