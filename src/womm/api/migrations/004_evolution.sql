@@ -36,3 +36,39 @@ CREATE TABLE failure_case_runs (
     created_at     timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (system_version, case_id, run_id)
 );
+
+-- U3 Candidate archive (R27): every candidate with its parent, diff and provenance. Prompt texts
+-- are shared by hash. No decision or holdout field lives here.
+CREATE TABLE sv_prompts (
+    sha256 text PRIMARY KEY,
+    text   text NOT NULL
+);
+
+CREATE TABLE sv_archive (
+    version_id text PRIMARY KEY,
+    parent_id  text REFERENCES sv_archive (version_id),
+    twin_of    text REFERENCES sv_archive (version_id),
+    cycle_id   text,
+    origin     text NOT NULL CHECK (origin IN ('seed', 'gepa', 'topology', 'twin', 'manual')),
+    name       text NOT NULL,
+    spec       jsonb NOT NULL,
+    prompt_map jsonb NOT NULL,
+    diff       jsonb,
+    proposer   jsonb,
+    created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX sv_archive_parent_idx ON sv_archive (parent_id);
+
+-- Train/val (and R37 diff-check) metrics per case, proposal or split. Never holdout.
+CREATE TABLE sv_metrics (
+    version_id text NOT NULL REFERENCES sv_archive (version_id),
+    split      text NOT NULL CHECK (split IN ('train', 'val', 'diff_check')),
+    level      text NOT NULL CHECK (level IN ('case', 'proposal', 'split')),
+    subject    text NOT NULL DEFAULT '',
+    metric     text NOT NULL,
+    n          integer NOT NULL,
+    mean       double precision,
+    sd         double precision,
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (version_id, split, level, subject, metric)
+);

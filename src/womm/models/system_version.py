@@ -261,6 +261,8 @@ def derive_system_version(
     if data == base.spec.model_dump():
         return base
     data["name"] = f"{base.spec.name}+overrides"
-    return build_system_version(
-        SystemVersionSpec.model_validate(data), repo_root, source_path=base.source_path
+    # The base's snapshotted prompt texts, so a candidate whose prompts exist only in memory
+    # (womm.evolve) can be derived too; for a file-backed base they equal the files.
+    return build_system_version_from_texts(
+        SystemVersionSpec.model_validate(data), base.prompts, source_path=base.source_path
     )

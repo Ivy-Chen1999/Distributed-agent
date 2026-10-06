@@ -280,6 +280,23 @@ async def cmd_scenarios(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------- self-evolution (F3)
 
 
+@contextlib.asynccontextmanager
+async def _evolve_db(what: str):
+    """The main database, migrated; evolution state lives there."""
+    from womm.api.db import Database
+
+    url = load_settings().database_url
+    if not url:
+        raise UsageError(f"{what} needs DATABASE_URL")
+    db = Database(url)
+    await db.open()
+    try:
+        await db.migrate()
+        yield db
+    finally:
+        await db.close()
+
+
 async def cmd_evolve_failures(args: argparse.Namespace) -> int:
     """Failure Memory patterns (U1) of one system version, from saved train/val eval reports
     or, with --from-db, from Postgres."""
@@ -287,22 +304,38 @@ async def cmd_evolve_failures(args: argparse.Namespace) -> int:
 
     version_id = args.sv or _load_sv(args).version_id
     if args.from_db:
-        url = load_settings().database_url
-        if not url:
-            raise UsageError("--from-db needs DATABASE_URL")
-        from womm.api.db import Database
-
-        db = Database(url)
-        await db.open()
-        try:
-            await db.migrate()
+        async with _evolve_db("--from-db") as db:
             rows = await db.failure_patterns(version_id)
-        finally:
-            await db.close()
     else:
         rows = patterns(*load_report_events(Path(args.runs_dir), version_id))
     emit(args, {"system_version": version_id, "patterns": rows},
          f"failure patterns of {version_id}\n{format_patterns(rows)}")  # fmt: skip
+    return EXIT_OK
+
+
+async def cmd_evolve_seed(args: argparse.Namespace) -> int:
+    """Archive the self-evolution base and its api twin (U3)."""
+    from womm.evolve.archive import Archive, seed_archive
+
+    async with _evolve_db("womm evolve seed") as db:
+        seeds = await seed_archive(Archive(db), REPO_ROOT)
+    data = [{"version_id": s.version_id, "name": s.spec.name} for s in seeds]
+    emit(args, data, "\n".join(f"archived {s.spec.name}: {s.version_id}" for s in seeds))
+    return EXIT_OK
+
+
+async def cmd_evolve_materialize(args: argparse.Namespace) -> int:
+    """Write an archived candidate as a SystemVersion YAML plus its prompt files (U2/U3)."""
+    from womm.evolve.archive import Archive
+    from womm.evolve.edits import materialize
+
+    async with _evolve_db("womm evolve materialize") as db:
+        try:
+            sv = await Archive(db).load_candidate(args.version_id)
+        except KeyError as exc:
+            raise UsageError(str(exc.args[0])) from None
+    path = materialize(sv, Path(args.out))
+    emit(args, {"version_id": sv.version_id, "path": str(path)}, f"wrote {path}")
     return EXIT_OK
 
 
@@ -358,6 +391,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_fail.add_argument("--sv", help="version id (default: the --system-version file's id)")
     p_fail.add_argument("--from-db", action="store_true", help="read Postgres, not runs/")
+    evolve.add_parser(
+        "seed", parents=[common], help="archive the self-evolution base and its api twin"
+    )
+    p_mat = evolve.add_parser(
+        "materialize", parents=[common], help="write an archived candidate as files"
+    )
+    p_mat.add_argument("version_id")
+    p_mat.add_argument("--out", default=str(REPO_ROOT), help="repository root to write under")
     return parser
 
 
@@ -371,6 +412,8 @@ HANDLERS = {
 
 EVOLVE_HANDLERS = {
     "failures": cmd_evolve_failures,
+    "seed": cmd_evolve_seed,
+    "materialize": cmd_evolve_materialize,
 }
 
 
