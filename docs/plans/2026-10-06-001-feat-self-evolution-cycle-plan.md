@@ -17,6 +17,18 @@ origin: docs/brainstorms/2026-09-28-womm-phased-requirements.md
 > - **The holdout is never readable by the Improvement Planner.** This is enforced by structure (module boundaries, process environment, a single data-access object) and by tests, not by convention.
 > - **Holdout interface.** `womm.eval.holdout.compare` (golden plan, Revision 2026-10-04 and `src/womm/eval/holdout.py`) is the only holdout reader. It returns per-metric mean deltas, paired bootstrap CIs clustered by proposal, pooled noise, a `failure_policy` and an `insufficient_proposals` flag, and writes only aggregates to its audit table. The R27 archive excludes holdout metrics.
 
+> **Revision 2026-10-06 (U5 spike): adopt GEPA.** `gepa` 0.1.4 (MIT), pinned `>=0.1.4,<0.2`. The core package has no runtime dependencies (litellm, tqdm and cloudpickle sit in the `[full]` extra); `import gepa` and a full run never load litellm, which a test checks. The risk row "GEPA pulls in litellm" is void.
+>
+> - **Adapter interface (checked in the source):** `evaluate(batch, candidate, capture_traces)` returns an `EvaluationBatch` (outputs, scores, trajectories, objective scores, metric-call count); `make_reflective_dataset(candidate, eval_batch, components)`; `propose_new_texts` is used whenever the adapter defines it, so no `reflection_lm` is needed. Adapter state hooks are optional.
+> - **`optimize` settings:** Pareto candidate selection, round-robin module selection, `reflection_minibatch_size`, `max_metric_calls`, a USD budget through `stop_callbacks`, `perfect_score`/`skip_perfect_score`, `use_merge=False`, `run_dir` and `seed`.
+> - **Async:** the engine is synchronous. It runs in `asyncio.to_thread`, and the adapter hands each coroutine back to the owning event loop with `run_coroutine_threadsafe`, which works with the psycopg async pools.
+> - **Version ids:** a GEPA candidate becomes U2 `edit_prompt` operations against the cycle base, so the same texts always give the same version id whatever GEPA lineage produced them. The archive's `parent_id` is still the GEPA parent.
+> - **Resume:** GEPA re-evaluates the seed on val before loading `run_dir` state, and the U4 replay store makes that free. A restart with `run_dir` made 0 graph runs and 0 proposer calls; a rerun without GEPA state (same seed, deterministic proposer) gave the same candidates with 0 graph runs.
+> - **Fake-backend measurement:** 62 GEPA metric calls cost 14 graph runs. Round-robin proposals went to planner, synthesis, legal and fiscal; the first three were rejected on the minibatch and fiscal was accepted, its val score rising from 0 to 1 onto the val Pareto front. All four proposals were archived (R27).
+> - **Settled from Deferred to Implementation:** the per-instance score is mean coverage over repetitions, and 0 when grounding is below `grounding_floor`. `objective_scores` are filled in, but selection uses the instance frontier.
+> - **Implementation notes:** the topology candidate is replayed on val only (the optional short GEPA pass on the new expert's prompt is not built). "Persists across at least 2 proposals" means at least 2 legislative proposals (fixtures), checked against the prompt stage's chosen candidate. `run_cycle` replays the base on val before comparing it with a topology candidate, and the base wins ties. Proposals that fail validation are kept in the stage result and CLI output only, since they have no version to archive.
+> - **The port is not needed:** none of the go/no-go criteria failed.
+
 ## Overview
 
 This plan delivers the v1 self-evolution cycle (origin F3) and the demo it must support (R30):
