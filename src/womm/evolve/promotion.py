@@ -18,7 +18,9 @@ in ``tests/evolve/test_planner_boundary.py``); nothing Planner-side imports this
   mode); both versions on the same backends (per shared role; a role only one version has,
   such as a new expert, on a backend and model the other already uses); for formal modes a
   coverage-judge calibration of at least 85% for the gate's judge and an R34 formal noise run
-  on record (dev mode skips both); holdout budget left (per cycle and in total).
+  on record (dev mode skips both); holdout budget left (per cycle and in total). The budget
+  is then reserved atomically in the holdout database (``holdout.budget_reservations``) before
+  the comparison runs, and the cycle is the candidate's archived one (``gate_cycle_id``).
 - **Decision.** Statistical: the primary metric's CI95 lower bound above 0. Weak and dev: its
   mean delta above 0. Every guard metric's mean delta at least minus its tolerance. An aborted
   comparison is rejected as ``inconclusive``, consumes no budget, and a repeated abort on the
@@ -31,6 +33,7 @@ in ``tests/evolve/test_planner_boundary.py``); nothing Planner-side imports this
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import subprocess
 import uuid
@@ -69,6 +72,36 @@ MODE_LABELS: dict[str, str] = {
 
 class GateRefused(RuntimeError):
     """A precondition failed; nothing was run on the holdout."""
+
+
+class SummaryNotRecorded(RuntimeError):
+    """The decision is recorded in the holdout audit, but its main-database summary is not."""
+
+    def __init__(self, decision: GateDecision, cause: BaseException) -> None:
+        super().__init__(f"the decision {decision.gate_id} is recorded in the holdout audit, but "
+                         f"its promotion_decisions summary was not written: {cause}")  # fmt: skip
+        self.decision = decision
+
+
+async def gate_cycle_id(archive: Any, candidate_id: str, requested: str | None) -> str:
+    """The cycle whose per-cycle holdout budget a gate spends: the candidate's archived cycle,
+    its dev source's (for an api twin) or its api twin's. ``requested`` (``--cycle-id``) must be
+    one of those, so a fresh cycle id cannot bypass the per-cycle budget."""
+    row = await archive.get(candidate_id)
+    related = [row]
+    if row and row.get("twin_of"):
+        related.append(await archive.get(row["twin_of"]))
+    related += await archive.twins(candidate_id)
+    cycles = list(dict.fromkeys(r["cycle_id"] for r in related if r and r.get("cycle_id")))
+    if not cycles:
+        raise GateRefused(f"{candidate_id} has no cycle id in the archive: only candidates a "
+                          "cycle archived (or their api twins) go to the gate")  # fmt: skip
+    if requested is None:
+        return cycles[0]
+    if requested not in cycles:
+        raise GateRefused(f"--cycle-id {requested} is not the candidate's archived cycle "
+                          f"({', '.join(cycles)}): one holdout budget per cycle")  # fmt: skip
+    return requested
 
 
 # ----------------------------------------------------------------------------- policy
@@ -459,26 +492,48 @@ async def run_gate(
     policy_committed: bool,
     r37: dict[str, Any] | None = None,
     summary_db: Database | None = None,
+    resume: bool = False,
 ) -> GateDecision:
-    """Preconditions, one resumable holdout comparison, the decision and its records."""
+    """Preconditions, a budget reservation, one resumable holdout comparison, the decision and
+    its records.
+
+    The reservation is taken atomically before the comparison (concurrent gates cannot
+    overspend) and released when the comparison fails; recording the decision consumes it (or
+    releases it for an aborted, inconclusive comparison). When the main-database summary fails
+    after the decision is recorded, SummaryNotRecorded carries the decision."""
     if policy.publish_summary and summary_db is None:
         raise GateRefused("publish_summary is on but no main database was given")
     choice = await preflight(policy, records, candidate, incumbent, store=store,
                              cycle_id=cycle_id, policy_committed=policy_committed)  # fmt: skip
     prior = await store.prior_aborts(candidate.version_id, incumbent.version_id)
-    gate_id = f"gate_{uuid.uuid4().hex[:16]}"
-    cmp = await holdout.compare(
-        candidate, incumbent, policy.repetitions, store=store, backends=backends,
-        decisions=decisions, code=code, n_boot=policy.bootstrap.n_boot,
-        seed=policy.bootstrap.seed, failure_policy=policy.failure_policy, checkpoint=True,
-        gate_id=gate_id, cycle_id=cycle_id,
-    )  # fmt: skip
-    decision = decide(cmp, policy, choice, gate_id=gate_id, cycle_id=cycle_id,
-                      policy_sha256=policy_sha256, git_sha=code.git_sha, prior_aborts=prior,
-                      r37=r37)  # fmt: skip
-    await store.record_decision(gate_id, decision.model_dump(mode="json"))
+    try:
+        gate_id = await store.reserve_budget(
+            f"gate_{uuid.uuid4().hex[:16]}", cycle_id, candidate.version_id,
+            incumbent.version_id, per_cycle=policy.holdout_budget.per_cycle,
+            total=policy.holdout_budget.total, resume=resume,
+        )  # fmt: skip
+    except holdout.BudgetRefused as exc:
+        raise GateRefused(str(exc)) from None
+    try:
+        cmp = await holdout.compare(
+            candidate, incumbent, policy.repetitions, store=store, backends=backends,
+            decisions=decisions, code=code, n_boot=policy.bootstrap.n_boot,
+            seed=policy.bootstrap.seed, failure_policy=policy.failure_policy, checkpoint=True,
+            gate_id=gate_id, cycle_id=cycle_id,
+        )  # fmt: skip
+        decision = decide(cmp, policy, choice, gate_id=gate_id, cycle_id=cycle_id,
+                          policy_sha256=policy_sha256, git_sha=code.git_sha, prior_aborts=prior,
+                          r37=r37)  # fmt: skip
+        await store.record_decision(gate_id, decision.model_dump(mode="json"))
+    except BaseException:
+        with contextlib.suppress(Exception):  # never mask the original failure
+            await store.release_budget(gate_id)
+        raise
     if policy.publish_summary:
-        await record_summary(summary_db, decision)
+        try:
+            await record_summary(summary_db, decision)
+        except Exception as exc:
+            raise SummaryNotRecorded(decision, exc) from exc
     return decision
 
 

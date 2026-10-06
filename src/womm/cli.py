@@ -549,13 +549,10 @@ async def cmd_evolve_promote(args: argparse.Namespace) -> int:
             incumbent = await archive.load_candidate(args.incumbent)
         except KeyError as exc:
             raise UsageError(f"{exc.args[0]} (only archived versions go to the gate)") from None
-        row = await archive.get(candidate.version_id)
-        cycle_id = args.cycle_id or row["cycle_id"]
-        if not cycle_id and row["twin_of"]:
-            cycle_id = (await archive.get(row["twin_of"]))["cycle_id"]
-        if not cycle_id:
-            raise UsageError(f"{candidate.version_id} has no cycle id in the archive; pass "
-                             "--cycle-id (one holdout comparison per cycle)")  # fmt: skip
+        try:  # the candidate's archived cycle: a fresh --cycle-id cannot reset the budget
+            cycle_id = await pm.gate_cycle_id(archive, candidate.version_id, args.cycle_id)
+        except pm.GateRefused as exc:
+            raise UsageError(f"promotion gate refused: {exc}") from None
         # Monitoring only: an unusable reference file is recorded as an error, never a block.
         r37 = await r37_record(archive, candidate.version_id, incumbent.version_id)
         await store.migrate()
@@ -578,10 +575,15 @@ async def cmd_evolve_promote(args: argparse.Namespace) -> int:
                 policy_sha256=policy_sha, records=records, store=store, backends=backends,
                 decisions=lambda sv: make_decision_service(sv, settings),
                 code=code_identity(cli_version or other_cli), cycle_id=cycle_id,
-                policy_committed=committed, r37=r37, summary_db=db,
+                policy_committed=committed, r37=r37, summary_db=db, resume=args.resume,
             )  # fmt: skip
         except pm.GateRefused as exc:
             raise UsageError(f"promotion gate refused: {exc}") from None
+        except pm.SummaryNotRecorded as exc:
+            emit(args, exc.decision.model_dump(mode="json"), pm.format_decision(exc.decision))
+            info(f"error: {exc}; insert the summary by hand from `womm evolve show "
+                 f"{candidate.version_id}`")  # fmt: skip
+            return EXIT_FAILED
     emit(args, decision.model_dump(mode="json"), pm.format_decision(decision))
     return EXIT_OK
 
@@ -762,7 +764,14 @@ def build_parser() -> argparse.ArgumentParser:
     )  # fmt: skip
     p_promote.add_argument("candidate", help="archived version id (an api twin for formal modes)")
     p_promote.add_argument("--incumbent", required=True, help="archived version id")
-    p_promote.add_argument("--cycle-id", help="default: the candidate's archived cycle id")
+    p_promote.add_argument(
+        "--cycle-id",
+        help="the candidate's archived cycle id (default), or its api twin's; any other is refused",
+    )
+    p_promote.add_argument(
+        "--resume", action="store_true",
+        help="take over the budget reservation of a stopped run of the same pair in this cycle",
+    )  # fmt: skip
     p_promote.add_argument(
         "--policy", default=str(REPO_ROOT / "evals" / "promotion_policy.yaml"),
         help="pre-registered promotion policy (default: %(default)s)",

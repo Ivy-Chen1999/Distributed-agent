@@ -144,10 +144,19 @@ def test_formal_mode_comes_from_the_mdd_report_before_any_result():
 class GateStore(ProgressStore):
     """ProgressStore plus the gate's bookkeeping, in memory."""
 
-    def __init__(self, sealed, progress=None, used=(0, 0), aborts=0):
-        super().__init__(sealed, progress)
+    def __init__(self, sealed, progress=None, used=(0, 0), aborts=0, crash_after=None):
+        super().__init__(sealed, progress, crash_after=crash_after)
         self.used, self.aborts, self.decisions = used, aborts, {}
         self.compared = 0
+        self.reserved, self.released = [], []
+
+    async def reserve_budget(self, gate_id, cycle_id, candidate_version, baseline_version, *,
+                             per_cycle, total, resume=False):  # fmt: skip
+        self.reserved.append(gate_id)
+        return gate_id
+
+    async def release_budget(self, gate_id):
+        self.released.append(gate_id)
 
     async def _sealed(self):
         self.compared += 1
@@ -429,3 +438,111 @@ def test_an_r37_error_is_shown_and_never_changes_the_decision():
     assert "R37 diff check: error (R37 reference answers unusable: bad; not gating)" in (
         pm.format_decision(d)
     )
+
+
+# ----------------------------------------------------------------------------- budget and records
+
+
+def _signed_gate(cand, base, store, **kw):
+    return pm.run_gate(
+        candidate=cand, incumbent=base, policy=kw.pop("p", policy(repetitions=2, **SIGNED)),
+        policy_sha256="sha", records=pm.PromotionRecords(), store=store,
+        backends=_gate_backends(cand, 4), decisions=StubDecisionService(), code=CLEAN,
+        cycle_id="c1", policy_committed=True, **kw,
+    )  # fmt: skip
+
+
+async def test_the_budget_is_reserved_before_the_comparison_and_released_on_a_crash(roots):
+    from ..eval.test_holdout_resume import Crash
+
+    cand, base = versions("fake")
+    store = GateStore(_sealed(roots), crash_after=1)
+    with pytest.raises(Crash):
+        await _signed_gate(cand, base, store)
+    assert len(store.reserved) == 1 and store.released == store.reserved
+    assert store.decisions == {}
+
+
+async def test_a_summary_that_fails_after_the_decision_still_returns_the_decision(roots):
+    class BrokenDb:
+        @property
+        def pool(self):
+            raise RuntimeError("main database down")
+
+    cand, base = versions("fake")
+    store = GateStore(_sealed(roots))
+    p = policy(repetitions=2, publish_summary=True, **SIGNED)
+    with pytest.raises(pm.SummaryNotRecorded, match="main database down") as info:
+        await _signed_gate(cand, base, store, p=p, summary_db=BrokenDb())
+    decision = info.value.decision
+    assert store.decisions == {decision.gate_id: decision.model_dump(mode="json")}
+    assert store.released == [], "the decision was recorded: the budget is consumed"
+
+
+class MemoryArchive:
+    def __init__(self, *rows):
+        self.rows = {r["version_id"]: r for r in rows}
+
+    async def get(self, version_id):
+        return self.rows.get(version_id)
+
+    async def twins(self, version_id):
+        return [r for r in self.rows.values() if r["twin_of"] == version_id]
+
+
+def _row(vid, cycle=None, twin_of=None):
+    return {"version_id": vid, "cycle_id": cycle, "twin_of": twin_of}
+
+
+async def test_the_cycle_id_is_the_candidates_archived_cycle():
+    archive = MemoryArchive(
+        _row("sv_dev", "cycle_a"), _row("sv_api", None, "sv_dev"),
+        _row("sv_twin_cycled", "cycle_b", "sv_dev"), _row("sv_manual"),
+    )  # fmt: skip
+    assert await pm.gate_cycle_id(archive, "sv_dev", None) == "cycle_a"
+    assert await pm.gate_cycle_id(archive, "sv_api", None) == "cycle_a"
+    assert await pm.gate_cycle_id(archive, "sv_api", "cycle_a") == "cycle_a"
+    assert await pm.gate_cycle_id(archive, "sv_dev", "cycle_b") == "cycle_b", "its api twin's"
+    with pytest.raises(pm.GateRefused, match="not the candidate's archived cycle"):
+        await pm.gate_cycle_id(archive, "sv_dev", "cycle_fresh")
+    with pytest.raises(pm.GateRefused, match="no cycle id in the archive"):
+        await pm.gate_cycle_id(archive, "sv_manual", "cycle_fresh")
+
+
+async def test_budget_reservations_on_postgres(holdout_url):
+    """Reservations are atomic under an advisory lock: two concurrent gates in one cycle get one
+    slot; an in-flight reservation counts; release frees it; --resume takes over a stopped
+    run's reservation for the same pair."""
+    import asyncio
+
+    store = holdout.HoldoutStore(holdout_url)
+    assert "003_budget_reservations" in await store.migrate()
+    caps = {"per_cycle": 1, "total": 6}
+    results = await asyncio.gather(
+        *(store.reserve_budget(f"g{i}", "c1", "sv_cand", "sv_inc", **caps) for i in range(4)),
+        return_exceptions=True,
+    )
+    won = [r for r in results if isinstance(r, str)]
+    assert len(won) == 1 and all(isinstance(r, holdout.BudgetRefused) for r in results
+                                 if not isinstance(r, str))  # fmt: skip
+    assert await store.budget_used("c1") == (1, 1)
+    with pytest.raises(holdout.BudgetRefused, match="in progress"):
+        await store.reserve_budget("g9", "c1", "sv_cand", "sv_inc", **caps)
+    assert await store.reserve_budget("g9", "c1", "sv_cand", "sv_inc", **caps, resume=True) == "g9"
+    assert await store.budget_used("c1") == (1, 1), "the stopped run's slot was taken over"
+    await store.release_budget("g9")
+    assert await store.budget_used("c1") == (0, 0)
+    with pytest.raises(holdout.BudgetRefused, match="exhausted"):
+        await store.reserve_budget("g10", "c2", "a", "b", per_cycle=1, total=0)
+
+
+async def test_a_recorded_decision_converts_its_reservation(roots, holdout_url):
+    store = await _sealed_store(roots, holdout_url)
+    cand, base = versions("fake")
+    d = await _signed_gate(cand, base, store)
+    assert _rows(holdout_url, "SELECT gate_id, status FROM holdout.budget_reservations") == [
+        (d.gate_id, "consumed")
+    ]
+    assert await store.budget_used("c1") == (1, 1)
+    with pytest.raises(pm.GateRefused, match="already used its 1"):
+        await _signed_gate(cand, base, store)

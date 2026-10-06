@@ -79,10 +79,15 @@ METRICS = ("coverage", "omissions_addressed", "grounding")
 MIN_PROPOSALS = 5
 FAILURE_POLICIES = ("abort", "score_zero")
 _LOCK_ID = 727002  # distinct from the API migrations' advisory lock
+_BUDGET_LOCK_ID = 727003  # serialises promotion-gate budget reservations
 
 
 class HoldoutError(RuntimeError):
     pass
+
+
+class BudgetRefused(HoldoutError):
+    """No holdout budget is left for this gate (nothing was reserved)."""
 
 
 # ----------------------------------------------------------------------------- configuration
@@ -467,27 +472,109 @@ class HoldoutStore:
     # ------------------------------------------------------------ promotion gate (U7)
 
     async def record_decision(self, gate_id: str, decision: dict[str, Any]) -> None:
-        """The gate's decision, next to the comparison it was made from (aggregates only)."""
-        async with await self._connect() as conn:
+        """The gate's decision, next to the comparison it was made from (aggregates only). In
+        the same transaction its budget reservation becomes 'consumed' (or 'released' when the
+        decision consumes no budget)."""
+        status = "consumed" if decision.get("consumes_budget") else "released"
+        async with await self._connect() as conn, conn.transaction():
             cur = await conn.execute(
                 "UPDATE holdout.compare_audit SET decision = %s WHERE gate_id = %s",
                 (Jsonb(decision), gate_id),
             )
             if cur.rowcount != 1:
                 raise HoldoutError(f"no comparison recorded for gate {gate_id}")
+            await conn.execute(
+                "UPDATE holdout.budget_reservations SET status = %s, updated_at = now()"
+                " WHERE gate_id = %s",
+                (status, gate_id),
+            )
+
+    async def _budget_used(self, conn: psycopg.AsyncConnection, cycle_id: str) -> tuple[int, int]:
+        row = await (
+            await conn.execute(
+                "SELECT count(*) AS total, count(*) FILTER (WHERE cycle_id = %s) AS cycle FROM ("
+                "  SELECT a.cycle_id FROM holdout.compare_audit a WHERE a.decision IS NOT NULL"
+                "  AND (a.decision ->> 'consumes_budget')::boolean AND NOT EXISTS ("
+                "    SELECT 1 FROM holdout.budget_reservations r WHERE r.gate_id = a.gate_id)"
+                "  UNION ALL"
+                "  SELECT cycle_id FROM holdout.budget_reservations"
+                "  WHERE status IN ('reserved', 'consumed')"
+                ") used",
+                (cycle_id,),
+            )
+        ).fetchone()
+        return row["total"], row["cycle"]
 
     async def budget_used(self, cycle_id: str) -> tuple[int, int]:
-        """Holdout comparisons that consumed budget: (in total, in ``cycle_id``)."""
+        """Holdout comparisons that consumed budget or hold a reservation (in flight): (in
+        total, in ``cycle_id``)."""
         async with await self._connect() as conn:
-            row = await (
+            return await self._budget_used(conn, cycle_id)
+
+    async def reserve_budget(
+        self,
+        gate_id: str,
+        cycle_id: str,
+        candidate_version: str,
+        baseline_version: str,
+        *,
+        per_cycle: int,
+        total: int,
+        resume: bool = False,
+    ) -> str:
+        """Reserve one holdout comparison before running it; returns the gate id to run under.
+
+        Check and insert happen in one transaction under an advisory lock, so concurrent gates
+        cannot overspend. A reservation still open for the same pair in the cycle (a run in
+        flight, or one whose process stopped) refuses, unless ``resume`` takes it over under
+        ``gate_id``. Raises BudgetRefused when no budget is left."""
+        async with await self._connect() as conn, conn.transaction():
+            await conn.execute("SELECT pg_advisory_xact_lock(%s)", (_BUDGET_LOCK_ID,))
+            open_row = await (
                 await conn.execute(
-                    "SELECT count(*) AS total, count(*) FILTER (WHERE cycle_id = %s) AS cycle"
-                    " FROM holdout.compare_audit WHERE decision IS NOT NULL"
-                    " AND (decision ->> 'consumes_budget')::boolean",
-                    (cycle_id,),
+                    "SELECT gate_id FROM holdout.budget_reservations WHERE cycle_id = %s AND"
+                    " candidate_version = %s AND baseline_version = %s AND status = 'reserved'"
+                    " ORDER BY created_at LIMIT 1",
+                    (cycle_id, candidate_version, baseline_version),
                 )
             ).fetchone()
-        return row["total"], row["cycle"]
+            if open_row is not None:
+                if not resume:
+                    raise BudgetRefused(
+                        f"a holdout comparison of this pair is in progress in cycle {cycle_id} "
+                        f"(gate {open_row['gate_id']}); if that run stopped, pass --resume to "
+                        "take over its reservation"
+                    )
+                await conn.execute(
+                    "UPDATE holdout.budget_reservations SET gate_id = %s, updated_at = now()"
+                    " WHERE gate_id = %s",
+                    (gate_id, open_row["gate_id"]),
+                )
+                return gate_id
+            used_total, used_cycle = await self._budget_used(conn, cycle_id)
+            if used_total >= total:
+                raise BudgetRefused(
+                    f"the holdout budget is exhausted ({used_total} of {total} comparisons used)"
+                )
+            if used_cycle >= per_cycle:
+                raise BudgetRefused(
+                    f"cycle {cycle_id} already used its {per_cycle} holdout comparison(s)"
+                )
+            await conn.execute(
+                "INSERT INTO holdout.budget_reservations (gate_id, cycle_id, candidate_version,"
+                " baseline_version) VALUES (%s, %s, %s, %s)",
+                (gate_id, cycle_id, candidate_version, baseline_version),
+            )
+        return gate_id
+
+    async def release_budget(self, gate_id: str) -> None:
+        """Give back a reservation whose comparison failed before a decision was recorded."""
+        async with await self._connect() as conn:
+            await conn.execute(
+                "UPDATE holdout.budget_reservations SET status = 'released', updated_at = now()"
+                " WHERE gate_id = %s AND status = 'reserved'",
+                (gate_id,),
+            )
 
     async def prior_aborts(self, candidate_version: str, baseline_version: str) -> int:
         """Earlier gate comparisons of the same pair that were aborted."""

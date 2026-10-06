@@ -125,6 +125,15 @@ class Archive:
             )
             return await cur.fetchall()
 
+    async def twins(self, version_id: str) -> list[dict]:
+        """The api twins archived for ``version_id`` (``twin_of``), oldest first."""
+        async with self.db.pool.connection() as conn:
+            cur = await conn.execute(
+                f"SELECT {_ROW} FROM sv_archive WHERE twin_of = %s ORDER BY created_at",
+                (version_id,),
+            )
+            return await cur.fetchall()
+
     async def children(self, version_id: str) -> list[dict]:
         async with self.db.pool.connection() as conn:
             cur = await conn.execute(

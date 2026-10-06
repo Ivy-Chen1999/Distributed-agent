@@ -48,6 +48,8 @@ def test_promote_cli_refuses_an_unsigned_formal_gate_before_any_backend(
     assert _rows(holdout_url, "SELECT count(*) FROM holdout.compare_audit") == [(0,)]
     assert cli.main([*argv[:2], "sv_unknown", *argv[3:]]) == cli.EXIT_USAGE
     assert "only archived versions" in capsys.readouterr().err
+    assert cli.main([*argv, "--cycle-id", "cycle_fresh"]) == cli.EXIT_USAGE
+    assert "not the candidate's archived cycle (cycle_cli)" in capsys.readouterr().err
 
 
 def test_show_cli_reads_the_sealed_audit(holdout_url, monkeypatch, capsys):
