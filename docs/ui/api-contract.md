@@ -137,7 +137,8 @@ decision on a twin is shown on its dev node. `badges`: the origin, then the late
 decision (`promoted`/`rejected`) and `dev-only` for a dev-mode decision. `publish_summary` is
 null when the policy file is not deployed (the API image has no `evals/`).
 `r37_regression` compares the version's R37 diff-check score with the incumbent of its latest
-decision, else its parent; null when either was not checked.
+decision, else its parent, under a judge both were scored by (the most recently recorded one);
+null when either was not checked or they share no judge.
 
 ### `GET /evolution/candidates/{version_id}`
 ```json
@@ -162,7 +163,8 @@ decision, else its parent; null when either was not checked.
                                                      "ci95_high": null, "n_cases": 8,
                                                      "noise_sd": 0.05}},
                              "n_proposals": 3, "flags": ["insufficient_proposals"]}]},
-  "r37": {"status": "available"|"not_run", "score": {"mean": 0.6, "sd": 0.02, "n": 3} | null,
+  "r37": {"status": "available"|"not_run", "judge_version": "jv_…" | null,
+          "score": {"mean": 0.6, "sd": 0.02, "n": 3} | null,
           "reference_version": "sv_…" | null, "reference_score": {…} | null,
           "regression": true|false|null, "message": "…"}
 }

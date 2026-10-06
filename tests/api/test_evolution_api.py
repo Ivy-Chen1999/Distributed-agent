@@ -151,3 +151,35 @@ def test_holdout_fields_carry_no_case_ids(database_url, tmp_path):
         dumped = json.dumps([c.get(f"/evolution/candidates/{v}", headers=AUTH).json()["holdout"]
                              for v in ids.values()])  # fmt: skip
     assert "case_" not in dumped and "eval_" not in dumped
+
+
+async def _add_diff_score(database_url, version_id, mean, judge):
+    from womm.evolve.archive import Archive
+
+    db = Database(database_url)
+    await db.open()
+    try:
+        row = {"level": "case", "subject": "diff_demo_penalties_amended", "metric": "coverage",
+               "n": 3, "mean": mean, "sd": 0.01}  # fmt: skip
+        await Archive(db).record_metrics(
+            version_id, "diff_check", [row], batch_id=f"rb_{judge}", judge_version=judge,
+            git_sha="g", full_split=True,
+        )  # fmt: skip
+    finally:
+        await db.close()
+
+
+def test_r37_on_the_page_compares_under_a_shared_judge_only(database_url, tmp_path):
+    """A newer score under a judge the reference never had does not hide the regression the
+    shared judge shows; with no shared judge there is no flag."""
+    client, ids = _client(database_url, tmp_path)
+    asyncio.run(_add_diff_score(database_url, ids["rejected"], 0.95, "jv_zz_new"))
+    with client as c:
+        r37 = c.get(f"/evolution/candidates/{ids['rejected']}", headers=AUTH).json()["r37"]
+        assert r37["judge_version"] == "jv_e2e" and r37["regression"] is True
+        assert r37["score"]["mean"] == pytest.approx(0.31)
+    asyncio.run(_add_diff_score(database_url, ids["prompt"], 0.1, "jv_zz_new"))
+    with client as c:
+        r37 = c.get(f"/evolution/candidates/{ids['prompt']}", headers=AUTH).json()["r37"]
+    assert r37["status"] == "available" and r37["regression"] is None
+    assert r37["judge_version"] is None and "judge both versions share" in r37["message"]

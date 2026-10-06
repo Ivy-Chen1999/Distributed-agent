@@ -17,7 +17,13 @@ from typing import Any, Literal
 import yaml
 from pydantic import BaseModel
 
-from womm.evolve.diff_regression import DIFF_CHECK_SPLIT, SCORE_METRIC, is_regression
+from womm.evolve.diff_regression import (
+    DIFF_CHECK_SPLIT,
+    SCORE_METRIC,
+    is_regression,
+    newest,
+    shared_judge,
+)
 
 PANEL_SPLITS = ("train", "val")
 NOT_SUBMITTED = "Not submitted to holdout."
@@ -94,6 +100,7 @@ class Score(BaseModel):
 
 class R37Out(BaseModel):
     status: Literal["available", "not_run"]
+    judge_version: str | None = None
     score: Score | None
     reference_version: str | None
     reference_score: Score | None
@@ -192,14 +199,18 @@ class EvolutionView:
         found = [d for v in (vid, *self.twins.get(vid, [])) for d in self.decisions.get(v, [])]
         return sorted(found, key=lambda d: (d.created_at, d.gate_id))
 
-    def diff_score(self, vid: str) -> Score | None:
+    def diff_scores(self, vid: str) -> dict[str, dict]:
+        """Judge version -> the latest diff-check score under it (the node's own, else its api
+        twin's), with when it was recorded."""
         for v in (vid, *self.twins.get(vid, [])):
-            rows = [m for m in self.metrics.get(v, []) if m["split"] == DIFF_CHECK_SPLIT
-                    and m["level"] == "case" and m["metric"] == SCORE_METRIC]  # fmt: skip
-            if rows:
-                r = rows[-1]
-                return Score(mean=r["mean"], sd=r["sd"], n=r["n"])
-        return None
+            scores = {m["judge_version"]: {"mean": m["mean"], "sd": m["sd"], "n": m["n"],
+                                           "recorded_at": _iso(m.get("updated_at"))}
+                      for m in self.metrics.get(v, []) if m["split"] == DIFF_CHECK_SPLIT
+                      and m["level"] == "case" and m["metric"] == SCORE_METRIC
+                      and m["mean"] is not None}  # fmt: skip
+            if scores:
+                return scores
+        return {}
 
     def reference(self, vid: str) -> str | None:
         """What a version's R37 score is compared with: the incumbent of its latest decision,
@@ -212,29 +223,34 @@ class EvolutionView:
         return self.logical(parent) if parent in self.rows else None
 
     def r37(self, vid: str) -> R37Out:
-        score = self.diff_score(vid)
+        """The R37 score next to the reference's, compared only under a judge both were scored
+        by (the most recently recorded one); never two different judges."""
+        scores = self.diff_scores(vid)
         ref = self.reference(vid)
-        ref_score = self.diff_score(ref) if ref in self.rows else None
-        if score is None or score.mean is None:
+        ref_scores = self.diff_scores(ref) if ref in self.rows else {}
+        if not scores:
             return R37Out(
-                status="not_run", score=None, reference_version=ref, reference_score=ref_score,
-                regression=None, message="R37 diff check not run for this version (womm evolve "
-                "diffcheck; the reference answers may still be a template)",
+                status="not_run", score=None, reference_version=ref,
+                reference_score=_score(newest(ref_scores)), regression=None,
+                message="R37 diff check not run for this version (womm evolve diffcheck; the "
+                "reference answers may still be a template)",
             )  # fmt: skip
-        regression = None
-        if ref_score is not None and ref_score.mean is not None:
-            regression = is_regression(score.model_dump(), ref_score.model_dump())
-        message = ("monitoring only: never gates a promotion" if regression is not True
+        jv = shared_judge(scores, ref_scores)
+        if jv is None:
+            message = "monitoring only: never gates a promotion"
+            if ref_scores:
+                message = ("not compared: no diff-check score under a judge both versions share "
+                           "(monitoring only)")  # fmt: skip
+            return R37Out(status="available", score=_score(newest(scores)), reference_version=ref,
+                          reference_score=_score(newest(ref_scores)), regression=None,
+                          message=message)  # fmt: skip
+        regression = is_regression(scores[jv], ref_scores[jv])
+        message = ("monitoring only: never gates a promotion" if not regression
                    else "regression on the R37 diff check (monitoring only: the decision is "
                         "unchanged)")  # fmt: skip
-        return R37Out(
-            status="available",
-            score=score,
-            reference_version=ref,
-            reference_score=ref_score,
-            regression=regression,
-            message=message,
-        )
+        return R37Out(status="available", judge_version=jv, score=_score(scores[jv]),
+                      reference_version=ref, reference_score=_score(ref_scores[jv]),
+                      regression=regression, message=message)  # fmt: skip
 
     # ------------------------------------------------------------ lineage
 
@@ -325,6 +341,10 @@ class EvolutionView:
         return CandidateDiff(version_id=vid, parent_id=row["parent_id"],
                              summary=rendered.get("summary"),
                              prompts=rendered.get("prompts") or {})  # fmt: skip
+
+
+def _score(s: dict | None) -> Score | None:
+    return None if s is None else Score(mean=s["mean"], sd=s["sd"], n=s["n"])
 
 
 def _added_expert(row: dict) -> dict | None:

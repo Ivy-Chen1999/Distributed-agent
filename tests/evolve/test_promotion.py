@@ -420,3 +420,12 @@ async def test_gate_records_on_postgres(roots, db, database_url, holdout_url, pu
     async with PlannerView(database_url, runs_dir=tmp_path, env={}) as view:
         assert await view.candidate(cand.version_id) is None
         assert await view.metrics(cand.version_id) == []
+
+
+def test_an_r37_error_is_shown_and_never_changes_the_decision():
+    r37 = {"status": "error", "reason": "R37 reference answers unusable: bad", "regression": None}
+    d = decide(cmp(), r37=r37)
+    assert d.decision == "promoted" and d.r37 == r37
+    assert "R37 diff check: error (R37 reference answers unusable: bad; not gating)" in (
+        pm.format_decision(d)
+    )

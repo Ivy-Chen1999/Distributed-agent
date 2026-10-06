@@ -107,16 +107,50 @@ def check_reference(case: DiffCheckCase) -> None:
 # ----------------------------------------------------------------------------- scores
 
 
+# The latest full diff-check batch per judge, with when it was recorded.
+SCORES_BY_JUDGE = (
+    "SELECT DISTINCT ON (judge_version) judge_version, n, mean, sd, updated_at FROM sv_metrics"
+    " WHERE version_id = %s AND split = %s AND full_split AND level = 'case' AND metric = %s"
+    " ORDER BY judge_version, updated_at DESC, batch_id DESC"
+)
+
+
+def _iso(value: Any) -> str:
+    return value.isoformat() if hasattr(value, "isoformat") else str(value)
+
+
+async def diff_check_scores(archive: Archive, version_id: str) -> dict[str, dict]:
+    """Judge version -> the version's latest diff-check score under that judge: mean coverage
+    over its runs, the run-to-run SD (``n`` runs) and when it was recorded."""
+    async with archive.db.pool.connection() as conn:
+        cur = await conn.execute(SCORES_BY_JUDGE, (version_id, DIFF_CHECK_SPLIT, SCORE_METRIC))
+        rows = await cur.fetchall()
+    return {r["judge_version"]: {"mean": r["mean"], "sd": r["sd"], "n": r["n"],
+                                 "judge_version": r["judge_version"],
+                                 "recorded_at": _iso(r["updated_at"])}
+            for r in rows}  # fmt: skip
+
+
+def newest(scores: dict[str, dict]) -> dict | None:
+    """The most recently recorded score (by time, never by judge name)."""
+    return max(scores.values(), key=lambda s: s["recorded_at"], default=None)
+
+
+def shared_judge(candidate: dict[str, dict], incumbent: dict[str, dict]) -> str | None:
+    """The judge both versions were scored by, most recently recorded on either side; None
+    when they share none (then the two scores are not comparable)."""
+    shared = candidate.keys() & incumbent.keys()
+    return max(
+        shared,
+        key=lambda jv: (max(candidate[jv]["recorded_at"], incumbent[jv]["recorded_at"]), jv),
+        default=None,
+    )
+
+
 async def diff_check_score(archive: Archive, version_id: str) -> dict | None:
-    """The version's latest diff-check score: mean coverage over its runs, with the run-to-run
-    SD (``n`` runs), or None when it was never checked."""
-    rows = [r for r in await archive.metrics(version_id)
-            if r["split"] == DIFF_CHECK_SPLIT and r["level"] == "case"
-            and r["metric"] == SCORE_METRIC]  # fmt: skip
-    if not rows:
-        return None
-    r = rows[-1]
-    return {"mean": r["mean"], "sd": r["sd"], "n": r["n"], "judge_version": r["judge_version"]}
+    """The version's most recently recorded diff-check score (any judge), or None when it was
+    never checked."""
+    return newest(await diff_check_scores(archive, version_id))
 
 
 def is_regression(candidate: dict, incumbent: dict) -> bool:
@@ -126,20 +160,43 @@ def is_regression(candidate: dict, incumbent: dict) -> bool:
     return candidate["mean"] < incumbent["mean"] - pooled - 1e-12
 
 
+def _report(status: str, reason: str | None, cand=None, inc=None, regression=None, jv=None):
+    return {"status": status, "reason": reason, "judge_version": jv, "candidate": cand,
+            "incumbent": inc, "regression": regression}  # fmt: skip
+
+
 async def r37_report(
     archive: Archive, candidate_id: str, incumbent_id: str, reference: Reference
 ) -> dict[str, Any]:
-    """What a promotion record carries: both scores and the regression flag (never gating)."""
+    """What a promotion record carries: both scores under one judge they share and the
+    regression flag (never gating)."""
     if not reference.available:
-        return {"status": "not_available", "reason": reference.reason, "candidate": None,
-                "incumbent": None, "regression": None}  # fmt: skip
-    cand = await diff_check_score(archive, candidate_id)
-    inc = await diff_check_score(archive, incumbent_id)
-    if cand is None or inc is None or cand["mean"] is None or inc["mean"] is None:
-        missing = [v for v, s in ((candidate_id, cand), (incumbent_id, inc))
-                   if s is None or s["mean"] is None]  # fmt: skip
-        return {"status": "not_run", "reason": f"no diff-check score for {', '.join(missing)} "
-                "(womm evolve diffcheck)", "candidate": cand, "incumbent": inc,
-                "regression": None}  # fmt: skip
-    return {"status": "available", "reason": None, "candidate": cand, "incumbent": inc,
-            "regression": is_regression(cand, inc)}  # fmt: skip
+        return _report("not_available", reference.reason)
+    cand = await diff_check_scores(archive, candidate_id)
+    inc = await diff_check_scores(archive, incumbent_id)
+    cand = {jv: s for jv, s in cand.items() if s["mean"] is not None}
+    inc = {jv: s for jv, s in inc.items() if s["mean"] is not None}
+    if not cand or not inc:
+        missing = [v for v, s in ((candidate_id, cand), (incumbent_id, inc)) if not s]
+        return _report("not_run", f"no diff-check score for {', '.join(missing)} (womm evolve "
+                       "diffcheck)", newest(cand), newest(inc))  # fmt: skip
+    jv = shared_judge(cand, inc)
+    if jv is None:
+        return _report("not_run", "no diff-check score under a judge both versions share "
+                       f"(candidate: {', '.join(sorted(cand))}; incumbent: "
+                       f"{', '.join(sorted(inc))}); run womm evolve diffcheck on the older "
+                       "one", newest(cand), newest(inc))  # fmt: skip
+    return _report("available", None, cand[jv], inc[jv], is_regression(cand[jv], inc[jv]), jv)
+
+
+async def r37_record(
+    archive: Archive, candidate_id: str, incumbent_id: str, path: Path = REFERENCE_PATH
+) -> dict[str, Any]:
+    """``r37_report`` for the promotion gate: an unreadable or invalid reference file is
+    recorded as ``status: error`` with the reason and never blocks the gate (monitoring
+    only)."""
+    try:
+        reference = load_reference(path)
+    except (ValueError, OSError, yaml.YAMLError) as exc:
+        return _report("error", f"R37 reference answers unusable: {exc}")
+    return await r37_report(archive, candidate_id, incumbent_id, reference)

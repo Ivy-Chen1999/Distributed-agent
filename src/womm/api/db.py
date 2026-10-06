@@ -345,7 +345,7 @@ class Database:
         async with self.pool.connection() as conn:
             return await (await conn.execute(
                 "SELECT version_id, split, judge_version, batch_id, level, subject, metric, n,"
-                " mean, sd FROM sv_metrics WHERE (version_id, batch_id) IN ("
+                " mean, sd, updated_at FROM sv_metrics WHERE (version_id, batch_id) IN ("
                 "  SELECT DISTINCT ON (version_id, split, judge_version) version_id, batch_id"
                 "  FROM sv_metrics WHERE full_split"
                 "  ORDER BY version_id, split, judge_version, updated_at DESC, batch_id DESC"

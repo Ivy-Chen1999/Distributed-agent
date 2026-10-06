@@ -315,6 +315,8 @@ export interface DiffScore {
 
 export interface R37Check {
   status: 'available' | 'not_run';
+  /** The judge both scores were recorded under; null when they were not compared. */
+  judge_version?: string | null;
   score: DiffScore | null;
   reference_version: string | null;
   reference_score: DiffScore | null;

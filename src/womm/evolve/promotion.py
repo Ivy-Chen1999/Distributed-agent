@@ -497,7 +497,9 @@ def format_decision(d: GateDecision | Mapping[str, Any]) -> str:
     r37 = d.get("r37")
     if r37:
         lines.append(f"R37 diff check: {r37.get('status')}"
-                     + (" (regression; not gating)" if r37.get("regression") else ""))  # fmt: skip
+                     + (" (regression; not gating)" if r37.get("regression") else "")
+                     + (f" ({r37['reason']}; not gating)" if r37.get("status") == "error"
+                        else ""))  # fmt: skip
     if not d["deployable"]:
         lines.append("dev-only: this decision can never change the deployed default")
     elif d["decision"] == "promoted":

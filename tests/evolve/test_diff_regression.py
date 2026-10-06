@@ -150,3 +150,69 @@ async def test_r37_report_states(db, tmp_path):
     report = await dr.r37_report(archive, cand.version_id, inc.version_id, ref)
     assert report["status"] == "available" and report["regression"] is True
     assert report["candidate"]["mean"] == 0.2 and report["incumbent"]["mean"] == 0.8
+
+
+async def _diff_score(archive, sv, mean, judge, batch):
+    row = {"level": "case", "subject": "diff_demo_penalties_amended", "metric": "coverage",
+           "n": 3, "mean": mean, "sd": 0.05}  # fmt: skip
+    await archive.record_metrics(sv.version_id, "diff_check", [row], batch_id=batch,
+                                 judge_version=judge, git_sha="g", full_split=True)  # fmt: skip
+
+
+@pytest.fixture
+async def pair(db):
+    archive = Archive(db)
+    cand, inc = fake_sv(), fake_sv(experts=["legal", "fiscal"])
+    for sv in (cand, inc):
+        await archive.archive(sv, origin="seed")
+    return archive, cand, inc
+
+
+async def test_r37_compares_under_a_judge_both_versions_share(pair, tmp_path):
+    """The candidate's newest score is under a judge the incumbent was never scored by: the
+    flag compares the scores under the shared judge, never two different judges."""
+    archive, cand, inc = pair
+    await _diff_score(archive, inc, 0.8, "jv_a", "rb1")
+    await _diff_score(archive, cand, 0.2, "jv_a", "rb2")
+    await _diff_score(archive, cand, 0.9, "jv_z", "rb3")  # newest and lexicographically last
+    report = await dr.r37_report(archive, cand.version_id, inc.version_id,
+                                 dr.load_reference(written(tmp_path)))  # fmt: skip
+    assert report["status"] == "available" and report["judge_version"] == "jv_a"
+    assert report["candidate"]["mean"] == 0.2 and report["regression"] is True
+
+
+async def test_r37_picks_the_shared_judge_scored_most_recently_not_the_last_by_name(pair, tmp_path):
+    archive, cand, inc = pair
+    await _diff_score(archive, cand, 0.2, "jv_b", "rb1")
+    await _diff_score(archive, inc, 0.8, "jv_b", "rb2")
+    await _diff_score(archive, cand, 0.7, "jv_a", "rb3")
+    await _diff_score(archive, inc, 0.7, "jv_a", "rb4")
+    report = await dr.r37_report(archive, cand.version_id, inc.version_id,
+                                 dr.load_reference(written(tmp_path)))  # fmt: skip
+    assert report["judge_version"] == "jv_a" and report["regression"] is False
+    assert (await dr.diff_check_score(archive, cand.version_id))["judge_version"] == "jv_a"
+
+
+async def test_r37_without_a_shared_judge_is_not_run(pair, tmp_path):
+    archive, cand, inc = pair
+    await _diff_score(archive, cand, 0.2, "jv_a", "rb1")
+    await _diff_score(archive, inc, 0.8, "jv_b", "rb2")
+    report = await dr.r37_report(archive, cand.version_id, inc.version_id,
+                                 dr.load_reference(written(tmp_path)))  # fmt: skip
+    assert report["status"] == "not_run" and report["regression"] is None
+    assert "judge both versions share" in report["reason"]
+
+
+async def test_an_invalid_reference_file_is_recorded_as_an_error_and_never_blocks(pair, tmp_path):
+    archive, cand, inc = pair
+    bad = written(tmp_path, scenario_id="eval_sme_impacts")
+    report = await dr.r37_record(archive, cand.version_id, inc.version_id, bad)
+    assert report["status"] == "error" and "demo_penalties_amended" in report["reason"]
+    assert report["regression"] is None
+    broken = tmp_path / "broken.yaml"
+    broken.write_text("status: [unclosed\n")
+    assert (await dr.r37_record(archive, cand.version_id, inc.version_id, broken))["status"] == (
+        "error"
+    )
+    ok = await dr.r37_record(archive, cand.version_id, inc.version_id, dr.REFERENCE_PATH)
+    assert ok["status"] == "not_available"

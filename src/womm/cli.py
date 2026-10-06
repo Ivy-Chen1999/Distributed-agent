@@ -533,7 +533,7 @@ async def cmd_evolve_promote(args: argparse.Namespace) -> int:
     against the incumbent, decided under the pre-registered policy. Holdout side only."""
     from womm.evolve import promotion as pm
     from womm.evolve.archive import Archive
-    from womm.evolve.diff_regression import load_reference, r37_report
+    from womm.evolve.diff_regression import r37_record
 
     try:
         policy, policy_sha = pm.load_policy(Path(args.policy))
@@ -556,8 +556,8 @@ async def cmd_evolve_promote(args: argparse.Namespace) -> int:
         if not cycle_id:
             raise UsageError(f"{candidate.version_id} has no cycle id in the archive; pass "
                              "--cycle-id (one holdout comparison per cycle)")  # fmt: skip
-        r37 = await r37_report(archive, candidate.version_id, incumbent.version_id,
-                               load_reference())  # fmt: skip
+        # Monitoring only: an unusable reference file is recorded as an error, never a block.
+        r37 = await r37_record(archive, candidate.version_id, incumbent.version_id)
         await store.migrate()
         committed = pm.files_committed([Path(args.policy), Path(args.records)])
         try:  # refuse before preparing any backend; run_gate checks again
