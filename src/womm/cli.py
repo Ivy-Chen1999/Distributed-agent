@@ -301,11 +301,19 @@ async def cmd_evolve_failures(args: argparse.Namespace) -> int:
     """Failure Memory patterns (U1) of one system version, from saved train/val eval reports
     or, with --from-db, from Postgres."""
     from womm.evolve.failure_memory import format_patterns, load_report_events, patterns
+    from womm.evolve.planner_view import HoldoutEnvRefused, PlannerView, refuse_holdout_env
 
+    try:
+        refuse_holdout_env()  # Planner-side input: never in a process that can reach the holdout
+    except HoldoutEnvRefused as exc:
+        raise UsageError(str(exc)) from None
     version_id = args.sv or _load_sv(args).version_id
     if args.from_db:
-        async with _evolve_db("--from-db") as db:
-            rows = await db.failure_patterns(version_id)
+        url = load_settings().database_url
+        if not url:
+            raise UsageError("--from-db needs DATABASE_URL")
+        async with PlannerView(url, runs_dir=Path(args.runs_dir)) as view:
+            rows = await view.failure_patterns(version_id)
     else:
         rows = patterns(*load_report_events(Path(args.runs_dir), version_id))
     emit(args, {"system_version": version_id, "patterns": rows},
