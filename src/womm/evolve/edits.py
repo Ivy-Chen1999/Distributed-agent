@@ -283,7 +283,8 @@ def build_candidate(parent: SystemVersion, diff: ConfigDiff) -> SystemVersion:
 # ---------------------------------------------------------------- rendering and files
 
 
-def _role_prompts(sv: SystemVersion) -> dict[str, str]:
+def role_prompts(sv: SystemVersion) -> dict[str, str]:
+    """The prompt path of every editable role (``edit_prompt`` keys); never the judge's."""
     spec = sv.spec
     out = {"planner": spec.planner.prompt, "synthesis": spec.synthesis.prompt}
     if spec.planner.explore_prompt:
@@ -295,7 +296,7 @@ def _role_prompts(sv: SystemVersion) -> dict[str, str]:
 def render_diff(parent: SystemVersion, child: SystemVersion) -> dict:
     """A structural summary plus one unified diff per changed prompt, for the archive and the
     evolution page."""
-    p_roles, c_roles = _role_prompts(parent), _role_prompts(child)
+    p_roles, c_roles = role_prompts(parent), role_prompts(child)
     p_experts = {e.id: e for e in parent.spec.experts}
     c_experts = {e.id: e for e in child.spec.experts}
     prompts: dict[str, str] = {}

@@ -19,13 +19,14 @@ Holdout cases, holdout results and promotion decisions must never reach the Impr
 from __future__ import annotations
 
 import os
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
 
 from psycopg.rows import dict_row
 from psycopg_pool import AsyncConnectionPool
 
+from womm.eval.golden import GoldenCase, GoldenError, load_all_golden
 from womm.evolve.failure_memory import CaseRun, FailureEvent, patterns
 from womm.models.run import RunResult
 
@@ -87,10 +88,16 @@ def refuse_holdout_env(env: Mapping[str, str] | None = None) -> None:
 
 class PlannerView:
     def __init__(
-        self, database_url: str, *, runs_dir: Path, env: Mapping[str, str] | None = None
+        self,
+        database_url: str,
+        *,
+        runs_dir: Path,
+        env: Mapping[str, str] | None = None,
+        load_cases: Callable[[str], list[GoldenCase]] | None = None,
     ) -> None:
         refuse_holdout_env(env)
         self.runs_dir = runs_dir
+        self._load_cases = load_cases or (lambda split: load_all_golden(split=split))
         self._pool = AsyncConnectionPool(
             database_url, min_size=1, max_size=2, open=False,
             kwargs={"row_factory": dict_row, "autocommit": True,
@@ -151,6 +158,15 @@ class PlannerView:
     async def metrics(self, version_id: str) -> list[dict]:
         """Train/val metrics only: not the R37 diff check, never the holdout."""
         return await self._all("metrics", version_id, list(PLANNER_SPLITS))
+
+    # ------------------------------------------------------------ golden cases
+
+    def cases(self, split: str) -> dict[str, GoldenCase]:
+        """Train or val golden cases by id; the train/val answers are visible by design, the
+        holdout never is. Cases the loader returns from another split are dropped."""
+        if split not in PLANNER_SPLITS:
+            raise GoldenError(f"PlannerView reads train/val cases only, not {split!r}")
+        return {c.case_id: c for c in self._load_cases(split) if c.split == split}
 
     # ------------------------------------------------------------ runs
 

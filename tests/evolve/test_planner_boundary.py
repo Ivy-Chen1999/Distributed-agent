@@ -222,3 +222,38 @@ async def test_no_planner_view_method_returns_a_canary(db, database_url, tmp_pat
         async with view._pool.connection() as conn:
             with pytest.raises(psycopg.errors.ReadOnlySqlTransaction):
                 await conn.execute("DELETE FROM sv_metrics")
+
+
+# ---------------------------------------------------------------- the GEPA adapter (U5)
+
+
+def test_gepa_adapter_receives_only_a_planner_view():
+    """The adapter's one data-access dependency is a PlannerView: no field is a database, an
+    archive, a replay store or anything holdout-shaped. Writes go through a CandidateEvaluator
+    whose replay refuses holdout splits."""
+    import dataclasses
+    import typing
+
+    from womm.evolve.gepa_adapter import CandidateEvaluator, WommAdapter
+
+    hints = typing.get_type_hints(WommAdapter)
+    fields = {f.name: hints[f.name] for f in dataclasses.fields(WommAdapter)}
+    assert fields["view"] is PlannerView
+    assert fields["evaluator"] is CandidateEvaluator
+    names = " ".join(str(t) for t in fields.values())
+    for forbidden in ("Database", "Archive", "ReplayStore", "Holdout", "AsyncConnectionPool"):
+        assert forbidden not in names, forbidden
+
+
+def test_planner_view_cases_are_train_val_only(tmp_path):
+    from womm.eval.golden import GoldenError
+
+    from ..eval.test_run_eval_fake import CASE
+
+    sealed = CASE.model_copy(update={"case_id": "h1", "split": "holdout"})
+    view = PlannerView("postgresql://unused/db", runs_dir=tmp_path, env={},
+                       load_cases=lambda split: [CASE, sealed])  # fmt: skip
+    assert list(view.cases("train")) == [CASE.case_id]
+    assert view.cases("val") == {}
+    with pytest.raises(GoldenError, match="train/val"):
+        view.cases("holdout")
