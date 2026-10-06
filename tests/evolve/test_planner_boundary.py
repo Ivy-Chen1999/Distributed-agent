@@ -91,16 +91,18 @@ def _imports(root: Path, name: str) -> set[str]:
     return {m for m in found if _module_file(root, m) is not None or m in FORBIDDEN}
 
 
-def forbidden_reach(root: Path) -> dict[str, list[str]]:
+def forbidden_reach(root: Path, forbidden: tuple[str, ...] = FORBIDDEN) -> dict[str, list[str]]:
     """For each existing Planner-side module, the import chain to a forbidden module, if any."""
     bad: dict[str, list[str]] = {}
     for short in planner_side(root):
         start = f"womm.evolve.{short}"
+        if start in forbidden:
+            continue
         parent: dict[str, str | None] = {start: None}
         queue = [start]
         while queue:
             mod = queue.pop()
-            if mod in FORBIDDEN:
+            if mod in forbidden:
                 chain = [mod]
                 while parent[chain[-1]] is not None:
                     chain.append(parent[chain[-1]])
@@ -116,6 +118,28 @@ def forbidden_reach(root: Path) -> dict[str, list[str]]:
 def test_planner_side_never_imports_the_holdout():
     assert forbidden_reach(SRC) == {}
     assert _module_file(SRC, "womm.evolve.planner_view") is not None
+
+
+# The R37 diff check (U8) is a monitor the Planner must not optimise: no other Planner-side module
+# (the GEPA adapter, the proposers, the cycle, the PlannerView, ...) reaches the module that
+# reads its reference answers.
+DIFF_CHECK = ("womm.evolve.diff_regression",)
+
+
+def test_no_planner_input_module_reaches_the_r37_diff_check():
+    assert _module_file(SRC, DIFF_CHECK[0]) is not None
+    assert forbidden_reach(SRC, DIFF_CHECK) == {}
+    sources = {p.stem: p.read_text(encoding="utf-8") for p in (SRC / "evolve").glob("*.py")}
+    for name, text in sources.items():
+        if name != "diff_regression":
+            assert "diff_regression/" not in text and "REFERENCE_PATH" not in text, name
+
+
+def test_the_diff_check_import_check_catches_an_added_import(tmp_path):
+    tree = tmp_path / "womm"
+    shutil.copytree(SRC, tree, ignore=shutil.ignore_patterns("__pycache__"))
+    (tree / "evolve" / "gepa_adapter.py").write_text("from womm.evolve import diff_regression\n")
+    assert "womm.evolve.gepa_adapter" in forbidden_reach(tree, DIFF_CHECK)
 
 
 def test_import_graph_check_catches_an_added_import(tmp_path):

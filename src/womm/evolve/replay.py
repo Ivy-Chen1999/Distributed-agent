@@ -20,6 +20,9 @@ work items that survive a crash or redeploy.
 - A rate-limit error marks the item ``errored`` (infra) and halts the batch: no new claims
   until ``resume`` (``womm evolve replay|worker --resume``) lifts the halt and gives exhausted
   infra-errored items a new attempt budget.
+- The R37 diff check (split ``diff_check``) replays the same way, on reference cases the
+  caller hands in (``diff_check_cases``); a store built without them cannot enqueue it, and
+  its runs never feed Failure Memory.
 """
 
 from __future__ import annotations
@@ -53,6 +56,7 @@ from womm.models.system_version import SystemVersion
 
 log = logging.getLogger("womm.replay")
 REPLAY_SPLITS = ("train", "val")
+DIFF_CHECK_SPLIT = "diff_check"
 STATUSES = ("pending", "running", "done", "errored")
 MAX_ATTEMPTS = 3
 # Exceptions that say nothing about the candidate: retried, never final.
@@ -104,12 +108,18 @@ class ReplayStore:
         db: Database,
         load_cases: Callable[[str], list[GoldenCase]] = _load_split,
         max_attempts: int = MAX_ATTEMPTS,
+        diff_check_cases: Callable[[], list[GoldenCase]] | None = None,
     ) -> None:
         self.db = db
         self.load_cases = load_cases
         self.max_attempts = max_attempts
+        self.diff_check_cases = diff_check_cases
 
     def cases(self, split: str) -> dict[str, GoldenCase]:
+        if split == DIFF_CHECK_SPLIT:
+            if self.diff_check_cases is None:
+                raise GoldenError("this replay store was given no R37 diff-check cases")
+            return {c.case_id: c for c in self.diff_check_cases() if c.split == DIFF_CHECK_SPLIT}
         if split not in REPLAY_SPLITS:
             raise GoldenError(f"replay takes train/val only; split {split!r} (holdout is sealed)")
         return {c.case_id: c for c in self.load_cases(split)}
@@ -451,7 +461,10 @@ class ReplayWorker:
         return run, score, traj
 
     async def _remember(self, item, sv, case, run, score) -> None:
-        """Feed Failure Memory with the scored run; best effort, the replay result is kept."""
+        """Feed Failure Memory with the scored run; best effort, the replay result is kept.
+        Only train/val runs: the R37 diff check is not Planner input."""
+        if item["split"] not in REPLAY_SPLITS:
+            return
         memory = {"split": item["split"], "repetition": item["repetition"],
                   "system_version": sv.version_id, "judge_version": item["judge_version"],
                   "git_sha": item["git_sha"]}  # fmt: skip

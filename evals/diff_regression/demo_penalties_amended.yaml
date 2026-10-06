@@ -1,0 +1,61 @@
+# R37 diff regression check: reference answers for the R2 demo scenario demo_penalties_amended
+# (AI Act proposal COM(2021) 206 -> Regulation (EU) 2024/1689: provider obligations Art 16 -> 16,
+# SME measures Art 55 -> 62, penalties Art 71 -> 99). Self-evolution plan U8; origin R37.
+#
+# HUMAN STEP. These answers are written BY HAND by one person, who decides every item (origin
+# R37). Do NOT have an LLM write or pre-fill them, and do not copy dossier output into them:
+# they are the yardstick for the provision-level diff, so a model-written reference would grade
+# the model against itself. The scenario has no impact assessment, so each item is anchored on
+# provision text (quote the proposal and the final article in `ia_section`).
+#
+# Until a person has replaced every TODO, set `status: written` and filled in `written_by` and
+# `written_on`, `womm evolve diffcheck` reports `not_available` and nothing is scored. The
+# check is monitoring only: it is shown on the evolution page and copied into promotion
+# records, and it never gates a promotion. The Improvement Planner never reads this file.
+#
+# Shape: a golden case (evals/golden/) with split `diff_check`. Expected impacts are the changes
+# a good diff analysis must find between the two versions (actor x mechanism level, about 5-10
+# items); important omissions are changes it must not leave out. provision_keys must be keys
+# of the scenario:
+#   ai_act/high_risk/provider_obligations, ai_act/innovation/sme_measures,
+#   ai_act/penalties/penalties
+status: template      # set to "written" once every TODO below is replaced by hand
+written_by: null      # the one person who wrote and decided every item
+written_on: null      # YYYY-MM-DD
+case:
+  case_id: diff_demo_penalties_amended
+  scenario_id: demo_penalties_amended
+  fixture: ai_act
+  split: diff_check
+  ia_reference: >-
+    None: the R2 demo scenario has no impact assessment. Items are anchored on the provision
+    texts of COM(2021) 206 and Regulation (EU) 2024/1689.
+  notes: "TODO: what the reference covers and what it deliberately leaves out"
+  expected_impacts:
+    - expected_id: d01_e01
+      affected_actor: "TODO: who is affected by the change"
+      mechanism: "TODO: which change between proposal and final text causes it"
+      impact: "TODO: the impact of that change"
+      provision_keys:
+        - ai_act/penalties/penalties
+      ia_section: "TODO: proposal Art 71(...) quote -> Regulation Art 99(...) quote"
+    - expected_id: d01_e02
+      affected_actor: "TODO"
+      mechanism: "TODO"
+      impact: "TODO"
+      provision_keys:
+        - ai_act/innovation/sme_measures
+      ia_section: "TODO: proposal Art 55 quote -> Regulation Art 62 quote"
+    - expected_id: d01_e03
+      affected_actor: "TODO"
+      mechanism: "TODO"
+      impact: "TODO"
+      provision_keys:
+        - ai_act/high_risk/provider_obligations
+      ia_section: "TODO: proposal Art 16 quote -> Regulation Art 16 quote"
+  important_omissions:
+    - omission_id: d01_o01
+      description: "TODO: a change a good diff analysis must not leave out"
+      provision_keys:
+        - ai_act/penalties/penalties
+      source: "TODO: provision anchor"
