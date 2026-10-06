@@ -16,7 +16,7 @@ import gepa
 from womm.eval.evaluators import CaseScore
 from womm.evolve.archive import Archive
 from womm.evolve.edits import EditRejected, build_candidate, render_diff, validate_diff
-from womm.evolve.gepa_adapter import CandidateEvaluator, CaseRef, WommAdapter
+from womm.evolve.gepa_adapter import PROPOSAL_SPLITS, CandidateEvaluator, CaseRef, WommAdapter
 from womm.evolve.planner_view import PlannerView
 from womm.evolve.proposers import Budget, Proposer, pattern_key
 from womm.evolve.replay import ReplayIncomplete, ReplayStore, ReplayWorker, judge_version
@@ -226,10 +226,10 @@ class TopologyResult:
 
 
 async def _examples(view: PlannerView, version_id: str, target: dict) -> list[dict]:
-    """The missed impacts behind ``target``: train/val golden text only."""
-    cases = {cid: c for split in ("train", "val") for cid, c in view.cases(split).items()}
+    """The missed impacts behind ``target``: train golden text only."""
+    cases = view.cases("train")
     seen, out = set(), []
-    for e in await view.failure_events(version_id):
+    for e in await view.failure_events(version_id, PROPOSAL_SPLITS):
         key = (e.case_id, e.item_id)
         if (e.kind, e.category, e.owner) != ("missed_impact", target["category"], "none"):
             continue
@@ -257,12 +257,13 @@ async def run_topology_stage(
 ) -> TopologyResult:
     """Propose one new expert (registry entry, prompt, router gloss) on top of ``parent``, the
     prompt stage's choice, only when an unowned miss pattern persists on it across enough
-    proposals. A candidate has at most ``seed``'s expert count + 1. The candidate is archived
-    (origin topology) and replayed on val."""
+    train proposals (val is for selection only). A candidate has at most ``seed``'s expert
+    count + 1. The candidate is archived (origin topology) and replayed on val."""
     if len(parent.spec.experts) > len(seed.spec.experts):
         return TopologyResult(None, "expert cap reached: the parent already adds an expert")
     targets = unowned_patterns(
-        await view.failure_patterns(parent.version_id), budget.min_pattern_proposals
+        await view.failure_patterns(parent.version_id, PROPOSAL_SPLITS),
+        budget.min_pattern_proposals,
     )
     if not targets:
         return TopologyResult(

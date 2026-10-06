@@ -1,11 +1,15 @@
 """U5 cycle on the fake backend: the topology stage (one new expert for a persistent unowned
 pattern), budgets, and the cycle's single candidate for the gate."""
 
+import asyncio
+import json
+
 import pytest
 
 from womm.evolve.cycle import run_cycle, run_prompt_stage, run_topology_stage, unowned_patterns
 from womm.evolve.edits import build_candidate, validate_diff
 from womm.evolve.failure_memory import CaseRun, FailureEvent
+from womm.evolve.gepa_adapter import CaseRef, WommAdapter
 from womm.evolve.proposers import Budget
 from womm.llm.fake import FakeBackend
 
@@ -39,7 +43,7 @@ def proposal(**over):
 
 async def seed_pattern(db, version_id, cases=(CASE, OTHER), runs=2, missed=2, owner="none"):
     """Failure Memory rows: each case's first expected impact, categorised, missed in
-    ``missed`` of ``runs`` runs, owned by ``owner``."""
+    ``missed`` of ``runs`` runs, owned by ``owner``, on the case's own split."""
     events, case_runs = [], []
     for case in cases:
         item = case.expected_impacts[0]
@@ -49,7 +53,7 @@ async def seed_pattern(db, version_id, cases=(CASE, OTHER), runs=2, missed=2, ow
                 CaseRun(
                     case_id=case.case_id,
                     fixture=case.fixture,
-                    split="train",
+                    split=case.split,
                     run_id=run_id,
                     repetition=rep,
                     system_version=version_id,
@@ -61,7 +65,7 @@ async def seed_pattern(db, version_id, cases=(CASE, OTHER), runs=2, missed=2, ow
                         kind="missed_impact",
                         case_id=case.case_id,
                         fixture=case.fixture,
-                        split="train",
+                        split=case.split,
                         item_id=item.expected_id,
                         category=CATEGORY,
                         touching_agents=[] if owner == "none" else [owner],
@@ -172,6 +176,93 @@ async def test_expert_count_is_capped_at_the_seed_plus_one(env, two_proposals):
     env["proposer"].backend = FakeBackend({})
     result = await run_topology_stage(**{**topology_kw(env), "parent": parent})
     assert result.candidate is None and "cap" in result.reason
+
+
+# ---------------------------------------------------------------- val stays for selection only
+
+VAL_CANARY = "CANARY_val_text_4f2a"
+
+
+def val_canary_case(case_id="case_val_canary", fixture="val_act"):
+    """A val case whose golden text is a canary: it may be replayed and scored, never shown to
+    the Improvement Planner."""
+    impacts = [
+        e.model_copy(update={"affected_actor": f"{VAL_CANARY}_actor",
+                             "mechanism": f"{VAL_CANARY}_mechanism",
+                             "impact": f"{VAL_CANARY}_impact"})
+        for e in CASE.expected_impacts
+    ]  # fmt: skip
+    return CASE.model_copy(update={"case_id": case_id, "fixture": fixture, "split": "val",
+                                   "expected_impacts": impacts})  # fmt: skip
+
+
+async def test_topology_proposal_never_sees_val_golden_text(env, two_proposals, monkeypatch):
+    val = val_canary_case()
+    monkeypatch.setitem(CASES, "val", [*CASES["val"], val])
+    # The pattern spans two train proposals and, on val, a third one.
+    await seed_pattern(env["db"], env["sv"].version_id, cases=(CASE, OTHER, val))
+    env["proposer"].backend = FakeBackend({"improvement_planner/topology": [proposal()]})
+    result = await run_topology_stage(**topology_kw(env))
+    assert result.candidate is not None
+    user = env["proposer"].backend.calls[0].user_content
+    assert CASE.expected_impacts[0].affected_actor in user  # train text is the input
+    assert VAL_CANARY not in user and "val_act" not in user and val.case_id not in user
+
+
+async def test_a_val_only_pattern_does_not_trigger_a_new_expert(env, monkeypatch):
+    vals = [val_canary_case(), val_canary_case("case_val_canary_2", "val_act_2")]
+    monkeypatch.setitem(CASES, "val", [*CASES["val"], *vals])
+    await seed_pattern(env["db"], env["sv"].version_id, cases=vals)
+    env["proposer"].backend = FakeBackend({})
+    result = await run_topology_stage(**topology_kw(env))
+    assert result.candidate is None and "2+ proposals" in result.reason
+    assert env["proposer"].backend.calls == []
+
+
+async def test_prompt_proposals_never_see_val_golden_text(env, monkeypatch):
+    val = val_canary_case()
+    monkeypatch.setitem(CASES, "val", [val])
+    a = WommAdapter(base=env["sv"], view=env["view"], evaluator=env["evaluator"],
+                    proposer=env["proposer"], budget=Budget(train_repetitions=1,
+                                                            val_repetitions=1))  # fmt: skip
+    seed = a.seed_candidate()
+    batch = [CaseRef("train", TRAIN[0].case_id), CaseRef("val", val.case_id)]
+    out = await asyncio.to_thread(a.evaluate, batch, seed, True)
+    data = await asyncio.to_thread(a.make_reflective_dataset, seed, out, ["expert:fiscal"])
+    assert data["expert:fiscal"]  # the train case is still a record
+    assert {r["Inputs"]["split"] for r in data["expert:fiscal"]} == {"train"}
+    assert VAL_CANARY not in json.dumps(data)
+    await asyncio.to_thread(a.propose_new_texts, seed, data, ["expert:fiscal"])
+    # A whole GEPA run (val replayed for the Pareto front) never shows val text either.
+    await run_prompt_stage(base=env["sv"], view=env["view"], evaluator=env["evaluator"],
+                           proposer=env["proposer"],
+                           budget=Budget(max_metric_calls=20, train_repetitions=1,
+                                         val_repetitions=1))  # fmt: skip
+    assert env["planner_llm"].calls
+    assert all(VAL_CANARY not in c.user_content for c in env["planner_llm"].calls)
+
+
+async def test_reflective_patterns_aggregate_train_events_only(env, monkeypatch):
+    val = val_canary_case()
+    monkeypatch.setitem(CASES, "val", [val])
+    a = WommAdapter(base=env["sv"], view=env["view"], evaluator=env["evaluator"],
+                    proposer=env["proposer"], budget=Budget(train_repetitions=2))  # fmt: skip
+    seed = a.seed_candidate()
+    out = await asyncio.to_thread(a.evaluate, [CaseRef("train", TRAIN[0].case_id)], seed, True)
+    train_events = await env["view"].failure_events(env["sv"].version_id, ("train",))
+    e = next(e for e in train_events if e.kind == "missed_impact")
+    # The same (kind, category, owner) on a val proposal, scored by the same judge and code.
+    val_events = [e.model_copy(update={"case_id": val.case_id, "fixture": "val_act",
+                                       "split": "val", "run_id": f"val_run_{i}"})
+                  for i in (1, 2)]  # fmt: skip
+    val_runs = [CaseRun(case_id=val.case_id, fixture="val_act", split="val", run_id=v.run_id,
+                        repetition=v.repetition, system_version=v.system_version,
+                        judge_version=v.judge_version, git_sha=v.git_sha)
+                for v in val_events]  # fmt: skip
+    await env["db"].record_failure_events(val_events, val_runs)
+    data = await asyncio.to_thread(a.make_reflective_dataset, seed, out, ["expert:fiscal"])
+    patterns = [p for r in data["expert:fiscal"] for p in r["Feedback"]["patterns"]]
+    assert patterns and all("val_act" not in p["proposals"] for p in patterns)
 
 
 # ---------------------------------------------------------------- budgets

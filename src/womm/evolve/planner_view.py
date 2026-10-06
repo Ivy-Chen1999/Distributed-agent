@@ -20,7 +20,7 @@ Holdout cases, holdout results and promotion decisions must never reach the Impr
 from __future__ import annotations
 
 import os
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -129,17 +129,26 @@ class PlannerView:
 
     # ------------------------------------------------------------ Failure Memory
 
-    async def failure_events(self, system_version: str) -> list[FailureEvent]:
-        rows = await self._all("failure_events", system_version, list(PLANNER_SPLITS))
+    async def failure_events(
+        self, system_version: str, splits: Sequence[str] = PLANNER_SPLITS
+    ) -> list[FailureEvent]:
+        """Failure events of ``system_version`` on ``splits`` (train and/or val). Proposal
+        inputs take ``("train",)``: val is for selection only."""
+        rows = await self._all("failure_events", system_version, _splits(splits))
         return [FailureEvent.model_validate(r) for r in rows]
 
-    async def case_runs(self, system_version: str) -> list[CaseRun]:
-        rows = await self._all("case_runs", system_version, list(PLANNER_SPLITS))
+    async def case_runs(
+        self, system_version: str, splits: Sequence[str] = PLANNER_SPLITS
+    ) -> list[CaseRun]:
+        rows = await self._all("case_runs", system_version, _splits(splits))
         return [CaseRun.model_validate(r) for r in rows]
 
-    async def failure_patterns(self, system_version: str) -> list[dict]:
+    async def failure_patterns(
+        self, system_version: str, splits: Sequence[str] = PLANNER_SPLITS
+    ) -> list[dict]:
         return patterns(
-            await self.failure_events(system_version), await self.case_runs(system_version)
+            await self.failure_events(system_version, splits),
+            await self.case_runs(system_version, splits),
         )
 
     # ------------------------------------------------------------ archive
@@ -187,6 +196,12 @@ class PlannerView:
         if path.parent != self.runs_dir or not path.is_file():
             return None
         return RunResult.model_validate_json(path.read_text(encoding="utf-8"))
+
+
+def _splits(splits: Sequence[str]) -> list[str]:
+    if isinstance(splits, str) or not splits or not set(splits) <= set(PLANNER_SPLITS):
+        raise GoldenError(f"PlannerView reads train/val only, not {splits!r}")
+    return sorted(set(splits))
 
 
 def _slim(row: dict) -> dict:

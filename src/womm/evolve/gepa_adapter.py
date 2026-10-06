@@ -9,8 +9,9 @@ an LLM:
   U2's typed ``edit_prompt`` ops (always against the cycle base, so a set of texts has one
   version id however it was reached), and scores it through U4's resumable replay store with the
   seed's pinned judge. Finished replays are never re-run, so a restarted GEPA run is cheap.
-- ``make_reflective_dataset`` reads Failure Memory events, saved runs and train/val golden cases
-  through ``PlannerView`` only.
+- ``make_reflective_dataset`` reads Failure Memory events, saved runs and train golden cases
+  through ``PlannerView`` only. Val is replayed for the Pareto front and candidate selection,
+  never shown to the proposer.
 - ``propose_new_texts`` asks the Improvement Planner (``Proposer``) for a structured
   ``PromptEdit`` per component, validates it with U2, and archives the accepted child (U3) under
   its GEPA parent. GEPA's reflection LM is never called, so litellm is never imported.
@@ -46,6 +47,9 @@ from womm.evolve.proposers import Budget, Proposer
 from womm.llm.base import LLMError
 from womm.models.run import RunResult
 from womm.models.system_version import SystemVersion
+
+# The splits proposal inputs come from: val selects candidates, so it never informs them.
+PROPOSAL_SPLITS = ("train",)
 
 
 @dataclass(frozen=True, order=True)
@@ -249,12 +253,14 @@ class WommAdapter:
     async def _reflective(
         self, sv: SystemVersion, trajectories: list[dict], components: list[str]
     ) -> dict[str, list[dict]]:
-        events = await self.view.failure_events(sv.version_id)
-        patterns = await self.view.failure_patterns(sv.version_id)
-        cases = {split: self.view.cases(split) for split in PLANNER_SPLITS}
+        events = await self.view.failure_events(sv.version_id, PROPOSAL_SPLITS)
+        patterns = await self.view.failure_patterns(sv.version_id, PROPOSAL_SPLITS)
+        cases = self.view.cases("train")
         out: dict[str, list[dict]] = {c: [] for c in components}
         for traj in trajectories:
-            case = cases.get(traj["split"], {}).get(traj["case_id"])
+            if traj["split"] not in PROPOSAL_SPLITS:
+                continue  # val is for selection only, never a proposal input
+            case = cases.get(traj["case_id"])
             if case is None:
                 continue
             run_ids = set(traj["run_ids"])
@@ -331,7 +337,7 @@ def _record(
     patterns: list[dict],
 ) -> dict:
     """One GEPA-style record (Inputs / Generated Outputs / Feedback) of one case for one
-    component, from train/val data only."""
+    component, from train data only."""
     expected = {e.expected_id: e for e in case.expected_impacts}
     omissions = {o.omission_id: o for o in case.important_omissions}
     n_runs = max(len(runs), 1)

@@ -369,3 +369,13 @@ def test_planner_view_cases_are_train_val_only(tmp_path):
     assert view.cases("val") == {}
     with pytest.raises(GoldenError, match="train/val"):
         view.cases("holdout")
+
+
+async def test_failure_reads_take_train_or_val_splits_only(db, database_url, tmp_path):
+    from womm.eval.golden import GoldenError
+
+    async with PlannerView(database_url, runs_dir=tmp_path, env={}) as view:
+        assert await view.failure_events("sv_x", ("train",)) == []
+        for bad in (("holdout",), ("train", "holdout"), (), "train"):
+            with pytest.raises(GoldenError, match="train/val"):
+                await view.failure_patterns("sv_x", bad)

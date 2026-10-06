@@ -127,7 +127,7 @@ class Proposer:
                 f"Component: {role}",
                 _block("Current prompt", current_text),
                 _block(
-                    "Reflective records (JSON, train/val failures of this component)",
+                    "Reflective records (JSON, train failures of this component)",
                     json.dumps(records, indent=1, ensure_ascii=False),
                 ),
             ]
@@ -147,7 +147,7 @@ class Proposer:
                 f"Target pattern: {pattern_key(pattern)}",
                 _block("Pattern (JSON)", json.dumps(pattern, indent=1, ensure_ascii=False)),
                 _block(
-                    "Missed impacts in this pattern (JSON, train/val)",
+                    "Missed impacts in this pattern (JSON, train)",
                     json.dumps(examples, indent=1, ensure_ascii=False),
                 ),
                 _block(

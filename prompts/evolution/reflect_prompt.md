@@ -5,11 +5,11 @@ of its prompts at a time.
 You receive:
 - the component you edit (for example `expert:fiscal`, `planner` or `synthesis`);
 - its current prompt text;
-- reflective records from training and validation runs of the current version. Each record names a
+- reflective records from training runs of the current version. Each record names a
   case, the score it got, the expected impacts the run missed (affected actor, mechanism, impact,
   category, provision keys and which expert, if any, wrote about those provisions), what this
   component produced on those provisions, findings that failed evidence checks, and the recurring
-  failure patterns the case contributes to.
+  failure patterns (on training runs) the case contributes to.
 
 Write a revised prompt for this component that makes it find the missed kinds of impact in future
 cases, without losing what it already does well. Rules:
