@@ -688,12 +688,19 @@ def case_key(case: GoldenCase) -> str:
     return "k" + _sha(case.model_dump(mode="json", exclude_none=True))[:16]
 
 
-def code_version(code: CodeIdentity) -> str | None:
-    """The code a checkpointed run was scored on, or None when it cannot be identified (then
-    nothing is checkpointed): the git sha, plus a hash of the diff for a dirty tree."""
+def code_version(code: CodeIdentity, sv: SystemVersion | None = None) -> str | None:
+    """The code a checkpointed run of ``sv`` was scored on, or None when it cannot be
+    identified (then nothing is checkpointed): the git sha, plus a hash of the diff for a dirty
+    tree, plus the Claude CLI version when any role of ``sv`` runs on the claude_code backend
+    (a CLI upgrade changes its outputs, so its runs are never reused across CLI versions)."""
     if not code.git_sha or (code.dirty and not code.diff_sha):
         return None
-    return f"{code.git_sha}+dirty.{code.diff_sha}" if code.dirty else code.git_sha
+    version = f"{code.git_sha}+dirty.{code.diff_sha}" if code.dirty else code.git_sha
+    if sv is not None and any(r.backend == "claude_code" for r in sv.spec.roles().values()):
+        if not code.claude_cli_version:
+            return None
+        version += f"+claude_cli.{code.claude_cli_version}"
+    return version
 
 
 def paired_cluster_bootstrap(
@@ -746,7 +753,8 @@ async def compare(
     are null and the result is flagged ``insufficient_proposals``.
 
     With ``checkpoint`` (the promotion gate) every scored run is saved in
-    ``holdout.compare_progress`` under (version, judge, code, internal case key, repetition) and
+    ``holdout.compare_progress`` under (version, judge, code (with the Claude CLI version for a
+    claude_code version), internal case key, repetition) and
     reused: a restarted comparison re-runs only what was not finished, and a later comparison
     reuses the baseline's runs. Unscored runs are never checkpointed, so they are retried.
     ``gate_id`` and ``cycle_id`` tag the audit row the gate records its decision on."""
@@ -765,12 +773,13 @@ async def compare(
         judge_prompt = baseline.prompt_text(judge_role)
         keys = {case.case_id: case_key(case) for case, _ in sealed}
         cluster_of = {keys[c.case_id]: c.fixture for c, _ in sealed}
-        jv, cv = judge_version(baseline), code_version(code)
-        save = checkpoint and cv is not None
-        done = (
-            await store.load_progress([candidate.version_id, baseline.version_id], jv, cv)
-            if save else {}
-        )  # fmt: skip
+        jv = judge_version(baseline)
+        cvs = {sv.version_id: code_version(code, sv) for sv in (candidate, baseline)}
+        done: dict[tuple[str, str, int], CaseScore] = {}
+        if checkpoint:
+            for vid, cv in cvs.items():
+                if cv is not None:
+                    done |= await store.load_progress([vid], jv, cv)
         # Which cases each metric applies to: omissions only where the case lists some.
         applies = {
             "coverage": set(cluster_of),
@@ -798,7 +807,8 @@ async def compare(
                     if _hit_rate_limit(run, score):
                         aborted = True
                         break
-                    if save and score.outcome == "scored":
+                    cv = cvs[sv.version_id]
+                    if checkpoint and cv is not None and score.outcome == "scored":
                         await store.save_progress(sv.version_id, jv, cv, key, rep, score)
                         done[(sv.version_id, key, rep)] = score
                 if aborted:

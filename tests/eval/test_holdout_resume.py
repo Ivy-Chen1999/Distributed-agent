@@ -154,3 +154,41 @@ async def test_without_checkpoint_nothing_is_saved(roots):
         decisions=StubDecisionService(), code=CLEAN, n_boot=50,
     )  # fmt: skip
     assert store.progress == {} and store.loads == []
+
+
+def _claude_code(sv):
+    from pathlib import Path
+
+    from womm.models.system_version import derive_system_version
+
+    return derive_system_version(sv, Path("."), backends=dict.fromkeys(sv.spec.roles(),
+                                                                      "claude_code"))  # fmt: skip
+
+
+def test_the_checkpoint_key_includes_the_claude_cli_version_for_claude_code_versions():
+    _, base = _versions()
+    cc = _claude_code(base)
+    code = CodeIdentity(git_sha="abc", dirty=False, claude_cli_version="2.1.0 (Claude Code)")
+    assert holdout.code_version(code, base) == "abc", "no claude_code role: the CLI is irrelevant"
+    assert holdout.code_version(code, cc) == "abc+claude_cli.2.1.0 (Claude Code)"
+    assert holdout.code_version(code.model_copy(update={"claude_cli_version": None}), cc) is None
+
+
+async def test_a_new_claude_cli_version_never_reuses_claude_code_checkpoints(roots):
+    sealed = _sealed(roots)
+    cand, base = (_claude_code(sv) for sv in _versions())
+    progress = {}
+
+    async def run(cli):
+        c, b = _backends(4)
+        await holdout.compare(
+            cand, base, 2, store=ProgressStore(sealed, progress),
+            backends=lambda sv: {"claude_code": c if sv is cand else b},
+            decisions=StubDecisionService(), n_boot=50, checkpoint=True,
+            code=CodeIdentity(git_sha="abc", dirty=False, claude_cli_version=cli),
+        )  # fmt: skip
+        return _graph_runs(c) + _graph_runs(b)
+
+    assert await run("2.1.0") == 8
+    assert await run("2.1.0") == 0, "same CLI: every run is reused"
+    assert await run("2.2.0") == 8, "another CLI version never reuses scores"
