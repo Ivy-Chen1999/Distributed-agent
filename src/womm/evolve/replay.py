@@ -340,9 +340,12 @@ class ReplayWorker:
         if status["complete"]:
             scores = await self.store.results(batch_id)
             fixtures = {c.case_id: c.fixture for c in cases.values()}
+            full = set(batch["case_ids"]) == set(cases)
             await self.archive.record_metrics(
-                sv.version_id, batch["split"], metric_rows(scores, fixtures)
-            )
+                sv.version_id, batch["split"], metric_rows(scores, fixtures, split_level=full),
+                batch_id=batch_id, judge_version=batch["judge_version"], git_sha=batch["git_sha"],
+                full_split=full,
+            )  # fmt: skip
         return status
 
     async def _beat(self, item_id: int, work: asyncio.Task, lost: asyncio.Event) -> None:

@@ -62,19 +62,28 @@ CREATE TABLE sv_archive (
 );
 CREATE INDEX sv_archive_parent_idx ON sv_archive (parent_id);
 
--- Train/val (and R37 diff-check) metrics per case, proposal or split. Never holdout.
+-- Train/val (and R37 diff-check) metrics per case, proposal or split. Never holdout. One
+-- population per replay batch (its case set and repetitions), judge and code: a batch never
+-- overwrites another's rows. Split-level rows exist only for batches covering the whole split
+-- (full_split); readers take the latest full-split batch per (version, split, judge).
 CREATE TABLE sv_metrics (
-    version_id text NOT NULL REFERENCES sv_archive (version_id),
-    split      text NOT NULL CHECK (split IN ('train', 'val', 'diff_check')),
-    level      text NOT NULL CHECK (level IN ('case', 'proposal', 'split')),
-    subject    text NOT NULL DEFAULT '',
-    metric     text NOT NULL,
-    n          integer NOT NULL,
-    mean       double precision,
-    sd         double precision,
-    updated_at timestamptz NOT NULL DEFAULT now(),
-    PRIMARY KEY (version_id, split, level, subject, metric)
+    version_id    text NOT NULL REFERENCES sv_archive (version_id),
+    split         text NOT NULL CHECK (split IN ('train', 'val', 'diff_check')),
+    judge_version text NOT NULL,
+    git_sha       text NOT NULL,
+    batch_id      text NOT NULL,
+    full_split    boolean NOT NULL,
+    level         text NOT NULL CHECK (level IN ('case', 'proposal', 'split')),
+    subject       text NOT NULL DEFAULT '',
+    metric        text NOT NULL,
+    n             integer NOT NULL,
+    mean          double precision,
+    sd            double precision,
+    updated_at    timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (version_id, split, judge_version, git_sha, batch_id, level, subject, metric),
+    CHECK (full_split OR level <> 'split')
 );
+CREATE INDEX sv_metrics_version_idx ON sv_metrics (version_id, split, judge_version);
 
 -- U4 Resumable batch replay (R29). An item is one (version, case, repetition) scored by a pinned
 -- judge at one code version; items outlive batches, so a re-submitted batch reuses finished ones.

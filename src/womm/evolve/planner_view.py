@@ -61,9 +61,14 @@ QUERIES: dict[str, str] = {
         f") SELECT {_ARCHIVE} FROM up ORDER BY depth DESC"
     ),
     "children": f"SELECT {_ARCHIVE} FROM sv_archive WHERE parent_id = %s ORDER BY created_at",
+    # The latest full-split batch per (split, judge); see womm.evolve.archive.LATEST_METRICS.
     "metrics": (
-        "SELECT version_id, split, level, subject, metric, n, mean, sd FROM sv_metrics"
-        " WHERE version_id = %s AND split = ANY(%s) ORDER BY split, level, subject, metric"
+        "SELECT version_id, split, judge_version, git_sha, batch_id, level, subject, metric, n,"
+        " mean, sd FROM sv_metrics WHERE version_id = %s AND split = ANY(%s) AND batch_id IN ("
+        "  SELECT DISTINCT ON (split, judge_version) batch_id FROM sv_metrics"
+        "  WHERE version_id = %s AND split = ANY(%s) AND full_split"
+        "  ORDER BY split, judge_version, updated_at DESC, batch_id DESC"
+        ") ORDER BY split, judge_version, level, subject, metric"
     ),
     "train_val_run": (
         "SELECT run_id FROM failure_case_runs WHERE run_id = %s AND split = ANY(%s) LIMIT 1"
@@ -155,9 +160,12 @@ class PlannerView:
     async def children(self, version_id: str) -> list[dict]:
         return [_slim(r) for r in await self._all("children", version_id)]
 
-    async def metrics(self, version_id: str) -> list[dict]:
-        """Train/val metrics only: not the R37 diff check, never the holdout."""
-        return await self._all("metrics", version_id, list(PLANNER_SPLITS))
+    async def metrics(self, version_id: str, judge_version: str | None = None) -> list[dict]:
+        """Train/val metrics only (not the R37 diff check, never the holdout): the latest
+        full-split batch per (split, judge), one judge's only when ``judge_version`` is given."""
+        splits = list(PLANNER_SPLITS)
+        rows = await self._all("metrics", version_id, splits, version_id, splits)
+        return [r for r in rows if judge_version is None or r["judge_version"] == judge_version]
 
     # ------------------------------------------------------------ golden cases
 

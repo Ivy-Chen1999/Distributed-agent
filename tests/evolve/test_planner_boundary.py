@@ -27,7 +27,7 @@ from womm.evolve.planner_view import (
 from womm.llm.claude_code import build_child_env
 from womm.models.run import CodeIdentity, RunResult, RunStatus
 
-from .test_archive import BASE, _fiscal_edit
+from .test_archive import BASE, PROVENANCE, _fiscal_edit
 
 SRC = Path(womm.__file__).parent
 PLANNER_SIDE = ("planner_view", "failure_memory", "edits", "archive", "replay",
@@ -171,9 +171,11 @@ async def _populate(db, tmp_path):
                          system_version=child.version_id)  # fmt: skip
     await db.record_failure_events([event], [run])
     row = {"level": "split", "subject": "", "metric": "coverage", "n": 1}
-    await archive.record_metrics(child.version_id, "train", [row | {"mean": 0.5, "sd": None}])
+    await archive.record_metrics(child.version_id, "train", [row | {"mean": 0.5, "sd": None}],
+                                 **PROVENANCE)  # fmt: skip
     await archive.record_metrics(child.version_id, "diff_check", [row | {"mean": 0.123456,
-                                                                         "sd": None}])  # fmt: skip
+                                                                         "sd": None}],
+                                 **PROVENANCE | {"batch_id": "rb_diff"})  # fmt: skip
     async with db.pool.connection() as conn:
         # What U7 will write: a decision summary and a sealed audit, both with canaries.
         await conn.execute("CREATE TABLE promotion_decisions (candidate text, summary text)")

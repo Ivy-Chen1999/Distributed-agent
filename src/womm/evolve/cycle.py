@@ -19,7 +19,7 @@ from womm.evolve.edits import EditRejected, build_candidate, render_diff, valida
 from womm.evolve.gepa_adapter import CandidateEvaluator, CaseRef, WommAdapter
 from womm.evolve.planner_view import PlannerView
 from womm.evolve.proposers import Budget, Proposer, pattern_key
-from womm.evolve.replay import ReplayIncomplete, ReplayStore, ReplayWorker
+from womm.evolve.replay import ReplayIncomplete, ReplayStore, ReplayWorker, judge_version
 from womm.llm.base import LLMError
 from womm.models.system_version import SystemVersion
 
@@ -34,6 +34,11 @@ class ReplayEvaluator:
     archive_store: Archive
     store: ReplayStore
     worker: ReplayWorker
+
+    @property
+    def judge_version(self) -> str:
+        """The pinned judge: archive metrics are read for this judge only."""
+        return judge_version(self.worker.judge_sv)
 
     async def archive(self, sv, *, parent_id, origin, cycle_id, diff, proposer) -> None:
         await self.archive_store.archive(
@@ -140,7 +145,9 @@ async def run_prompt_stage(
     front_idx = sorted({i for s in result.per_val_instance_best_candidates.values() for i in s})
     front = list(dict.fromkeys(versions[i] for i in front_idx))
     scores = {versions[i]: s for i, s in enumerate(result.val_aggregate_scores)}
-    best = await choose_candidate(view, base, front, budget.grounding_tolerance)
+    best = await choose_candidate(
+        view, base, front, budget.grounding_tolerance, getattr(evaluator, "judge_version", None)
+    )
     by_id = {adapter.version_of(c).version_id: adapter.version_of(c) for c in result.candidates}
     return PromptStageResult(
         best=by_id.get(best, base),
@@ -154,25 +161,31 @@ async def run_prompt_stage(
     )
 
 
-async def _val_means(view: PlannerView, version_id: str) -> dict[str, float]:
+async def _val_means(
+    view: PlannerView, version_id: str, judge: str | None = None
+) -> dict[str, float]:
     return {
         m["metric"]: m["mean"]
-        for m in await view.metrics(version_id)
+        for m in await view.metrics(version_id, judge_version=judge)
         if m["split"] == "val" and m["level"] == "split"
     }
 
 
 async def choose_candidate(
-    view: PlannerView, base: SystemVersion, front: list[str], grounding_tolerance: float
+    view: PlannerView,
+    base: SystemVersion,
+    front: list[str],
+    grounding_tolerance: float,
+    judge: str | None = None,
 ) -> str:
     """From the val Pareto front: the best mean val coverage whose val grounding is within
     tolerance of the base's (archive metrics, read through PlannerView). Ties keep the earlier
     candidate; the base wins when nothing beats it."""
-    base_m = await _val_means(view, base.version_id)
+    base_m = await _val_means(view, base.version_id, judge)
     best_id, best_cov = base.version_id, base_m.get("coverage", float("-inf"))
     floor = base_m.get("grounding", 0.0) - grounding_tolerance
     for vid in front:
-        m = await _val_means(view, vid)
+        m = await _val_means(view, vid, judge)
         cov = m.get("coverage")
         if cov is None or m.get("grounding", 0.0) < floor:
             continue
@@ -339,7 +352,9 @@ async def run_cycle(
         await evaluator.evaluate(base, "val", val, budget.val_repetitions)  # cached when replayed
         front = [v for v in (parent.version_id, topology.candidate.version_id)
                  if v != base.version_id]  # fmt: skip
-        best = await choose_candidate(view, base, front, budget.grounding_tolerance)
+        best = await choose_candidate(
+            view, base, front, budget.grounding_tolerance, getattr(evaluator, "judge_version", None)
+        )
         chosen = {parent.version_id: parent, topology.candidate.version_id: topology.candidate}.get(
             best, base
         )

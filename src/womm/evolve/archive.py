@@ -33,6 +33,16 @@ from womm.models.system_version import (
 Origin = Literal["seed", "gepa", "topology", "twin", "manual"]
 SEED_FILES = ("v1.0-unscoped.yaml", "v1.0-unscoped-api.yaml")
 METRICS = ("coverage", "omissions_addressed", "grounding")
+# The population readers use: per (version, split, judge), the latest batch that covered the
+# whole split. Partial batches (e.g. GEPA minibatches) stay stored but are not read here.
+LATEST_METRICS = (
+    "SELECT version_id, split, judge_version, git_sha, batch_id, level, subject, metric, n,"
+    " mean, sd FROM sv_metrics WHERE version_id = %s AND batch_id IN ("
+    "  SELECT DISTINCT ON (split, judge_version) batch_id FROM sv_metrics"
+    "  WHERE version_id = %s AND full_split"
+    "  ORDER BY split, judge_version, updated_at DESC, batch_id DESC"
+    ") ORDER BY split, judge_version, level, subject, metric"
+)
 _ROW = ("version_id, parent_id, twin_of, cycle_id, origin, name, spec, prompt_map, diff,"
         " proposer, created_at")  # fmt: skip
 
@@ -123,27 +133,42 @@ class Archive:
             )
             return await cur.fetchall()
 
-    async def record_metrics(self, version_id: str, split: str, rows: list[dict]) -> None:
-        """Upsert metric rows (``level``, ``subject``, ``metric``, ``n``, ``mean``, ``sd``)."""
+    async def record_metrics(
+        self,
+        version_id: str,
+        split: str,
+        rows: list[dict],
+        *,
+        batch_id: str,
+        judge_version: str,
+        git_sha: str,
+        full_split: bool,
+    ) -> None:
+        """Store the metric rows (``level``, ``subject``, ``metric``, ``n``, ``mean``, ``sd``) of
+        one batch: one population per (batch, judge, code), never overwriting another batch's.
+        Split-level rows need a batch that covers the whole split."""
+        if not full_split and any(r["level"] == "split" for r in rows):
+            raise ValueError("split-level metrics come from full-split batches only")
         async with self.db.pool.connection() as conn, conn.transaction():
             for r in rows:
                 await conn.execute(
-                    "INSERT INTO sv_metrics (version_id, split, level, subject, metric, n, mean,"
-                    " sd) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"
-                    " ON CONFLICT (version_id, split, level, subject, metric) DO UPDATE SET"
-                    " n = excluded.n, mean = excluded.mean, sd = excluded.sd, updated_at = now()",
-                    (version_id, split, r["level"], r["subject"], r["metric"], r["n"],
-                     r["mean"], r["sd"]),
+                    "INSERT INTO sv_metrics (version_id, split, judge_version, git_sha, batch_id,"
+                    " full_split, level, subject, metric, n, mean, sd)"
+                    " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+                    " ON CONFLICT (version_id, split, judge_version, git_sha, batch_id, level,"
+                    " subject, metric) DO UPDATE SET n = excluded.n, mean = excluded.mean,"
+                    " sd = excluded.sd, updated_at = now()",
+                    (version_id, split, judge_version, git_sha, batch_id, full_split,
+                     r["level"], r["subject"], r["metric"], r["n"], r["mean"], r["sd"]),
                 )  # fmt: skip
 
-    async def metrics(self, version_id: str) -> list[dict]:
+    async def metrics(self, version_id: str, judge_version: str | None = None) -> list[dict]:
+        """The metrics of the latest full-split batch per (split, judge); one judge's only
+        when ``judge_version`` is given."""
         async with self.db.pool.connection() as conn:
-            cur = await conn.execute(
-                "SELECT version_id, split, level, subject, metric, n, mean, sd FROM sv_metrics"
-                " WHERE version_id = %s ORDER BY split, level, subject, metric",
-                (version_id,),
-            )
-            return await cur.fetchall()
+            cur = await conn.execute(LATEST_METRICS, (version_id, version_id))
+            rows = await cur.fetchall()
+        return [r for r in rows if judge_version is None or r["judge_version"] == judge_version]
 
 
 async def archive_child(
@@ -188,9 +213,12 @@ def _stats(values: list[float]) -> dict[str, Any]:
     }
 
 
-def metric_rows(scores: list[CaseScore], case_fixture: dict[str, str]) -> list[dict]:
-    """Per-case means over repetitions, then per-proposal and per-split means of case means.
-    Errored runs and missing metrics are skipped, not zeroed."""
+def metric_rows(
+    scores: list[CaseScore], case_fixture: dict[str, str], *, split_level: bool = True
+) -> list[dict]:
+    """Per-case means over repetitions, then per-proposal and (with ``split_level``, for a
+    batch covering the whole split) per-split means of case means. Errored runs and missing
+    metrics are skipped, not zeroed."""
     rows: list[dict] = []
     for metric in METRICS:
         per_case: dict[str, list[float]] = defaultdict(list)
@@ -208,6 +236,7 @@ def metric_rows(scores: list[CaseScore], case_fixture: dict[str, str]) -> list[d
                  for c, v in sorted(per_case.items())]  # fmt: skip
         rows += [{"level": "proposal", "subject": p, "metric": metric, **_stats(v)}
                  for p, v in sorted(per_proposal.items())]  # fmt: skip
-        rows.append({"level": "split", "subject": "", "metric": metric,
-                     **_stats(list(case_means.values()))})  # fmt: skip
+        if split_level:
+            rows.append({"level": "split", "subject": "", "metric": metric,
+                         **_stats(list(case_means.values()))})  # fmt: skip
     return rows

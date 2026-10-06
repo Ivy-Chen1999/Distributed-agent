@@ -21,6 +21,9 @@ from .test_edits import EXTRA, _add_workforce
 BASE = load_system_version(REPO_ROOT / "system_versions" / "v1.0-unscoped.yaml", REPO_ROOT)
 
 
+PROVENANCE = {"batch_id": "rb_a", "judge_version": "jv_a", "git_sha": "sha_a", "full_split": True}
+
+
 def _fiscal_edit(sv, extra=EXTRA) -> list[dict]:
     fiscal = next(e for e in sv.spec.experts if e.id == "fiscal").role
     return [
@@ -89,10 +92,62 @@ async def test_holdout_metrics_fail_on_the_constraint(db):
     await seed_archive(archive, REPO_ROOT)
     row = {"level": "split", "subject": "", "metric": "coverage", "n": 1, "mean": 0.5,
            "sd": None}  # fmt: skip
-    await archive.record_metrics(BASE.version_id, "val", [row])
+    await archive.record_metrics(BASE.version_id, "val", [row], **PROVENANCE)
     with pytest.raises(psycopg.errors.CheckViolation):
-        await archive.record_metrics(BASE.version_id, "holdout", [row])
+        await archive.record_metrics(BASE.version_id, "holdout", [row], **PROVENANCE)
     assert [m["split"] for m in await archive.metrics(BASE.version_id)] == ["val"]
+
+
+def _row(metric: str, mean: float, level: str = "split", subject: str = "") -> dict:
+    return {"level": level, "subject": subject, "metric": metric, "n": 1, "mean": mean, "sd": None}
+
+
+async def test_metrics_of_batches_judges_and_code_never_overwrite_each_other(db):
+    archive = Archive(db)
+    await seed_archive(archive, REPO_ROOT)
+    v = BASE.version_id
+    await archive.record_metrics(v, "val", [_row("coverage", 0.5)], **PROVENANCE)
+    # Another judge, and other code, on the same version and split: separate populations.
+    await archive.record_metrics(
+        v,
+        "val",
+        [_row("coverage", 0.9)],
+        **PROVENANCE | {"batch_id": "rb_b", "judge_version": "jv_b"},
+    )
+    await archive.record_metrics(
+        v, "val", [_row("coverage", 0.7)], **PROVENANCE | {"batch_id": "rb_c", "git_sha": "sha_c"}
+    )
+    rows = await archive.metrics(v)
+    assert sorted((r["judge_version"], r["mean"]) for r in rows) == [("jv_a", 0.7), ("jv_b", 0.9)]
+    assert [r["mean"] for r in await archive.metrics(v, judge_version="jv_b")] == [0.9]
+    async with db.pool.connection() as conn:
+        n = (await (await conn.execute("SELECT count(*) AS n FROM sv_metrics")).fetchone())["n"]
+    assert n == 3  # every batch's rows are kept
+
+
+async def test_readers_take_the_latest_full_split_batch_and_partial_batches_have_no_split_row(db):
+    archive = Archive(db)
+    await seed_archive(archive, REPO_ROOT)
+    v = BASE.version_id
+    full = [_row("coverage", 0.6), _row("coverage", 0.6, "case", "c1")]
+    await archive.record_metrics(v, "val", full, **PROVENANCE)
+    partial = [_row("coverage", 0.1, "case", "c1")]
+    await archive.record_metrics(
+        v, "val", partial, **PROVENANCE | {"batch_id": "rb_p", "full_split": False}
+    )
+    with pytest.raises(ValueError, match="full-split"):
+        await archive.record_metrics(
+            v,
+            "val",
+            [_row("coverage", 0.0)],
+            **PROVENANCE | {"batch_id": "rb_x", "full_split": False},
+        )
+    got = {(r["level"], r["subject"]): r["mean"] for r in await archive.metrics(v)}
+    assert got == {("split", ""): 0.6, ("case", "c1"): 0.6}  # the partial batch is not read
+    await archive.record_metrics(
+        v, "val", [_row("coverage", 0.8)], **PROVENANCE | {"batch_id": "rb_later"}
+    )
+    assert [r["mean"] for r in await archive.metrics(v)] == [0.8]
 
 
 async def test_rebuilt_with_no_prompt_files_on_disk(db, tmp_path, monkeypatch):

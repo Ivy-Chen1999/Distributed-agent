@@ -346,3 +346,33 @@ def test_code_version_of_a_dirty_tree_includes_its_diff_hash():
         code_version(CodeIdentity(git_sha="sha1", dirty=True))
     with pytest.raises(ValueError, match="unidentifiable"):
         code_version(CodeIdentity(git_sha=None, dirty=False))
+
+
+def judge_none_covered(system, user):
+    out = judge_all_covered(system, user)
+    for v in out["expected"]:
+        v["covered"] = False
+    return out
+
+
+async def test_a_partial_batch_does_not_overwrite_the_split_metrics(setup, db, tmp_path):
+    sv, archive, store = setup
+    full = await store.submit(sv.version_id, "train", 1, judge_sv=sv, code=CODE)
+    await worker(store, archive, sv, FakeBackend(script(2)), tmp_path).run_batch(full)
+    partial = await store.submit(sv.version_id, "train", 2, judge_sv=sv, code=CODE,
+                                 case_ids=[CASE.case_id])  # fmt: skip
+    s = script(1)
+    s["judge"] = [judge_none_covered]
+    status = await worker(store, archive, sv, FakeBackend(s), tmp_path).run_batch(partial)
+    assert status["complete"]  # repetition 1 is cached from the full batch
+    got = {(m["level"], m["subject"], m["metric"]): m for m in await archive.metrics(sv.version_id)}
+    assert got[("split", "", "coverage")]["mean"] == 1.0
+    assert got[("case", CASE.case_id, "coverage")]["mean"] == 1.0
+    assert {m["batch_id"] for m in got.values()} == {full}
+    async with db.pool.connection() as conn:
+        rows = await (await conn.execute(
+            "SELECT level, mean FROM sv_metrics WHERE batch_id = %s AND metric = 'coverage'",
+            (partial,),
+        )).fetchall()  # fmt: skip
+    assert rows and all(r["level"] != "split" for r in rows)
+    assert {r["mean"] for r in rows if r["level"] == "case"} == {0.5}
