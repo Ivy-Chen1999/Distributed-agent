@@ -47,3 +47,34 @@ def test_materialize_needs_a_database(capsys, monkeypatch):
     monkeypatch.setattr(cli, "load_dotenv", lambda *a, **k: None)
     assert cli.main(["evolve", "materialize", "sv_x"]) == cli.EXIT_USAGE
     assert "DATABASE_URL" in capsys.readouterr().err
+
+
+def test_twin_archives_the_api_twin_of_a_cycle_candidate(database_url, capsys, monkeypatch):
+    """Formal modes compare api twins: `womm evolve twin` archives one under its candidate,
+    in the candidate's cycle, so the gate spends that cycle's budget."""
+    monkeypatch.setenv("DATABASE_URL", database_url)
+    assert cli.main(["evolve", "seed", "--json"]) == cli.EXIT_OK
+    capsys.readouterr()
+    child = asyncio.run(_archive_child(database_url))
+    assert cli.main(["evolve", "twin", child.version_id, "--json"]) == cli.EXIT_OK
+    data = json.loads(capsys.readouterr().out)
+    assert data["twin_of"] == child.version_id and data["version_id"] != child.version_id
+
+    async def row():
+        from womm.api.db import Database
+
+        db = Database(database_url)
+        await db.open()
+        try:
+            archive = Archive(db)
+            twin = await archive.load_candidate(data["version_id"])
+            return twin, await archive.get(data["version_id"])
+        finally:
+            await db.close()
+
+    twin, archived = asyncio.run(row())
+    assert {r.backend for r in twin.spec.roles().values()} == {"api"}
+    assert archived["origin"] == "twin" and archived["twin_of"] == child.version_id
+    assert cli.main(["evolve", "twin", child.version_id, "--json"]) == cli.EXIT_OK, "idempotent"
+    assert json.loads(capsys.readouterr().out)["version_id"] == data["version_id"]
+    assert cli.main(["evolve", "twin", "sv_unknown"]) == cli.EXIT_USAGE

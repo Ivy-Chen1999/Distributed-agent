@@ -205,6 +205,7 @@ EVOLVE_ARGV = {
     "worker": ["worker", "rb_x"],
     "cycle": ["cycle", "--base", "sv_x"],
     "diffcheck": ["diffcheck", "sv_x"],
+    "twin": ["twin", "sv_x"],
 }
 # The promotion side: the only evolve commands that may (and must) reach the holdout.
 HOLDOUT_ARGV = {

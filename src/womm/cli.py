@@ -328,6 +328,24 @@ async def cmd_evolve_seed(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+async def cmd_evolve_twin(args: argparse.Namespace) -> int:
+    """Archive the api twin of an archived candidate (every role on the api backend), in the
+    candidate's cycle: formal gate modes compare api twins (U3, U7). Idempotent."""
+    from womm.evolve.archive import Archive, archive_twin
+
+    async with _evolve_db("womm evolve twin") as db:
+        archive = Archive(db)
+        try:
+            sv = await archive.load_candidate(args.version_id)
+        except KeyError as exc:
+            raise UsageError(f"{exc.args[0]} (womm evolve seed / cycle?)") from None
+        row = await archive.get(sv.version_id)
+        twin = await archive_twin(archive, sv, cycle_id=row["cycle_id"])
+    data = {"version_id": twin.version_id, "twin_of": sv.version_id, "cycle_id": row["cycle_id"]}
+    emit(args, data, f"api twin of {sv.version_id}: {twin.version_id}")
+    return EXIT_OK
+
+
 async def cmd_evolve_materialize(args: argparse.Namespace) -> int:
     """Write an archived candidate as a SystemVersion YAML plus its prompt files (U2/U3)."""
     from womm.evolve.archive import Archive
@@ -704,6 +722,11 @@ def build_parser() -> argparse.ArgumentParser:
     evolve.add_parser(
         "seed", parents=[common], help="archive the self-evolution base and its api twin"
     )
+    p_twin = evolve.add_parser(
+        "twin", parents=[common],
+        help="archive the api twin of an archived candidate (formal gate modes compare twins)",
+    )  # fmt: skip
+    p_twin.add_argument("version_id")
     p_mat = evolve.add_parser(
         "materialize", parents=[common], help="write an archived candidate as files"
     )
@@ -801,6 +824,7 @@ EVOLVE_HANDLERS = {
     "failures": cmd_evolve_failures,
     "seed": cmd_evolve_seed,
     "materialize": cmd_evolve_materialize,
+    "twin": cmd_evolve_twin,
     "replay": cmd_evolve_replay,
     "worker": cmd_evolve_worker,
     "cycle": cmd_evolve_cycle,
