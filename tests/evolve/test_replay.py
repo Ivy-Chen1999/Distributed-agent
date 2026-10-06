@@ -14,6 +14,7 @@ from womm.evolve.replay import (
     ReplayRefused,
     ReplayStore,
     ReplayWorker,
+    code_version,
     judge_version,
 )
 from womm.llm.base import LLMError
@@ -321,3 +322,26 @@ async def test_failing_heartbeats_are_logged_then_abort_the_item(setup, tmp_path
     await asyncio.wait_for(w._run_item(batch, item, sv, CASE), timeout=5)
     assert "database went away" in caplog.text
     assert (await store.status(batch))["running"] == 1  # left for reclaim, not finished
+
+
+async def test_worker_refuses_a_batch_submitted_from_other_code(setup, tmp_path):
+    sv, archive, store = setup
+    batch = await store.submit(sv.version_id, "train", 1, judge_sv=sv, code=CODE)
+    other = worker(store, archive, sv, FakeBackend(script(2)), tmp_path)
+    other.code = CodeIdentity(git_sha="sha2", dirty=False)
+    with pytest.raises(ReplayRefused, match="sha1"):
+        await other.run_batch(batch)
+    assert (await store.status(batch))["pending"] == 2
+
+
+def test_code_version_of_a_dirty_tree_includes_its_diff_hash():
+    """Dirty trees are allowed, but identified by their diff: two different uncommitted
+    edits never share replay items."""
+    a = CodeIdentity(git_sha="sha1", dirty=True, diff_sha="aaaa")
+    b = CodeIdentity(git_sha="sha1", dirty=True, diff_sha="bbbb")
+    assert code_version(a) == "sha1+dirty.aaaa" and code_version(a) != code_version(b)
+    assert code_version(CODE) == "sha1"
+    with pytest.raises(ValueError, match="unidentifiable"):
+        code_version(CodeIdentity(git_sha="sha1", dirty=True))
+    with pytest.raises(ValueError, match="unidentifiable"):
+        code_version(CodeIdentity(git_sha=None, dirty=False))

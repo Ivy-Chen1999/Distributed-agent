@@ -369,8 +369,13 @@ async def _replay(args: argparse.Namespace, batch_id: str | None) -> int:
             if await archive.get(args.version_id) is None:
                 raise UsageError(f"{args.version_id} is not archived (womm evolve seed?)")
             code = code_identity()
-            batch_id = await store.submit(args.version_id, args.split, args.repetitions,
-                                          judge_sv=seed, code=code, case_ids=args.case)  # fmt: skip
+            try:
+                batch_id = await store.submit(
+                    args.version_id, args.split, args.repetitions,
+                    judge_sv=seed, code=code, case_ids=args.case,
+                )  # fmt: skip
+            except ValueError as exc:
+                raise UsageError(str(exc)) from None
             info(f"replay batch {batch_id}")
         try:
             batch = await store.batch(batch_id)

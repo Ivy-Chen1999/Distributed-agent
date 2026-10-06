@@ -13,6 +13,8 @@ work items that survive a crash or redeploy.
   infra-errored item is not complete, records no metric and fails the CLI.
 - The judge is pinned per batch to the seed's judge (``judge_sv``), so a candidate cannot move
   its own yardstick.
+- The code is pinned too: a worker refuses a batch whose ``git_sha`` is not its own
+  ``code_version``. Dirty trees are allowed and identified by a hash of their diff.
 - Holdout cases cannot be enqueued: cases come from ``load_all_golden(split=...)``, which refuses
   the holdout split, and every case id must belong to the batch's split.
 - A rate-limit error marks the item ``errored`` (infra) and halts the batch: no new claims
@@ -73,7 +75,15 @@ def judge_version(sv: SystemVersion) -> str:
 
 
 def code_version(code: CodeIdentity) -> str:
-    return f"{code.git_sha or 'unknown'}{'+dirty' if code.dirty else ''}"
+    """The code a replay item was scored on: the git sha, plus a hash of the uncommitted diff
+    for a dirty tree. Dirty trees are allowed (dev replays), but two different uncommitted
+    edits never share items, and a worker only runs a batch on exactly the code it was
+    submitted from. Code that cannot be identified (no sha, or a dirty tree whose diff could
+    not be read) is refused."""
+    if not code.git_sha or (code.dirty and not code.diff_sha):
+        raise ValueError(f"unidentifiable code {code!r}: replay needs a git sha (and a diff "
+                         "hash for a dirty tree)")  # fmt: skip
+    return f"{code.git_sha}+dirty.{code.diff_sha}" if code.dirty else code.git_sha
 
 
 def _load_split(split: str) -> list[GoldenCase]:
@@ -310,6 +320,13 @@ class ReplayWorker:
         batch = await self.store.batch(batch_id)
         if batch["judge_version"] != judge_version(self.judge_sv):
             raise ReplayRefused(f"batch {batch_id} is pinned to another judge")
+        try:
+            here = code_version(self.code)
+        except ValueError as exc:
+            raise ReplayRefused(str(exc)) from None
+        if here != batch["git_sha"]:
+            raise ReplayRefused(f"batch {batch_id} was submitted from code {batch['git_sha']}; "
+                                f"this worker runs {here}")  # fmt: skip
         sv = await self.archive.load_candidate(batch["version_id"])
         needed = {r.backend for r in sv.spec.roles().values()} | {self.judge_sv.spec.judge.backend}
         if missing := sorted(needed - set(self.backends)):
