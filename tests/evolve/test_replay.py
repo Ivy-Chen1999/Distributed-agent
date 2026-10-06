@@ -246,3 +246,78 @@ async def test_evaluator_refuses_an_incomplete_batch(setup, tmp_path):
     evaluator = ReplayEvaluator(archive_store=archive, store=store, worker=w)
     with pytest.raises(ReplayIncomplete, match="halted"):
         await evaluator.evaluate(sv, "train", [CASE.case_id, CASE_B.case_id], 1)
+
+
+async def test_reclaimed_item_is_neither_finished_nor_remembered(setup, db, tmp_path):
+    """Another worker reclaimed the item while this one scored it: finish() loses, and the
+    run must not reach Failure Memory a second time."""
+    sv, archive, store = setup
+    batch = await store.submit(sv.version_id, "train", 1, judge_sv=sv, code=CODE,
+                               case_ids=[CASE.case_id])  # fmt: skip
+    w = worker(store, archive, sv, FakeBackend(script(1)), tmp_path)
+    score = w._score
+
+    async def scored_then_reclaimed(item, *a):
+        out = await score(item, *a)
+        async with db.pool.connection() as conn:
+            await conn.execute("UPDATE replay_items SET owner = 'other' WHERE item_id = %s",
+                               (item["item_id"],))  # fmt: skip
+        return out
+
+    w._score = scored_then_reclaimed
+    item = await store.claim(batch, w.owner)
+    await w._run_item(batch, item, sv, CASE)
+    status = await store.status(batch)
+    assert status["running"] == 1 and status["done"] == 0
+    _, runs = await db.failure_memory(sv.version_id)
+    assert runs == []
+
+
+async def test_lost_heartbeat_aborts_the_item(setup, tmp_path, monkeypatch):
+    sv, archive, store = setup
+    batch = await store.submit(sv.version_id, "train", 1, judge_sv=sv, code=CODE,
+                               case_ids=[CASE.case_id])  # fmt: skip
+    w = worker(store, archive, sv, FakeBackend({}), tmp_path, heartbeat_s=0.01)
+    started = asyncio.Event()
+
+    async def slow(*_a):
+        started.set()
+        await asyncio.sleep(30)
+
+    async def lost(*_a):
+        return False
+
+    finished = []
+
+    async def finish(*a, **kw):
+        finished.append(kw)
+        return True
+
+    w._score = slow
+    monkeypatch.setattr(store, "heartbeat", lost)
+    monkeypatch.setattr(store, "finish", finish)
+    item = await store.claim(batch, w.owner)
+    await asyncio.wait_for(w._run_item(batch, item, sv, CASE), timeout=5)
+    assert started.is_set() and finished == []
+
+
+async def test_failing_heartbeats_are_logged_then_abort_the_item(setup, tmp_path, monkeypatch,
+                                                                 caplog):  # fmt: skip
+    sv, archive, store = setup
+    batch = await store.submit(sv.version_id, "train", 1, judge_sv=sv, code=CODE,
+                               case_ids=[CASE.case_id])  # fmt: skip
+    w = worker(store, archive, sv, FakeBackend({}), tmp_path, heartbeat_s=0.01,
+               stale_after_s=0.05)  # fmt: skip
+
+    async def slow(*_a):
+        await asyncio.sleep(30)
+
+    async def broken(*_a):
+        raise ConnectionError("database went away")
+
+    w._score = slow
+    monkeypatch.setattr(store, "heartbeat", broken)
+    item = await store.claim(batch, w.owner)
+    await asyncio.wait_for(w._run_item(batch, item, sv, CASE), timeout=5)
+    assert "database went away" in caplog.text
+    assert (await store.status(batch))["running"] == 1  # left for reclaim, not finished

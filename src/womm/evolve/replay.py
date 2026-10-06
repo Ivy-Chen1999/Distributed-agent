@@ -23,7 +23,6 @@ work items that survive a crash or redeploy.
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import hashlib
 import json
 import logging
@@ -339,18 +338,44 @@ class ReplayWorker:
             )
         return status
 
-    async def _beat(self, item_id: int) -> None:
+    async def _beat(self, item_id: int, work: asyncio.Task, lost: asyncio.Event) -> None:
+        """Heartbeat ``item_id`` while ``work`` scores it. When the item is no longer this
+        worker's (reclaimed), or heartbeats keep failing for ``stale_after_s`` (so it will be
+        reclaimed), abort ``work``: its result could only be dropped or double-counted."""
+        loop = asyncio.get_running_loop()
+        last_ok = loop.time()
         while True:
             await asyncio.sleep(self.heartbeat_s)
-            with contextlib.suppress(Exception):
-                await self.store.heartbeat(item_id, self.owner)
+            try:
+                ours = await self.store.heartbeat(item_id, self.owner)
+            except Exception as exc:  # noqa: BLE001 - logged; aborts once the item goes stale
+                log.warning("heartbeat of replay item %s failed: %s: %s",
+                            item_id, type(exc).__name__, exc)  # fmt: skip
+                if loop.time() - last_ok < self.stale_after_s:
+                    continue
+                log.warning("replay item %s: no heartbeat for %.0fs; aborting it",
+                            item_id, self.stale_after_s)  # fmt: skip
+            else:
+                if ours:
+                    last_ok = loop.time()
+                    continue
+                log.warning("replay item %s was reclaimed by another worker; aborting it",
+                            item_id)  # fmt: skip
+            lost.set()
+            work.cancel()
+            return
 
     async def _run_item(self, batch_id: str, item: dict, sv: SystemVersion, case: GoldenCase):
-        beat = asyncio.create_task(self._beat(item["item_id"]))
+        lost = asyncio.Event()
+        work = asyncio.create_task(self._score(item, sv, case))
+        beat = asyncio.create_task(self._beat(item["item_id"], work, lost))
         try:
             try:
-                run, score, traj = await self._score(item, sv, case)
+                run, score, traj = await work
             except asyncio.CancelledError:
+                me = asyncio.current_task()
+                if lost.is_set() and not (me and me.cancelling()):
+                    return  # aborted by the heartbeat: the item is (or will be) someone else's
                 raise
             except Exception as exc:  # noqa: BLE001 - record, never lose an item silently
                 kind = "infra" if _is_infra(exc) else "deterministic"
@@ -362,7 +387,7 @@ class ReplayWorker:
             # An infra-errored run, or one that hit a rate limit anywhere, is no verdict on the
             # candidate: errored (infra), so it is retried instead of cached.
             errored = score.outcome == "errored" or limited
-            await self.store.finish(
+            finished = await self.store.finish(
                 item["item_id"], self.owner, status="errored" if errored else "done",
                 run_id=run.run_id, score=score, trajectory=traj,
                 error=(score.error or "rate_limit") if errored else None,
@@ -372,9 +397,14 @@ class ReplayWorker:
                 await self.store.halt(batch_id, f"rate_limit during {case.case_id} "
                                                 f"repetition {item['repetition']}")  # fmt: skip
                 return
+            if not finished:
+                log.warning("replay item %s was reclaimed before it finished; result dropped",
+                            item["item_id"])  # fmt: skip
+                return
             await self._remember(item, sv, case, run, score)
         finally:
             beat.cancel()
+            work.cancel()
 
     async def _score(self, item: dict, sv: SystemVersion, case: GoldenCase):
         split, rep = item["split"], item["repetition"]
