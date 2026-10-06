@@ -312,7 +312,7 @@ class EvolutionView:
                 domain=expert["domain"],
                 router_gloss=expert["router_gloss"],
                 prompt_text=expert["prompt_text"],
-                target_pattern=diff.get("target_pattern"),
+                target_pattern=_pattern(diff.get("target_pattern")),
                 rationale=diff.get("rationale"),
             ),  # fmt: skip
             metrics=split_metrics(metrics),
@@ -346,6 +346,17 @@ def split_metrics(rows: list[dict]) -> list[SplitMetrics]:
         if metrics:
             out.append(SplitMetrics(split=split, judge_version=jv, metrics=metrics))
     return out
+
+
+def _pattern(value: Any) -> dict[str, Any] | None:
+    """The new expert's target pattern. The topology stage archives it as its key,
+    ``kind/category/owner``; a mapping is passed through."""
+    if isinstance(value, str):
+        parts = value.strip().split("/")
+        if len(parts) == 3:
+            return dict(zip(("kind", "category", "owner"), parts, strict=True))
+        return {"pattern": value}
+    return value if isinstance(value, dict) else None
 
 
 def _score(s: dict | None) -> Score | None:

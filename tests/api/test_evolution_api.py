@@ -206,3 +206,21 @@ def test_the_lineage_reads_no_spec_diff_or_train_val_bodies(database_url, tmp_pa
     assert {m["split"] for m in metrics} == {"diff_check"}
     assert full["diff"]["ops"][0]["op"] == "add_expert" and full["spec"]["experts"]
     assert {(m["version_id"], m["split"]) for m in mine} == {(ids["topology"], "val")}
+
+
+def test_a_target_pattern_archived_as_its_key_is_shown_as_fields(database_url, tmp_path):
+    """The topology stage archives ``target_pattern`` as ``kind/category/owner``."""
+    import psycopg
+
+    client, ids = _client(database_url, tmp_path)
+    with psycopg.connect(database_url) as conn:
+        conn.execute(
+            "UPDATE sv_archive SET diff = jsonb_set(diff, '{target_pattern}',"
+            " '\"missed_impact/social_environmental/none\"') WHERE version_id = %s",
+            (ids["topology"],),
+        )
+    with client as c:
+        body = c.get(f"/evolution/candidates/{ids['topology']}", headers=AUTH).json()
+    assert body["new_expert"]["target_pattern"] == {
+        "kind": "missed_impact", "category": "social_environmental", "owner": "none"
+    }  # fmt: skip
