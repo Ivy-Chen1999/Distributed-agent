@@ -269,3 +269,59 @@ class Database:
                 "SELECT * FROM failures WHERE system_version = %s ORDER BY id", (system_version,)
             )
             return await cur.fetchall()
+
+    # ------------------------------------------------------------------ Failure Memory (U1)
+
+    async def record_failure_events(
+        self, events: list[Any], runs: list[Any], git_sha: str | None = None
+    ) -> int:
+        """Store train/val failure events and scored runs (``womm.evolve.failure_memory``) in
+        one transaction; re-recording the same run is a no-op. Returns the events written. A
+        holdout split fails on the tables' CHECK constraints."""
+        written = 0
+        async with self.pool.connection() as conn, conn.transaction():
+            for r in runs:
+                await conn.execute(
+                    "INSERT INTO failure_case_runs (system_version, case_id, fixture, split,"
+                    " run_id, repetition, git_sha) VALUES (%s, %s, %s, %s, %s, %s, %s)"
+                    " ON CONFLICT DO NOTHING",
+                    (r.system_version, r.case_id, r.fixture, r.split, r.run_id, r.repetition,
+                     git_sha),
+                )  # fmt: skip
+            for e in events:
+                cur = await conn.execute(
+                    "INSERT INTO failure_events (system_version, kind, case_id, fixture, split,"
+                    " item_id, category, touching_agents, owner, run_id, repetition, detail,"
+                    " git_sha) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+                    " ON CONFLICT DO NOTHING",
+                    (e.system_version, e.kind, e.case_id, e.fixture, e.split, e.item_id,
+                     e.category, e.touching_agents, e.owner, e.run_id, e.repetition,
+                     Jsonb(_without_nul(e.detail)), git_sha),
+                )  # fmt: skip
+                written += cur.rowcount
+        return written
+
+    async def failure_memory(self, system_version: str) -> tuple[list[Any], list[Any]]:
+        """The stored failure events and scored runs of one system version."""
+        from womm.evolve.failure_memory import CaseRun, FailureEvent
+
+        async with self.pool.connection() as conn:
+            events = await (await conn.execute(
+                "SELECT system_version, kind, case_id, fixture, split, item_id, category,"
+                " touching_agents, owner, run_id, repetition, detail FROM failure_events"
+                " WHERE system_version = %s ORDER BY id", (system_version,),
+            )).fetchall()  # fmt: skip
+            runs = await (await conn.execute(
+                "SELECT system_version, case_id, fixture, split, run_id, repetition"
+                " FROM failure_case_runs WHERE system_version = %s ORDER BY case_id, run_id",
+                (system_version,),
+            )).fetchall()  # fmt: skip
+        return (
+            [FailureEvent.model_validate(e) for e in events],
+            [CaseRun.model_validate(r) for r in runs],
+        )
+
+    async def failure_patterns(self, system_version: str) -> list[dict]:
+        from womm.evolve.failure_memory import patterns
+
+        return patterns(*await self.failure_memory(system_version))

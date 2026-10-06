@@ -11,7 +11,12 @@ async def test_migrate_is_idempotent(database_url):
     database = Database(database_url)
     await database.open()
     try:
-        assert await database.migrate() == ["001_init", "002_run_ownership", "003_decision_usage"]
+        assert await database.migrate() == [
+            "001_init",
+            "002_run_ownership",
+            "003_decision_usage",
+            "004_evolution",
+        ]
         assert await database.migrate() == []
     finally:
         await database.close()

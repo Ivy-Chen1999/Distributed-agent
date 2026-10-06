@@ -277,6 +277,35 @@ async def cmd_scenarios(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+# ---------------------------------------------------------------- self-evolution (F3)
+
+
+async def cmd_evolve_failures(args: argparse.Namespace) -> int:
+    """Failure Memory patterns (U1) of one system version, from saved train/val eval reports
+    or, with --from-db, from Postgres."""
+    from womm.evolve.failure_memory import format_patterns, load_report_events, patterns
+
+    version_id = args.sv or _load_sv(args).version_id
+    if args.from_db:
+        url = load_settings().database_url
+        if not url:
+            raise UsageError("--from-db needs DATABASE_URL")
+        from womm.api.db import Database
+
+        db = Database(url)
+        await db.open()
+        try:
+            await db.migrate()
+            rows = await db.failure_patterns(version_id)
+        finally:
+            await db.close()
+    else:
+        rows = patterns(*load_report_events(Path(args.runs_dir), version_id))
+    emit(args, {"system_version": version_id, "patterns": rows},
+         f"failure patterns of {version_id}\n{format_patterns(rows)}")  # fmt: skip
+    return EXIT_OK
+
+
 def build_parser() -> argparse.ArgumentParser:
     settings = load_settings()
     common = argparse.ArgumentParser(add_help=False)
@@ -322,6 +351,13 @@ def build_parser() -> argparse.ArgumentParser:
         "selfcheck", parents=[common], help="verify backend auth and claude_code isolation"
     )
     sub.add_parser("scenarios", parents=[common], help="list fixture scenarios")
+    p_evolve = sub.add_parser("evolve", help="self-evolution cycle (train/val only)")
+    evolve = p_evolve.add_subparsers(dest="evolve_cmd", required=True)
+    p_fail = evolve.add_parser(
+        "failures", parents=[common], help="Failure Memory patterns of a system version"
+    )
+    p_fail.add_argument("--sv", help="version id (default: the --system-version file's id)")
+    p_fail.add_argument("--from-db", action="store_true", help="read Postgres, not runs/")
     return parser
 
 
@@ -333,11 +369,17 @@ HANDLERS = {
 }
 
 
+EVOLVE_HANDLERS = {
+    "failures": cmd_evolve_failures,
+}
+
+
 def main(argv: list[str] | None = None) -> int:
     load_dotenv(REPO_ROOT / ".env", override=False)
     args = build_parser().parse_args(argv)
+    handler = EVOLVE_HANDLERS[args.evolve_cmd] if args.cmd == "evolve" else HANDLERS[args.cmd]
     try:
-        return asyncio.run(HANDLERS[args.cmd](args))
+        return asyncio.run(handler(args))
     except (UsageError, FixtureError, GoldenError, BaselineRefused, ConfigError) as exc:
         info(f"error: {exc}")
         return EXIT_USAGE

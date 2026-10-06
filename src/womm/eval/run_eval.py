@@ -40,6 +40,7 @@ from womm.eval.golden import (
     load_case_fixture,
 )
 from womm.eval.trajectory import feedback_scores, trajectory_metrics, trajectory_summary
+from womm.evolve.failure_memory import CaseRun, FailureEvent, case_run, failure_events
 from womm.graph.build import run_scenario
 from womm.llm.base import LLMBackend
 from womm.models.run import CodeIdentity, RunResult
@@ -62,6 +63,8 @@ class EvalReport:
     run_ids: list[str] = field(default_factory=list)
     aborted: str | None = None
     case_splits: dict[str, str] = field(default_factory=dict)
+    failure_events: list[FailureEvent] = field(default_factory=list)
+    case_runs: list[CaseRun] = field(default_factory=list)
 
     @property
     def summary(self) -> dict | None:
@@ -96,6 +99,8 @@ class EvalReport:
                 "trajectory": trajectory_summary(
                     [s.trajectory for s in self.scores if s.outcome == "scored" and s.trajectory]
                 ),
+                "failure_events": [e.model_dump(mode="json") for e in self.failure_events],
+                "case_runs": [r.model_dump(mode="json") for r in self.case_runs],
                 "run_ids": self.run_ids,
                 "scores": [s.model_dump(mode="json") for s in self.scores],
             },
@@ -254,6 +259,11 @@ async def evaluate_cases(
                 if runs_dir:
                     _save_run(runs_dir, run)
                 report.scores.append(score)
+                memory = {"split": case.split, "repetition": rep + 1,
+                          "system_version": sv.version_id}  # fmt: skip
+                report.failure_events += failure_events(case, score, run, **memory)
+                if (scored_run := case_run(case, score, **memory)) is not None:
+                    report.case_runs.append(scored_run)
                 if _hit_rate_limit(run, score):
                     report.aborted = f"rate_limit during {case.case_id} repetition {rep + 1}"
                     return {"aborted": report.aborted}
@@ -292,8 +302,9 @@ def _save_run(runs_dir: Path, run: RunResult) -> None:
 
 
 async def persist_failures(report: EvalReport, database_url: str) -> int:
-    """Write R14b failure records to Postgres; returns how many were written. A report that
-    contains a holdout case is refused before anything is written (AE3)."""
+    """Write R14b failure records and Failure Memory events (U1) to Postgres; returns how many
+    were written. A report that contains a holdout case is refused before anything is written
+    (AE3)."""
     from womm.api.db import Database
 
     if report.metadata.get("split") == "holdout" or "holdout" in report.case_splits.values():
@@ -310,9 +321,12 @@ async def persist_failures(report: EvalReport, database_url: str) -> int:
                 git_sha=report.metadata.get("git_sha"),
                 **r,
             )
+        written = await db.record_failure_events(
+            report.failure_events, report.case_runs, git_sha=report.metadata.get("git_sha")
+        )
     finally:
         await db.close()
-    return len(records)
+    return len(records) + written
 
 
 def write_report(report: EvalReport, runs_dir: Path) -> Path:
