@@ -1,7 +1,7 @@
 // Shapes of the WOMM API (docs/ui/api-contract.md, docs/ui/schema/*.json).
 
 export type RunStatus = 'queued' | 'running' | 'succeeded' | 'degraded' | 'failed' | 'no_changes';
-export type ErrorKind = 'auth' | 'rate_limit' | 'timeout' | 'schema_invalid' | 'process_error' | string;
+export type ErrorKind = 'auth' | 'rate_limit' | 'timeout' | 'schema_invalid' | 'process_error' | 'no_data_in_scope' | string;
 export type RouterMode = 'off' | 'shadow' | 'active';
 
 export interface Provenance {
@@ -130,6 +130,8 @@ export interface RunDetail {
   usage?: CallUsage[] | null;
   code_identity?: CodeIdentity | null;
   dossier?: ImpactDossier | null;
+  /** Every source an expert of the run could cite (texts, obligation views, memorandum). Absent on older runs. */
+  citable_sources?: SourceDoc[] | null;
 }
 
 export interface RunSummary {

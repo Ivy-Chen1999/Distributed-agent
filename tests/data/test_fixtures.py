@@ -30,7 +30,7 @@ def test_committed_fixture_validates(fixture):
 
 
 def test_evaluation_scenarios(fixture):
-    evals = [s for s in fixture.scenarios.values() if s.kind == "evaluation"]
+    evals = [s for s in fixture.scenarios.values() if s.kind == "evaluation" and s.mode == "preset"]
     assert {s.scenario_id for s in evals} >= {"eval_provider_compliance_costs", "eval_sme_impacts"}
     for s in evals:
         before, after = fixture.scenario_versions(s.scenario_id)
@@ -172,3 +172,44 @@ def test_crosswalk_rejects_article_mapped_twice(tmp_path: Path):
     )
     with pytest.raises(FixtureError, match="mapped to both"):
         load_crosswalk(path)
+
+
+def _scenario(**kw) -> dict:
+    return {
+        "scenario_id": "s", "kind": "demo", "description": "d", "before_version": None,
+        "after_version": "reg2024_1689_c20260727", **kw,
+    }  # fmt: skip
+
+
+def test_explore_scenario_must_not_list_keys():
+    with pytest.raises(ValueError, match="must not list provision_keys"):
+        Scenario.model_validate(_scenario(mode="explore", provision_keys=["ai_act/art/1"]))
+
+
+def test_preset_scenario_needs_keys():
+    with pytest.raises(ValueError, match="needs provision_keys"):
+        Scenario.model_validate(_scenario(before_version="com2021_206"))
+
+
+def test_explore_scenarios_validate_against_the_corpus_not_the_fixture(fixture):
+    # A demo explore scenario may have no prior version, and its corpus-only version is not
+    # checked against the fixture's versions.
+    whole = Scenario.model_validate(_scenario(mode="explore"))
+    ok = type(fixture)(fixture.regulation, fixture.sources, {"s": whole})
+    validate_fixture(ok)
+    with pytest.raises(FixtureError, match="explore scenario"):
+        ok.scenario_versions("s")
+    with pytest.raises(FixtureError, match="explore scenario"):
+        ok.scenario_sources("s")
+    # An evaluation scenario still needs no prior version, in either mode.
+    bad = Scenario.model_validate(
+        _scenario(mode="explore", kind="evaluation", before_version="reg2024_1689")
+    )
+    with pytest.raises(FixtureError, match="must have no before_version"):
+        validate_fixture(type(fixture)(fixture.regulation, fixture.sources, {"s": bad}))
+
+
+def test_committed_explore_scenarios(fixture):
+    explore = {s.scenario_id: s for s in fixture.scenarios.values() if s.mode == "explore"}
+    assert set(explore) == {"eval_whole_proposal", "consolidated_whole_act", "omnibus_2026"}
+    assert explore["eval_whole_proposal"].kind == "evaluation"

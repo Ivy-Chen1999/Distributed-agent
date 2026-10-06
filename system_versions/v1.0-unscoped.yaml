@@ -1,0 +1,39 @@
+name: v1.0-unscoped
+description: >
+  Candidate (control arm and self-evolution base candidate): v1.0-scoped with every data scope
+  removed, so every expert sees every requested provision's text, the memorandum and the change
+  kinds, as in v0. Same prompts, explore prompt and retrieval cap as v1.0-scoped; the scoped vs
+  unscoped comparison isolates the effect of data separation. Preset scenarios keep the v0
+  Planner prompt; explore scenarios use the index-reading explore prompt, bounded by
+  max_provisions and max_prompt_chars.
+planner:
+  backend: claude_code
+  model: claude-sonnet-5
+  prompt: prompts/planner.md
+  explore_prompt: prompts/v1/planner_explore.md
+synthesis:
+  backend: claude_code
+  model: claude-sonnet-5
+  prompt: prompts/v0.3/synthesis.md
+  timeout_s: 480
+judge:
+  backend: claude_code
+  model: claude-sonnet-5
+  prompt: prompts/judge_coverage.md
+experts:
+  - id: legal
+    domain: legal
+    role: {backend: claude_code, model: claude-sonnet-5, prompt: prompts/v0.3/legal.md, timeout_s: 480}
+  - id: fiscal
+    domain: fiscal
+    role: {backend: claude_code, model: claude-sonnet-5, prompt: prompts/v0.3/fiscal.md, timeout_s: 480}
+  - id: stakeholder
+    domain: stakeholder
+    role: {backend: claude_code, model: claude-sonnet-5, prompt: prompts/v0.3/stakeholder.md, timeout_s: 480}
+router:
+  mode: shadow
+  decider: stub
+max_parallel_llm_calls: 3
+retrieval:
+  max_provisions: 8
+  max_prompt_chars: 60000

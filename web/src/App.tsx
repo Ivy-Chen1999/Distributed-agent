@@ -467,7 +467,7 @@ export function App() {
           </main>
         </div>
 
-        {src && <SourcePanel sourceId={src.sourceId} quote={src.quote} sources={sources} onClose={() => setSrc(null)} />}
+        {src && <SourcePanel sourceId={src.sourceId} quote={src.quote} sources={sources} runSources={run?.citable_sources} onClose={() => setSrc(null)} />}
         {picker && authed && <RunPicker scenarios={scenarios} initial={scenarioId} staged={stagedText} busy={submitting} onRun={startRun} onClose={() => setPicker(false)} />}
         {!authed && (
           <TokenModal

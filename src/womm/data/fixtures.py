@@ -3,7 +3,8 @@
 Files:
 - ``proposal.json`` (and optionally ``final.json``): a Regulation holding one or more versions
 - ``sources.json``: list[Source], the only texts experts may cite (R9)
-- ``scenarios.yaml``: ``{"scenarios": list[Scenario]}``
+- ``scenarios.yaml``: ``{"scenarios": list[Scenario]}``; explore scenarios name corpus versions
+  (``data/corpus/``) and list no provisions
 - ``crosswalk.yaml``: hand-maintained ``{"entries": list[CrosswalkEntry]}`` mapping each stable
   provision key to its article number in every version (build input, not needed at runtime)
 """
@@ -105,8 +106,13 @@ class Fixture:
     def scenario_versions(
         self, scenario_id: str
     ) -> tuple[RegulationVersion | None, RegulationVersion]:
-        """(before, after) restricted to the scenario's provision keys."""
+        """(before, after) restricted to the scenario's provision keys (preset scenarios only;
+        explore scenarios read whole versions from the corpus)."""
         s = self.scenario(scenario_id)
+        if s.mode == "explore":
+            raise FixtureError(
+                f"scenario {scenario_id!r} is an explore scenario; it reads the provision corpus"
+            )
         keys = set(s.provision_keys)
 
         def restrict(v: RegulationVersion) -> RegulationVersion:
@@ -139,6 +145,12 @@ def validate_fixture(fixture: Fixture) -> None:
                     f"{p.source_id!r}"
                 )
     for s in fixture.scenarios.values():
+        if s.kind == "evaluation" and s.before_version is not None:
+            raise FixtureError(f"evaluation scenario {s.scenario_id!r} must have no before_version")
+        if s.mode == "explore":
+            # Explore scenarios read whole versions from the corpus, not the fixture; their
+            # versions are checked against the corpus when a run loads it.
+            continue
         wanted = [s.after_version] + ([s.before_version] if s.before_version else [])
         for vid in wanted:
             if vid not in versions:
@@ -152,8 +164,6 @@ def validate_fixture(fixture: Fixture) -> None:
                 f"scenario {s.scenario_id!r} references provision keys not in "
                 f"{'/'.join(wanted)}: {missing}"
             )
-        if s.kind == "evaluation" and s.before_version is not None:
-            raise FixtureError(f"evaluation scenario {s.scenario_id!r} must have no before_version")
         if s.kind == "demo" and s.before_version is None:
             raise FixtureError(f"demo scenario {s.scenario_id!r} needs a before_version")
 

@@ -1,0 +1,9 @@
+{
+  "https://publications.europa.eu/resource/celex/02024R1689-20260727": "5e7719f77e8a606b257dc25958ee3222c4383300a5a34270a5b850a2ce8b8715",
+  "https://publications.europa.eu/resource/celex/32026R1744": "9d754652b867722807e4219c85912ce354233e58a1b4eb8c7752b4d1922993db",
+  "https://raw.githubusercontent.com/calderonsamuel/course-cs-project-fall-2026-data/16b5807927be1ade3802db7c59c26f7ca338ebf2/data/processed/alignment/52021PC0206__32024R1689_containers.csv": "520bb7dd551111a4012d65c2d3704340ed6c1d859b9852e3e46adf55fbf1e7a0",
+  "https://raw.githubusercontent.com/calderonsamuel/course-cs-project-fall-2026-data/16b5807927be1ade3802db7c59c26f7ca338ebf2/data/processed/obligations/32024R1689.jsonl": "0913e8ee80107463386a8a369dcade5ab477cb1a1841278a90e699f22e36dc23",
+  "https://raw.githubusercontent.com/calderonsamuel/course-cs-project-fall-2026-data/16b5807927be1ade3802db7c59c26f7ca338ebf2/data/processed/obligations/52021PC0206.jsonl": "1c9721a2c2a122f97480c22f8871a27bead90a5c4097ffc1b58ff1525e1019f2",
+  "https://raw.githubusercontent.com/calderonsamuel/course-cs-project-fall-2026-data/16b5807927be1ade3802db7c59c26f7ca338ebf2/data/processed/provisions/32024R1689.jsonl": "256b87b9334f84de54a15d5dad613e50623d0b86a2ee40c749f89efc0de56be7",
+  "https://raw.githubusercontent.com/calderonsamuel/course-cs-project-fall-2026-data/16b5807927be1ade3802db7c59c26f7ca338ebf2/data/processed/provisions/52021PC0206.jsonl": "6641f9fddd9819e8e43ca6d186d3919034d8a42839f13ed27d987a3fff6efee0"
+}

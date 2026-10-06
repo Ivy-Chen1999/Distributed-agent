@@ -4,7 +4,10 @@ Synthesis only proposes an ID-level structure. This module enforces the invarian
 - unsupported findings always become 'evidence_unresolved' open questions, whatever synthesis says;
 - impacts may only reference supported findings (unknown or unsupported IDs are dropped + noted);
 - every supported finding ends up somewhere; anything synthesis left out goes to `unprocessed`;
-- if synthesis failed, supported findings are listed unmerged and the run is degraded.
+- if synthesis failed, supported findings are listed unmerged and the run is degraded;
+- a scoped expert with no data in its scope (``no_data_in_scope``) is listed and noted, but does
+  not degrade the run on its own (it ran as configured); if no expert produced anything, the run
+  fails as when every expert failed.
 """
 
 from __future__ import annotations
@@ -20,7 +23,7 @@ from womm.models.dossier import (
     ImpactDossier,
     OpenQuestion,
 )
-from womm.models.findings import ImpactFinding
+from womm.models.findings import ImpactFinding, no_data_note
 
 
 def _unresolved_question(f: ImpactFinding) -> OpenQuestion:
@@ -40,18 +43,20 @@ def assemble(state: RIAState, sv_id: str, expert_ids: list[str]) -> ImpactDossie
         return ImpactDossier(**base, status="failed", failed_experts=failed_experts, notes=[fatal])
     if state["diff"].is_empty:
         return ImpactDossier(**base, status="no_changes", notes=["no provision changes"])
+    no_data = [no_data_note(f.agent) for f in failed_experts if f.no_data]
     if len(failed_experts) == len(expert_ids):
         return ImpactDossier(
             **base, status="failed", failed_experts=failed_experts,
-            notes=["all experts failed; synthesis skipped"],
+            notes=[*no_data, "all experts failed; synthesis skipped"],
         )  # fmt: skip
 
     validation = state["validation"]
     supported = {f.finding_id: f for f in validation.supported}
     unsupported = {f.finding_id for f in validation.unsupported}
     open_questions = [_unresolved_question(f) for f in validation.unsupported]
-    notes: list[str] = []
-    status: DossierStatus = "degraded" if failed_experts else "succeeded"
+    notes: list[str] = list(no_data)
+    errors = [f for f in failed_experts if not f.no_data]
+    status: DossierStatus = "degraded" if errors else "succeeded"
 
     plan = state.get("synthesis")
     if plan is None:
@@ -137,4 +142,8 @@ def assemble(state: RIAState, sv_id: str, expert_ids: list[str]) -> ImpactDossie
 
 async def assemble_node(state: RIAState, runtime: Runtime[WommContext]) -> dict:
     sv = runtime.context.sv
-    return {"dossier": assemble(state, sv.version_id, dispatched_ids(state, runtime))}
+    dossier = assemble(state, sv.version_id, dispatched_ids(state, runtime))
+    header = {"law_version": state.get("law_version")}
+    if planner_notes := state.get("planner_notes"):
+        header["notes"] = [*planner_notes, *dossier.notes]
+    return {"dossier": dossier.model_copy(update=header)}

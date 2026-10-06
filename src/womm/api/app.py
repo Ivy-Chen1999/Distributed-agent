@@ -165,7 +165,9 @@ def create_app(
 
     @app.get("/scenarios", dependencies=auth)
     async def scenarios() -> list[dict]:
-        return [s.model_dump(mode="json") for s in fixture.scenarios.values()]
+        # Explore scenarios run through POST /runs (API and CLI) but are not in the console's
+        # picker yet: they have no fixed provision list for the sources view.
+        return [s.model_dump(mode="json") for s in fixture.scenarios.values() if s.mode == "preset"]
 
     @app.post("/runs", dependencies=auth, status_code=status.HTTP_202_ACCEPTED)
     async def submit(body: RunRequest, request: Request) -> RunAccepted:
@@ -219,7 +221,10 @@ def create_app(
         result = row["result"] or {}
         out["started_at"] = row["started_at"]
         if row["status"] in FINISHED:
-            for key in ("grounding", "decisions", "board", "failures", "usage", "code_identity"):
+            for key in (
+                "grounding", "decisions", "board", "failures", "usage", "code_identity",
+                "citable_sources",
+            ):  # fmt: skip
                 out[key] = result.get(key)
         if row["status"] in WITH_DOSSIER:
             out["dossier"] = result.get("dossier")
@@ -279,6 +284,11 @@ def create_app(
             scenario = fixture.scenario(scenario_id)
         except FixtureError as exc:
             raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from None
+        if scenario.mode == "explore":
+            raise HTTPException(
+                status.HTTP_404_NOT_FOUND,
+                f"scenario {scenario_id!r} is an explore scenario and has no fixed sources",
+            )
         before, after = fixture.scenario_versions(scenario_id)
         diff = diff_versions(before, after, keys=scenario.provision_keys)
 

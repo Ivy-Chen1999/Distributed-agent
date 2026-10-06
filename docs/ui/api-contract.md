@@ -78,11 +78,15 @@ Newest first.
   "decisions": [DecisionRecord], "grounding": {"passed": 64, "total": 64},
   "board": [ImpactFinding], "failures": [ExpertFailure], "usage": [CallUsage],
   "code_identity": {…},
+  "citable_sources": [{"source_id": "…", "title": "…", "kind": "provision|annex|memorandum|obligations", "text": "…"}],
   "dossier": ImpactDossier
 }
 ```
-`decisions`, `grounding`, `board`, `failures`, `usage`, `code_identity` appear once the run has
-finished; `dossier` only for succeeded/degraded/no_changes. While running, use the events.
+`decisions`, `grounding`, `board`, `failures`, `usage`, `code_identity`, `citable_sources` appear
+once the run has finished; `citable_sources` (every source an expert could cite, including
+obligation views) is null for runs saved before it existed, so fall back to the scenario sources.
+An `ExpertFailure` with `error_kind` `no_data_in_scope` is a scoped expert that was not called
+because nothing was within its scope; it does not degrade the run on its own. `dossier` only for succeeded/degraded/no_changes. While running, use the events.
 `error_kind` on a failed run is the failure class (`timeout`, `auth`, `orphaned`, `cancelled`,
 `process_error`, …; `pipeline_failed` when the pipeline failed without a tagged cause).
 

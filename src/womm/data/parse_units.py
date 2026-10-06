@@ -93,6 +93,8 @@ class _Tree:
         """A unit with its descendants, one line per own-text block, point or subparagraph."""
         prefix = f"{unit.num} " if unit.type == "point" and unit.num else ""
         children = [self.block(k) for k in self.kids(unit)]
+        # An annex section's heading ("Section A. ...", "1.Introduction") is a line of its own.
+        heading = [unit.heading] if unit.type == "annex_section" and unit.heading else []
         if GAP in unit.text:
             pieces = unit.text.split(GAP)
             at = next((i for i, p in enumerate(pieces[:-1]) if p.rstrip().endswith(":")), 0)
@@ -102,7 +104,7 @@ class _Tree:
         else:
             lines = [prefix.strip()] if prefix else []
             lines += children
-        return "\n".join(lines)
+        return "\n".join(heading + lines)
 
     def article(self, unit: Unit) -> Article:
         kids = self.kids(unit)
@@ -123,6 +125,28 @@ def parse_articles(units: list[Unit]) -> list[Article]:
     """Every article, in document order."""
     tree = _Tree(units)
     return [tree.article(u) for u in sorted(units, key=lambda u: u.seq) if u.type == "article"]
+
+
+def parse_annexes(units: list[Unit]) -> list[Article]:
+    """Every annex, in document order, as an ``Article`` numbered by its roman label with one
+    unnumbered block: the annex's own text, then its sections and points on their own lines."""
+    tree = _Tree(units)
+    out = []
+    for u in sorted(units, key=lambda u: u.seq):
+        if u.type != "annex":
+            continue
+        lines = [u.text] if u.text else []
+        lines += [tree.block(k) for k in tree.kids(u)]
+        # Annex X of 2024/1689 carries its title in ``num`` ("ANNEX X Union legislative ...").
+        title = u.heading or (u.num or "").removeprefix(f"ANNEX {u.label}").strip()
+        out.append(
+            Article(
+                number=u.label,
+                title=title,
+                paragraphs=(Paragraph(None, "\n".join(lines)),),
+            )
+        )
+    return out
 
 
 def parse_containers(data: bytes, name: str = "containers") -> set[tuple[str, str]]:

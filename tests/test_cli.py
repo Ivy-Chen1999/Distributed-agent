@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import pytest
 import yaml
@@ -68,6 +69,19 @@ def test_run_json_success(fake_version, tmp_path, capsys, use_script):
     data = json.loads(capsys.readouterr().out)
     assert code == cli.EXIT_OK and data["status"] == "succeeded"
     assert (tmp_path / "runs" / f"{data['run_id']}.json").is_file()
+
+
+def test_run_explore_scenario(fake_version, tmp_path, capsys, use_script):
+    plan = {"focus_areas": [{"provision_keys": ["ai_act/art/26"], "question": "q",
+                             "rationale": "r"}]}  # fmt: skip
+    empty = {"impacts": [], "chains": [], "disagreements": [], "open_questions": [],
+             "discarded": []}  # fmt: skip
+    use_script({"planner": [plan], "expert": [{"findings": []}] * 3, "synthesis": [empty]})
+    code = cli.main(_args(fake_version, tmp_path, "run", "consolidated_whole_act", "--json"))
+    data = json.loads(capsys.readouterr().out)
+    assert code == cli.EXIT_OK and data["status"] == "succeeded"
+    saved = json.loads(Path(data["result_path"]).read_text())
+    assert saved["dossier"]["law_version"]["version_id"] == "reg2024_1689_c20260727"
 
 
 def test_run_degraded_exit_code(fake_version, tmp_path, capsys, use_script):

@@ -16,6 +16,14 @@ def _payload(node: str, result: dict[str, Any] | None) -> dict[str, Any]:
         out["findings"] = {agent: len(fs) for agent, fs in board.items()}
     if failures := result.get("failures"):
         out["failures"] = {agent: f.error_kind for agent, f in failures.items() if f is not None}
+    if retrievals := result.get("retrievals"):
+        out["retrievals"] = {
+            agent: {
+                "granted": sum(r.granted for r in records),
+                "refused": sum(not r.granted for r in records),
+            }
+            for agent, records in retrievals.items()
+        }
     if decisions := result.get("decisions"):
         out["decisions"] = [
             {"subject": d.subject, "decision": d.decision, "probability": d.probability,
@@ -26,6 +34,9 @@ def _payload(node: str, result: dict[str, Any] | None) -> dict[str, Any]:
         out["dispatched"] = dispatched
     if focus := result.get("focus"):
         out["focus_areas"] = len(focus.focus_areas)
+        out["provisions"] = len({k for a in focus.focus_areas for k in a.provision_keys})
+    if planner_notes := result.get("planner_notes"):
+        out["planner_notes"] = [n[:300] for n in planner_notes]
     if validation := result.get("validation"):
         g = validation.report.grounding
         out["grounding"] = {"passed": g.passed, "total": g.total}

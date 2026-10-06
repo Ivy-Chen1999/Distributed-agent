@@ -51,7 +51,7 @@ class Source(StrictModel):
 
     source_id: str
     title: str
-    kind: Literal["provision", "memorandum", "annex"]
+    kind: Literal["provision", "memorandum", "annex", "obligations"]
     text: str
     stripped_sections: list[str] = Field(
         default_factory=list,
@@ -60,13 +60,31 @@ class Source(StrictModel):
 
 
 class Scenario(StrictModel):
+    """A run input. ``preset`` scenarios list their provisions and read the fixture; ``explore``
+    scenarios list none: they read whole versions from the provision corpus, and the Planner
+    chooses the provisions from the corpus index."""
+
     scenario_id: str
     kind: Literal["evaluation", "demo"]
+    mode: Literal["preset", "explore"] = "preset"
     description: str
     before_version: str | None = Field(description="None means 'no prior version' (R2 evaluation).")
     after_version: str
-    provision_keys: list[str] = Field(min_length=1)
+    provision_keys: list[str] = Field(
+        default_factory=list, description="Preset only: the provisions the scenario covers."
+    )
     ia_reference: str | None = None
+
+    @model_validator(mode="after")
+    def _keys_match_mode(self) -> Scenario:
+        if self.mode == "preset" and not self.provision_keys:
+            raise ValueError(f"preset scenario {self.scenario_id!r} needs provision_keys")
+        if self.mode == "explore" and self.provision_keys:
+            raise ValueError(
+                f"explore scenario {self.scenario_id!r} must not list provision_keys; "
+                "the Planner chooses them from the corpus index"
+            )
+        return self
 
 
 def contract_json_schema() -> dict:

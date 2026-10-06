@@ -89,7 +89,11 @@ export function kindText(errorKind: string): string {
   return errorKind === 'pipeline_failed' ? 'pipeline' : errorKind.replace(/_/g, ' ');
 }
 
+/** A scoped expert with no data in its scope is skipped (not called); it is not an error. */
+export const NO_DATA_IN_SCOPE = 'no_data_in_scope';
+
 export function statusText(s: NodeStatus, errorKind?: string | null): string {
+  if (s === 'failed' && errorKind === NO_DATA_IN_SCOPE) return 'Skipped · no data in scope';
   return s === 'failed' && errorKind ? `Failed · ${kindText(errorKind)}` : ST[s].t;
 }
 
