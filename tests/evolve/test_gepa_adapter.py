@@ -458,3 +458,55 @@ def test_cap_keeps_records_after_an_oversized_one():
     hopeless = {"Inputs": {"case_id": "z" * 5000}, "Generated Outputs": [],
                 "Feedback": {"score": 0.0}}  # fmt: skip
     assert _cap([hopeless, small], 1000) == [small]  # skipped, the rest kept
+
+
+# ---------------------------------------------------------------- errors fail the cycle loudly
+
+
+def _stage(env, **budget):
+    budget = {"max_metric_calls": 20, "train_repetitions": 1, "val_repetitions": 1, **budget}
+    return run_prompt_stage(base=env["sv"], view=env["view"], evaluator=env["evaluator"],
+                            proposer=env["proposer"], budget=Budget(**budget))  # fmt: skip
+
+
+async def test_an_infra_error_building_the_dataset_fails_the_stage(env, monkeypatch, caplog):
+    import psycopg
+
+    async def down(*_a, **_k):
+        raise psycopg.OperationalError("database is down")
+
+    monkeypatch.setattr(env["view"], "failure_events", down)
+    with pytest.raises(psycopg.OperationalError, match="down"):
+        await _stage(env)
+    assert env["planner_llm"].calls == []
+    assert any(r.levelname == "WARNING" and "down" in r.getMessage() for r in caplog.records)
+
+
+async def test_an_infra_error_in_a_proposal_fails_the_stage_without_rebilling(env, monkeypatch):
+    calls = []
+
+    async def broken(sv, **_kw):
+        calls.append(sv.version_id)
+        raise OSError("archive unavailable")
+
+    monkeypatch.setattr(env["evaluator"], "archive", broken)
+    with pytest.raises(OSError, match="archive unavailable"):
+        await _stage(env)
+    # GEPA retries a failed reflection per task; the proposal was billed exactly once.
+    assert len(env["planner_llm"].calls) == 1 and len(calls) == 1
+
+
+async def test_a_repeated_proposal_request_is_not_billed_twice(env):
+    a = adapter(env)
+    seed = a.seed_candidate()
+    first = await asyncio.to_thread(a.propose_new_texts, seed, RECORDS, ["expert:fiscal"])
+    again = await asyncio.to_thread(a.propose_new_texts, seed, RECORDS, ["expert:fiscal"])
+    assert first == again and first and len(env["planner_llm"].calls) == 1
+
+
+async def test_proposer_errors_are_rejections_and_counted(env):
+    env["proposer"].backend = FakeBackend({"improvement_planner": [_failing(0.1)] * LONG})
+    result = await _stage(env)
+    assert result.proposal_calls > 0 and result.proposal_errors == result.proposal_calls
+    assert result.all_proposals_failed and result.archived == []
+    assert {r["op"] for r in result.rejections} == {"proposer_error"}

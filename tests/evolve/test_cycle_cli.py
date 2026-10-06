@@ -15,6 +15,14 @@ from .test_gepa_adapter import CASES, LONG, MARKER, graph_script, improve
 from .test_replay_cli import _archive
 
 
+def planner_script(step) -> dict:
+    """The Improvement Planner's steps on the shared fake backend. Its calls carry the component
+    as the agent, so components named like graph roles (planner, synthesis) need their own key,
+    or the fake would answer them with the graph's script."""
+    keys = ["improvement_planner", "improvement_planner/planner", "improvement_planner/synthesis"]
+    return {k: [step] * LONG for k in keys}
+
+
 def fake_config(tmp_path):
     data = yaml.safe_load((REPO_ROOT / "evals" / "evolution.yaml").read_text())
     for role in data["roles"].values():
@@ -32,7 +40,7 @@ def test_cycle_names_one_candidate(database_url, fake_version, tmp_path, capsys,
     for module in ("womm.evolve.replay", "womm.evolve.planner_view"):
         monkeypatch.setattr(f"{module}.load_all_golden", lambda split=None: CASES.get(split, []))
     sv = asyncio.run(_archive(database_url, fake_version))
-    use_script(graph_script() | {"improvement_planner": [improve] * LONG})
+    use_script(graph_script() | planner_script(improve))
     code = cli.main([
         "evolve", "cycle", "--base", sv.version_id, "--seed", str(fake_version),
         "--config", str(fake_config(tmp_path)), "--max-metric-calls", "40",
@@ -45,6 +53,27 @@ def test_cycle_names_one_candidate(database_url, fake_version, tmp_path, capsys,
     assert out["topology_stage"]["candidate"] is None
     chosen = asyncio.run(_load(database_url, out["chosen"]))
     assert MARKER in "".join(chosen.prompts.values())  # the fiscal edit made it
+
+
+def test_cycle_fails_when_every_proposal_failed(database_url, fake_version, tmp_path, capsys,
+                                                use_script, monkeypatch):  # fmt: skip
+    from womm.llm.base import LLMError
+
+    monkeypatch.setenv("DATABASE_URL", database_url)
+    monkeypatch.delenv(HOLDOUT_URL_ENV, raising=False)
+    for module in ("womm.evolve.replay", "womm.evolve.planner_view"):
+        monkeypatch.setattr(f"{module}.load_all_golden", lambda split=None: CASES.get(split, []))
+    sv = asyncio.run(_archive(database_url, fake_version))
+    fail = LLMError("timeout", "the proposer timed out")
+    use_script(graph_script() | planner_script(fail))
+    code = cli.main([
+        "evolve", "cycle", "--base", sv.version_id, "--seed", str(fake_version),
+        "--config", str(fake_config(tmp_path)), "--max-metric-calls", "20", "--stage", "prompt",
+        "--runs-dir", str(tmp_path / "runs"), "--json",
+    ])  # fmt: skip
+    out = json.loads(capsys.readouterr().out)
+    assert code == cli.EXIT_FAILED
+    assert out["chosen"] == sv.version_id and out["all_proposals_failed"] is True
 
 
 async def _load(database_url, version_id):

@@ -96,12 +96,19 @@ class _UsdStopper:
         self.adapter = adapter
 
     def __call__(self, _state) -> bool:
-        return self.adapter.over_budget()
+        return self.adapter.over_budget() or self.adapter.fatal is not None
 
 
-class _QuietLogger:
+_GEPA_TROUBLE = ("exception", "error", "failed", "traceback")
+
+
+class _GepaLogger:
+    """GEPA's log: what reports an exception or a failure at warning (GEPA swallows those),
+    routine progress at debug."""
+
     def log(self, message: str) -> None:
-        log.debug("gepa: %s", message)
+        trouble = any(w in message.lower() for w in _GEPA_TROUBLE)
+        log.log(logging.WARNING if trouble else logging.DEBUG, "gepa: %s", message)
 
 
 @dataclass
@@ -114,6 +121,13 @@ class PromptStageResult:
     metric_calls: int
     spent_usd: float
     val_scores: dict[str, float] = field(default_factory=dict)
+    proposal_calls: int = 0
+    proposal_errors: int = 0
+
+    @property
+    def all_proposals_failed(self) -> bool:
+        """Every proposer call of the stage failed (none was made: False)."""
+        return self.proposal_calls > 0 and self.proposal_errors == self.proposal_calls
 
 
 async def run_prompt_stage(
@@ -157,9 +171,11 @@ async def run_prompt_stage(
         use_merge=False,
         run_dir=run_dir,
         seed=seed,
-        logger=_QuietLogger(),
+        logger=_GepaLogger(),
         display_progress_bar=False,
     )
+    if adapter.fatal is not None:
+        raise adapter.fatal  # an infra error GEPA logged and skipped: the cycle fails loudly
     versions = [adapter.version_of(c).version_id for c in result.candidates]
     front_idx = sorted({i for s in result.per_val_instance_best_candidates.values() for i in s})
     front = list(dict.fromkeys(versions[i] for i in front_idx))
@@ -178,6 +194,8 @@ async def run_prompt_stage(
         metric_calls=adapter.metric_calls,
         spent_usd=adapter.spent_usd,
         val_scores=scores,
+        proposal_calls=adapter.proposal_calls,
+        proposal_errors=adapter.proposal_errors,
     )
 
 
@@ -263,6 +281,8 @@ class TopologyResult:
     proposal: dict | None = None
     rejections: list[dict] = field(default_factory=list)
     spent_usd: float = 0.0
+    proposal_calls: int = 0
+    proposal_errors: int = 0
 
 
 async def _examples(
@@ -327,19 +347,21 @@ async def run_topology_stage(
         rejections.append({"op": "add_expert", "reason": f"proposer_error: {exc}",
                            "cost_usd": call_cost(exc)})  # fmt: skip
         return TopologyResult(None, "the expert proposal failed", target, None, rejections,
-                              proposer.spent_usd - start_usd)  # fmt: skip
+                              proposer.spent_usd - start_usd, 1, 1)  # fmt: skip
     raw = proposal.model_dump()
     if proposal.target_pattern.strip() != pattern_key(target):
         reason = f"proposal targets {proposal.target_pattern!r}, not {pattern_key(target)!r}"
         rejections.append({"op": "add_expert", "reason": reason})
-        return TopologyResult(None, "proposal rejected", target, raw, rejections)
+        return TopologyResult(None, "proposal rejected", target, raw, rejections,
+                              proposer.spent_usd - start_usd, 1)  # fmt: skip
     op = {"op": "add_expert", "id": proposal.id, "domain": proposal.domain,
           "prompt_text": proposal.prompt_text, "router_gloss": proposal.router_gloss}  # fmt: skip
     try:
         diff = validate_diff(parent, [op])
     except EditRejected as exc:
         rejections.append({"op": exc.op or "add_expert", "reason": str(exc)})
-        return TopologyResult(None, "proposal rejected", target, raw, rejections)
+        return TopologyResult(None, "proposal rejected", target, raw, rejections,
+                              proposer.spent_usd - start_usd, 1)  # fmt: skip
     child = build_candidate(parent, diff)
     await evaluator.archive(
         child, parent_id=parent.version_id, origin="topology", cycle_id=cycle_id,
@@ -350,7 +372,7 @@ async def run_topology_stage(
     val = sorted(view.cases("val"))
     scores = await evaluator.evaluate(child, "val", val, budget.val_repetitions) if val else []
     spent = proposer.spent_usd - start_usd + sum(s.cost_usd for s in scores)
-    return TopologyResult(child, "proposed", target, raw, rejections, spent)
+    return TopologyResult(child, "proposed", target, raw, rejections, spent, 1)
 
 
 # ---------------------------------------------------------------- the cycle
@@ -361,6 +383,13 @@ class CycleResult:
     chosen: SystemVersion
     prompt: PromptStageResult | None
     topology: TopologyResult | None
+
+    @property
+    def all_proposals_failed(self) -> bool:
+        """Every proposer call of the cycle failed; a cycle that made none did not fail."""
+        stages = [s for s in (self.prompt, self.topology) if s is not None]
+        calls = sum(s.proposal_calls for s in stages)
+        return calls > 0 and sum(s.proposal_errors for s in stages) == calls
 
 
 async def run_cycle(

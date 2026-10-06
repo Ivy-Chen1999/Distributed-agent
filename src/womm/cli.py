@@ -475,10 +475,12 @@ async def cmd_evolve_cycle(args: argparse.Namespace) -> int:
     prompt, topo = result.prompt, result.topology
     data = {
         "cycle_id": cycle_id, "base": base.version_id, "chosen": result.chosen.version_id,
+        "all_proposals_failed": result.all_proposals_failed,
         "prompt_stage": None if prompt is None else {
             "best": prompt.best.version_id, "front": prompt.front, "archived": prompt.archived,
             "rejections": prompt.rejections, "metric_calls": prompt.metric_calls,
-            "spent_usd": prompt.spent_usd,
+            "spent_usd": prompt.spent_usd, "proposal_calls": prompt.proposal_calls,
+            "proposal_errors": prompt.proposal_errors,
         },
         "topology_stage": None if topo is None else {
             "candidate": topo.candidate.version_id if topo.candidate else None,
@@ -494,8 +496,11 @@ async def cmd_evolve_cycle(args: argparse.Namespace) -> int:
         made = topo.candidate.version_id if topo.candidate else "none"
         lines.append(f"topology stage: {topo.reason} ({made})")
     lines.append(f"candidate for the gate: {result.chosen.version_id}")
+    if result.all_proposals_failed:
+        lines.append("error: every proposer call failed (see the rejections); nothing was "
+                     "proposed")  # fmt: skip
     emit(args, data, "\n".join(lines))
-    return EXIT_OK
+    return EXIT_FAILED if result.all_proposals_failed else EXIT_OK
 
 
 def _holdout_store():

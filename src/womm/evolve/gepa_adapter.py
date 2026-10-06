@@ -25,6 +25,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import logging
 import statistics
 from collections.abc import Coroutine, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -48,6 +49,7 @@ from womm.llm.base import LLMError
 from womm.models.run import RunResult
 from womm.models.system_version import SystemVersion
 
+log = logging.getLogger("womm.evolve.gepa_adapter")
 # The splits proposal inputs come from: val selects candidates, so it never informs them.
 PROPOSAL_SPLITS = ("train",)
 
@@ -108,6 +110,11 @@ class WommAdapter:
     rejections: list[dict] = field(default_factory=list)
     archived: list[str] = field(default_factory=list)
     metric_calls: int = 0
+    proposal_calls: int = 0
+    proposal_errors: int = 0
+    # An infra error (database, PlannerView, archive) GEPA would swallow: the stage re-raises it.
+    fatal: BaseException | None = None
+    _proposals: dict[tuple[str, str, str], tuple[str, str]] = field(default_factory=dict)
     _replay_usd: dict[str, float] = field(default_factory=dict)
     _versions: dict[str, SystemVersion] = field(default_factory=dict)
 
@@ -134,6 +141,15 @@ class WommAdapter:
     @property
     def spent_usd(self) -> float:
         return sum(self._replay_usd.values()) + self.proposer.spent_usd
+
+    def _fail(self, exc: BaseException) -> None:
+        log.warning("GEPA adapter: %s: %s; the cycle stops", type(exc).__name__, exc)
+        if self.fatal is None:
+            self.fatal = exc
+
+    def _check(self) -> None:
+        if self.fatal is not None:
+            raise self.fatal
 
     def over_budget(self) -> bool:
         cap = self.budget.max_usd
@@ -182,6 +198,7 @@ class WommAdapter:
     def evaluate(
         self, batch: list[CaseRef], candidate: dict[str, str], capture_traces: bool = False
     ) -> EvaluationBatch:
+        self._check()
         sv = self.version_of(candidate)
         if sv.version_id != self.base.version_id and sv.version_id not in self.archived:
             # A candidate GEPA built without our proposer (e.g. restored from its own state).
@@ -254,10 +271,15 @@ class WommAdapter:
         eval_batch: EvaluationBatch,
         components_to_update: list[str],
     ) -> dict[str, list[dict]]:
-        sv = self.version_of(candidate)
-        return self._await(
-            self._reflective(sv, list(eval_batch.trajectories or []), components_to_update)
-        )
+        self._check()
+        try:
+            sv = self.version_of(candidate)
+            return self._await(
+                self._reflective(sv, list(eval_batch.trajectories or []), components_to_update)
+            )
+        except Exception as exc:  # GEPA logs and skips; the stage re-raises it
+            self._fail(exc)
+            raise
 
     async def _reflective(
         self, sv: SystemVersion, trajectories: list[dict], components: list[str]
@@ -290,7 +312,15 @@ class WommAdapter:
         reflective_dataset: Mapping[str, Sequence[Mapping[str, Any]]],
         components_to_update: list[str],
     ) -> dict[str, str]:
-        return self._await(self._propose(candidate, reflective_dataset, components_to_update))
+        # Proposer errors are rejections inside _propose; anything else is infra and fatal.
+        # After a fatal error nothing is called again, so GEPA's per-task retry of a failed
+        # reflection batch never bills a proposal twice.
+        self._check()
+        try:
+            return self._await(self._propose(candidate, reflective_dataset, components_to_update))
+        except Exception as exc:
+            self._fail(exc)
+            raise
 
     async def _propose(self, candidate, reflective_dataset, components) -> dict[str, str]:
         """New texts for the components a valid proposal changed, and nothing else: an
@@ -307,16 +337,22 @@ class WommAdapter:
             if self.over_budget():
                 self._reject(comp, "budget", "max_usd reached before the proposal")
                 continue
-            try:
-                edit = await self.proposer.propose_prompt(comp, candidate[comp], records)
-            except LLMError as exc:
-                self._reject(comp, "proposer_error", str(exc), cost_usd=call_cost(exc))
-                continue
-            if edit.role != comp:
-                self._reject(comp, "edit_prompt", f"proposal edits {edit.role!r}, not {comp!r}")
-                continue
-            new[comp] = edit.new_text
-            rationale[comp] = edit.rationale
+            # One proposal per (component, parent text, records): a repeated request (GEPA
+            # retrying, the same minibatch again) reuses it instead of paying twice.
+            key = (comp, candidate_key({comp: candidate[comp]}), candidate_key({"r": records}))
+            if key not in self._proposals:
+                self.proposal_calls += 1
+                try:
+                    edit = await self.proposer.propose_prompt(comp, candidate[comp], records)
+                except LLMError as exc:
+                    self.proposal_errors += 1
+                    self._reject(comp, "proposer_error", str(exc), cost_usd=call_cost(exc))
+                    continue
+                if edit.role != comp:
+                    self._reject(comp, "edit_prompt", f"proposal edits {edit.role!r}, not {comp!r}")
+                    continue
+                self._proposals[key] = (edit.new_text, edit.rationale)
+            new[comp], rationale[comp] = self._proposals[key]
         changed = [c for c in components if new[c] != candidate[c]]
         if not changed:
             return {}
