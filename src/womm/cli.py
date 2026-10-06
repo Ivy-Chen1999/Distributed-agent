@@ -450,8 +450,20 @@ async def cmd_evolve_cycle(args: argparse.Namespace) -> int:
         except KeyError as exc:
             raise UsageError(f"{exc.args[0]} (womm evolve seed?)") from None
         backends, cli_version = await _replay_backends(base, seed, args)
-        role = config.roles.reflect
-        backend = await _proposer_backend(role.backend, backends, args, role.model)
+        # One backend per Improvement Planner role (each may name its own backend and model).
+        role_backends: dict[str, object] = {}
+        for role in (config.roles.reflect, config.roles.propose_expert):
+            if role.backend not in role_backends:
+                role_backends[role.backend] = await _proposer_backend(
+                    role.backend, backends, args, role.model
+                )
+            elif role.backend == "claude_code" and not (role.backend in backends
+                                                        or args.skip_self_check):  # fmt: skip
+                await role_backends[role.backend].self_check(role.model)  # its own model
+        proposer = Proposer(
+            role_backends[config.roles.reflect.backend], config,
+            expert_backend=role_backends[config.roles.propose_expert.backend],
+        )  # fmt: skip
         worker = ReplayWorker(
             store=store, archive=archive, judge_sv=seed, backends=backends,
             decisions=make_decision_service(base, settings), code=code_identity(cli_version),
@@ -462,7 +474,7 @@ async def cmd_evolve_cycle(args: argparse.Namespace) -> int:
             try:
                 result = await run_cycle(
                     base=base, view=view, evaluator=evaluator,
-                    proposer=Proposer(backend, config), budget=config.budget,
+                    proposer=proposer, budget=config.budget,
                     stage=args.stage, cycle_id=cycle_id, run_dir=args.gepa_dir,
                 )  # fmt: skip
             except ReplayRefused as exc:

@@ -110,8 +110,17 @@ def _block(title: str, body: str) -> str:
 class Proposer:
     """The Improvement Planner's LLM calls. Usage is accumulated for the cycle budget."""
 
-    def __init__(self, backend: LLMBackend, config: EvolutionConfig) -> None:
+    def __init__(
+        self,
+        backend: LLMBackend,
+        config: EvolutionConfig,
+        *,
+        expert_backend: LLMBackend | None = None,
+    ) -> None:
+        """``backend`` serves the reflect role; ``expert_backend`` the propose_expert role
+        (``backend`` too when not given, e.g. when both roles name the same backend)."""
         self.backend = backend
+        self.expert_backend = expert_backend
         self.config = config
         self.usage: list[CallUsage] = []
 
@@ -160,7 +169,8 @@ class Proposer:
                 ),
             ]
         )
-        return await self._call(self.backend, cfg, user, ExpertProposal, "topology")
+        backend = self.expert_backend or self.backend
+        return await self._call(backend, cfg, user, ExpertProposal, "topology")
 
     async def _call[T: StrictModel](
         self, backend: LLMBackend, cfg: RoleConfig, user: str, schema: type[T], agent: str

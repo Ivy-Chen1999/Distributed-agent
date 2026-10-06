@@ -76,6 +76,36 @@ def test_cycle_fails_when_every_proposal_failed(database_url, fake_version, tmp_
     assert out["chosen"] == sv.version_id and out["all_proposals_failed"] is True
 
 
+def test_cycle_builds_the_proposer_backend_per_role(database_url, fake_version, tmp_path,
+                                                    capsys, use_script, monkeypatch):  # fmt: skip
+    from womm.llm.fake import FakeBackend
+
+    monkeypatch.setenv("DATABASE_URL", database_url)
+    monkeypatch.delenv(HOLDOUT_URL_ENV, raising=False)
+    for module in ("womm.evolve.replay", "womm.evolve.planner_view"):
+        monkeypatch.setattr(f"{module}.load_all_golden", lambda split=None: CASES.get(split, []))
+    sv = asyncio.run(_archive(database_url, fake_version))
+    use_script(graph_script() | planner_script(improve))
+    built = []
+
+    def get_backend(name, _settings):
+        built.append(name)
+        return FakeBackend({})
+
+    monkeypatch.setattr("womm.llm.base.get_backend", get_backend)
+    path = fake_config(tmp_path)
+    data = yaml.safe_load(path.read_text())
+    data["roles"]["propose_expert"].update(backend="api", model="claude-x")
+    path.write_text(yaml.safe_dump(data))
+    code = cli.main([
+        "evolve", "cycle", "--base", sv.version_id, "--seed", str(fake_version),
+        "--config", str(path), "--max-metric-calls", "20", "--stage", "prompt",
+        "--runs-dir", str(tmp_path / "runs"), "--json",
+    ])  # fmt: skip
+    assert code == cli.EXIT_OK, capsys.readouterr()
+    assert built == ["api"]  # reflect reuses the base's fake; propose_expert gets its own
+
+
 async def _load(database_url, version_id):
     db = Database(database_url)
     await db.open()

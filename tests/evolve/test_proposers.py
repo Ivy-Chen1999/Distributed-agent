@@ -116,3 +116,14 @@ async def test_schema_retries_that_all_fail_are_billed():
     with pytest.raises(LLMError, match="validation"):
         await p.propose_prompt("expert:fiscal", "t", [])
     assert p.spent_usd == pytest.approx(0.3)
+
+
+async def test_each_role_calls_its_own_backend():
+    reflect = FakeBackend({"improvement_planner": [EDIT]})
+    expert = FakeBackend({"improvement_planner/topology": [EXPERT]})
+    p = Proposer(reflect, config(), expert_backend=expert)
+    await p.propose_prompt("expert:fiscal", "t", [])
+    await p.propose_expert(PATTERN, [], [])
+    assert [c.agent for c in reflect.calls] == ["expert:fiscal"]
+    assert [c.agent for c in expert.calls] == ["topology"]
+    assert len(p.usage) == 2
