@@ -293,18 +293,22 @@ class WommAdapter:
         return self._await(self._propose(candidate, reflective_dataset, components_to_update))
 
     async def _propose(self, candidate, reflective_dataset, components) -> dict[str, str]:
-        unchanged = {c: candidate[c] for c in components}
+        """New texts for the components a valid proposal changed, and nothing else: an
+        unchanged, invalid, unaffordable or empty-dataset proposal returns ``{}`` for its
+        component, so GEPA never evaluates a child identical to its parent."""
         parent = self.version_of(candidate)
         new = dict(candidate)
         rationale: dict[str, str] = {}
         for comp in components:
+            records = list(reflective_dataset.get(comp, []))
+            if not records:
+                self._reject(comp, "reflective_dataset", "no reflective records; no call made")
+                continue
             if self.over_budget():
                 self._reject(comp, "budget", "max_usd reached before the proposal")
                 continue
             try:
-                edit = await self.proposer.propose_prompt(
-                    comp, candidate[comp], list(reflective_dataset.get(comp, []))
-                )
+                edit = await self.proposer.propose_prompt(comp, candidate[comp], records)
             except LLMError as exc:
                 self._reject(comp, "proposer_error", str(exc), cost_usd=call_cost(exc))
                 continue
@@ -315,7 +319,7 @@ class WommAdapter:
             rationale[comp] = edit.rationale
         changed = [c for c in components if new[c] != candidate[c]]
         if not changed:
-            return unchanged
+            return {}
         try:
             validate_diff(
                 parent, [{"op": "edit_prompt", "role": c, "new_text": new[c]} for c in changed]
@@ -323,9 +327,9 @@ class WommAdapter:
             child = self.version_of(new)
         except EditRejected as exc:
             self._reject(",".join(changed), exc.op or "diff", str(exc))
-            return unchanged
+            return {}
         await self._archive(child, parent, {"rationale": rationale})
-        return {c: new[c] for c in components}
+        return {c: new[c] for c in changed}
 
     def _reject(self, component: str, op: str, reason: str, **extra: Any) -> None:
         self.rejections.append({"component": component, "op": op, "reason": reason, **extra})
@@ -441,12 +445,22 @@ def _record(
 
 
 def _cap(records: list[dict], limit: int) -> list[dict]:
-    """Keep whole records, lowest score first, while the JSON fits in ``limit`` characters."""
+    """Records, lowest score first, while the JSON fits in ``limit`` characters. A record too
+    large on its own is truncated (its generated outputs, then its pattern list, dropped)
+    rather than ending the dataset; one that still does not fit is skipped and the rest are
+    still considered."""
     out, used = [], 2
     for rec in sorted(records, key=lambda r: r["Feedback"]["score"]):
-        size = len(json.dumps(rec, ensure_ascii=False)) + 1
-        if used + size > limit:
-            break
-        out.append(rec)
-        used += size
+        for version in (rec, *_truncations(rec)):
+            size = len(json.dumps(version, ensure_ascii=False)) + 1
+            if used + size <= limit:
+                out.append(version)
+                used += size
+                break
     return out
+
+
+def _truncations(rec: dict) -> list[dict]:
+    feedback = {**rec["Feedback"], "truncated": True}
+    lean = {**rec, "Generated Outputs": [], "Feedback": feedback}
+    return [lean, {**lean, "Feedback": {**feedback, "patterns": []}}]

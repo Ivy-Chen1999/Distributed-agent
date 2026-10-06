@@ -243,13 +243,13 @@ async def test_reflective_dataset_comes_from_failure_memory(env):
 
 # ---------------------------------------------------------------- (c)+(d) proposals as U2 edits
 
+RECORDS = {"expert:fiscal": [{"Inputs": {"case_id": "c"}, "Feedback": {"score": 0.0}}]}
+
 
 async def test_proposal_is_a_validated_typed_edit_archived_under_its_parent(env):
     a = adapter(env)
     seed = a.seed_candidate()
-    new = await asyncio.to_thread(
-        a.propose_new_texts, seed, {"expert:fiscal": []}, ["expert:fiscal"]
-    )
+    new = await asyncio.to_thread(a.propose_new_texts, seed, RECORDS, ["expert:fiscal"])
     assert new["expert:fiscal"].endswith(EXTRA)
     call = env["planner_llm"].calls[0]
     assert call.schema.__name__ == "PromptEdit" and call.agent == "expert:fiscal"
@@ -280,8 +280,8 @@ async def test_invalid_proposal_is_rejected_and_recorded(env):
     env["proposer"].backend = FakeBackend({"improvement_planner": [judge_edit, improve]})
     a = adapter(env)
     seed = a.seed_candidate()
-    new = await asyncio.to_thread(a.propose_new_texts, seed, {}, ["expert:fiscal"])
-    assert new == {"expert:fiscal": seed["expert:fiscal"]}
+    new = await asyncio.to_thread(a.propose_new_texts, seed, RECORDS, ["expert:fiscal"])
+    assert new == {}  # nothing for GEPA to evaluate: the child would be the parent
     assert a.rejections[0]["op"] == "edit_prompt" and "judge" in a.rejections[0]["reason"]
     assert a.archived == []
 
@@ -289,7 +289,8 @@ async def test_invalid_proposal_is_rejected_and_recorded(env):
         return {"role": "expert:fiscal", "new_text": "short", "rationale": "r"}
 
     env["proposer"].backend = FakeBackend({"improvement_planner": [too_short]})
-    await asyncio.to_thread(a.propose_new_texts, seed, {}, ["expert:fiscal"])
+    new = await asyncio.to_thread(a.propose_new_texts, seed, RECORDS, ["expert:fiscal"])
+    assert new == {}
     assert "at least" in a.rejections[-1]["reason"] and a.archived == []
 
 
@@ -410,3 +411,50 @@ async def test_a_failed_proposer_call_is_billed_and_recorded(env):
     assert a.rejections[-1]["op"] == "proposer_error"
     assert a.rejections[-1]["cost_usd"] == pytest.approx(0.3)
     assert a.spent_usd == pytest.approx(0.3)
+
+
+# ---------------------------------------------------------------- no child unless a real proposal
+
+
+async def test_unchanged_or_unaffordable_proposals_return_no_texts(env):
+    def same(_s, user):
+        current = user.split("Current prompt:\n<<<\n", 1)[1].split("\n>>>", 1)[0]
+        return {"role": "expert:fiscal", "new_text": current, "rationale": "r"}
+
+    env["proposer"].backend = FakeBackend({"improvement_planner": [same]})
+    a = adapter(env)
+    seed = a.seed_candidate()
+    assert await asyncio.to_thread(a.propose_new_texts, seed, RECORDS, ["expert:fiscal"]) == {}
+    broke = adapter(env, max_usd=0.0)
+    assert await asyncio.to_thread(broke.propose_new_texts, seed, RECORDS, ["expert:fiscal"]) == {}
+    assert broke.rejections[-1]["op"] == "budget"
+    assert len(env["proposer"].backend.calls) == 1  # the budget refusal made no call
+
+
+async def test_an_empty_reflective_dataset_makes_no_call(env):
+    env["proposer"].backend = FakeBackend({})
+    a = adapter(env)
+    seed = a.seed_candidate()
+    for data in ({}, {"expert:fiscal": []}):
+        assert await asyncio.to_thread(a.propose_new_texts, seed, data, ["expert:fiscal"]) == {}
+    assert env["proposer"].backend.calls == []
+    assert a.rejections[-1]["op"] == "reflective_dataset"
+
+
+def test_cap_keeps_records_after_an_oversized_one():
+    from womm.evolve.gepa_adapter import _cap
+
+    def rec(score, outputs):
+        return {"Inputs": {"case_id": f"c{score}"}, "Generated Outputs": outputs,
+                "Feedback": {"score": score, "missed_expected_impacts": []}}  # fmt: skip
+
+    huge = rec(0.0, [{"impact": "x" * 5000}])
+    small = rec(0.5, [{"impact": "y"}])
+    out = _cap([huge, small], 1000)
+    assert len(json.dumps(out)) <= 1000
+    assert [r["Inputs"]["case_id"] for r in out] == ["c0.0", "c0.5"]  # truncated, not dropped
+    assert out[0]["Generated Outputs"] == [] and out[0]["Feedback"]["score"] == 0.0
+    assert _cap([rec(0.0, [])] * 3, 1000)  # whole records still fit
+    hopeless = {"Inputs": {"case_id": "z" * 5000}, "Generated Outputs": [],
+                "Feedback": {"score": 0.0}}  # fmt: skip
+    assert _cap([hopeless, small], 1000) == [small]  # skipped, the rest kept
