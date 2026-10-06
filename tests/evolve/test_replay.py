@@ -86,6 +86,7 @@ async def test_batch_completes_and_records_metrics(setup, db, tmp_path):
     # Replays also feed Failure Memory with their scored runs.
     _, runs = await db.failure_memory(sv.version_id)
     assert len(runs) == 4
+    assert {(r.judge_version, r.git_sha) for r in runs} == {(judge_version(sv), "sha1")}
 
 
 async def test_killed_worker_is_resumed_without_rerunning_finished_items(setup, tmp_path):

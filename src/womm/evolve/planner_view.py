@@ -41,12 +41,12 @@ _ARCHIVE = "version_id, parent_id, twin_of, cycle_id, origin, name, spec, prompt
 QUERIES: dict[str, str] = {
     "failure_events": (
         "SELECT system_version, kind, case_id, fixture, split, item_id, category,"
-        " touching_agents, owner, run_id, repetition, detail FROM failure_events"
-        " WHERE system_version = %s AND split = ANY(%s) ORDER BY id"
+        " touching_agents, owner, run_id, repetition, detail, judge_version, git_sha"
+        " FROM failure_events WHERE system_version = %s AND split = ANY(%s) ORDER BY id"
     ),
     "case_runs": (
-        "SELECT system_version, case_id, fixture, split, run_id, repetition"
-        " FROM failure_case_runs WHERE system_version = %s AND split = ANY(%s)"
+        "SELECT system_version, case_id, fixture, split, run_id, repetition, judge_version,"
+        " git_sha FROM failure_case_runs WHERE system_version = %s AND split = ANY(%s)"
         " ORDER BY case_id, run_id"
     ),
     "candidate": f"SELECT {_ARCHIVE} FROM sv_archive WHERE version_id = %s",

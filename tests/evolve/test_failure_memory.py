@@ -213,3 +213,40 @@ def test_load_report_events_reads_saved_eval_reports(tmp_path):
     got_events, got_runs = load_report_events(tmp_path, "sv")
     assert len(got_events) == 2 and len(got_runs) == 2
     assert patterns(got_events, got_runs)[0]["persistent_misses"] == 1
+
+
+def test_partial_judge_verdict_is_neither_an_event_nor_a_denominator_run():
+    """A judge that skipped ids gives a verdict but no complete one: it must not count as a
+    scored run either, or it inflates the miss-rate denominator."""
+    case = _case()
+    partial = _score(case, missed=("e0",)).model_copy(update={"judge_error": "judge skipped ids"})
+    assert partial.judge is not None
+    assert _events(case, partial, _run()) == []
+    assert case_run(case, partial, split="train", repetition=1, system_version="sv") is None
+
+
+def _identified_cycle(case, misses_per_rep, **identity):
+    events, runs = [], []
+    for rep, missed in enumerate(misses_per_rep, start=1):
+        rid = f"{case.case_id}-{identity.get('judge_version')}-{identity.get('git_sha')}-r{rep}"
+        score = _score(case, missed=missed, run_id=rid)
+        memory = {"split": "train", "repetition": rep, "system_version": "sv", **identity}
+        events += failure_events(case, score, _run(run_id=rid), **memory)
+        runs.append(case_run(case, score, **memory))
+    return events, runs
+
+
+@pytest.mark.parametrize("field", ["judge_version", "git_sha"])
+def test_patterns_never_pool_runs_of_different_judges_or_code(field):
+    case = _case()
+    other = {"judge_version": "jv_a", "git_sha": "sha_a"}
+    e1, r1 = _identified_cycle(case, [("e0",)], **other)
+    e2, r2 = _identified_cycle(case, [("e0",)], **(other | {field: "changed"}))
+    rows = patterns(e1 + e2, r1 + r2)
+    assert len(rows) == 2  # one single-run (unknown) pattern each, never one 2-run pattern
+    assert all(r["persistence"] == "unknown" and r["persistent_misses"] == 0 for r in rows)
+    assert {r[field] for r in rows} == {other[field], "changed"}
+
+    e3, r3 = _identified_cycle(case, [("e0",), ("e0",)], **other)
+    (row,) = patterns(e3, r3)
+    assert row["persistent_misses"] == 1 and row["judge_version"] == "jv_a"

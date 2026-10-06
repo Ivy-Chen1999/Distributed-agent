@@ -5,7 +5,9 @@ a scored run. Each carries the golden item's drafting ``category`` and the exper
 findings cite the item's provision keys (``touching_agents``); the ``owner`` is that one expert,
 ``multiple`` or ``none``. A pattern is ``(kind, category, owner)``; its frequency counts
 persistent misses only: a (case, item) pair missed in at least half of the case's scored runs.
-Single-run misses are noise (docs/solutions/evaluation/single-run-scores-are-noise.md).
+Single-run misses are noise (docs/solutions/evaluation/single-run-scores-are-noise.md). Runs
+scored by different judges (``judge_version``) or on different code (``git_sha``) are never
+pooled: each such population has its own patterns.
 
 Holdout data can never become an event: the models refuse ``split = holdout``, and the database
 tables carry a ``CHECK`` on the split as well.
@@ -46,6 +48,8 @@ class FailureEvent(BaseModel):
     run_id: str
     repetition: int = Field(ge=1)
     system_version: str
+    judge_version: str | None = None
+    git_sha: str | None = None
     detail: dict = Field(default_factory=dict)
 
 
@@ -58,6 +62,14 @@ class CaseRun(BaseModel):
     run_id: str
     repetition: int = Field(ge=1)
     system_version: str
+    judge_version: str | None = None
+    git_sha: str | None = None
+
+
+def _has_verdict(score: CaseScore) -> bool:
+    """A scored run with a complete judge verdict: the only runs that say something about
+    quality, both as failure events and as the denominator of a miss rate."""
+    return score.outcome == "scored" and score.judge is not None and not score.judge_error
 
 
 def _check_split(split: str | None) -> None:
@@ -72,15 +84,24 @@ def _owner(agents: list[str]) -> str:
 
 
 def case_run(
-    case: GoldenCase, score: CaseScore, *, split: str, repetition: int, system_version: str
+    case: GoldenCase,
+    score: CaseScore,
+    *,
+    split: str,
+    repetition: int,
+    system_version: str,
+    judge_version: str | None = None,
+    git_sha: str | None = None,
 ) -> CaseRun | None:
-    """The scored-run record for ``score``, or None when the run gave no judge verdict."""
+    """The scored-run record for ``score``, or None when the run gave no complete judge
+    verdict (the same condition as ``failure_events``)."""
     _check_split(split)
-    if score.outcome != "scored" or score.judge is None or score.run_id is None:
+    if not _has_verdict(score) or score.run_id is None:
         return None
     return CaseRun(
         case_id=case.case_id, fixture=case.fixture, split=split, run_id=score.run_id,
-        repetition=repetition, system_version=system_version,
+        repetition=repetition, system_version=system_version, judge_version=judge_version,
+        git_sha=git_sha,
     )  # fmt: skip
 
 
@@ -92,11 +113,13 @@ def failure_events(
     split: str,
     repetition: int,
     system_version: str,
+    judge_version: str | None = None,
+    git_sha: str | None = None,
 ) -> list[FailureEvent]:
     """Every failure event of one scored repetition. Infrastructure-errored runs and runs
     without a complete judge verdict give none (they say nothing about quality)."""
     _check_split(split)
-    if score.outcome != "scored" or score.judge is None or score.judge_error:
+    if not _has_verdict(score):
         return []
     by_key: dict[str, set[str]] = defaultdict(set)
     for f in run.board:
@@ -108,7 +131,7 @@ def failure_events(
             kind=kind, case_id=case.case_id, fixture=case.fixture, split=split, item_id=item_id,
             category=category or UNCATEGORISED, touching_agents=agents, owner=_owner(agents),
             run_id=run.run_id, repetition=repetition, system_version=system_version,
-            detail=detail,
+            judge_version=judge_version, git_sha=git_sha, detail=detail,
         )  # fmt: skip
 
     def touching(keys: list[str]) -> list[str]:
@@ -141,31 +164,34 @@ def failure_events(
 
 
 def patterns(events: Iterable[FailureEvent], runs: Iterable[CaseRun]) -> list[dict]:
-    """Aggregate events by ``(kind, category, owner)``, most persistent first.
+    """Aggregate events by ``(kind, category, owner)``, most persistent first, separately per
+    ``(system_version, judge_version, git_sha)`` population.
 
-    Per (case, item) pair, the miss rate is the share of the case's scored runs that missed
-    it; the pair is persistent when that share is at least one half over two or more runs.
-    With a single run per case, persistence is ``unknown`` and never counted."""
-    n_runs: dict[tuple[str, str], int] = Counter()
-    for r in {(r.system_version, r.case_id, r.run_id) for r in runs}:
-        n_runs[r[:2]] += 1
+    Per (case, item) pair, the miss rate is the share of the case's scored runs (same version,
+    judge and code) that missed it; the pair is persistent when that share is at least one half
+    over two or more runs. With a single run per case, persistence is ``unknown`` and never
+    counted."""
+    n_runs: dict[tuple, int] = Counter()
+    for r in {(r.system_version, r.judge_version, r.git_sha, r.case_id, r.run_id) for r in runs}:
+        n_runs[r[:4]] += 1
     pairs: dict[tuple, dict] = {}
     for e in events:
-        key = (e.system_version, e.kind, e.case_id, e.item_id)
+        key = (e.system_version, e.judge_version, e.git_sha, e.kind, e.case_id, e.item_id)
         p = pairs.setdefault(key, {"fixture": e.fixture, "category": e.category,
                                    "owners": Counter(), "runs": set()})  # fmt: skip
         p["owners"][e.owner] += 1
         p["runs"].add(e.run_id)
     groups: dict[tuple, dict] = {}
-    for (sv, kind, case_id, _item), p in pairs.items():
+    for (sv, jv, sha, kind, case_id, _item), p in pairs.items():
         top = max(p["owners"].values())
         owner = sorted(o for o, c in p["owners"].items() if c == top)
         owner = owner[0] if len(owner) == 1 else "multiple"
-        total = max(n_runs.get((sv, case_id), 0), len(p["runs"]))
+        total = max(n_runs.get((sv, jv, sha, case_id), 0), len(p["runs"]))
         rate = len(p["runs"]) / total
         known = total > 1
-        g = groups.setdefault((sv, kind, p["category"], owner), {
-            "system_version": sv, "kind": kind, "category": p["category"], "owner": owner,
+        g = groups.setdefault((sv, jv, sha, kind, p["category"], owner), {
+            "system_version": sv, "judge_version": jv, "git_sha": sha,
+            "kind": kind, "category": p["category"], "owner": owner,
             "persistent_misses": 0, "pairs": 0, "_cases": set(), "_proposals": set(),
             "_rates": [], "_known": True,
         })  # fmt: skip

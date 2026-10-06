@@ -29,6 +29,7 @@ from womm.eval.evaluators import (
     aggregate,
     calibration,
     failure_records,
+    judge_version,
     noise,
     score_case,
 )
@@ -260,7 +261,8 @@ async def evaluate_cases(
                     _save_run(runs_dir, run)
                 report.scores.append(score)
                 memory = {"split": case.split, "repetition": rep + 1,
-                          "system_version": sv.version_id}  # fmt: skip
+                          "system_version": sv.version_id, "judge_version": judge_version(sv),
+                          "git_sha": code.git_sha}  # fmt: skip
                 report.failure_events += failure_events(case, score, run, **memory)
                 if (scored_run := case_run(case, score, **memory)) is not None:
                     report.case_runs.append(scored_run)

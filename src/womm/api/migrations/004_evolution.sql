@@ -18,13 +18,15 @@ CREATE TABLE failure_events (
     run_id          text NOT NULL,
     repetition      integer NOT NULL CHECK (repetition >= 1),
     detail          jsonb NOT NULL DEFAULT '{}'::jsonb,
+    judge_version   text,
     git_sha         text,
     created_at      timestamptz NOT NULL DEFAULT now(),
     UNIQUE (run_id, kind, item_id)
 );
 CREATE INDEX failure_events_version_idx ON failure_events (system_version);
 
--- The denominator of a miss rate: every scored train/val run of a case.
+-- The denominator of a miss rate: every scored train/val run of a case with a complete judge
+-- verdict. Runs of different judges (judge_version) or code (git_sha) are never pooled.
 CREATE TABLE failure_case_runs (
     system_version text NOT NULL,
     case_id        text NOT NULL,
@@ -32,6 +34,7 @@ CREATE TABLE failure_case_runs (
     split          text NOT NULL CHECK (split IN ('train', 'val')),
     run_id         text NOT NULL,
     repetition     integer NOT NULL CHECK (repetition >= 1),
+    judge_version  text,
     git_sha        text,
     created_at     timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (system_version, case_id, run_id)

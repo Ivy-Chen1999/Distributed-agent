@@ -277,26 +277,28 @@ class Database:
     ) -> int:
         """Store train/val failure events and scored runs (``womm.evolve.failure_memory``) in
         one transaction; re-recording the same run is a no-op. Returns the events written. A
-        holdout split fails on the tables' CHECK constraints."""
+        holdout split fails on the tables' CHECK constraints. ``git_sha`` is the fallback for
+        records that carry none."""
         written = 0
         async with self.pool.connection() as conn, conn.transaction():
             for r in runs:
                 await conn.execute(
                     "INSERT INTO failure_case_runs (system_version, case_id, fixture, split,"
-                    " run_id, repetition, git_sha) VALUES (%s, %s, %s, %s, %s, %s, %s)"
-                    " ON CONFLICT DO NOTHING",
+                    " run_id, repetition, judge_version, git_sha)"
+                    " VALUES (%s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING",
                     (r.system_version, r.case_id, r.fixture, r.split, r.run_id, r.repetition,
-                     git_sha),
+                     r.judge_version, r.git_sha or git_sha),
                 )  # fmt: skip
             for e in events:
                 cur = await conn.execute(
                     "INSERT INTO failure_events (system_version, kind, case_id, fixture, split,"
                     " item_id, category, touching_agents, owner, run_id, repetition, detail,"
-                    " git_sha) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+                    " judge_version, git_sha)"
+                    " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
                     " ON CONFLICT DO NOTHING",
                     (e.system_version, e.kind, e.case_id, e.fixture, e.split, e.item_id,
                      e.category, e.touching_agents, e.owner, e.run_id, e.repetition,
-                     Jsonb(_without_nul(e.detail)), git_sha),
+                     Jsonb(_without_nul(e.detail)), e.judge_version, e.git_sha or git_sha),
                 )  # fmt: skip
                 written += cur.rowcount
         return written
@@ -308,12 +310,13 @@ class Database:
         async with self.pool.connection() as conn:
             events = await (await conn.execute(
                 "SELECT system_version, kind, case_id, fixture, split, item_id, category,"
-                " touching_agents, owner, run_id, repetition, detail FROM failure_events"
-                " WHERE system_version = %s ORDER BY id", (system_version,),
+                " touching_agents, owner, run_id, repetition, detail, judge_version, git_sha"
+                " FROM failure_events WHERE system_version = %s ORDER BY id", (system_version,),
             )).fetchall()  # fmt: skip
             runs = await (await conn.execute(
-                "SELECT system_version, case_id, fixture, split, run_id, repetition"
-                " FROM failure_case_runs WHERE system_version = %s ORDER BY case_id, run_id",
+                "SELECT system_version, case_id, fixture, split, run_id, repetition,"
+                " judge_version, git_sha FROM failure_case_runs WHERE system_version = %s"
+                " ORDER BY case_id, run_id",
                 (system_version,),
             )).fetchall()  # fmt: skip
         return (

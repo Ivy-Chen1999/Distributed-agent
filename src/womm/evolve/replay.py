@@ -40,7 +40,7 @@ from womm import tracing
 from womm.api.db import Database, _without_nul
 from womm.data.fixtures import Fixture
 from womm.decisions.service import DecisionService
-from womm.eval.evaluators import INFRA_ERRORS, CaseScore, score_case
+from womm.eval.evaluators import INFRA_ERRORS, CaseScore, judge_version, score_case
 from womm.eval.golden import GoldenCase, GoldenError, load_all_golden, load_case_fixture
 from womm.eval.run_eval import _hit_rate_limit
 from womm.eval.trajectory import trajectory_metrics
@@ -62,16 +62,6 @@ _IN_BATCH = (
     " AND i.git_sha = b.git_sha AND i.case_id = ANY(b.case_ids)"
     " AND i.repetition <= b.repetitions"
 )
-
-
-def judge_version(sv: SystemVersion) -> str:
-    """The judge's identity: backend, model and prompt hash, nothing else of the version."""
-    judge = sv.spec.judge
-    blob = json.dumps(
-        {"backend": judge.backend, "model": judge.model,
-         "prompt": sv.prompt_hashes[judge.prompt]}, sort_keys=True,
-    )  # fmt: skip
-    return f"jv_{hashlib.sha256(blob.encode()).hexdigest()[:12]}"
 
 
 def code_version(code: CodeIdentity) -> str:
@@ -460,10 +450,11 @@ class ReplayWorker:
     async def _remember(self, item, sv, case, run, score) -> None:
         """Feed Failure Memory with the scored run; best effort, the replay result is kept."""
         memory = {"split": item["split"], "repetition": item["repetition"],
-                  "system_version": sv.version_id}  # fmt: skip
+                  "system_version": sv.version_id, "judge_version": item["judge_version"],
+                  "git_sha": item["git_sha"]}  # fmt: skip
         try:
             runs = [r for r in [case_run(case, score, **memory)] if r is not None]
             events = failure_events(case, score, run, **memory)
-            await self.store.db.record_failure_events(events, runs, git_sha=item["git_sha"])
+            await self.store.db.record_failure_events(events, runs)
         except Exception:  # noqa: BLE001
             log.exception("could not record failure events for replay item %s", item["item_id"])
