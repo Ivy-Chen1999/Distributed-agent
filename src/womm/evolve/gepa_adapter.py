@@ -306,7 +306,7 @@ class WommAdapter:
                     comp, candidate[comp], list(reflective_dataset.get(comp, []))
                 )
             except LLMError as exc:
-                self._reject(comp, "proposer_error", str(exc))
+                self._reject(comp, "proposer_error", str(exc), cost_usd=call_cost(exc))
                 continue
             if edit.role != comp:
                 self._reject(comp, "edit_prompt", f"proposal edits {edit.role!r}, not {comp!r}")
@@ -327,8 +327,13 @@ class WommAdapter:
         await self._archive(child, parent, {"rationale": rationale})
         return {c: new[c] for c in components}
 
-    def _reject(self, component: str, op: str, reason: str) -> None:
-        self.rejections.append({"component": component, "op": op, "reason": reason})
+    def _reject(self, component: str, op: str, reason: str, **extra: Any) -> None:
+        self.rejections.append({"component": component, "op": op, "reason": reason, **extra})
+
+
+def call_cost(exc: LLMError) -> float:
+    """What a failed proposer call cost (the Proposer bills it too)."""
+    return (exc.usage.cost_usd or 0.0) if exc.usage is not None else 0.0
 
 
 # ---------------------------------------------------------------- reflective records

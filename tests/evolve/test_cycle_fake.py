@@ -177,6 +177,16 @@ async def test_invalid_expert_proposals_are_rejected(env, two_proposals):
     assert await env["archive"].children(env["sv"].version_id) == []
 
 
+async def test_a_failed_expert_proposal_is_billed(env, two_proposals):
+    from .test_gepa_adapter import _failing
+
+    await seed_pattern(env["db"], env["sv"].version_id)
+    env["proposer"].backend = FakeBackend({"improvement_planner/topology": [_failing(0.7)]})
+    result = await run_topology_stage(**topology_kw(env))
+    assert result.candidate is None and result.rejections[0]["cost_usd"] == pytest.approx(0.7)
+    assert result.spent_usd == pytest.approx(0.7)
+
+
 async def test_expert_count_is_capped_at_the_seed_plus_one(env, two_proposals):
     sv = env["sv"]
     op = {

@@ -22,6 +22,7 @@ from womm.evolve.gepa_adapter import (
     CandidateEvaluator,
     CaseRef,
     WommAdapter,
+    call_cost,
     population,
 )
 from womm.evolve.planner_view import PlannerView
@@ -323,8 +324,10 @@ async def run_topology_stage(
     try:
         proposal = await proposer.propose_expert(target, examples, experts)
     except LLMError as exc:
-        rejections.append({"op": "add_expert", "reason": f"proposer_error: {exc}"})
-        return TopologyResult(None, "the expert proposal failed", target, None, rejections)
+        rejections.append({"op": "add_expert", "reason": f"proposer_error: {exc}",
+                           "cost_usd": call_cost(exc)})  # fmt: skip
+        return TopologyResult(None, "the expert proposal failed", target, None, rejections,
+                              proposer.spent_usd - start_usd)  # fmt: skip
     raw = proposal.model_dump()
     if proposal.target_pattern.strip() != pattern_key(target):
         reason = f"proposal targets {proposal.target_pattern!r}, not {pattern_key(target)!r}"

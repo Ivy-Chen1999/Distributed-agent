@@ -22,7 +22,7 @@ import yaml
 from pydantic import Field
 
 from womm.config import REPO_ROOT
-from womm.llm.base import LLMBackend
+from womm.llm.base import LLMBackend, LLMError
 from womm.models.base import StrictModel
 from womm.models.run import CallUsage
 from womm.models.system_version import RoleConfig
@@ -138,11 +138,7 @@ class Proposer:
                 ),
             ]
         )
-        edit, usage = await self.backend.call(
-            ROLE_NAME, self.config.prompts[cfg.prompt], user, PromptEdit, cfg, agent=role
-        )
-        self.usage.append(usage)
-        return edit
+        return await self._call(self.backend, cfg, user, PromptEdit, role)
 
     async def propose_expert(
         self, pattern: dict, examples: list[dict], experts: list[dict]
@@ -161,16 +157,23 @@ class Proposer:
                 ),
             ]
         )
-        proposal, usage = await self.backend.call(
-            ROLE_NAME,
-            self.config.prompts[cfg.prompt],
-            user,
-            ExpertProposal,
-            cfg,
-            agent="topology",
-        )
+        return await self._call(self.backend, cfg, user, ExpertProposal, "topology")
+
+    async def _call[T: StrictModel](
+        self, backend: LLMBackend, cfg: RoleConfig, user: str, schema: type[T], agent: str
+    ) -> T:
+        """One structured call; its usage is billed to the cycle whether it succeeds or not
+        (a failed call's attempts cost too)."""
+        try:
+            out, usage = await backend.call(
+                ROLE_NAME, self.config.prompts[cfg.prompt], user, schema, cfg, agent=agent
+            )
+        except LLMError as exc:
+            if exc.usage is not None:
+                self.usage.append(exc.usage)
+            raise
         self.usage.append(usage)
-        return proposal
+        return out
 
 
 def pattern_key(pattern: dict) -> str:

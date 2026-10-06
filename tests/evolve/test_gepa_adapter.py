@@ -388,3 +388,25 @@ async def test_reflection_and_proposals_never_see_a_holdout_case(env, database_u
     assert data["expert:fiscal"]
     assert canary not in json.dumps(data)
     assert all(canary not in c.user_content for c in env["planner_llm"].calls)
+
+
+# ---------------------------------------------------------------- billing of failed proposals
+
+
+def _failing(cost):
+    from womm.llm.base import LLMError
+    from womm.models.run import CallUsage
+
+    usage = CallUsage(role="improvement_planner", backend="fake", model="m", cost_usd=cost)
+    return LLMError("timeout", "the proposer timed out", usage=usage)
+
+
+async def test_a_failed_proposer_call_is_billed_and_recorded(env):
+    env["proposer"].backend = FakeBackend({"improvement_planner": [_failing(0.3)]})
+    a = adapter(env)
+    seed = a.seed_candidate()
+    records = {"expert:fiscal": [{"Feedback": {"score": 0.0}}]}
+    await asyncio.to_thread(a.propose_new_texts, seed, records, ["expert:fiscal"])
+    assert a.rejections[-1]["op"] == "proposer_error"
+    assert a.rejections[-1]["cost_usd"] == pytest.approx(0.3)
+    assert a.spent_usd == pytest.approx(0.3)
