@@ -16,7 +16,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Iterable
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 import yaml
 from pydantic import Field
@@ -174,6 +177,28 @@ class Proposer:
             raise
         self.usage.append(usage)
         return out
+
+
+@dataclass
+class Spend:
+    """One cycle's USD budget, shared by every stage: replays (by run id, so a cached replay
+    counts once) plus every proposer call, failed ones included."""
+
+    proposer: Proposer
+    max_usd: float | None = None
+    replay_usd: dict[str, float] = field(default_factory=dict)
+
+    def add_replays(self, scores: Iterable[Any]) -> None:
+        for s in scores:
+            if s.run_id:
+                self.replay_usd[s.run_id] = s.cost_usd or 0.0
+
+    @property
+    def spent_usd(self) -> float:
+        return sum(self.replay_usd.values()) + self.proposer.spent_usd
+
+    def exhausted(self) -> bool:
+        return self.max_usd is not None and self.spent_usd >= self.max_usd
 
 
 def pattern_key(pattern: dict) -> str:

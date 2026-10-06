@@ -485,7 +485,9 @@ async def cmd_evolve_cycle(args: argparse.Namespace) -> int:
         "topology_stage": None if topo is None else {
             "candidate": topo.candidate.version_id if topo.candidate else None,
             "reason": topo.reason, "target": topo.target, "rejections": topo.rejections,
+            "spent_usd": topo.spent_usd,
         },
+        "notes": result.notes,
     }  # fmt: skip
     lines = [f"cycle {cycle_id} on {base.version_id}"]
     if prompt is not None:
@@ -495,6 +497,7 @@ async def cmd_evolve_cycle(args: argparse.Namespace) -> int:
     if topo is not None:
         made = topo.candidate.version_id if topo.candidate else "none"
         lines.append(f"topology stage: {topo.reason} ({made})")
+    lines += result.notes
     lines.append(f"candidate for the gate: {result.chosen.version_id}")
     if result.all_proposals_failed:
         lines.append("error: every proposer call failed (see the rejections); nothing was "

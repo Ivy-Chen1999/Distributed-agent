@@ -44,7 +44,7 @@ from womm.evolve.edits import (
 )
 from womm.evolve.failure_memory import FailureEvent
 from womm.evolve.planner_view import PLANNER_SPLITS, PlannerView
-from womm.evolve.proposers import Budget, Proposer
+from womm.evolve.proposers import Budget, Proposer, Spend
 from womm.llm.base import LLMError
 from womm.models.run import RunResult
 from womm.models.system_version import SystemVersion
@@ -107,6 +107,7 @@ class WommAdapter:
     budget: Budget
     cycle_id: str | None = None
     loop: asyncio.AbstractEventLoop | None = None
+    spend: Spend | None = None  # the cycle's shared USD budget; a stage-local one by default
     rejections: list[dict] = field(default_factory=list)
     archived: list[str] = field(default_factory=list)
     metric_calls: int = 0
@@ -115,13 +116,14 @@ class WommAdapter:
     # An infra error (database, PlannerView, archive) GEPA would swallow: the stage re-raises it.
     fatal: BaseException | None = None
     _proposals: dict[tuple[str, str, str], tuple[str, str]] = field(default_factory=dict)
-    _replay_usd: dict[str, float] = field(default_factory=dict)
     _versions: dict[str, SystemVersion] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if not isinstance(self.view, PlannerView):
             raise TypeError(f"WommAdapter reads through a PlannerView only, not {type(self.view)}")
         self.loop = self.loop or asyncio.get_running_loop()
+        if self.spend is None:
+            self.spend = Spend(self.proposer, self.budget.max_usd)
         self.components = role_prompts(self.base)
         self._versions[candidate_key(self.seed_candidate())] = self.base
 
@@ -140,7 +142,7 @@ class WommAdapter:
 
     @property
     def spent_usd(self) -> float:
-        return sum(self._replay_usd.values()) + self.proposer.spent_usd
+        return self.spend.spent_usd
 
     def _fail(self, exc: BaseException) -> None:
         log.warning("GEPA adapter: %s: %s; the cycle stops", type(exc).__name__, exc)
@@ -152,8 +154,7 @@ class WommAdapter:
             raise self.fatal
 
     def over_budget(self) -> bool:
-        cap = self.budget.max_usd
-        return cap is not None and self.spent_usd >= cap
+        return self.spend.exhausted()
 
     def seed_candidate(self) -> dict[str, str]:
         return {role: self.base.prompt_file(path) for role, path in role_prompts(self.base).items()}
@@ -214,10 +215,9 @@ class WommAdapter:
             reps = self._repetitions(split)
             got = self._await(self.evaluator.evaluate(sv, split, sorted(set(case_ids)), reps))
             calls += len(case_ids) * reps
+            self.spend.add_replays(got)
             for s in got:
                 scores.setdefault(CaseRef(split, s.case_id), []).append(s)
-                if s.run_id:
-                    self._replay_usd[s.run_id] = s.cost_usd
         self.metric_calls += calls
         outputs, values, trajectories, objectives = [], [], [], []
         for ref in batch:

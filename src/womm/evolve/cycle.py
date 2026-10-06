@@ -26,7 +26,7 @@ from womm.evolve.gepa_adapter import (
     population,
 )
 from womm.evolve.planner_view import PlannerView
-from womm.evolve.proposers import Budget, Proposer, pattern_key
+from womm.evolve.proposers import Budget, Proposer, Spend, pattern_key
 from womm.evolve.replay import (
     ReplayIncomplete,
     ReplayStore,
@@ -140,9 +140,11 @@ async def run_prompt_stage(
     cycle_id: str | None = None,
     run_dir: str | None = None,
     seed: int = 0,
+    spend: Spend | None = None,
 ) -> PromptStageResult:
     """GEPA over ``base``'s prompt components on train (minibatches) and val (Pareto front),
-    within ``budget``. ``run_dir`` lets GEPA resume its own state; replays are cached anyway."""
+    within ``budget`` (USD on ``spend``, the cycle's shared ledger). ``run_dir`` lets GEPA
+    resume its own state; replays are cached anyway."""
     train = sorted(view.cases("train"))
     val = sorted(view.cases("val"))
     if not train or not val:
@@ -154,6 +156,7 @@ async def run_prompt_stage(
         proposer=proposer,
         budget=budget,
         cycle_id=cycle_id,
+        spend=spend,
     )
     result = await asyncio.to_thread(
         gepa.optimize,
@@ -316,11 +319,15 @@ async def run_topology_stage(
     proposer: Proposer,
     budget: Budget,
     cycle_id: str | None = None,
+    spend: Spend | None = None,
 ) -> TopologyResult:
     """Propose one new expert (registry entry, prompt, router gloss) on top of ``parent``, the
     prompt stage's choice, only when an unowned miss pattern persists on it across enough
     train proposals (val is for selection only). A candidate has at most ``seed``'s expert
-    count + 1. The candidate is archived (origin topology) and replayed on val."""
+    count + 1. The candidate is archived (origin topology) and replayed on val. USD comes
+    out of ``spend``, the cycle's shared ledger: no proposal, and no val replay, once it is
+    exhausted."""
+    spend = spend if spend is not None else Spend(proposer, budget.max_usd)
     if len(parent.spec.experts) > len(seed.spec.experts):
         return TopologyResult(None, "expert cap reached: the parent already adds an expert")
     targets = unowned_patterns(
@@ -334,8 +341,8 @@ async def run_topology_stage(
             f"{budget.min_pattern_proposals}+ proposals",
         )
     target = targets[0]
-    start_usd = proposer.spent_usd
-    if budget.max_usd is not None and start_usd >= budget.max_usd:
+    start_usd = spend.spent_usd
+    if spend.exhausted():
         return TopologyResult(None, "budget: max_usd reached before the topology stage", target)
     experts = [{"id": e.id, "domain": e.domain, "router_gloss": e.router_gloss}
                for e in parent.spec.experts]  # fmt: skip
@@ -347,13 +354,13 @@ async def run_topology_stage(
         rejections.append({"op": "add_expert", "reason": f"proposer_error: {exc}",
                            "cost_usd": call_cost(exc)})  # fmt: skip
         return TopologyResult(None, "the expert proposal failed", target, None, rejections,
-                              proposer.spent_usd - start_usd, 1, 1)  # fmt: skip
+                              spend.spent_usd - start_usd, 1, 1)  # fmt: skip
     raw = proposal.model_dump()
     if proposal.target_pattern.strip() != pattern_key(target):
         reason = f"proposal targets {proposal.target_pattern!r}, not {pattern_key(target)!r}"
         rejections.append({"op": "add_expert", "reason": reason})
         return TopologyResult(None, "proposal rejected", target, raw, rejections,
-                              proposer.spent_usd - start_usd, 1)  # fmt: skip
+                              spend.spent_usd - start_usd, 1)  # fmt: skip
     op = {"op": "add_expert", "id": proposal.id, "domain": proposal.domain,
           "prompt_text": proposal.prompt_text, "router_gloss": proposal.router_gloss}  # fmt: skip
     try:
@@ -361,7 +368,12 @@ async def run_topology_stage(
     except EditRejected as exc:
         rejections.append({"op": exc.op or "add_expert", "reason": str(exc)})
         return TopologyResult(None, "proposal rejected", target, raw, rejections,
-                              proposer.spent_usd - start_usd, 1)  # fmt: skip
+                              spend.spent_usd - start_usd, 1)  # fmt: skip
+    if spend.exhausted():
+        reason = "budget: max_usd reached before the topology val replay"
+        rejections.append({"op": "budget", "reason": reason})
+        return TopologyResult(None, reason, target, raw, rejections,
+                              spend.spent_usd - start_usd, 1)  # fmt: skip
     child = build_candidate(parent, diff)
     await evaluator.archive(
         child, parent_id=parent.version_id, origin="topology", cycle_id=cycle_id,
@@ -370,9 +382,11 @@ async def run_topology_stage(
         proposer=proposer.provenance("expert"),
     )  # fmt: skip
     val = sorted(view.cases("val"))
-    scores = await evaluator.evaluate(child, "val", val, budget.val_repetitions) if val else []
-    spent = proposer.spent_usd - start_usd + sum(s.cost_usd for s in scores)
-    return TopologyResult(child, "proposed", target, raw, rejections, spent, 1)
+    spend.add_replays(
+        await evaluator.evaluate(child, "val", val, budget.val_repetitions) if val else []
+    )
+    return TopologyResult(child, "proposed", target, raw, rejections,
+                          spend.spent_usd - start_usd, 1)  # fmt: skip
 
 
 # ---------------------------------------------------------------- the cycle
@@ -383,6 +397,7 @@ class CycleResult:
     chosen: SystemVersion
     prompt: PromptStageResult | None
     topology: TopologyResult | None
+    notes: list[str] = field(default_factory=list)
 
     @property
     def all_proposals_failed(self) -> bool:
@@ -408,28 +423,39 @@ async def run_cycle(
     prompt stage's choice beyond noise (``selection_k``), grounding within tolerance."""
     if stage not in ("prompt", "topology", "both"):
         raise ValueError(f"unknown stage {stage!r}")
+    spend = Spend(proposer, budget.max_usd)  # one USD budget across every stage and replay
     prompt = None
     parent = base
     if stage in ("prompt", "both"):
         prompt = await run_prompt_stage(base=base, view=view, evaluator=evaluator,
                                         proposer=proposer, budget=budget, cycle_id=cycle_id,
-                                        run_dir=run_dir)  # fmt: skip
+                                        run_dir=run_dir, spend=spend)  # fmt: skip
         parent = prompt.best
     topology = None
     if stage in ("topology", "both"):
         topology = await run_topology_stage(seed=base, parent=parent, view=view,
                                             evaluator=evaluator, proposer=proposer,
-                                            budget=budget, cycle_id=cycle_id)  # fmt: skip
-    chosen = parent
-    if topology and topology.candidate is not None:
-        # The topology candidate must beat its own parent (the prompt stage's choice, or the
-        # base) beyond noise, by the same rule as the prompt stage; the parent wins ties.
+                                            budget=budget, cycle_id=cycle_id,
+                                            spend=spend)  # fmt: skip
+    result = CycleResult(parent, prompt, topology)
+    if topology is None or topology.candidate is None:
+        return result
+    # The topology candidate must beat its own parent (the prompt stage's choice, or the base)
+    # beyond noise, by the same rule as the prompt stage; the parent wins ties.
+    judge = getattr(evaluator, "judge_version", None)
+    if not spend.exhausted():
         val = sorted(view.cases("val"))
-        await evaluator.evaluate(parent, "val", val, budget.val_repetitions)  # cached if replayed
-        best = await choose_candidate(
-            view, parent, [topology.candidate.version_id], budget.grounding_tolerance,
-            getattr(evaluator, "judge_version", None), budget.selection_k,
-        )  # fmt: skip
-        if best == topology.candidate.version_id:
-            chosen = topology.candidate
-    return CycleResult(chosen, prompt, topology)
+        spend.add_replays(await evaluator.evaluate(parent, "val", val, budget.val_repetitions))
+    elif "coverage" not in await _val_stats(view, parent.version_id, judge):
+        result.notes.append(
+            f"budget: max_usd reached before the val replay of {parent.version_id}; the "
+            f"topology candidate {topology.candidate.version_id} was not compared and is not "
+            "chosen"
+        )
+        return result
+    best = await choose_candidate(view, parent, [topology.candidate.version_id],
+                                  budget.grounding_tolerance, judge,
+                                  budget.selection_k)  # fmt: skip
+    if best == topology.candidate.version_id:
+        result.chosen = topology.candidate
+    return result

@@ -16,7 +16,7 @@ from womm.evolve.cycle import (
 from womm.evolve.edits import build_candidate, validate_diff
 from womm.evolve.failure_memory import CaseRun, FailureEvent
 from womm.evolve.gepa_adapter import CaseRef, WommAdapter
-from womm.evolve.proposers import Budget
+from womm.evolve.proposers import Budget, Spend
 from womm.evolve.replay import judge_version
 from womm.llm.fake import FakeBackend
 
@@ -412,6 +412,69 @@ async def test_metric_budget_reached_mid_stage_keeps_every_candidate(env):
     assert result.archived and MARKER not in "".join(result.best.prompts.values())
     for vid in result.archived:
         assert (await env["archive"].load_candidate(vid)).version_id == vid
+
+
+# ---------------------------------------------------------------- one USD budget per cycle
+
+
+class Costed(FakeBackend):
+    """A fake backend whose every call costs ``cost`` USD."""
+
+    def __init__(self, script, cost):
+        super().__init__(script)
+        self.cost = cost
+
+    async def _invoke(self, *args, **kwargs):
+        out, usage = await super()._invoke(*args, **kwargs)
+        return out, usage.model_copy(update={"cost_usd": self.cost})
+
+
+def costed_graph(env, monkeypatch, cost):
+    invoke = env["graph"]._invoke
+
+    async def priced(*args, **kwargs):
+        out, usage = await invoke(*args, **kwargs)
+        return out, usage.model_copy(update={"cost_usd": cost})
+
+    monkeypatch.setattr(env["graph"], "_invoke", priced)
+
+
+async def test_topology_refuses_when_the_cycle_budget_is_spent(env, two_proposals):
+    await seed_pattern(env["db"], env["sv"].version_id)
+    env["proposer"].backend = FakeBackend({"improvement_planner/topology": [proposal()]})
+    spend = Spend(env["proposer"], max_usd=1.0)
+    spend.replay_usd["prompt_stage_run"] = 1.0  # what the prompt stage already spent
+    result = await run_topology_stage(**topology_kw(env, max_usd=1.0), spend=spend)
+    assert result.candidate is None and "budget" in result.reason
+    assert env["proposer"].backend.calls == []
+
+
+async def test_topology_skips_its_val_replay_when_the_proposal_spent_the_budget(env, two_proposals):
+    await seed_pattern(env["db"], env["sv"].version_id)
+    env["proposer"].backend = Costed({"improvement_planner/topology": [proposal()]}, cost=0.6)
+    result = await run_topology_stage(**topology_kw(env, max_usd=0.5))
+    assert result.candidate is None and "val replay" in result.reason
+    assert result.rejections[-1]["op"] == "budget"
+    assert result.proposal is not None and result.spent_usd == pytest.approx(0.6)
+    assert not any(c.agent == "workforce" for c in env["graph"].calls)
+    assert await env["archive"].children(env["sv"].version_id) == []
+
+
+async def test_the_cycle_shares_one_budget_and_skips_an_unaffordable_comparison(
+    env, two_proposals, monkeypatch
+):
+    await seed_pattern(env["db"], env["sv"].version_id)
+    env["proposer"].backend = FakeBackend({"improvement_planner/topology": [proposal()]})
+    costed_graph(env, monkeypatch, cost=0.01)
+    result = await run_cycle(
+        base=env["sv"], view=env["view"], evaluator=env["evaluator"], proposer=env["proposer"],
+        budget=Budget(val_repetitions=2, max_usd=0.05), stage="topology",
+    )  # fmt: skip
+    # The topology candidate's val replay spent the budget: the base is not replayed.
+    assert result.topology.candidate is not None and result.topology.spent_usd > 0.05
+    assert result.chosen.version_id == env["sv"].version_id
+    assert any("budget" in n for n in result.notes)
+    assert await env["view"].metrics(env["sv"].version_id) == []
 
 
 # ---------------------------------------------------------------- the cycle
