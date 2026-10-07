@@ -222,6 +222,9 @@ def test_import_script_refuses_a_handoff_outside_the_cache(roots, monkeypatch, c
 FROZEN_HOLDOUT_MIGRATIONS = {
     "001_holdout.sql": "75bc8c722a906520cd5be9f32fc85134e443c21cd1ba173dd0dc4f03a3649cab",
     "002_compare_progress.sql": "9e4a3767bc12c4f5a2da1d61b621c8d5c51102dd96f94671eb8aca132ab2a54e",
+    "003_budget_reservations.sql": (
+        "f6f9c310fbedd22324d4e7317a7592f0009bcf90893a681dbeaf58f0730a3a2f"
+    ),
 }
 
 
