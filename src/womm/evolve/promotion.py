@@ -156,11 +156,21 @@ class PromotionPolicy(StrictModel):
 
 
 class JudgeCalibration(StrictModel):
+    """Written by ``womm calibrate score --record`` (aggregates only). The optional fields are
+    evidence; the gate reads ``agreement``."""
+
     judge_version: str
-    agreement: float = Field(ge=0, le=1)
-    pairs: int = Field(ge=1)
+    agreement: float = Field(ge=0, le=1, description="The lower of raw and natural-rate.")
+    pairs: int = Field(ge=1, description="Pairs with a human majority label.")
     annotators: list[str] = Field(min_length=1)
     recorded_on: str
+    agreement_raw: float | None = Field(default=None, ge=0, le=1)
+    agreement_natural: float | None = Field(
+        default=None, ge=0, le=1, description="Reweighted to the judge's natural covered rate."
+    )
+    kappa: float | None = Field(default=None, description="Cohen's kappa, judge vs majority.")
+    inter_annotator_agreement: float | None = Field(default=None, ge=0, le=1)
+    excluded: int | None = Field(default=None, ge=0, description="Unsure or tied pairs.")
 
 
 class FormalNoiseRun(StrictModel):
@@ -173,10 +183,20 @@ class FormalNoiseRun(StrictModel):
 
 
 class MddReport(StrictModel):
+    """Written by ``womm noise report --record``. The optional fields record the design the
+    MDD was computed for; a report for other repetitions than the policy's is not used."""
+
     metric: Metric
     judge_version: str
     mdd: float = Field(gt=0)
     recorded_on: str
+    noise_sd: float | None = Field(default=None, ge=0)
+    repetitions: int | None = Field(default=None, ge=1, description="Per holdout case and arm.")
+    holdout_cases: int | None = Field(default=None, ge=1)
+    holdout_proposals: int | None = Field(default=None, ge=1)
+    icc: float | None = Field(default=None, ge=0, le=1)
+    alpha: float | None = Field(default=None, gt=0, lt=1)
+    power: float | None = Field(default=None, gt=0, lt=1)
 
 
 class PromotionRecords(StrictModel):
@@ -223,6 +243,44 @@ def load_records(path: Path = RECORDS_PATH) -> PromotionRecords:
         return PromotionRecords.model_validate(data)
     except ValidationError as exc:
         raise GateRefused(f"{path} is invalid: {exc}") from None
+
+
+RECORD_KEYS = ("judge_calibrations", "formal_noise_runs", "mdd_reports")
+
+
+def append_records(path: Path, key: str, items: list[dict[str, Any]]) -> None:
+    """Append ``items`` to the top-level list ``key`` of the records file, keeping its comments
+    and every other line as they are. The result is validated before it is written."""
+    if key not in RECORD_KEYS:
+        raise ValueError(f"unknown records key {key!r}")
+    text = path.read_text(encoding="utf-8")
+    lines = text.splitlines()
+    heads = (f"{key}:", f"{key}: []")
+    start = next((i for i, x in enumerate(lines) if x.split("#", 1)[0].rstrip() in heads), None)
+    if start is None:
+        raise GateRefused(f"{path} has no top-level {key} list")
+    end = start + 1
+    while end < len(lines) and (not lines[end].strip() or lines[end].startswith((" ", "-", "#"))):
+        end += 1
+    while end > start + 1 and not lines[end - 1].strip():
+        end -= 1  # keep blank lines before the next key after it
+    block = yaml.safe_dump(items, sort_keys=False, allow_unicode=True,
+                           default_flow_style=False).splitlines()  # fmt: skip
+    new = [*lines[:start], f"{key}:", *lines[start + 1 : end], *block, *lines[end:]]
+    out = "\n".join(new) + "\n"
+    before = PromotionRecords.model_validate(yaml.safe_load(text) or {})
+    try:
+        after = PromotionRecords.model_validate(yaml.safe_load(out) or {})
+    except (yaml.YAMLError, ValidationError) as exc:
+        raise GateRefused(f"the new {key} record is invalid: {exc}") from None
+    old, now = getattr(before, key), getattr(after, key)
+    if (
+        len(now) != len(old) + len(items)
+        or now[: len(old)] != old
+        or any(getattr(after, k) != getattr(before, k) for k in RECORD_KEYS if k != key)
+    ):
+        raise GateRefused(f"appending to {key} in {path} would change other records")
+    path.write_text(out, encoding="utf-8")
 
 
 def files_committed(paths: list[Path], repo_root: Path = REPO_ROOT) -> bool:
@@ -295,6 +353,10 @@ def choose_mode(
             deployable=True,
             notes=["weak mode: no minimum-detectable-delta report for this judge"],
         )
+    if mdd.repetitions is not None and mdd.repetitions != policy.repetitions:
+        return ModeChoice(mode="weak", deployable=True, notes=[
+            f"weak mode: the minimum-detectable-delta report is for {mdd.repetitions} "
+            f"repetitions, the policy runs {policy.repetitions}"])  # fmt: skip
     if mdd.mdd > policy.expected_gain:
         return ModeChoice(mode="weak", deployable=True, notes=[
             f"weak mode: the minimum detectable delta ({mdd.mdd:.3f}) exceeds the expected gain "
