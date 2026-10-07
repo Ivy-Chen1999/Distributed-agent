@@ -200,3 +200,14 @@ async def test_retracting_a_staged_mark_is_reported(db):
     assert await db.retract_analyst_feedback("fb1") == "retracted_staged"
     (row,) = await db.analyst_feedback("sv_x")
     assert row["golden_candidate"] == "staged" and row["retracted_at"] is not None
+
+
+async def test_marks_are_read_back_by_feedback_id(db):
+    """The publish script cross-checks staged analyst candidates against these rows."""
+    await _with_runs(db, "r1")
+    await db.record_analyst_feedback(_record(modified_at=NOW))
+    await db.record_analyst_feedback(_record("weak_evidence", "fb2", modified_at=NOW))
+    rows = await db.analyst_feedback_by_id(["fb1", "nope"])
+    assert list(rows) == ["fb1"]
+    assert (rows["fb1"]["analyst"], rows["fb1"]["case_id"]) == ("ana", "case_x")
+    assert await db.analyst_feedback_by_id([]) == {}

@@ -4,9 +4,11 @@ import copy
 import importlib.util
 import sys
 
+import pytest
 import yaml
 
 from womm.config import REPO_ROOT
+from womm.eval.drafting import analyst_digest
 from womm.eval.golden import check_against_fixture, load_all_golden, load_golden
 from womm.eval.golden_review import AuditResult, load_audit_tally, write_audit_tally
 
@@ -20,6 +22,12 @@ sys.modules["publish_golden_cases"] = publish
 spec.loader.exec_module(publish)
 
 CASE = "case_90_widget_switching"
+
+
+@pytest.fixture(autouse=True)
+def _no_database(monkeypatch):
+    """The analyst cross-check runs only with a database; tests opt in with a fake one."""
+    monkeypatch.delenv("DATABASE_URL", raising=False)
 
 
 def _run(tmp_path, *extra):
@@ -209,7 +217,10 @@ def _with_analyst_candidate(reviewer="octo-cat", anchor=ANCHOR):
         ia_anchor=anchor,
         flags=["analyst feedback fb1"],
     )
-    cand["provenance"].update(origin="human_added", status="needs_human", raised_by="ana")
+    cand["provenance"].update(
+        origin="human_added", status="needs_human", raised_by="ana", feedback_id="fb1",
+        analyst_digest=analyst_digest(CASE, "c90_fb01", "fb1", "ana"),
+    )  # fmt: skip
     cand["review"].update(decision="edited", reviewer=reviewer, note=None, audit=False)
     data["possibly_missing"].append(cand)
     return data
@@ -245,3 +256,85 @@ def test_an_analyst_candidate_is_refused_on_a_bad_anchor_or_self_review(tmp_path
     write(tmp_path / "drafts" / f"{CASE}.yaml", _with_analyst_candidate(reviewer="ana"))
     assert _run(tmp_path, "--ia-root", str(tmp_path / "no-ia")) == 2
     assert "raised it" in capsys.readouterr().err
+
+
+def _fake_db(monkeypatch, rows):
+    seen = {}
+
+    async def fetch(url, ids):
+        seen.update(url=url, ids=ids)
+        return {r["feedback_id"]: r for r in rows}
+
+    monkeypatch.setattr(publish, "_feedback_rows", fetch)
+    return seen
+
+
+ROW = {
+    "feedback_id": "fb1",
+    "mark": "missing_impact",
+    "case_id": CASE,
+    "fixture": "data_act",
+    "split": "train",
+    "analyst": "ana",
+    "retracted_at": None,
+    "golden_candidate": "staged",
+}
+
+
+def test_with_a_database_an_analyst_candidate_is_checked_against_its_mark(
+    tmp_path, capsys, monkeypatch
+):
+    write(tmp_path / "drafts" / f"{CASE}.yaml", _with_analyst_candidate())
+    seen = _fake_db(monkeypatch, [ROW])
+    monkeypatch.setenv("DATABASE_URL", "postgresql://db/womm")
+    assert _run(tmp_path, "--ia-root", str(tmp_path / "no-ia")) == 0
+    assert seen == {"url": "postgresql://db/womm", "ids": ["fb1"]}
+    assert "not cross-checked" not in capsys.readouterr().err
+
+
+def test_a_forged_analyst_identity_is_refused_at_publish(tmp_path, capsys, monkeypatch):
+    """raised_by changed to someone else with a recomputed digest passes CI, but not the
+    database: the stored mark was made by the reviewer."""
+    data = _with_analyst_candidate(reviewer="octo-cat")
+    prov = data["possibly_missing"][-1]["provenance"]
+    prov.update(raised_by="bob", analyst_digest=analyst_digest(CASE, "c90_fb01", "fb1", "bob"))
+    write(tmp_path / "drafts" / f"{CASE}.yaml", data)
+    _fake_db(monkeypatch, [ROW | {"analyst": "octo-cat"}])
+    assert _run(tmp_path, "--ia-root", str(tmp_path / "no-ia"), "--database-url", "pg://x") == 2
+    err = capsys.readouterr().err
+    assert "c90_fb01" in err and "raised by 'octo-cat'" in err
+    assert (tmp_path / "drafts" / f"{CASE}.yaml").exists(), "a refused draft is kept"
+
+
+def test_a_retracted_mark_is_refused_at_publish(tmp_path, capsys, monkeypatch):
+    write(tmp_path / "drafts" / f"{CASE}.yaml", _with_analyst_candidate())
+    _fake_db(monkeypatch, [ROW | {"retracted_at": "2026-10-08T00:00:00Z"}])
+    assert _run(tmp_path, "--ia-root", str(tmp_path / "no-ia"), "--database-url", "pg://x") == 2
+    assert "retracted" in capsys.readouterr().err
+
+
+def test_without_a_database_the_cross_check_is_noted(tmp_path, capsys, monkeypatch):
+    write(tmp_path / "drafts" / f"{CASE}.yaml", _with_analyst_candidate())
+    seen = _fake_db(monkeypatch, [])
+    assert _run(tmp_path, "--ia-root", str(tmp_path / "no-ia")) == 0
+    assert seen == {}
+    assert "c90_fb01: analyst not cross-checked" in capsys.readouterr().err
+
+
+def test_a_draft_without_analyst_candidates_never_queries_the_database(tmp_path, monkeypatch):
+    write(tmp_path / "drafts" / f"{CASE}.yaml", fully_decided())
+    seen = _fake_db(monkeypatch, [])
+    monkeypatch.setenv("DATABASE_URL", "postgresql://db/womm")
+    assert _run(tmp_path) == 0 and seen == {}
+
+
+def test_an_unreachable_database_refuses_analyst_candidates(tmp_path, capsys, monkeypatch):
+    write(tmp_path / "drafts" / f"{CASE}.yaml", _with_analyst_candidate())
+
+    async def broken(url, ids):
+        raise OSError("connection refused")
+
+    monkeypatch.setattr(publish, "_feedback_rows", broken)
+    assert _run(tmp_path, "--ia-root", str(tmp_path / "no-ia"), "--database-url", "pg://x") == 2
+    assert "connection refused" in capsys.readouterr().err
+    assert (tmp_path / "drafts" / f"{CASE}.yaml").exists()

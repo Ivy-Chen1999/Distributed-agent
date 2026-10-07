@@ -474,6 +474,17 @@ class Database:
             )
             return await cur.fetchall()
 
+    async def analyst_feedback_by_id(self, feedback_ids: list[str]) -> dict[str, dict]:
+        """The stored marks with these ids (retracted ones included), by feedback id: the
+        publish script cross-checks staged analyst candidates against them."""
+        if not feedback_ids:
+            return {}
+        async with self.pool.connection() as conn:
+            cur = await conn.execute(
+                "SELECT * FROM analyst_feedback WHERE feedback_id = ANY(%s)", (list(feedback_ids),)
+            )
+            return {r["feedback_id"]: r for r in await cur.fetchall()}
+
     async def queued_golden_candidates(self) -> list[dict]:
         """Missing-impact marks not yet staged into a golden draft, oldest first."""
         async with self.pool.connection() as conn:

@@ -214,15 +214,19 @@ uv run womm evolve failures --sv <version_id> --from-db             # source col
 - `missing_impact` is never added to a golden case directly, and only a mark on a **train** run
   becomes a golden candidate (val is for selection; an analyst must not change what it scores).
   `stage` appends it to the case's open train draft in `evals/golden/drafts/` as a pending
-  `human_added` candidate that records the analyst (`provenance.raised_by`); it refuses val and
+  `human_added` candidate that records the analyst (`provenance.raised_by`), its
+  `feedback_id` and an `analyst_digest` over both, so CI fails if either is edited; it refuses val and
   holdout drafts. It edits the draft in place (the counts in `stats` and the appended
   candidates only, so reviewers' comments survive) and writes nothing if the file changed while
   it was staging (rerun `stage`). The review gate blocks publication until a reviewer decides it: it is kept
   only as `edited`, by a reviewer other than that analyst, with `ia_section`, `ia_anchor`,
   `affected_actor`, `mechanism` and a valid `category` filled in. `publish_golden_cases.py`
   checks the anchor against the cached IA when `.cache/ia/<fixture>/` is on the machine and
-  otherwise prints a note for the reviewer to confirm it by hand. A case without an open train
-  draft keeps the candidate queued.
+  otherwise prints a note for the reviewer to confirm it by hand. Run it with `DATABASE_URL`
+  set: it then checks each kept analyst item against its `analyst_feedback` row (exists, not
+  retracted, train `missing_impact` of this case, made by `raised_by`) and refuses a mismatch;
+  without a database it prints a note instead. A case without an open train draft keeps the
+  candidate queued.
 - A published analyst candidate is an expected impact with `origin: human`. Its misses are
   scored like any other, but their `missed_impact` events carry `golden_origin: human` and the
   new-expert trigger leaves them out, so analysts cannot force a topology change indirectly

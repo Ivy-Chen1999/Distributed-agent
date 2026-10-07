@@ -119,6 +119,12 @@ A second LLM pass lists impacts that the draft may have missed. For each one, de
 If you see an impact the draft and the candidates both missed, say so in a PR comment and quote
 the IA anchor. The case owner adds it.
 
+A candidate with `provenance.origin: human_added` is an analyst's missing impact, staged from
+analyst feedback. Keep it only as `edited`, after filling in its IA section and anchor, and
+only if you are not the analyst named in `provenance.raised_by`. You may edit its content
+fields (`impact`, `affected_actor`, `mechanism`, `provision_keys`, `category`, the IA fields),
+but not `raised_by` or `feedback_id`.
+
 ## How to edit in the PR
 
 1. Open **Files changed**, find the item, and click the `+` next to the `review:` lines.
@@ -155,6 +161,14 @@ CI does not trust the fields an author can edit:
   draft made with a test-only seed is refused.
 - **Drafter is not a reviewer.** The draft records who ran the drafting tool
   (`provenance.drafted_by`). That person cannot be the `reviewer` of any item.
+- **Analyst is not a reviewer.** A `human_added` item records the analyst who raised it
+  (`provenance.raised_by`), the feedback row it came from (`provenance.feedback_id`) and, at
+  staging, a sha256 over both bound to the case and item id (`provenance.analyst_digest`). CI
+  recomputes it, so editing `raised_by` or `feedback_id` fails, and a kept item without the
+  link fails too. The analyst cannot be that item's `reviewer`. When `DATABASE_URL` is set,
+  `publish_golden_cases.py` also checks each kept item against its `analyst_feedback` row (it
+  exists, is not retracted, is a train `missing_impact` mark of this case and fixture, made by
+  `raised_by`) and refuses the draft on a mismatch; without a database it prints a note.
 - **Code-owner review.** `.github/CODEOWNERS` makes the repository owner the code owner of
   `evals/golden/drafts/` and `evals/golden/*.yaml`. This only blocks a merge when branch
   protection on `main` has **"Require review from Code Owners"** enabled. That is a manual
@@ -163,7 +177,8 @@ CI does not trust the fields an author can edit:
 
 A digest in the same file is tamper-evident, not tamper-proof: someone determined could
 recompute it. The digest and sample checks catch accidental and casual edits; the code-owner
-review is what stops a deliberate one.
+review (and, for analyst items, the publish-time database check) is what stops a deliberate
+one.
 
 ## Worked examples (AI Act cases)
 

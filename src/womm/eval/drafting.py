@@ -241,6 +241,14 @@ class ItemProvenance(StrictModel):
         default=None,
         description="Who raised a human_added item (an analyst); may not be its reviewer.",
     )
+    feedback_id: str | None = Field(
+        default=None,
+        description="The analyst_feedback row a human_added item was staged from.",
+    )
+    analyst_digest: str | None = Field(
+        default=None,
+        description="sha256 binding raised_by and feedback_id to the item (``analyst_digest``).",
+    )
 
 
 class Review(StrictModel):
@@ -403,14 +411,31 @@ def tool_fields(item: _DraftItem) -> dict[str, Any]:
     auto status. Not the review block or ``provenance.status``, which a human decision sets."""
     data = item.model_dump(mode="json")
     data.pop("review")
-    # ``raised_by`` is left out when unset, so digests of drafts written before it existed hold.
+    # Fields added later are left out when unset, so digests of drafts written before they
+    # existed hold.
     data["provenance"] = {
         k: v
         for k, v in data["provenance"].items()
-        if k != "status" and not (k == "raised_by" and v is None)
+        if k != "status" and not (k in _LATER_PROVENANCE and v is None)
     }
     data["auto_status"] = auto_status(item)
     return data
+
+
+_LATER_PROVENANCE = ("raised_by", "feedback_id", "analyst_digest")
+
+
+def analyst_digest(
+    case_id: str, candidate_id: str, feedback_id: str | None, raised_by: str | None
+) -> str:
+    """sha256 over who raised a ``human_added`` item and the feedback row it came from, bound to
+    the case and item id. Written at staging; the review gate recomputes it, so an edit to
+    ``raised_by`` or ``feedback_id`` fails CI while the item's content stays editable. It is not
+    a secret: the publish script also checks the stored mark when the database is at hand."""
+    fields = {"case_id": case_id, "candidate_id": candidate_id,
+              "feedback_id": feedback_id, "raised_by": raised_by}  # fmt: skip
+    canonical = json.dumps(fields, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 def item_digest(item: _DraftItem) -> str:

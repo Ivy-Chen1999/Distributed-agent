@@ -16,7 +16,12 @@ A ``human_added`` item (an analyst's missing impact, staged by scripts/import_fe
 kept only as ``edited`` by a reviewer other than the analyst, with its IA anchor filled in; the
 anchor is checked against the cached IA (``.cache/ia/<fixture>/``) when it is on this machine,
 otherwise the script prints a note asking the reviewer to confirm it by hand. Published, it
-carries ``origin: human`` (misses on it never drive the new-expert trigger).
+carries ``origin: human`` (misses on it never drive the new-expert trigger). Who raised it
+(``provenance.raised_by``) is not reviewer-editable: CI checks the analyst digest written at
+staging, and with DATABASE_URL (or --database-url) set this script also checks each kept item
+against its ``analyst_feedback`` row (it exists, is not retracted, is a train missing_impact
+mark of this case and fixture, made by ``raised_by``) and refuses the draft on a mismatch or an
+unreachable database. Without a database it prints a note.
 
 A draft whose fixture is registered as a holdout proposal in the gitignored local registry
 (evals/private/holdout_scenarios.yaml) is refused: all cases of one proposal share a split.
@@ -30,8 +35,11 @@ was refused (the others are still published).
 from __future__ import annotations
 
 import argparse
+import asyncio
 import datetime as dt
+import os
 import sys
+from collections.abc import Mapping
 from pathlib import Path
 
 import yaml
@@ -46,6 +54,8 @@ from womm.eval.golden_review import (
     ReviewError,
     Tally,
     TallyError,
+    analyst_feedback_ids,
+    analyst_feedback_problems,
     audit_result,
     build_case,
     case_yaml_header,
@@ -57,6 +67,7 @@ from womm.eval.golden_review import (
     refuse_holdout_fixture,
     scenario_keys_for,
     unchecked_human_anchors,
+    uncrosschecked_analysts,
     write_audit_tally,
 )
 from womm.eval.ia_sources import IaSourceError, load_cached_ia
@@ -84,6 +95,18 @@ def _cached_ia_text(fixture: str, root: Path | None) -> str | None:
     return cached.full_text if cached is not None and cached.full_text else None
 
 
+async def _feedback_rows(url: str, ids: list[str]) -> dict[str, dict]:
+    """The ``analyst_feedback`` rows with these ids (read only; no migration)."""
+    from womm.api.db import Database
+
+    db = Database(url, max_size=1)
+    await db.open()
+    try:
+        return await db.analyst_feedback_by_id(ids)
+    finally:
+        await db.close()
+
+
 def publish_one(
     draft: GoldenDraft,
     source: Path,
@@ -95,8 +118,12 @@ def publish_one(
     tally: Tally | None = None,
     registry: Path = HOLDOUT_REGISTRY,
     ia_root: Path | None = None,
+    feedback_rows: Mapping[str, Mapping[str, object]] | None = None,
 ) -> Path:
-    """Write one case; raises ReviewError (or GoldenError) with the reasons when refused."""
+    """Write one case; raises ReviewError (or GoldenError) with the reasons when refused.
+
+    ``feedback_rows`` are the ``analyst_feedback`` rows of the kept analyst candidates; None
+    means no database here (the cross-check is noted, not run)."""
     if draft.split == "holdout":
         raise ReviewError(
             f"{draft.case_id}: holdout cases are never published to evals/; verify them with "
@@ -106,7 +133,12 @@ def publish_one(
     escalated = draft.fixture in escalated_fixtures(all_drafts, tally)
     ia_text = _cached_ia_text(draft.fixture, ia_root)
     problems = check_draft(draft, scenario_keys_for(draft), escalated=escalated, ia_text=ia_text)
-    for note in unchecked_human_anchors(draft, ia_text):
+    if feedback_rows is not None:
+        problems.extend(analyst_feedback_problems(draft, feedback_rows))
+    notes = unchecked_human_anchors(draft, ia_text)
+    if feedback_rows is None:
+        notes += uncrosschecked_analysts(draft)
+    for note in notes:
         info(f"note: {note}")
     if problems:
         raise ReviewError("not fully decided:\n  " + "\n  ".join(problems))
@@ -138,6 +170,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--holdout-registry", type=Path, default=HOLDOUT_REGISTRY, help=argparse.SUPPRESS
     )
     parser.add_argument("--ia-root", type=Path, default=None, help=argparse.SUPPRESS)
+    parser.add_argument(
+        "--database-url",
+        default=None,
+        help="cross-check analyst candidates against analyst_feedback (default: $DATABASE_URL)",
+    )
     return parser.parse_args(argv)
 
 
@@ -168,6 +205,15 @@ def main(argv: list[str] | None = None) -> int:
     except (TallyError, ReviewError) as exc:
         info(f"error: {exc}")
         return 2
+    feedback_rows: dict[str, dict] | None = None
+    url = args.database_url or os.environ.get("DATABASE_URL")
+    ids = analyst_feedback_ids(d for _, d in selected)
+    if url and ids:
+        try:
+            feedback_rows = asyncio.run(_feedback_rows(url, ids))
+        except Exception as exc:  # noqa: BLE001 - any database failure refuses the analyst items
+            info(f"error: cannot read analyst_feedback to cross-check analyst candidates: {exc}")
+            feedback_rows = {}  # every kept analyst item is then refused, the rest published
     # Escalation is decided once, over the tally as it stood plus every open draft; each
     # published draft then moves its counts from the drafts into the tally.
     before = dict(tally)
@@ -177,6 +223,7 @@ def main(argv: list[str] | None = None) -> int:
                 draft, path, all_drafts=all_drafts, golden_dir=args.golden_dir,
                 today=today, dry_run=args.dry_run, tally=before,
                 registry=args.holdout_registry, ia_root=args.ia_root,
+                feedback_rows=feedback_rows,
             )  # fmt: skip
         except (ReviewError, GoldenError) as exc:
             info(f"refused {draft.case_id}: {exc}")

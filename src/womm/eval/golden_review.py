@@ -46,6 +46,7 @@ from womm.eval.drafting import (
     DraftOmission,
     GoldenDraft,
     _DraftItem,
+    analyst_digest,
     audit_eligible,
     audit_seed_for,
     check_anchor,
@@ -290,6 +291,8 @@ def integrity_problems(draft: GoldenDraft) -> list[str]:
                 f"{where}: tool-written fields changed but the decision is "
                 f"{item.review.decision!r}; a changed item must be 'edited' with a reviewer"
             )
+        if item.provenance.origin == "human_added":
+            problems.extend(_analyst_digest_problems(draft, item, where))
     for gone in sorted(set(p.item_digests) - set(by_id)):
         problems.append(f"{cid}/{gone}: item removed from the draft; decide it 'rejected' instead")
     drafter = _person(p.drafted_by)
@@ -301,6 +304,22 @@ def integrity_problems(draft: GoldenDraft) -> list[str]:
                     "the drafter cannot be the reviewer"
                 )
     return problems
+
+
+def _analyst_digest_problems(draft: GoldenDraft, item: _DraftItem, where: str) -> list[str]:
+    """A staged ``human_added`` item's ``raised_by`` and ``feedback_id`` are the analyst's, not
+    the reviewer's: the analyst digest written at staging must still match them."""
+    prov = item.provenance
+    if prov.feedback_id is None and prov.analyst_digest is None:
+        return []  # not staged from feedback (or before the link existed); see below
+    expected = analyst_digest(draft.case_id, item.item_id, prov.feedback_id, prov.raised_by)
+    if prov.analyst_digest != expected:
+        return [
+            f"{where}: provenance.raised_by/feedback_id do not match the analyst digest written "
+            "at staging; who raised an item is not reviewer-editable (restore them, or reject "
+            "the item)"
+        ]
+    return []
 
 
 HUMAN_ADDED_FIELDS = ("affected_actor", "mechanism", "impact", "ia_section", "ia_anchor")
@@ -340,11 +359,75 @@ def human_added_problems(item: _DraftItem, where: str, ia_text: str | None) -> l
             f"{where}: reviewer {rev.reviewer!r} raised it; a human_added item is reviewed by "
             "someone else"
         )
+    if not (item.provenance.feedback_id and item.provenance.analyst_digest):
+        problems.append(
+            f"{where}: human_added item has no provenance.feedback_id/analyst_digest linking it "
+            "to the analyst feedback it was staged from; re-stage it with "
+            "scripts/import_feedback.py --stage"
+        )
     if ia_text is not None and item.ia_anchor.strip():
         status = check_anchor(item.ia_anchor, ia_text, "ia").status
         if status != "verified":
             problems.append(f"{where}: human_added item: IA anchor {status} in the cached IA")
     return problems
+
+
+def _kept_human_added(draft: GoldenDraft) -> list[_DraftItem]:
+    return [
+        i for i in draft.items() if _human_added(i) and i.review.decision in ("verified", "edited")
+    ]
+
+
+def analyst_feedback_ids(drafts: Iterable[GoldenDraft]) -> list[str]:
+    """Feedback ids of the kept ``human_added`` items of ``drafts`` (what a publish
+    cross-checks against the ``analyst_feedback`` table)."""
+    ids = {i.provenance.feedback_id for d in drafts for i in _kept_human_added(d)}
+    return sorted(i for i in ids if i)
+
+
+def analyst_feedback_problems(
+    draft: GoldenDraft, rows: Mapping[str, Mapping[str, object]]
+) -> list[str]:
+    """Each kept ``human_added`` item checked against its stored mark (``rows``: feedback id ->
+    ``analyst_feedback`` row): the row exists, is a ``missing_impact`` mark that is not
+    retracted, on a train run of this case and fixture, made by the analyst named in
+    ``raised_by``. The analyst digest only catches edits; this catches a forged one."""
+    problems = []
+    for item in _kept_human_added(draft):
+        where = f"{draft.case_id}/{item.item_id}"
+        fid = item.provenance.feedback_id
+        row = rows.get(fid) if fid else None
+        if row is None:
+            problems.append(f"{where}: no analyst_feedback row for feedback {fid!r}")
+            continue
+        if row.get("mark") != "missing_impact":
+            problems.append(f"{where}: feedback {fid} is a {row.get('mark')!r} mark, not "
+                            "missing_impact")  # fmt: skip
+        if row.get("retracted_at") is not None:
+            problems.append(f"{where}: feedback {fid} was retracted; reject the item")
+        if row.get("split") != "train":
+            problems.append(f"{where}: feedback {fid} is on split {row.get('split')!r}, not train")
+        for name, want in (("case_id", draft.case_id), ("fixture", draft.fixture)):
+            if row.get(name) != want:
+                problems.append(f"{where}: feedback {fid} is on {name} {row.get(name)!r}, not "
+                                f"{want!r}")  # fmt: skip
+        analyst = row.get("analyst")
+        if not isinstance(analyst, str) or _person(analyst) != _person(item.provenance.raised_by):
+            problems.append(
+                f"{where}: feedback {fid} was raised by {analyst!r}, but the item names "
+                f"{item.provenance.raised_by!r} (provenance.raised_by)"
+            )
+    return problems
+
+
+def uncrosschecked_analysts(draft: GoldenDraft) -> list[str]:
+    """Kept ``human_added`` items whose analyst could not be checked against the database
+    (no DATABASE_URL): not blocking; CI has already checked the analyst digest."""
+    return [
+        f"{draft.case_id}/{i.item_id}: analyst not cross-checked against analyst_feedback (no "
+        "DATABASE_URL); the analyst digest was checked"
+        for i in _kept_human_added(draft)
+    ]
 
 
 def unchecked_human_anchors(draft: GoldenDraft, ia_text: str | None) -> list[str]:

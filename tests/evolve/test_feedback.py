@@ -351,6 +351,97 @@ def test_a_human_added_candidate_without_an_analyst_is_refused(tmp_path):
     assert any("names nobody who raised it" in p for p in problems), problems
 
 
+def test_a_staged_candidate_records_its_feedback_id_and_an_analyst_digest(tmp_path):
+    from womm.eval.drafting import analyst_digest
+
+    cand = df.to_draft(_staged(tmp_path)).possibly_missing[-1]
+    assert cand.provenance.feedback_id == "fb1"
+    assert cand.provenance.analyst_digest == analyst_digest(
+        "case_90_widget_switching", "c90_fb01", "fb1", "ana"
+    )
+
+
+@pytest.mark.parametrize(
+    ("field", "value"), [("raised_by", "bob"), ("feedback_id", "fb9"), ("analyst_digest", "0" * 64)]
+)
+@pytest.mark.parametrize("decision", ["edited", "pending"])
+def test_editing_who_raised_a_candidate_fails_the_gate(tmp_path, field, value, decision):
+    """``raised_by`` and ``feedback_id`` are analyst-written: changing them (e.g. so the analyst
+    can review their own item) breaks the analyst digest, even in a draft PR."""
+    data = _staged(tmp_path)
+    if decision == "edited":
+        data = df.decide(data, "c90_fb01", "edited", reviewer="ana", **FILLED)
+    data["possibly_missing"][-1]["provenance"][field] = value
+    problems = check_draft(df.to_draft(data), set(df.KEYS), allow_pending=True)
+    assert any("c90_fb01" in p and "analyst digest" in p for p in problems), problems
+
+
+def test_a_reviewer_may_still_edit_the_content_of_a_staged_candidate(tmp_path):
+    edit = FILLED | {
+        "impact": "Widget buyers pay twice for switching",
+        "provision_keys": [df.KEYS[1]],
+    }
+    data = df.decide(_staged(tmp_path), "c90_fb01", "edited", **edit)
+    assert check_draft(df.to_draft(data), set(df.KEYS)) == []
+
+
+@pytest.mark.parametrize("field", ["feedback_id", "analyst_digest"])
+def test_a_kept_human_added_candidate_without_its_feedback_link_is_refused(tmp_path, field):
+    data = df.decide(_staged(tmp_path), "c90_fb01", "edited", **FILLED)
+    data["possibly_missing"][-1]["provenance"][field] = None
+    problems = check_draft(df.to_draft(data), set(df.KEYS))
+    assert any("c90_fb01" in p and "feedback" in p for p in problems), problems
+
+
+def _db_row(**kw):
+    row = {"feedback_id": "fb1", "mark": "missing_impact", "case_id": "case_90_widget_switching",
+           "fixture": "data_act", "split": "train", "analyst": "ana", "retracted_at": None,
+           "golden_candidate": "staged"}  # fmt: skip
+    return row | kw
+
+
+def test_publish_cross_check_accepts_the_matching_feedback_row(tmp_path):
+    from womm.eval.golden_review import analyst_feedback_problems
+
+    data = df.decide(_staged(tmp_path), "c90_fb01", "edited", **FILLED)
+    assert analyst_feedback_problems(df.to_draft(data), {"fb1": _db_row()}) == []
+    # Analyst names compare like reviewer names (case, a leading @).
+    assert analyst_feedback_problems(df.to_draft(data), {"fb1": _db_row(analyst="@Ana")}) == []
+
+
+@pytest.mark.parametrize(
+    ("rows", "message"),
+    [
+        ({}, "no analyst_feedback row"),
+        ({"fb1": _db_row(retracted_at=NOW)}, "retracted"),
+        ({"fb1": _db_row(analyst="bob")}, "raised by 'bob'"),
+        ({"fb1": _db_row(analyst=None)}, "raised by None"),
+        ({"fb1": _db_row(split="val")}, "split 'val'"),
+        ({"fb1": _db_row(case_id="case_91_other")}, "case_91_other"),
+        ({"fb1": _db_row(fixture="ai_act")}, "ai_act"),
+        ({"fb1": _db_row(mark="weak_evidence")}, "weak_evidence"),
+    ],
+)
+def test_publish_cross_check_refuses_a_mismatching_feedback_row(tmp_path, rows, message):
+    """With the database at hand, the item must match the stored mark it came from; a forged
+    raised_by with a recomputed digest is caught here."""
+    from womm.eval.golden_review import analyst_feedback_problems
+
+    data = df.decide(_staged(tmp_path), "c90_fb01", "edited", **FILLED)
+    problems = analyst_feedback_problems(df.to_draft(data), rows)
+    assert any("c90_fb01" in p and message in p for p in problems), problems
+
+
+def test_publish_cross_check_ignores_dropped_and_tool_items(tmp_path):
+    from womm.eval.golden_review import analyst_feedback_ids, analyst_feedback_problems
+
+    data = df.decide(_staged(tmp_path), "c90_fb01", "rejected", note="not in the IA")
+    assert analyst_feedback_ids([df.to_draft(data)]) == []
+    assert analyst_feedback_problems(df.to_draft(data), {}) == []
+    kept = df.decide(_staged(tmp_path), "c90_fb01", "edited", **FILLED)
+    assert analyst_feedback_ids([df.to_draft(kept)]) == ["fb1"]
+
+
 def test_the_anchor_is_checked_against_the_cached_ia_when_available(tmp_path):
     from womm.eval.golden_review import unchecked_human_anchors
 

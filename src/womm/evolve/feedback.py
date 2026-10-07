@@ -60,6 +60,7 @@ from womm.eval.drafting import (
     JudgeBlock,
     Review,
     _reviewer_order,
+    analyst_digest,
     case_prefix,
     draft_path,
 )
@@ -307,10 +308,12 @@ def golden_candidate(row: Mapping[str, Any], candidate_id: str) -> DraftCandidat
     """A queued ``missing_impact`` row as a ``possibly_missing`` draft item that only a human can
     decide: origin ``human_added``, decision ``pending``, no judge verdict and no IA anchor yet.
     The review gate requires a named reviewer to verify, edit (adding the IA anchor) or reject
-    it before the draft can be published."""
+    it before the draft can be published. ``feedback_id`` and ``analyst_digest`` tie the item to
+    its mark, so ``raised_by`` cannot be edited to dodge the reviewer-is-not-the-analyst rule."""
     payload = row.get("payload") or {}
     unchecked = DimensionVerdict(verdict="unknown", reason="analyst feedback; not judged")
     note = (row.get("note") or "").strip()
+    raised_by, feedback_id = row.get("analyst") or None, str(row["feedback_id"])
     return DraftCandidate(
         candidate_id=candidate_id,
         affected_actor=payload.get("affected_actor") or "",
@@ -335,7 +338,9 @@ def golden_candidate(row: Mapping[str, Any], candidate_id: str) -> DraftCandidat
             origin="human_added",
             status="needs_human",
             drafting_model="none (analyst feedback)",
-            raised_by=row.get("analyst") or None,
+            raised_by=raised_by,
+            feedback_id=feedback_id,
+            analyst_digest=analyst_digest(row["case_id"], candidate_id, feedback_id, raised_by),
         ),  # fmt: skip
         review=Review(decision="pending"),
     )
