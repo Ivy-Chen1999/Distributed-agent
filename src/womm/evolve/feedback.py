@@ -5,7 +5,8 @@ LangSmith annotation queues first). ``scripts/import_feedback.py --queue`` adds 
 graph runs of a version's train/val eval reports to a queue whose rubric is one categorical
 feedback key, ``womm_analyst``, with the five marks of R31. The analyst picks a mark and writes
 the details in the comment, one ``field: value`` line each (``finding``, ``provisions``,
-``actor``, ``mechanism``, ``impact``, ``category``, ``edited``); any other line is the note. A
+``actor``, ``mechanism``, ``impact``, ``category``, ``edited``), a value continuing on the
+indented lines below it, each field at most once; any other line is the note. A
 ``correction`` dict with the same fields, when the feedback has one, takes precedence.
 
 **Flow.** ``scripts/import_feedback.py`` reads the marks back and resolves each against the
@@ -139,14 +140,33 @@ def _mark(value: Any, score: Any) -> str:
 
 
 def _fields(comment: str | None, correction: Any) -> tuple[dict[str, str], str | None]:
-    found: dict[str, str] = {}
+    """``field: value`` lines of a comment, a value continuing on the indented lines that follow
+    it; any other line is the note. A field given twice is refused. A ``correction`` dict
+    overrides the comment's fields."""
+    parts: dict[str, list[str]] = {}
+    repeated: set[str] = set()
     note: list[str] = []
+    current: str | None = None
     for line in (comment or "").splitlines():
         m = _FIELD_LINE.match(line)
-        if m and m.group(2).strip():
-            found[m.group(1).lower()] = m.group(2).strip()
-        elif line.strip():
-            note.append(line.strip())
+        if m:
+            current = m.group(1).lower()
+            if current in parts:
+                repeated.add(current)
+            parts[current] = [m.group(2).strip()] if m.group(2).strip() else []
+        elif current is not None and line[:1] in (" ", "\t") and line.strip():
+            parts[current].append(line.strip())
+        else:
+            current = None
+            if line.strip():
+                note.append(line.strip())
+    if repeated:
+        raise FeedbackError(f"repeated field(s) in the comment: {', '.join(sorted(repeated))}")
+    found = {
+        name: (", " if name == "provisions" else " ").join(values)
+        for name, values in parts.items()
+        if values
+    }
     if isinstance(correction, Mapping):
         for name in FIELDS:
             value = correction.get(name)
@@ -164,7 +184,10 @@ def parse_feedback(fb: Any) -> AnalystFeedback:
     fid = str(_get(fb, "id"))
     if _get(fb, "run_id") is None:
         raise FeedbackError(f"feedback {fid} is not attached to a run")
-    found, note = _fields(_get(fb, "comment"), _get(fb, "correction"))
+    try:
+        found, note = _fields(_get(fb, "comment"), _get(fb, "correction"))
+    except FeedbackError as exc:
+        raise FeedbackError(f"feedback {fid}: {exc}") from None
     source = _get(fb, "feedback_source")
     analyst = None
     if source is not None:

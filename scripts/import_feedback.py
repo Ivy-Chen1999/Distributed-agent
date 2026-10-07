@@ -17,7 +17,9 @@ missing_impact or weak_evidence. Its details go in the comment, one ``field: val
     edited: <the corrected text>   edit
     impact: <what is missing>      missing_impact (also actor, mechanism, provisions, category)
 
-Any other comment line is the analyst's note. See ``womm.evolve.feedback`` for the flow.
+A value may continue on the indented lines below its field line; a field given twice refuses
+the mark. Any other comment line is the analyst's note. See ``womm.evolve.feedback`` for the
+flow.
 
 Train/val only. The runs come from the version's eval reports in ``--runs-dir`` (holdout runs are
 never traced and never in a report; a report naming a holdout split is refused), each mark is
@@ -46,7 +48,6 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import contextlib
 import os
 import sys
 from pathlib import Path
@@ -73,6 +74,7 @@ from womm.evolve.feedback import (
 from womm.evolve.planner_view import HoldoutEnvRefused, refuse_holdout_env
 
 DEFAULT_QUEUE = "womm-analyst-review"
+CHUNK = 50  # run ids per LangSmith call
 MARK_HELP = {
     "accept": "The finding is right and useful as written.",
     "reject": "The finding is wrong or irrelevant.",
@@ -84,7 +86,8 @@ MARK_HELP = {
 INSTRUCTIONS = (
     "Mark one finding per feedback with the womm_analyst key. Name the finding in the comment "
     "as 'finding: <finding_id>' (the board in the run outputs lists the ids); a missing impact "
-    "names none. Other comment lines are your note."
+    "names none. Continue a long value on indented lines; give each field once. Other comment "
+    "lines are your note."
 )
 
 
@@ -98,18 +101,41 @@ def _client() -> Any:
     return Client()
 
 
+def _chunks(ids: list[str]) -> list[list[str]]:
+    return [ids[i : i + CHUNK] for i in range(0, len(ids), CHUNK)]
+
+
+def _run_keys(client: Any, trace_ids: list[str]) -> tuple[list[dict], list[str]]:
+    """LangSmith run keys (run id, session id, start time) of ``trace_ids``, looked up in
+    chunks, and the ids LangSmith does not know."""
+    keys: dict[str, dict] = {}
+    for chunk in _chunks(trace_ids):
+        for run in client.list_runs(run_ids=chunk):
+            keys[str(run.id)] = {"run_id": str(run.id), "session_id": str(run.session_id),
+                                 "start_time": run.start_time}  # fmt: skip
+    return [keys[t] for t in trace_ids if t in keys], [t for t in trace_ids if t not in keys]
+
+
 def _queue(client: Any, args: argparse.Namespace) -> int:
-    from langsmith.utils import LangSmithConflictError
+    from langsmith.utils import LangSmithError
+    from requests import HTTPError
 
     index = report_runs(Path(args.runs_dir), args.sv)
     if not index:
         info(f"no traced, scored train/val runs of {args.sv} in {args.runs_dir}")
         return 2
-    with contextlib.suppress(LangSmithConflictError):  # the key exists already
+    try:
+        # Returns the existing config when it is identical; a different one is an error.
         client.create_feedback_config(FEEDBACK_KEY, feedback_config={
             "type": "categorical",
             "categories": [{"value": i, "label": m} for i, m in enumerate(MARKS)],
         })  # fmt: skip
+    except (LangSmithError, HTTPError) as exc:
+        info(f"error: the LangSmith feedback key {FEEDBACK_KEY!r} exists with a different "
+             f"configuration than the {len(MARKS)} categorical marks {MARKS} (or could not be "
+             f"created): {exc}. Fix or delete that feedback config in LangSmith; nothing was "
+             "queued.")  # fmt: skip
+        return 2
     found = list(client.list_annotation_queues(name=args.queue))
     queue = found[0] if found else client.create_annotation_queue(
         name=args.queue,
@@ -118,9 +144,14 @@ def _queue(client: Any, args: argparse.Namespace) -> int:
         rubric_items=[{"feedback_key": FEEDBACK_KEY, "description": INSTRUCTIONS,
                        "value_descriptions": MARK_HELP, "is_required": True}],
     )  # fmt: skip
-    client.add_runs_to_annotation_queue(queue.id, run_ids=sorted(index))
-    print(f"queued {len(index)} train/val run(s) of {args.sv} in {args.queue}")
-    return 0
+    # Runs are added by their full key (the SDK's preferred path; bare run ids are deprecated).
+    keys, unknown = _run_keys(client, sorted(index))
+    for chunk in range(0, len(keys), CHUNK):
+        client.add_runs_to_annotation_queue(queue.id, runs=keys[chunk : chunk + CHUNK])
+    for t in unknown:
+        info(f"not queued: LangSmith has no run {t} (run {index[t].run_id} of {index[t].case_id})")
+    print(f"queued {len(keys)} train/val run(s) of {args.sv} in {args.queue}")
+    return 2 if unknown else 0
 
 
 async def _import(client: Any, args: argparse.Namespace, url: str) -> int:
@@ -132,7 +163,12 @@ async def _import(client: Any, args: argparse.Namespace, url: str) -> int:
     records: list[FeedbackRecord] = []
     seen: set[str] = set()
     refused = 0
-    for raw in client.list_feedback(run_ids=sorted(index), feedback_key=[FEEDBACK_KEY]):
+    listed = (
+        raw
+        for chunk in _chunks(sorted(index))
+        for raw in client.list_feedback(run_ids=chunk, feedback_key=[FEEDBACK_KEY])
+    )
+    for raw in listed:
         seen.add(str(raw.id))
         try:
             fb = parse_feedback(raw)

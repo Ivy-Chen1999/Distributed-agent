@@ -92,6 +92,26 @@ def test_parse_refuses_incomplete_marks(kw, message):
         parse_feedback(_fb(**kw))
 
 
+def test_parse_reads_indented_continuation_lines():
+    comment = (
+        "impact: SMEs pay twice for the\n  same switching service\n\tunder option 2\n"
+        "provisions: reg/a/1,\n  reg/a/2\n"
+        "edited:\n  a corrected text\n  on two lines\n"
+        "a note line\n  that is indented after a note"
+    )
+    fb = parse_feedback(_fb(comment=comment))
+    assert fb.impact == "SMEs pay twice for the same switching service under option 2"
+    assert fb.provision_keys == ["reg/a/1", "reg/a/2"]
+    assert fb.edited == "a corrected text on two lines"
+    assert fb.note == "a note line\nthat is indented after a note"
+
+
+def test_parse_refuses_repeated_fields():
+    comment = "impact: one\nfinding: f1\nImpact: two\nfinding: f2\ncategory: other"
+    with pytest.raises(FeedbackError, match="repeated field.*finding, impact"):
+        parse_feedback(_fb(comment=comment))
+
+
 # ----------------------------------------------------------------- resolving
 
 

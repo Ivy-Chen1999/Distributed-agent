@@ -44,9 +44,18 @@ class FakeClient:
         assert feedback_key == [FEEDBACK_KEY]
         return [f for f in self.feedback if str(f.run_id) in set(map(str, run_ids))]
 
+    config_error: Exception | None = None
+
     def create_feedback_config(self, key, *, feedback_config, **_):
+        if self.config_error is not None:
+            raise self.config_error
         self.configs.append(key)
         assert [c["label"] for c in feedback_config["categories"]][-1] == "weak_evidence"
+
+    def list_runs(self, *, run_ids=None, **_):
+        self.looked_up = [*getattr(self, "looked_up", []), sorted(map(str, run_ids))]
+        return [SimpleNamespace(id=r, session_id="00000000-0000-0000-0000-00000000000a",
+                                start_time=NOW) for r in run_ids if r != "t_untraced"]  # fmt: skip
 
     def list_annotation_queues(self, *, name=None, **_):
         return [q for q in self.queues.values() if q.name == name]
@@ -56,8 +65,10 @@ class FakeClient:
         self.queues[name] = SimpleNamespace(id=f"q-{name}", name=name)
         return self.queues[name]
 
-    def add_runs_to_annotation_queue(self, queue_id, *, run_ids=None, **_):
-        self.queued.setdefault(queue_id, []).extend(map(str, run_ids))
+    def add_runs_to_annotation_queue(self, queue_id, *, runs=None, run_ids=None):
+        assert run_ids is None, "the deprecated run_ids path is not used"
+        assert all({"run_id", "session_id", "start_time"} <= set(r) for r in runs)
+        self.queued.setdefault(queue_id, []).extend(str(r["run_id"]) for r in runs)
 
 
 MISSING = f"impact: Buyers pay twice\nprovisions: {K1}"
@@ -238,3 +249,35 @@ def test_an_edit_after_staging_is_reported_loudly(setup, capsys):
     assert _main(setup, client, "import", "--sv", "sv_x") == 2
     err = capsys.readouterr().err
     assert "fb1" in err and "already staged" in err and "by hand" in err
+
+
+def test_queue_reports_a_conflicting_feedback_config(setup, capsys):
+    from langsmith.utils import LangSmithError
+
+    client = FakeClient()
+    client.config_error = LangSmithError("400 Bad Request: feedback config differs")
+    assert _main(setup, client, "queue", "--sv", "sv_x") == 2
+    err = capsys.readouterr().err
+    assert "womm_analyst" in err and "differs" in err and client.queued == {}
+
+
+def test_queue_and_import_go_in_chunks(setup, monkeypatch):
+    monkeypatch.setattr(import_feedback, "CHUNK", 1)
+    client = FakeClient([_fb("fb1"), _fb("fb2", run="t2")])
+    assert _main(setup, client, "queue", "--sv", "sv_x") == 0
+    assert client.looked_up == [["t1"], ["t2"]]
+    assert client.queued == {"q-womm-analyst-review": ["t1", "t2"]}
+    assert _main(setup, client, "import", "--sv", "sv_x") == 0
+    assert client.listed == [["t1"], ["t2"]]
+
+
+def test_queue_reports_runs_langsmith_does_not_know(setup, capsys):
+    path = next(setup.runs_dir.glob("eval_*.json"))
+    data = json.loads(path.read_text())
+    data["case_runs"].append(_case_run("r3", 3).model_dump(mode="json"))
+    data["scores"].append({"run_id": "r3", "graph_run_id": "t_untraced"})
+    path.write_text(json.dumps(data))
+    client = FakeClient()
+    assert _main(setup, client, "queue", "--sv", "sv_x") == 2
+    assert "t_untraced" in capsys.readouterr().err
+    assert client.queued == {"q-womm-analyst-review": ["t1", "t2"]}
