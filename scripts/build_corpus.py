@@ -37,6 +37,9 @@ the consolidated text has none of its own. Dates are never emitted as current:
 - every remaining date carries the label "as adopted (2024)";
 - proposal records carry no date (a proposal never applied).
 
+Each record keeps the colleague's unit-level delta (``delta_status``, proposal -> adopted) as
+``unit_delta``; proposal records have none. No obligation view renders it (``womm.retrieval``).
+
 ``index.json`` has one row per unit and version: key, number, heading, delta kind against the
 previous version, obligation counts by primary actor and text length. It never holds text. For
 the consolidated version, the counts are those of the 2024 records an explore run may use: only
@@ -65,7 +68,7 @@ import httpx
 from womm.config import REPO_ROOT
 from womm.data import parse_consolidated, parse_units
 from womm.data.cellar import CELLAR_BASE, XHTML, CellarError, celex_url, fetch
-from womm.data.corpus import index_line
+from womm.data.corpus import UNIT_DELTA_VALUES, index_line
 from womm.data.fixtures import DEFAULT_FIXTURE_DIR, Crosswalk, FixtureError, load_crosswalk
 from womm.data.parse_consolidated import ConsolidatedParseError
 from womm.data.parse_proposal import Article
@@ -137,6 +140,9 @@ OBLIGATION_FIELDS = (
     "public_sector",
     "span",
 )
+# The colleague's unit-level delta (``delta_status``: proposal -> adopted, per provision unit),
+# kept as ``unit_delta``. Optional upstream (an older format has none); an unknown value fails.
+UNIT_DELTA_FIELD = "delta_status"
 
 _ARTICLE_NUMBER = re.compile(r"\d+[a-z]*")
 _ROMAN = re.compile(r"[IVXLC]+")
@@ -434,13 +440,17 @@ class ObligationStats:
     dates_withheld: Counter = field(default_factory=Counter)
     dates_labelled: int = 0
     no_date: int = 0
+    unit_delta: Counter = field(default_factory=Counter)
+    no_unit_delta: int = 0
 
     def line(self) -> str:
         withheld = dict(sorted(self.dates_withheld.items()))
+        deltas = dict(sorted(self.unit_delta.items()))
         return (
             f"{self.records} records kept, {self.excluded_dates_article} Article "
             f"{DATES_ARTICLE} records left out, dates withheld {withheld}, "
-            f"{self.dates_labelled} labelled {AS_ADOPTED_2024!r}, {self.no_date} without a date"
+            f"{self.dates_labelled} labelled {AS_ADOPTED_2024!r}, {self.no_date} without a date; "
+            f"unit delta {deltas}, {self.no_unit_delta} without a unit delta"
         )
 
 
@@ -477,6 +487,17 @@ def build_obligations(
         else:
             stats.no_date += 1
             record.update(applies_from=None, date_label=None, date_withheld=None)
+        delta = row.get(UNIT_DELTA_FIELD)
+        if delta is not None and delta not in UNIT_DELTA_VALUES:
+            raise FixtureError(
+                f"obligation {row['obligation_id']}: unknown {UNIT_DELTA_FIELD} {delta!r} "
+                f"(expected one of {UNIT_DELTA_VALUES})"
+            )
+        if delta is None:
+            stats.no_unit_delta += 1
+        else:
+            stats.unit_delta[delta] += 1
+        record["unit_delta"] = delta
         stats.records += 1
         out.setdefault(keys[container], []).append(record)
     return out, stats

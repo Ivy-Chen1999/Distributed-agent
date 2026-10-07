@@ -43,6 +43,38 @@ def _scope(**kw) -> DataScope:
     return DataScope.model_validate({"text": [], "obligations": "none", "hypothesis": HYP, **kw})
 
 
+# sha256 over every obligation view (source id and text) of every version, taken before the unit
+# delta joined the corpus (EU cost plan U1): no expert's rendered obligation view may change.
+OBLIGATION_VIEW_SNAPSHOT = {
+    "actors": (288, "e73ce3d4ba0490911047f26bca7286346702bb08cefe94b94297b647f809c677"),
+    "full": (288, "3327d26f90469c83691e8f61faa6982788dd63ea23349c072a8a0317b61f90a4"),
+}
+
+
+@pytest.mark.parametrize("view", sorted(OBLIGATION_VIEW_SNAPSHOT))
+def test_obligation_views_are_byte_identical_to_the_snapshot(corpus, view):
+    import hashlib
+
+    h, n = hashlib.sha256(), 0
+    for info in corpus.index.versions:
+        for row in corpus.index_rows(info.version_id):
+            if not corpus.obligation_records(info.version_id, row.key)[1]:
+                continue
+            src = obligations_source(corpus, info.version_id, row.key, view)
+            h.update(src.source_id.encode() + b"\0" + src.text.encode() + b"\0")
+            n += 1
+    assert (n, h.hexdigest()) == OBLIGATION_VIEW_SNAPSHOT[view]
+
+
+def test_unit_delta_never_reaches_an_obligation_view(corpus):
+    records = corpus.obligations[FINAL]["ai_act/art/26"]
+    assert any(r.unit_delta for r in records)
+    for view in ("actors", "full"):
+        text = obligations_source(corpus, FINAL, "ai_act/art/26", view).text
+        assert "unit_delta" not in text and "split_merge" not in text
+        assert "delta" not in text.lower()
+
+
 def test_default_scopes_resolved_keys(scopes, corpus, capsys):
     """Prints each default scope's text keys and what they resolve to, so gaps are reviewable."""
     for agent, scope in scopes.items():

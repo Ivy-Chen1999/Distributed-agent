@@ -32,6 +32,8 @@ from womm.models.regulation import Regulation, RegulationVersion, Source
 
 DEFAULT_CORPUS_DIR = REPO_ROOT / "data" / "corpus" / "ai_act"
 DeltaKind = Literal["added", "removed", "modified", "unchanged"]
+# The colleague's unit-level delta (``delta_status``, proposal -> adopted), per obligation record.
+UNIT_DELTA_VALUES = ("added", "modified", "split_merge", "minor_edit", "unchanged")
 
 # Versions that Regulation (EU) 2026/1744 (the Digital Omnibus, in force 27 July 2026) has
 # amended. A run on one of them analyses superseded law and is labelled pre-Omnibus.
@@ -95,6 +97,9 @@ class Obligation(StrictModel):
     applies_from: str | None
     date_label: str | None
     date_withheld: str | None
+    # Not rendered into any obligation view (``womm.retrieval._field_lines``): the cost step
+    # reads it to mark obligations changed or added after the proposal.
+    unit_delta: str | None = None
 
     @property
     def actor_unspecified(self) -> bool:
@@ -265,6 +270,12 @@ def validate_corpus(corpus: Corpus) -> None:
         unknown = sorted(set(by_key) - set(versions[vid]))
         if unknown:
             raise FixtureError(f"obligations of {vid} name unknown keys {unknown[:5]}")
+        for records in by_key.values():
+            for r in records:
+                if r.unit_delta is not None and r.unit_delta not in UNIT_DELTA_VALUES:
+                    raise FixtureError(
+                        f"obligation {r.obligation_id}: unknown unit_delta {r.unit_delta!r}"
+                    )
     for info in corpus.index.versions:
         if info.obligations_from not in versions:
             raise FixtureError(
