@@ -30,7 +30,7 @@ export interface Trace {
 
 /** API event node → console node id. */
 export function nodeId(node: string): string | null {
-  if (node === 'planner' || node === 'router' || node === 'synthesis') return node;
+  if (node === 'planner' || node === 'router' || node === 'synthesis' || node === 'cost') return node;
   if (node === 'validate') return 'citation';
   if (node === 'assemble') return 'dossier';
   if (node.startsWith('expert_')) return node.slice('expert_'.length);
@@ -141,7 +141,7 @@ export interface UsageTotals {
 /** Summed LLM usage for one console node (planner, synthesis, or an expert id). */
 export function usageFor(usage: CallUsage[] | null | undefined, id: string): UsageTotals | null {
   const rows = (usage ?? []).filter((u) =>
-    id === 'planner' || id === 'synthesis' ? u.role === id : u.role === 'expert' && u.agent === id,
+    id === 'planner' || id === 'synthesis' || id === 'cost' ? u.role === id : u.role === 'expert' && u.agent === id,
   );
   if (!rows.length) return null;
   return rows.reduce<UsageTotals>(
@@ -157,7 +157,7 @@ export function usageFor(usage: CallUsage[] | null | undefined, id: string): Usa
   );
 }
 
-export const LLM_NODES = (experts: string[]) => ['planner', ...experts, 'synthesis'];
+export const LLM_NODES = (experts: string[]) => ['planner', ...experts, 'cost', 'synthesis'];
 
 /** Tokens and cost of the LLM nodes that have finished by `clock`. */
 export function totalsAt(tr: Trace, usage: CallUsage[] | null | undefined, clock: number): { tokens: number; cost: number } {

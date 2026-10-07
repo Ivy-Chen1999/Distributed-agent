@@ -98,6 +98,9 @@ async def test_case01_on_the_cost_version_gives_one_record_per_relevant_duty(run
         assert rec.unit_id.startswith("52021PC0206:")
     assert section.coverage.relevant == 103 and section.coverage.not_covered_keys == []
     assert any(u.role == "cost" for u in result.usage)
+    citable = {s.source_id: s for s in result.citable_sources}
+    for rec in section.records:
+        assert f"[{rec.obligation_id}]" in citable[rec.source_id].text
     cost_calls = [c for c in backend.calls if c.role_name == "cost"]
     assert len(cost_calls) == 2
 
@@ -146,3 +149,37 @@ async def test_cost_node_events_carry_counts_only(run_case, fixture):
     payload = done.payload["cost"]
     assert set(payload) == {"records", "estimated", "not_costed", "not_estimated"}
     assert all(isinstance(v, int) for v in payload.values())
+
+
+async def test_proposal_to_final_run_marks_changed_and_late_added_records(fixture):
+    empty = {"impacts": [], "chains": [], "disagreements": [], "open_questions": [],
+             "discarded": []}  # fmt: skip
+    area = {"provision_keys": ["ai_act/penalties/penalties"], "question": "q", "rationale": "r"}
+    script = {
+        "planner": [{"focus_areas": [area]}],
+        "expert/legal": [{"findings": []}],
+        "expert/fiscal": [{"findings": []}],
+        "expert/stakeholder": [{"findings": []}],
+        "synthesis": [empty],
+        "cost": [fake_cost_batch] * 5,
+    }
+    result = await run_scenario(
+        "demo_penalties_amended", sv=_fake("v1.0-cost.yaml", cost=True), fixture=fixture,
+        backends={"fake": FakeBackend(script)}, decisions=StubDecisionService(),
+        code_identity=CodeIdentity(git_sha="test", dirty=False), run_id="run_test",
+    )  # fmt: skip
+    section = result.dossier.costs
+    assert {r.records_version for r in section.records} == {"reg2024_1689"}
+    added = [r for r in section.records if r.unit_delta == "added"]
+    assert added and all(r.late_added and r.changed_after_proposal for r in added)
+    assert section.late_added == [r.obligation_id for r in added]
+    for r in section.records:
+        if r.unit_delta in ("modified", "split_merge"):
+            assert r.changed_after_proposal and not r.late_added
+    assert section.delta_basis and section.hotspots
+
+
+async def test_a_run_without_the_cost_role_has_no_cost_section(run_case, fixture):
+    result, _ = await run_case(_fake("v1.0-cost.yaml", cost=False), _script(fixture))
+    assert result.dossier.costs is None
+    assert result.dossier.model_dump()["costs"] is None

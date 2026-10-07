@@ -73,6 +73,29 @@ def test_submit_poll_events_dossier(database_url):
         assert len(tail["events"]) == 1
 
 
+def test_cost_section_in_the_run_payload(database_url):
+    from womm.llm.fake import fake_cost_batch
+
+    from ..graph.test_cost_node import _fake
+
+    script = good_script(synthesis_all())
+    script["cost"] = [fake_cost_batch] * 5
+    app = create_app(
+        _settings(database_url), sv=_fake("v1.0-cost.yaml", cost=True), fixture=load_fixture(),
+        backends={"fake": FakeBackend(script)}, orphan_stale_after_s=0, web_dist=None,
+    )  # fmt: skip
+    with TestClient(app) as c:
+        run_id = c.post("/runs", json={"scenario_id": "eval_sme_impacts"}, headers=AUTH).json()[
+            "run_id"
+        ]
+        body = _wait(c, run_id)
+        assert body["status"] == "succeeded"
+        costs = body["dossier"]["costs"]
+        assert costs["records"] and costs["coverage"]["relevant"] == len(costs["records"])
+        assert {h["dimension"] for h in costs["hotspots"]} <= {"provision", "payer", "effort_type"}
+        assert body["nodes"]["cost"] == "finished"
+
+
 def test_unknown_scenario_and_run(database_url):
     with _client(database_url, {}) as c:
         assert c.post("/runs", json={"scenario_id": "nope"}, headers=AUTH).status_code == 404

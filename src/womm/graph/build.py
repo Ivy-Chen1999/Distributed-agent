@@ -19,7 +19,7 @@ from womm.decisions.service import DecisionService
 from womm.diff import diff_versions
 from womm.graph import render
 from womm.graph.assemble import assemble_node
-from womm.graph.cost import cost_node
+from womm.graph.cost import cost_node, cost_sources
 from womm.graph.events import task_event
 from womm.graph.experts import focus_keys, make_expert_node
 from womm.graph.planner import planner_node
@@ -210,6 +210,13 @@ async def run_scenario(
         for sid, s in retrieved.get(e.id, {}).items():
             citable.setdefault(
                 sid, CitableSource(source_id=sid, title=s.title, kind=s.kind, text=s.text)
+            )
+    if (cost := final.get("cost")) is not None:
+        # The obligation views the cost records cite, so the console's source panel opens them.
+        for s in cost_sources(cost, ctx.provision_corpus(), final["diff"].after_version):
+            citable.setdefault(
+                s.source_id,
+                CitableSource(source_id=s.source_id, title=s.title, kind=s.kind, text=s.text),
             )
     return RunResult(
         run_id=run_id,

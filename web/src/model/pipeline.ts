@@ -20,6 +20,7 @@ export const ROLE: Record<string, string> = {
   board: 'state',
   citation: 'deterministic',
   synthesis: 'synthesis',
+  cost: 'cost',
   dossier: 'deterministic',
 };
 export const roleOf = (id: string) => ROLE[id] ?? 'expert';
@@ -34,6 +35,7 @@ const SUB: Record<string, string> = {
   board: 'Shared findings',
   citation: 'Quote existence',
   synthesis: 'Merge and chain',
+  cost: 'Who pays, how much',
   dossier: 'Deterministic assembly',
 };
 
@@ -47,6 +49,7 @@ const DESC: Record<string, string> = {
   board: 'One shared board every expert posts to. Findings keep their provenance: agent, prompt hash, model, round.',
   citation: 'Checks every evidence quote verbatim against the source text. Grounding = quote existence rate.',
   synthesis: 'Merges overlapping findings into impacts, links causal chains, surfaces disagreements and open questions.',
+  cost: "Turns the run's duties into cost records: who pays, effort type, one-off and recurring bands. Reads obligation records only, never the findings.",
   dossier: 'Assembles the final Impact Dossier. Every impact traces to a provision key, a quote and a source id.',
 };
 
@@ -90,21 +93,24 @@ export function runStatusLabel(status: RunStatus, errorKind?: string | null): st
 
 // ---------- graph ----------
 
-export function edges(experts: string[]): [string, string][] {
+/** Whether the run has a cost step (cost-enabled versions only): its column is shown then. */
+export const hasCost = (trace: Trace): boolean => trace.spans.cost?.s !== undefined;
+
+export function edges(experts: string[], cost = false): [string, string][] {
   return [
     ['diff', 'planner'],
     ['planner', 'router'],
     ...experts.map((e) => ['router', e] as [string, string]),
     ...experts.map((e) => [e, 'board'] as [string, string]),
     ['board', 'citation'],
-    ['citation', 'synthesis'],
+    ...(cost ? ([['citation', 'cost'], ['cost', 'synthesis']] as [string, string][]) : ([['citation', 'synthesis']] as [string, string][])),
     ['board', 'synthesis'],
     ['synthesis', 'dossier'],
   ];
 }
 
-export function colIds(experts: string[]): string[][] {
-  return [['diff'], ['planner'], ['router'], experts, ['board'], ['citation'], ['synthesis'], ['dossier']];
+export function colIds(experts: string[], cost = false): string[][] {
+  return [['diff'], ['planner'], ['router'], experts, ['board'], ['citation'], ...(cost ? [['cost']] : []), ['synthesis'], ['dossier']];
 }
 
 export interface NodeVM {
@@ -471,7 +477,7 @@ export function selInfo(id: string, rv: RunView): SelInfo {
   }
   const kind = trace.spans[id]?.errorKind;
   if (s === 'failed' && kind) facts.push({ k: 'error_kind', v: kind });
-  const E = edges(trace.experts);
+  const E = edges(trace.experts, hasCost(trace));
   return {
     id,
     name: ag(id).n,
