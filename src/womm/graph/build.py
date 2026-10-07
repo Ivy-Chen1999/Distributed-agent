@@ -19,6 +19,7 @@ from womm.decisions.service import DecisionService
 from womm.diff import diff_versions
 from womm.graph import render
 from womm.graph.assemble import assemble_node
+from womm.graph.cost import cost_node
 from womm.graph.events import task_event
 from womm.graph.experts import focus_keys, make_expert_node
 from womm.graph.planner import planner_node
@@ -69,7 +70,14 @@ def build_graph(sv: SystemVersion) -> CompiledStateGraph:
     g.add_conditional_edges(START, _after_start, ["planner", "assemble"])
     g.add_conditional_edges("planner", _after_planner, ["router", "assemble"])
     g.add_conditional_edges("router", dispatch, expert_nodes)
-    g.add_conditional_edges("validate", _after_validate, ["synthesis", "assemble"])
+    # The cost step (cost-enabled versions only) sits between validate and the synthesis
+    # branch; it reads obligation records only, so the branch decision is unchanged.
+    branch_from = "validate"
+    if sv.spec.cost is not None:
+        g.add_node("cost", cost_node)
+        g.add_edge("validate", "cost")
+        branch_from = "cost"
+    g.add_conditional_edges(branch_from, _after_validate, ["synthesis", "assemble"])
     g.add_edge("synthesis", "assemble")
     g.add_edge("assemble", END)
     return g.compile(name="womm-ria")

@@ -31,6 +31,13 @@ NEW_FILES = {
     "v1.0-unscoped.yaml",
     "v1.0-scoped-api.yaml",
     "v1.0-unscoped-api.yaml",
+    "v1.0-cost.yaml",
+    "v1.0-cost-api.yaml",
+}
+# Cost-analysis candidates (EU cost plan U3): v1.0-unscoped and its api twin plus a cost role.
+COST_PINNED_IDS = {
+    "v1.0-cost.yaml": "sv_1f12d8afd1e7",
+    "v1.0-cost-api.yaml": "sv_dbb2adb836b7",
 }
 NEW_PINNED_IDS = {
     "v1.0-scoped.yaml": "sv_735b080cf78a",
@@ -75,6 +82,11 @@ def test_existing_version_ids_are_unchanged(name):
 @pytest.mark.parametrize("name", sorted(NEW_PINNED_IDS))
 def test_new_version_ids_are_pinned(name):
     assert load_system_version(SV_DIR / name, REPO_ROOT).version_id == NEW_PINNED_IDS[name]
+
+
+@pytest.mark.parametrize("name", sorted(COST_PINNED_IDS))
+def test_cost_version_ids_are_pinned(name):
+    assert load_system_version(SV_DIR / name, REPO_ROOT).version_id == COST_PINNED_IDS[name]
 
 
 @pytest.mark.parametrize("twin", sorted(API_TWINS))

@@ -7,6 +7,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from womm.models.base import StrictModel
+from womm.models.cost import CostSection
 from womm.models.findings import ExpertFailure, ImpactFinding
 
 # --- Synthesis LLM output: references findings by id, never re-emits quote text ---
@@ -103,3 +104,8 @@ class ImpactDossier(BaseModel):
     )
     failed_experts: list[ExpertFailure] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)
+    costs: CostSection | None = Field(
+        default=None,
+        description="Cost records and hotspots (cost-enabled versions only). Never read by "
+        "synthesis or the coverage judge.",
+    )

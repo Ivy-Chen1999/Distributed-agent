@@ -37,6 +37,15 @@ class PlannerConfig(RoleConfig):
     )
 
 
+class CostConfig(RoleConfig):
+    """The cost step (EU cost plan R4): one structured call per batch of obligation records. It
+    is not an expert and is not routed; its input view is fixed in code (obligation records in
+    the ``full`` view, no provision text, no memorandum, no delta, no findings). It is outside
+    the Improvement Planner's editable surface."""
+
+    max_records_per_call: int = Field(default=60, ge=1)
+
+
 class DataScope(StrictModel):
     """What one expert may see, split by data form (text versus obligation records), not topic.
 
@@ -118,6 +127,9 @@ class SystemVersionSpec(StrictModel):
     router: RouterConfig = Field(default_factory=RouterConfig)
     max_parallel_llm_calls: int = Field(default=3, ge=1)
     retrieval: RetrievalConfig | None = None
+    cost: CostConfig | None = Field(
+        default=None, description="The optional cost step; None means the graph has no cost node."
+    )
 
     @model_validator(mode="after")
     def _unique_experts(self) -> SystemVersionSpec:
@@ -129,6 +141,8 @@ class SystemVersionSpec(StrictModel):
     def roles(self) -> dict[str, RoleConfig]:
         out = {"planner": self.planner, "synthesis": self.synthesis, "judge": self.judge}
         out.update({f"expert:{e.id}": e.role for e in self.experts})
+        if self.cost is not None:
+            out["cost"] = self.cost
         return out
 
     def prompt_paths(self) -> list[str]:
@@ -140,12 +154,13 @@ class SystemVersionSpec(StrictModel):
 
     def canonical_dump(self) -> dict:
         """The spec as hashed into version_id. Fields added after v0 (`scope`, `router_gloss`,
-        the Planner's `explore_prompt`, `retrieval`) are dropped when None, so versions that do
-        not use them keep their ids. Nothing else is dropped: existing defaults are part of
-        today's hashes."""
+        the Planner's `explore_prompt`, `retrieval`, `cost`) are dropped when None, so versions
+        that do not use them keep their ids. Nothing else is dropped: existing defaults are part
+        of today's hashes."""
         data = self.model_dump(mode="json")
-        if data.get("retrieval") is None:
-            data.pop("retrieval", None)
+        for optional in ("retrieval", "cost"):
+            if data.get(optional) is None:
+                data.pop(optional, None)
         if data["planner"].get("explore_prompt") is None:
             data["planner"].pop("explore_prompt", None)
         for expert in data["experts"]:
@@ -248,7 +263,7 @@ def derive_system_version(
     if decider is not None:
         data["router"]["decider"] = decider
     for role, backend in (backends or {}).items():
-        if role in ("planner", "synthesis", "judge"):
+        if role in ("planner", "synthesis", "judge") or (role == "cost" and data.get("cost")):
             data[role]["backend"] = backend
         elif role.startswith("expert:"):
             eid = role.split(":", 1)[1]

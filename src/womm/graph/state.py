@@ -13,6 +13,7 @@ from womm.data.fixtures import Fixture
 from womm.decisions.service import DecisionService
 from womm.diff import RegulatoryDiff
 from womm.llm.base import LLMBackend
+from womm.models.cost import CostSection
 from womm.models.decisions import DecisionRecord
 from womm.models.dossier import ImpactDossier, LawVersion, SynthesisPlan
 from womm.models.findings import ExpertFailure, ImpactFinding
@@ -59,6 +60,7 @@ class RIAState(TypedDict, total=False):
     synthesis: SynthesisPlan | None
     synthesis_error: str | None
     fatal_error: str | None
+    cost: CostSection | None  # the cost node's output (cost-enabled versions only)
     dossier: ImpactDossier
 
 
