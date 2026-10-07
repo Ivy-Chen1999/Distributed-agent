@@ -10,6 +10,15 @@ with the code identity; a restart skips finished batches, and a failed batch is 
 restart retries it). ``<code>`` names the git sha (plus the diff hash when dirty), so a changed
 SystemVersion or code writes to a new directory and scores are never reused across changes.
 
+``max_usd`` (``--max-usd``) is a hard cap on the USD the sweep directory has cost so far: the
+spend recorded in its batch files (earlier runs, every repetition) plus this run's calls. A call
+starts only when that spend, plus one reserved call per call in flight, plus the call itself
+stays within the cap; a call is priced at the largest per-call cost seen so far, and until one
+is known a single call runs at a time. So the cap is exceeded only when a call costs more than
+any call before it. Calls of failed batches count in this run but are not in any batch file,
+so a resumed run does not see them. A backend that reports no USD cost cannot be capped: the
+sweep stops after the first unpriced call (``unpriced``).
+
 The sweep reads the corpus and the cost prompt only; it never reads any evaluation material.
 """
 
@@ -92,10 +101,76 @@ class SweepProgress:
     failed: list[str] = field(default_factory=list)
     usage: list[CallUsage] = field(default_factory=list)
     stopped_at_budget: bool = False
+    unpriced: bool = False
+    prior_usd: float = 0.0  # spend recorded in the sweep's batch files before this run
 
     @property
     def cost_usd(self) -> float:
+        """This run's spend."""
         return sum(u.cost_usd or 0 for u in self.usage)
+
+    @property
+    def total_usd(self) -> float:
+        return self.prior_usd + self.cost_usd
+
+
+def _recorded_usage(out: Path) -> list[CallUsage]:
+    usage: list[CallUsage] = []
+    for path in sorted(out.glob("rep*/*.json")):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        usage.extend(CallUsage.model_validate(u) for u in data.get("usage", []))
+    return usage
+
+
+class _Budget:
+    """Reserve-before-call accounting for ``max_usd`` (see the module docstring)."""
+
+    def __init__(self, max_usd: float, progress: SweepProgress, recorded: list[CallUsage]):
+        self.max_usd = max_usd
+        self.progress = progress
+        self.cond = asyncio.Condition()
+        self.in_flight: dict[int, float] = {}
+        self.per_call = max((u.cost_usd for u in recorded if u.cost_usd is not None), default=None)
+        if any(u.cost_usd is None for u in recorded):
+            progress.unpriced = True
+
+    def _stop(self) -> None:
+        self.progress.stopped_at_budget = True
+        self.cond.notify_all()
+
+    async def reserve(self, ticket: int) -> bool:
+        async with self.cond:
+            while True:
+                if self.progress.stopped_at_budget or self.progress.unpriced:
+                    self._stop()
+                    return False
+                if self.per_call is None:
+                    if self.in_flight:
+                        await self.cond.wait()  # the first call prices the rest
+                        continue
+                    self.in_flight[ticket] = 0.0
+                    return True
+                reserved = sum(self.in_flight.values())
+                if self.progress.total_usd + reserved + self.per_call > self.max_usd:
+                    self._stop()
+                    return False
+                self.in_flight[ticket] = self.per_call
+                return True
+
+    async def release(self, ticket: int, usage: list[CallUsage]) -> None:
+        async with self.cond:
+            self.in_flight.pop(ticket, None)
+            costs = [u.cost_usd for u in usage]
+            if any(c is None for c in costs):
+                self.progress.unpriced = True
+            known = [c for c in costs if c is not None]
+            if known:
+                total = sum(known)
+                self.per_call = total if self.per_call is None else max(self.per_call, total)
+            self.cond.notify_all()
 
 
 async def run_sweep(
@@ -131,6 +206,12 @@ async def run_sweep(
     progress = progress if progress is not None else SweepProgress()
     prompt = plan.sv.prompt_text(plan.role)
     gate = asyncio.Semaphore(max_parallel or plan.sv.spec.max_parallel_llm_calls)
+    budget = None
+    if max_usd is not None:
+        recorded = _recorded_usage(out)
+        progress.prior_usd = sum(u.cost_usd or 0 for u in recorded)
+        budget = _Budget(max_usd, progress, recorded)
+    tickets = iter(range(1 << 30))
 
     async def one(rep_dir: Path, rep: int, batch: WorkBatch) -> None:
         path = rep_dir / f"{batch.batch_id}.json"
@@ -138,14 +219,17 @@ async def run_sweep(
             progress.skipped += 1
             return
         async with gate:
-            if max_usd is not None and progress.cost_usd >= max_usd:
-                progress.stopped_at_budget = True
+            ticket = next(tickets)
+            if budget is not None and not await budget.reserve(ticket):
                 return
             progress.calls += 1
-            res: BatchResult = await run_batch(
-                batch, backend=backend, role=plan.role, prompt=prompt
-            )
-            progress.usage.extend(res.usage)
+            res: BatchResult | None = None
+            try:
+                res = await run_batch(batch, backend=backend, role=plan.role, prompt=prompt)
+                progress.usage.extend(res.usage)
+            finally:
+                if budget is not None:
+                    await budget.release(ticket, res.usage if res is not None else [])
         if res.error is not None:
             progress.failed.append(f"rep{rep}: {failure_note(res)}")
             if log:

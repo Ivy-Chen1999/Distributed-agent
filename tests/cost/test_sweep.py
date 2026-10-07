@@ -8,7 +8,14 @@ import pytest
 
 import womm.cost.sweep as sweep_mod
 from womm.config import REPO_ROOT
-from womm.cost.sweep import SweepError, load_sweep, plan_sweep, run_sweep, sweep_dir
+from womm.cost.sweep import (
+    SweepError,
+    SweepProgress,
+    load_sweep,
+    plan_sweep,
+    run_sweep,
+    sweep_dir,
+)
 from womm.data.corpus import load_corpus
 from womm.llm.base import LLMError
 from womm.llm.fake import FakeBackend, fake_cost_batch
@@ -97,21 +104,70 @@ async def test_a_second_repetition_does_not_reuse_the_first(corpus, tmp_path):
     assert sorted(load_sweep(out).repetitions) == [1, 2]
 
 
-async def test_the_sweep_stops_at_max_usd(corpus, tmp_path):
+class Priced(FakeBackend):
+    async def _invoke(self, *a, **kw):
+        step, usage = await super()._invoke(*a, **kw)
+        return step, usage.model_copy(update={"cost_usd": 1.0})
+
+
+async def test_the_sweep_never_starts_a_call_that_would_pass_max_usd(corpus, tmp_path):
     plan = plan_sweep(_sv(), corpus, PROPOSAL)
-
-    class Priced(FakeBackend):
-        async def _invoke(self, *a, **kw):
-            step, usage = await super()._invoke(*a, **kw)
-            return step, usage.model_copy(update={"cost_usd": 1.0})
-
     backend = Priced({"cost": [fake_cost_batch] * 20})
+    progress = SweepProgress()
     out = await run_sweep(
         plan, backend=backend, root=tmp_path, code=CODE, repetitions=1, max_usd=2.5,
-        max_parallel=1,
+        max_parallel=1, progress=progress,
     )  # fmt: skip
-    assert len(backend.calls) == 3
-    assert len(load_sweep(out).missing[1]) == 6
+    assert len(backend.calls) == 2 and progress.cost_usd == 2.0
+    assert progress.stopped_at_budget
+    assert len(load_sweep(out).missing[1]) == 7
+
+
+async def test_a_resumed_sweep_counts_the_spend_in_its_batch_files(corpus, tmp_path):
+    plan = plan_sweep(_sv(), corpus, PROPOSAL)
+    await run_sweep(
+        plan, backend=Priced({"cost": [fake_cost_batch] * 20}), root=tmp_path, code=CODE,
+        repetitions=1, max_usd=2.5, max_parallel=1,
+    )  # fmt: skip
+    again = Priced({"cost": [fake_cost_batch] * 20})
+    progress = SweepProgress()
+    await run_sweep(
+        plan, backend=again, root=tmp_path, code=CODE, repetitions=1, max_usd=2.5,
+        progress=progress,
+    )  # fmt: skip
+    assert progress.prior_usd == 2.0 and again.calls == []
+    assert progress.stopped_at_budget and progress.total_usd == 2.0
+    more = SweepProgress()
+    await run_sweep(
+        plan, backend=again, root=tmp_path, code=CODE, repetitions=1, max_usd=4.0,
+        progress=more,
+    )  # fmt: skip
+    assert len(again.calls) == 2 and more.total_usd == 4.0
+
+
+@pytest.mark.parametrize("cap", [2.5, 3.0, 5.5])
+async def test_parallel_calls_never_overshoot_max_usd(corpus, tmp_path, cap):
+    plan = plan_sweep(_sv(), corpus, PROPOSAL)
+    backend = Priced({"cost": [fake_cost_batch] * 20})
+    progress = SweepProgress()
+    await run_sweep(
+        plan, backend=backend, root=tmp_path, code=CODE, repetitions=1, max_usd=cap,
+        max_parallel=8, progress=progress,
+    )  # fmt: skip
+    assert progress.cost_usd <= cap
+    assert len(backend.calls) == int(cap)
+
+
+async def test_max_usd_with_an_unpriced_backend_stops_with_a_reason(corpus, tmp_path):
+    plan = plan_sweep(_sv(), corpus, PROPOSAL)
+    backend = FakeBackend({"cost": [fake_cost_batch] * 20})  # usage carries no cost_usd
+    progress = SweepProgress()
+    await run_sweep(
+        plan, backend=backend, root=tmp_path, code=CODE, repetitions=1, max_usd=10.0,
+        max_parallel=8, progress=progress,
+    )  # fmt: skip
+    assert len(backend.calls) == 1
+    assert progress.stopped_at_budget and progress.unpriced
 
 
 def test_the_sweep_never_reads_evals():

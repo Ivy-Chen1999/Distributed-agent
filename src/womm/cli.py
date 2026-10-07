@@ -844,6 +844,8 @@ async def cmd_cost_sweep(args: argparse.Namespace) -> int:
         "stopped_at_budget": progress.stopped_at_budget,
         "tokens": sum(u.input_tokens + u.output_tokens for u in progress.usage),
         "cost_usd": round(progress.cost_usd, 4),
+        "prior_usd": round(progress.prior_usd, 4),
+        "unpriced": progress.unpriced,
         "dev_only": dev_only,
     }
     text = (
@@ -852,7 +854,15 @@ async def cmd_cost_sweep(args: argparse.Namespace) -> int:
         f"{' (dev-only: ' + plan.role.backend + ' backend)' if dev_only else ''}\n"
         f"calls={progress.calls} skipped={progress.skipped} failed={len(progress.failed)} "
         f"tokens={data['tokens']} cost≈${progress.cost_usd:.3f}"
-        + ("\nstopped at --max-usd; rerun to resume" if progress.stopped_at_budget else "")
+        + (f" (+${progress.prior_usd:.3f} in earlier runs)" if progress.prior_usd else "")
+        + (
+            "\nstopped: the backend reports no USD cost, so --max-usd cannot be enforced; "
+            "rerun without --max-usd"
+            if progress.unpriced and progress.stopped_at_budget
+            else "\nstopped at --max-usd; rerun with a higher cap to resume"
+            if progress.stopped_at_budget
+            else ""
+        )
         + (f"\n{len(progress.failed)} batch(es) failed; rerun to retry" if progress.failed else "")
         + f"\nsaved {out}"
     )
@@ -1199,7 +1209,11 @@ def _add_calibration_parsers(sub: Any, common: argparse.ArgumentParser) -> None:
     p_sweep.add_argument("--sv", help="cost-enabled SystemVersion: YAML path or name (v1.0-cost)")
     p_sweep.add_argument("--version", required=True, help="corpus version (com2021_206, ...)")
     p_sweep.add_argument("--repetitions", type=int, default=3)
-    p_sweep.add_argument("--max-usd", type=float, help="stop scheduling batches at this spend")
+    p_sweep.add_argument(
+        "--max-usd", type=float,
+        help="hard cap on the sweep directory's USD spend (earlier runs included); a call starts "
+        "only if it and the calls in flight fit; refused for backends that report no USD cost",
+    )  # fmt: skip
     p_sweep.add_argument("--skip-self-check", action="store_true", help="dev only")
     p_check = cost.add_parser("check", parents=[common],
                               help="R6: score cost records against SWD(2021) 84")  # fmt: skip

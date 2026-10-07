@@ -258,3 +258,12 @@ async def test_cost_check_names_an_unknown_scenario_as_a_usage_error(tmp_path, c
             "--runs-dir", str(tmp_path)]  # fmt: skip
     assert await __import__("asyncio").to_thread(cli.main, args) == cli.EXIT_USAGE
     assert "no_such_scenario" in capsys.readouterr().err
+
+
+def test_cost_sweep_with_max_usd_on_an_unpriced_backend_says_why(cost_version, tmp_path, capsys,
+                                                                fake_backends):  # fmt: skip
+    args = ["cost", "sweep", "--sv", str(cost_version), "--version", "com2021_206",
+            "--repetitions", "1", "--max-usd", "5", "--runs-dir", str(tmp_path)]  # fmt: skip
+    assert cli.main(args) == cli.EXIT_FAILED
+    assert "cannot be enforced" in capsys.readouterr().out
+    assert len(fake_backends.calls) == 1

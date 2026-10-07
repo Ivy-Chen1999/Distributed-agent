@@ -184,7 +184,11 @@ Runs (dev on `claude_code`, labelled dev-only; formal on `v1.0-cost-api` when an
 exists). A proposal sweep is 9 calls per repetition and a final-act sweep 17, so three
 repetitions of both are about 80 calls, a few hours on `claude_code` at parallelism 3. Start
 them in the background and poll; rerunning the same command resumes (finished batches are
-skipped, failed ones are retried). `--max-usd` caps api spend.
+skipped, failed ones are retried). `--max-usd` is a hard cap on the sweep directory's spend,
+earlier runs included (read from its batch files): a call starts only if it, plus one reserved
+call per call in flight, fits under the cap, so a resumed sweep never spends the cap again. A
+backend that reports no USD cost cannot be capped; the sweep then stops after one call and says
+so.
 
 ```bash
 # Whole-version sweeps (R6 needs the proposal, R7 the adopted act).
