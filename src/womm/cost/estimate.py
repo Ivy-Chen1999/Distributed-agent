@@ -275,16 +275,18 @@ async def run_batch(
     batch: WorkBatch, *, backend: LLMBackend, role: CostConfig, prompt: str
 ) -> BatchResult:
     """One batch through the backend; failures become ``not_estimated`` records."""
+    usage_list: list[CallUsage] = []
     try:
         answer, usage = await backend.call("cost", prompt, render_batch(batch), CostBatch, role)
+        usage_list = [usage]
+        return BatchResult(batch, validate_batch(batch, answer), usage_list)
     except LLMError as exc:
         records = [not_estimated(i, exc.error_kind) for i in batch.items]
         usage_list = [exc.usage] if exc.usage else []
         return BatchResult(batch, BatchOutcome(records), usage_list, exc.error_kind)
     except Exception as exc:  # noqa: BLE001 - a cost bug must not abort the run
         records = [not_estimated(i, "process_error") for i in batch.items]
-        return BatchResult(batch, BatchOutcome(records), [], f"process_error: {exc}"[:200])
-    return BatchResult(batch, validate_batch(batch, answer), [usage])
+        return BatchResult(batch, BatchOutcome(records), usage_list, f"process_error: {exc}"[:200])
 
 
 def failure_note(result: BatchResult) -> str:
@@ -312,6 +314,7 @@ async def estimate_costs(
 
     results = await asyncio.gather(*(one(b) for b in batches))
     est = CostEstimate(records=[])
+    est.notes.extend(dict.fromkeys(i.payer.note for i in items if i.payer.note))
     for res in results:
         est.records.extend(res.outcome.records)
         est.usage.extend(res.usage)

@@ -4,6 +4,9 @@ It reads the corpus obligation records of the run's provisions (the scenario key
 mode, the Planner's keys in explore mode, restricted to changed keys when the run has a before
 version) and writes ``state["cost"]``. It never reads or writes the board, the findings or the
 synthesis input, so the dossier impacts and the judge input are the same with or without it.
+
+The node never fails the run: any error inside it gives an empty cost section with a note, and
+the rest of the dossier is untouched.
 """
 
 from __future__ import annotations
@@ -45,15 +48,21 @@ async def cost_node(state: RIAState, runtime: Runtime[WommContext]) -> dict:
     role = ctx.sv.spec.cost
     if role is None:  # the graph adds this node only when the version has a cost role
         return {}
-    relevant = relevant_records(
-        ctx.provision_corpus(), state["diff"].after_version, cost_keys(state)
-    )
-    est = await estimate_costs(
-        relevant.items,
-        backend=ctx.backend_for(role),
-        role=role,
-        prompt=ctx.prompt(role),
-        max_parallel=ctx.sv.spec.max_parallel_llm_calls,
-    )
-    section = build_section(est.records, relevant.not_covered, invalid=est.invalid, notes=est.notes)
+    try:
+        relevant = relevant_records(
+            ctx.provision_corpus(), state["diff"].after_version, cost_keys(state)
+        )
+        est = await estimate_costs(
+            relevant.items,
+            backend=ctx.backend_for(role),
+            role=role,
+            prompt=ctx.prompt(role),
+            max_parallel=ctx.sv.spec.max_parallel_llm_calls,
+        )
+        section = build_section(
+            est.records, relevant.not_covered, invalid=est.invalid, notes=est.notes
+        )
+    except Exception as exc:  # noqa: BLE001 - the cost section is optional; the run is not
+        note = f"cost step failed ({type(exc).__name__}: {exc})"[:300] + "; no cost records"
+        return {"cost": build_section([], [], notes=[note])}
     return {"cost": section, "usage": est.usage}

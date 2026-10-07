@@ -183,3 +183,20 @@ async def test_a_run_without_the_cost_role_has_no_cost_section(run_case, fixture
     result, _ = await run_case(_fake("v1.0-cost.yaml", cost=False), _script(fixture))
     assert result.dossier.costs is None
     assert result.dossier.model_dump()["costs"] is None
+
+
+async def test_an_error_inside_the_cost_node_degrades_the_section_only(run_case, fixture,
+                                                                       monkeypatch):  # fmt: skip
+    import womm.graph.cost as cost_mod
+
+    async def boom(*args, **kwargs):
+        raise RuntimeError("injected cost failure")
+
+    monkeypatch.setattr(cost_mod, "estimate_costs", boom)
+    result, _ = await run_case(_fake("v1.0-cost.yaml", cost=True), _script(fixture, []))
+    assert result.status == RunStatus.succeeded
+    costs = result.dossier.costs
+    assert costs is not None and costs.records == []
+    assert any("injected cost failure" in n for n in costs.notes)
+    assert result.dossier.impacts and result.board
+    assert result.dossier.failed_experts == []

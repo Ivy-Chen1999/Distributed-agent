@@ -271,3 +271,46 @@ async def test_a_timed_out_batch_gives_not_estimated_records_and_a_note(case01):
     assert len(est.records) == 103
     assert len(est.notes) == 1 and "timeout" in est.notes[0]
     assert str(len(failed)) in est.notes[0]
+
+
+def _martian(case01):
+    from dataclasses import replace
+
+    from womm.cost.payer import resolve_payer
+
+    item = case01.items[0]
+    record = item.record.model_copy(update={"primary_actor": "martian"})
+    return replace(item, record=record, payer=resolve_payer(record, item.records_version))
+
+
+def test_an_unrecognised_actor_gives_an_unknown_payer_with_a_note(case01):
+    item = _martian(case01)
+    assert item.payer.payer is None and item.payer.basis == "unknown"
+    assert "martian" in (item.payer.note or "")
+
+
+async def test_an_unrecognised_actor_never_fails_the_estimate(case01):
+    item = _martian(case01)
+    est = await estimate_costs(
+        [item], backend=FakeBackend({"cost": [fake_cost_batch]}), role=ROLE, prompt="p",
+        max_parallel=1,
+    )  # fmt: skip
+    (record,) = est.records
+    assert record.payer is None and record.payer_basis == "unknown"
+    assert any("martian" in n for n in est.notes)
+
+
+async def test_a_validation_error_becomes_not_estimated_records(case01, monkeypatch):
+    import womm.cost.estimate as est_mod
+
+    def boom(batch, answer):
+        raise RuntimeError("validator bug")
+
+    monkeypatch.setattr(est_mod, "validate_batch", boom)
+    items = case01.items[:3]
+    est = await estimate_costs(
+        items, backend=FakeBackend({"cost": [fake_cost_batch]}), role=ROLE, prompt="p",
+        max_parallel=1,
+    )  # fmt: skip
+    assert [r.status for r in est.records] == ["not_estimated"] * 3
+    assert any("process_error" in n and "validator bug" in n for n in est.notes)

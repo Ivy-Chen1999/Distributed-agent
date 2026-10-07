@@ -8,6 +8,9 @@ Order (never a silent guess):
 3. otherwise ``unknown``: the cost step may infer a payer, but only with a verbatim quote from
    the record's span (``inferred``, stored as agent output, never written back to the corpus).
 
+An actor outside ``SECTOR`` (a new upstream value) resolves to ``unknown`` with a note, so a
+run never fails on it; ``tests/cost/test_payer.py`` still fails until the map names it.
+
 Stage A's LLM enrichment of unspecified actors (v1.1) replaces the table.
 """
 
@@ -113,6 +116,7 @@ class PayerResolution:
     payer: str | None
     basis: PayerBasis
     legal_basis: str | None = None
+    note: str | None = None
 
 
 def payer_annex(record: Obligation) -> str | None:
@@ -127,6 +131,13 @@ def resolve_payer(record: Obligation, records_version: str) -> PayerResolution:
     """``records_version`` is the version the record belongs to (a consolidated run borrows the
     adopted records, so it passes ``reg2024_1689``)."""
     if record.primary_actor not in _UNSPECIFIED:
+        if record.primary_actor not in SECTOR:
+            return PayerResolution(
+                None,
+                "unknown",
+                note=f"cost step: actor {record.primary_actor!r} of {record.obligation_id} is "
+                "not in the payer map; payer left unknown",
+            )
         return PayerResolution(record.primary_actor, "rule_field")
     annex = payer_annex(record)
     for rule in PAYER_RULES:
