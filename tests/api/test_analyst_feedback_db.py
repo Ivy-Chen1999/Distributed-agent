@@ -1,0 +1,109 @@
+"""Analyst feedback in Postgres (U11, R31): the audit rows, their Failure Memory events, the
+golden-candidate queue, and the constraints that keep holdout material and unknown runs out."""
+
+import datetime as dt
+
+import psycopg
+import pytest
+
+from womm.evolve.failure_memory import CaseRun
+from womm.evolve.feedback import AnalystFeedback, resolve_feedback
+from womm.evolve.planner_view import PlannerView
+
+from ..evolve.test_failure_memory import K1, _finding, _run
+
+NOW = dt.datetime(2026, 10, 7, tzinfo=dt.UTC)
+
+
+def _case_run(run_id="r1", rep=1) -> CaseRun:
+    return CaseRun(case_id="case_x", fixture="ai_act", split="train", run_id=run_id,
+                   repetition=rep, system_version="sv_x")  # fmt: skip
+
+
+def _record(mark="missing_impact", fid="fb1", run_id="r1", **kw):
+    fields = {"impact": "SMEs pay twice", "provision_keys": ["reg/a/9"]}
+    if mark != "missing_impact":
+        fields = {"finding_id": "f1", "edited": "better" if mark == "edit" else None}
+    fb = AnalystFeedback(feedback_id=fid, trace_run_id=f"t-{run_id}", mark=mark, analyst="ana",
+                         note="n", created_at=NOW, **fields | kw)  # fmt: skip
+    run = _run(run_id, board=[_finding("legal", K1, "f1")])
+    return resolve_feedback(fb, _case_run(run_id), run)
+
+
+async def _with_runs(db, *run_ids):
+    await db.record_failure_events([], [_case_run(r, i + 1) for i, r in enumerate(run_ids)])
+
+
+async def test_marks_are_stored_once_with_their_events(db):
+    await _with_runs(db, "r1", "r2")
+    assert await db.record_analyst_feedback(_record()) is True
+    assert await db.record_analyst_feedback(_record()) is False  # idempotent by feedback id
+    assert await db.record_analyst_feedback(_record("weak_evidence", "fb2", "r2")) is True
+    assert await db.record_analyst_feedback(_record("accept", "fb3")) is True
+    rows = {r["feedback_id"]: r for r in await db.analyst_feedback("sv_x")}
+    assert (rows["fb1"]["golden_candidate"], rows["fb3"]["golden_candidate"]) == ("queued", None)
+    assert rows["fb3"]["failure_event_id"] is None and rows["fb1"]["failure_event_id"]
+    assert rows["fb1"]["payload"]["impact"] == "SMEs pay twice"
+    events, _ = await db.failure_memory("sv_x")
+    assert sorted((e.kind, e.source) for e in events) == [
+        ("analyst_missing_impact", "human"), ("analyst_weak_evidence", "human")
+    ]  # fmt: skip
+    pats = await db.failure_patterns("sv_x")
+    assert {p["source"] for p in pats} == {"human"}
+
+
+async def test_two_analysts_on_the_same_item_share_one_event(db):
+    await _with_runs(db, "r1")
+    await db.record_analyst_feedback(_record())
+    await db.record_analyst_feedback(_record(fid="fb9"))
+    rows = await db.analyst_feedback("sv_x")
+    assert len(rows) == 2 and len({r["failure_event_id"] for r in rows}) == 1
+
+
+async def test_a_mark_on_a_run_missing_from_failure_memory_is_refused(db):
+    with pytest.raises(psycopg.errors.ForeignKeyViolation):
+        await db.record_analyst_feedback(_record())
+    assert await db.analyst_feedback("sv_x") == []
+    assert (await db.failure_memory("sv_x"))[0] == []  # the event rolled back with the mark
+
+
+async def test_the_golden_candidate_queue(db):
+    await _with_runs(db, "r1")
+    await db.record_analyst_feedback(_record())
+    (row,) = await db.queued_golden_candidates()
+    assert (row["feedback_id"], row["case_id"], row["fixture"]) == ("fb1", "case_x", "ai_act")
+    await db.mark_candidate_staged("fb1", "evals/golden/drafts/case_x.yaml")
+    assert await db.queued_golden_candidates() == []
+    (row,) = await db.analyst_feedback("sv_x")
+    assert (row["golden_candidate"], row["golden_draft"]) == (
+        "staged",
+        "evals/golden/drafts/case_x.yaml",
+    )
+
+
+async def test_constraints_keep_holdout_and_mislabelled_rows_out(db):
+    await _with_runs(db, "r1")
+    async with db.pool.connection() as conn:
+        for sql in (
+            "INSERT INTO analyst_feedback (feedback_id, mark, system_version, case_id, fixture,"
+            " split, run_id, trace_run_id, created_at) VALUES ('h', 'accept', 'sv_x', 'case_x',"
+            " 'ai_act', 'holdout', 'r1', 't', now())",
+            "INSERT INTO failure_events (system_version, kind, case_id, fixture, split, item_id,"
+            " category, owner, run_id, repetition, source) VALUES"
+            " ('sv_x', 'missed_impact', 'case_x', 'ai_act', 'train', 'e', 'x', 'none', 'r1', 1,"
+            " 'human')",
+            "INSERT INTO failure_events (system_version, kind, case_id, fixture, split, item_id,"
+            " category, owner, run_id, repetition) VALUES"
+            " ('sv_x', 'analyst_missing_impact', 'case_x', 'ai_act', 'train', 'e', 'x', 'none',"
+            " 'r1', 1)",
+        ):
+            with pytest.raises(psycopg.errors.CheckViolation):
+                await conn.execute(sql)
+
+
+async def test_the_planner_view_sees_analyst_events(db, database_url, tmp_path):
+    await _with_runs(db, "r1")
+    await db.record_analyst_feedback(_record())
+    async with PlannerView(database_url, runs_dir=tmp_path) as view:
+        (row,) = await view.failure_patterns("sv_x")
+    assert (row["kind"], row["source"]) == ("analyst_missing_impact", "human")

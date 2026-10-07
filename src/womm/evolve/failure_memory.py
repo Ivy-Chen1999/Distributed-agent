@@ -9,6 +9,10 @@ Single-run misses are noise (docs/solutions/evaluation/single-run-scores-are-noi
 scored by different judges (``judge_version``) or on different code (``git_sha``) are never
 pooled: each such population has its own patterns.
 
+Analysts add two human kinds (U11, R31; ``womm.evolve.feedback``): ``analyst_missing_impact``
+and ``analyst_weak_evidence``, with ``source = human``. They aggregate like the judge's kinds and
+are marked as human in every pattern row.
+
 Holdout data can never become an event: the models refuse ``split = holdout``, and the database
 tables carry a ``CHECK`` on the split as well.
 """
@@ -21,14 +25,18 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 
 from womm.eval.evaluators import CaseScore
 from womm.eval.golden import HOLDOUT_REFUSAL, GoldenCase, GoldenError
 from womm.models.findings import NO_DATA_IN_SCOPE
 from womm.models.run import RunResult
 
-FailureKind = Literal["missed_impact", "missed_omission", "unsupported_finding", "expert_error"]
+FailureKind = Literal[
+    "missed_impact", "missed_omission", "unsupported_finding", "expert_error",
+    "analyst_missing_impact", "analyst_weak_evidence",
+]  # fmt: skip
+HUMAN_PREFIX = "analyst_"
 MemorySplit = Literal["train", "val"]
 UNCATEGORISED = "uncategorised"
 
@@ -51,6 +59,16 @@ class FailureEvent(BaseModel):
     judge_version: str | None = None
     git_sha: str | None = None
     detail: dict = Field(default_factory=dict)
+
+    @computed_field
+    @property
+    def source(self) -> Literal["judge", "human"]:
+        """Who produced the event: the LLM judge, or an analyst (the ``analyst_*`` kinds)."""
+        return source_of(self.kind)
+
+
+def source_of(kind: str) -> Literal["judge", "human"]:
+    return "human" if kind.startswith(HUMAN_PREFIX) else "judge"
 
 
 class CaseRun(BaseModel):
@@ -191,7 +209,7 @@ def patterns(events: Iterable[FailureEvent], runs: Iterable[CaseRun]) -> list[di
         known = total > 1
         g = groups.setdefault((sv, jv, sha, kind, p["category"], owner), {
             "system_version": sv, "judge_version": jv, "git_sha": sha,
-            "kind": kind, "category": p["category"], "owner": owner,
+            "kind": kind, "category": p["category"], "owner": owner, "source": source_of(kind),
             "persistent_misses": 0, "pairs": 0, "_cases": set(), "_proposals": set(),
             "_rates": [], "_known": True,
         })  # fmt: skip
@@ -238,11 +256,12 @@ def load_report_events(runs_dir: Path, system_version: str) -> tuple[list[Failur
 def format_patterns(rows: list[dict]) -> str:
     if not rows:
         return "no failure patterns"
-    lines = [f"{'kind':20} {'category':26} {'owner':12} persistent  pairs  miss-rate  proposals"]
+    lines = [f"{'kind':22} {'category':26} {'owner':12} source persistent  pairs  miss-rate  "
+             "proposals"]  # fmt: skip
     for r in rows:
         persistent = str(r["persistent_misses"]) if r["persistence"] == "known" else "unknown"
         lines.append(
-            f"{r['kind']:20} {r['category']:26} {r['owner']:12} {persistent:>10}  "
+            f"{r['kind']:22} {r['category']:26} {r['owner']:12} {r['source']:6} {persistent:>10}  "
             f"{r['pairs']:>5}  {r['mean_miss_rate']:>9.2f}  {','.join(r['proposals'])}"
         )
     return "\n".join(lines)

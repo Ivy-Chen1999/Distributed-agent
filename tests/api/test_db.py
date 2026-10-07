@@ -19,6 +19,7 @@ async def test_migrate_is_idempotent(database_url):
             "003_decision_usage",
             "004_evolution",
             "005_promotion_decisions",
+            "006_analyst_feedback",
         ]
         assert await database.migrate() == []
     finally:

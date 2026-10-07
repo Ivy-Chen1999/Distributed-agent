@@ -1,0 +1,224 @@
+"""Analyst feedback through LangSmith annotation queues (U11, origin R31).
+
+    # 1. Put the traced graph runs of a version's train/val eval reports in an annotation queue
+    #    (created with its rubric on first use).
+    uv run python scripts/import_feedback.py queue --sv <version_id> [--queue womm-analyst-review]
+    # 2. Analysts mark findings in the LangSmith UI (rubric key womm_analyst).
+    # 3. Import the marks into Postgres: the audit table, Failure Memory, the candidate queue.
+    uv run python scripts/import_feedback.py import --sv <version_id> [--dry-run]
+    # 4. Stage queued missing-impact candidates into open golden drafts for the review gate.
+    uv run python scripts/import_feedback.py stage
+
+A mark is one categorical value of the ``womm_analyst`` key: accept, reject, edit,
+missing_impact or weak_evidence. Its details go in the comment, one ``field: value`` line each:
+
+    finding: <finding_id>          accept, reject, edit and weak_evidence
+    edited: <the corrected text>   edit
+    impact: <what is missing>      missing_impact (also actor, mechanism, provisions, category)
+
+Any other comment line is the analyst's note. See ``womm.evolve.feedback`` for the flow.
+
+Train/val only. The runs come from the version's eval reports in ``--runs-dir`` (holdout runs are
+never traced and never in a report; a report naming a holdout split is refused), each mark is
+resolved against the saved run, and the run must already be in Failure Memory (``womm eval``
+with DATABASE_URL set records it). Like every ``womm evolve`` command, this script refuses to run
+with HOLDOUT_DATABASE_URL in its environment. Missing-impact marks are never added to golden
+cases: ``stage`` appends them as pending ``possibly_missing`` items of an open draft in
+``evals/golden/drafts/``, which the review gate blocks until a reviewer decides each one; a case
+without an open draft keeps its candidates queued until it is re-drafted.
+
+Exit codes: 0 done, 2 at least one mark or candidate was refused (the others are still
+imported or staged), or a usage error.
+"""
+
+from __future__ import annotations
+
+import argparse
+import asyncio
+import contextlib
+import os
+import sys
+from pathlib import Path
+from typing import Any
+
+import psycopg
+
+from womm.api.db import Database
+from womm.config import REPO_ROOT
+from womm.eval.drafting import DRAFTS_DIR
+from womm.eval.golden import GoldenError
+from womm.eval.golden_review import HOLDOUT_REGISTRY
+from womm.evolve.feedback import (
+    FEEDBACK_KEY,
+    MARKS,
+    FeedbackError,
+    FeedbackRecord,
+    load_run,
+    parse_feedback,
+    report_runs,
+    resolve_feedback,
+    stage_candidates,
+)
+from womm.evolve.planner_view import HoldoutEnvRefused, refuse_holdout_env
+
+DEFAULT_QUEUE = "womm-analyst-review"
+MARK_HELP = {
+    "accept": "The finding is right and useful as written.",
+    "reject": "The finding is wrong or irrelevant.",
+    "edit": "Right idea, wrong wording: put the corrected text in an 'edited:' comment line.",
+    "missing_impact": "The dossier misses an impact: describe it in an 'impact:' line, with "
+    "'provisions:', 'actor:', 'mechanism:' and 'category:' lines when you know them.",
+    "weak_evidence": "The finding's evidence does not support it.",
+}
+INSTRUCTIONS = (
+    "Mark one finding per feedback with the womm_analyst key. Name the finding in the comment "
+    "as 'finding: <finding_id>' (the board in the run outputs lists the ids); a missing impact "
+    "names none. Other comment lines are your note."
+)
+
+
+def info(msg: str) -> None:
+    print(msg, file=sys.stderr)
+
+
+def _client() -> Any:
+    from langsmith import Client
+
+    return Client()
+
+
+def _queue(client: Any, args: argparse.Namespace) -> int:
+    from langsmith.utils import LangSmithConflictError
+
+    index = report_runs(Path(args.runs_dir), args.sv)
+    if not index:
+        info(f"no traced, scored train/val runs of {args.sv} in {args.runs_dir}")
+        return 2
+    with contextlib.suppress(LangSmithConflictError):  # the key exists already
+        client.create_feedback_config(FEEDBACK_KEY, feedback_config={
+            "type": "categorical",
+            "categories": [{"value": i, "label": m} for i, m in enumerate(MARKS)],
+        })  # fmt: skip
+    found = list(client.list_annotation_queues(name=args.queue))
+    queue = found[0] if found else client.create_annotation_queue(
+        name=args.queue,
+        description="WOMM analyst review of train/val eval runs (R31). Never holdout.",
+        rubric_instructions=INSTRUCTIONS,
+        rubric_items=[{"feedback_key": FEEDBACK_KEY, "description": INSTRUCTIONS,
+                       "value_descriptions": MARK_HELP, "is_required": True}],
+    )  # fmt: skip
+    client.add_runs_to_annotation_queue(queue.id, run_ids=sorted(index))
+    print(f"queued {len(index)} train/val run(s) of {args.sv} in {args.queue}")
+    return 0
+
+
+async def _import(client: Any, args: argparse.Namespace, url: str) -> int:
+    runs_dir = Path(args.runs_dir)
+    index = report_runs(runs_dir, args.sv)
+    if not index:
+        info(f"no traced, scored train/val runs of {args.sv} in {args.runs_dir}")
+        return 0
+    records: list[FeedbackRecord] = []
+    refused = 0
+    for raw in client.list_feedback(run_ids=sorted(index), feedback_key=[FEEDBACK_KEY]):
+        try:
+            fb = parse_feedback(raw)
+            case_run = index.get(fb.trace_run_id)
+            if case_run is None:
+                raise FeedbackError(f"feedback {fb.feedback_id}: run {fb.trace_run_id} is not a "
+                                    f"scored train/val run of {args.sv}")  # fmt: skip
+            run = load_run(runs_dir, case_run.run_id)
+            if run is None:
+                raise FeedbackError(f"feedback {fb.feedback_id}: saved run {case_run.run_id} "
+                                    f"not found in {runs_dir}")  # fmt: skip
+            records.append(resolve_feedback(fb, case_run, run))
+        except (FeedbackError, GoldenError) as exc:
+            info(f"refused: {exc}")
+            refused += 1
+    if args.dry_run:
+        for r in records:
+            print(f"would import {r.feedback.feedback_id}: {r.feedback.mark} on "
+                  f"{r.run.case_id} run {r.run.run_id}")  # fmt: skip
+        return 2 if refused else 0
+    db = Database(url)
+    await db.open()
+    new = 0
+    try:
+        await db.migrate()
+        for r in records:
+            try:
+                new += await db.record_analyst_feedback(r)
+            except psycopg.errors.ForeignKeyViolation:
+                info(f"refused: feedback {r.feedback.feedback_id}: run {r.run.run_id} of "
+                     f"{r.run.case_id} is not in Failure Memory (persist its eval report "
+                     "first)")  # fmt: skip
+                refused += 1
+    finally:
+        await db.close()
+    print(f"{new} new mark(s) of {len(records)} read; {refused} refused")
+    return 2 if refused else 0
+
+
+async def _stage(args: argparse.Namespace, url: str) -> int:
+    db = Database(url)
+    await db.open()
+    try:
+        await db.migrate()
+        rows = await db.queued_golden_candidates()
+        staged, problems = stage_candidates(
+            rows, Path(args.drafts_dir), registry=Path(args.holdout_registry)
+        )
+        for fid, path in staged.items():
+            await db.mark_candidate_staged(fid, _display(path))
+    finally:
+        await db.close()
+    for p in problems:
+        info(f"refused: {p}")
+    print(f"staged {len(staged)} of {len(rows)} queued candidate(s); the rest wait for a draft")
+    return 2 if problems else 0
+
+
+def _display(path: Path) -> str:
+    path = path.resolve()
+    return str(path.relative_to(REPO_ROOT)) if path.is_relative_to(REPO_ROOT) else str(path)
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser.add_argument("command", choices=["queue", "import", "stage"])
+    parser.add_argument("--sv", help="system version id (queue, import)")
+    parser.add_argument("--queue", default=DEFAULT_QUEUE, help="annotation queue name")
+    parser.add_argument("--runs-dir", default=str(REPO_ROOT / "runs"))
+    parser.add_argument("--drafts-dir", default=str(DRAFTS_DIR))
+    parser.add_argument("--holdout-registry", default=str(HOLDOUT_REGISTRY))
+    parser.add_argument("--database-url", default=None, help="default: $DATABASE_URL")
+    parser.add_argument("--dry-run", action="store_true", help="import: resolve, write nothing")
+    args = parser.parse_args(argv)
+    try:
+        refuse_holdout_env()
+    except HoldoutEnvRefused as exc:
+        info(f"error: {exc}")
+        return 2
+    if args.command in ("queue", "import") and not args.sv:
+        info(f"error: {args.command} needs --sv")
+        return 2
+    try:
+        if args.command == "queue":
+            return _queue(_client(), args)
+        url = args.database_url or os.environ.get("DATABASE_URL")
+        if not url and not (args.command == "import" and args.dry_run):
+            info("error: needs DATABASE_URL (or --database-url)")
+            return 2
+        if args.command == "import":
+            return asyncio.run(_import(_client(), args, url or ""))
+        return asyncio.run(_stage(args, url))
+    except GoldenError as exc:
+        info(f"error: {exc}")
+        return 2
+
+
+if __name__ == "__main__":
+    from dotenv import load_dotenv
+
+    load_dotenv(REPO_ROOT / ".env", override=False)
+    sys.exit(main())

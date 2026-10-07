@@ -11,6 +11,7 @@ import re
 from pathlib import Path
 from typing import Any
 
+import psycopg
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from psycopg_pool import AsyncConnectionPool
@@ -41,6 +42,19 @@ def result_error_kind(result: RunResult) -> str | None:
         return None
     m = _KIND_TAG.search(result.error or "")
     return m.group(1) if m else "pipeline_failed"
+
+
+_INSERT_EVENT = (
+    "INSERT INTO failure_events (system_version, kind, case_id, fixture, split, item_id,"
+    " category, touching_agents, owner, run_id, repetition, detail, judge_version, git_sha,"
+    " source) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+)
+
+
+def _event_params(e: Any, git_sha: str | None) -> tuple:
+    return (e.system_version, e.kind, e.case_id, e.fixture, e.split, e.item_id, e.category,
+            e.touching_agents, e.owner, e.run_id, e.repetition, Jsonb(_without_nul(e.detail)),
+            e.judge_version, e.git_sha or git_sha, e.source)  # fmt: skip
 
 
 class Database:
@@ -291,15 +305,8 @@ class Database:
                 )  # fmt: skip
             for e in events:
                 cur = await conn.execute(
-                    "INSERT INTO failure_events (system_version, kind, case_id, fixture, split,"
-                    " item_id, category, touching_agents, owner, run_id, repetition, detail,"
-                    " judge_version, git_sha)"
-                    " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
-                    " ON CONFLICT DO NOTHING",
-                    (e.system_version, e.kind, e.case_id, e.fixture, e.split, e.item_id,
-                     e.category, e.touching_agents, e.owner, e.run_id, e.repetition,
-                     Jsonb(_without_nul(e.detail)), e.judge_version, e.git_sha or git_sha),
-                )  # fmt: skip
+                    _INSERT_EVENT + " ON CONFLICT DO NOTHING", _event_params(e, git_sha)
+                )
                 written += cur.rowcount
         return written
 
@@ -328,6 +335,77 @@ class Database:
         from womm.evolve.failure_memory import patterns
 
         return patterns(*await self.failure_memory(system_version))
+
+    # ------------------------------------------------------------------ analyst feedback (U11)
+
+    async def record_analyst_feedback(self, record: Any) -> bool:
+        """Store one resolved analyst mark (``womm.evolve.feedback.FeedbackRecord``) and its
+        Failure Memory event in one transaction. Returns False when the mark was imported
+        before. The run must be a scored train/val run in Failure Memory: anything else fails
+        on the foreign key or the split CHECK, and nothing is written."""
+        try:
+            return await self._record_analyst_feedback(record)
+        except psycopg.errors.UniqueViolation:  # a concurrent import stored it first
+            return False
+
+    async def _record_analyst_feedback(self, record: Any) -> bool:
+        fb, run, event = record.feedback, record.run, record.event
+        async with self.pool.connection() as conn, conn.transaction():
+            cur = await conn.execute(
+                "SELECT 1 FROM analyst_feedback WHERE feedback_id = %s", (fb.feedback_id,)
+            )
+            if await cur.fetchone():
+                return False
+            event_id = None
+            if event is not None:
+                # A second mark on the same item of the same run shares the first one's event.
+                cur = await conn.execute(
+                    _INSERT_EVENT + " ON CONFLICT (run_id, kind, item_id)"
+                    " DO UPDATE SET kind = EXCLUDED.kind RETURNING id",
+                    _event_params(event, None),
+                )
+                event_id = (await cur.fetchone())["id"]
+            payload = fb.model_dump(
+                mode="json", include={"provision_keys", "affected_actor", "mechanism", "impact",
+                                      "category", "edited"},
+            )  # fmt: skip
+            await conn.execute(
+                "INSERT INTO analyst_feedback (feedback_id, mark, system_version, case_id,"
+                " fixture, split, run_id, trace_run_id, finding_id, analyst, note, payload,"
+                " failure_event_id, golden_candidate, created_at)"
+                " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                (fb.feedback_id, fb.mark, run.system_version, run.case_id, run.fixture,
+                 run.split, run.run_id, fb.trace_run_id, fb.finding_id, fb.analyst,
+                 _without_nul(fb.note), Jsonb(_without_nul(payload)), event_id,
+                 record.golden_candidate, fb.created_at),
+            )  # fmt: skip
+        return True
+
+    async def analyst_feedback(self, system_version: str) -> list[dict]:
+        async with self.pool.connection() as conn:
+            cur = await conn.execute(
+                "SELECT * FROM analyst_feedback WHERE system_version = %s"
+                " ORDER BY created_at, feedback_id",
+                (system_version,),
+            )
+            return await cur.fetchall()
+
+    async def queued_golden_candidates(self) -> list[dict]:
+        """Missing-impact marks not yet staged into a golden draft, oldest first."""
+        async with self.pool.connection() as conn:
+            cur = await conn.execute(
+                "SELECT * FROM analyst_feedback WHERE golden_candidate = 'queued'"
+                " ORDER BY created_at, feedback_id"
+            )
+            return await cur.fetchall()
+
+    async def mark_candidate_staged(self, feedback_id: str, draft: str) -> None:
+        async with self.pool.connection() as conn:
+            await conn.execute(
+                "UPDATE analyst_feedback SET golden_candidate = 'staged', golden_draft = %s"
+                " WHERE feedback_id = %s AND golden_candidate = 'queued'",
+                (draft, feedback_id),
+            )
 
     # ------------------------------------------------------------------ evolution page (R36 p4)
 
