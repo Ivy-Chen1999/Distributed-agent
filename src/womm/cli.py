@@ -918,6 +918,59 @@ async def cmd_cost_check(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+async def cmd_cost_late_added(args: argparse.Namespace) -> int:
+    """R7: cost records on obligations added after the proposal. Reported, never scored."""
+    import statistics
+
+    from womm.cost.late_added import format_late_added, late_added_report
+    from womm.cost.sweep import SweepError, load_sweep
+
+    try:
+        sweep = load_sweep(Path(args.sweep))
+    except SweepError as exc:
+        raise UsageError(str(exc)) from None
+    if sweep.version == "com2021_206":
+        raise UsageError("R7 reads a sweep of the adopted act (reg2024_1689), not the proposal")
+    if not sweep.repetitions:
+        raise UsageError(f"{sweep.directory} has no repetitions yet")
+    reports = {k: late_added_report(v) for k, v in sorted(sweep.repetitions.items())}
+    first = next(iter(reports))
+    shares = [r.costly_share for r in reports.values() if r.costly_share is not None]
+    dev = "" if sweep.cost_backend == "api" else f" dev-only ({sweep.cost_backend} backend)"
+    header = (
+        f"Sweep {sweep.directory} · {sweep.system_version} on {sweep.version}{dev} · "
+        f"{len(reports)} repetition(s); detail from rep{first}"
+        + (f"; incomplete: {sweep.missing}" if sweep.missing else "")
+    )
+    text = format_late_added(reports[first], header)
+    if shares:
+        text += (
+            f"\n\nShare of medium/high records in added text across repetitions: mean "
+            f"{statistics.fmean(shares):.0%} (min {min(shares):.0%}, max {max(shares):.0%})"
+        )
+    data = {
+        "directory": str(sweep.directory),
+        "system_version": sweep.system_version,
+        "version": sweep.version,
+        "scored": False,
+        "repetitions": {
+            k: {
+                "added_records": [r.obligation_id for r in rep.records],
+                "by_payer": rep.by_payer,
+                "by_effort": rep.by_effort,
+                "by_band": rep.by_band,
+                "costly_added": rep.costly_added,
+                "costly_total": rep.costly_total,
+                "changed_not_added": rep.changed_not_added,
+                "by_payer_costly": rep.by_payer_costly,
+            }
+            for k, rep in reports.items()
+        },
+    }
+    emit(args, data, text)
+    return EXIT_OK
+
+
 def build_parser() -> argparse.ArgumentParser:
     settings = load_settings()
     common = argparse.ArgumentParser(add_help=False)
@@ -1123,6 +1176,10 @@ def _add_calibration_parsers(sub: Any, common: argparse.ArgumentParser) -> None:
     source.add_argument("--sweep", help="a `womm cost sweep` directory of the proposal")
     source.add_argument("--runs", nargs="+", help="saved runs of a cost-enabled version")
     p_check.add_argument("--reference", default=str(COST_REFERENCE), help=argparse.SUPPRESS)
+    p_late = cost.add_parser(
+        "late-added", parents=[common], help="R7: costs the ex-ante IA could not see (not scored)"
+    )
+    p_late.add_argument("--sweep", required=True, help="a `womm cost sweep` of reg2024_1689")
 
 
 HANDLERS = {
@@ -1149,7 +1206,11 @@ EVOLVE_HANDLERS = {
 
 CALIBRATE_HANDLERS = {"sample": cmd_calibrate_sample, "score": cmd_calibrate_score}
 NOISE_HANDLERS = {"report": cmd_noise_report}
-COST_HANDLERS = {"sweep": cmd_cost_sweep, "check": cmd_cost_check}
+COST_HANDLERS = {
+    "sweep": cmd_cost_sweep,
+    "check": cmd_cost_check,
+    "late-added": cmd_cost_late_added,
+}
 GROUPS = {
     "evolve": ("evolve_cmd", EVOLVE_HANDLERS),
     "calibrate": ("calibrate_cmd", CALIBRATE_HANDLERS),

@@ -214,8 +214,11 @@ def test_explore_scenarios_validate_against_the_corpus_not_the_fixture(fixture):
 
 def test_committed_explore_scenarios(fixture):
     explore = {s.scenario_id: s for s in fixture.scenarios.values() if s.mode == "explore"}
-    assert set(explore) == {"eval_whole_proposal", "consolidated_whole_act", "omnibus_2026"}
+    assert set(explore) == {
+        "eval_whole_proposal", "consolidated_whole_act", "omnibus_2026", "final_vs_proposal",
+    }  # fmt: skip
     assert explore["eval_whole_proposal"].kind == "evaluation"
+    assert explore["final_vs_proposal"].kind == "demo"
 
 
 def test_imported_fixture_scenarios_may_not_carry_an_ia_reference(tmp_path: Path):

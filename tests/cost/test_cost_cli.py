@@ -142,3 +142,23 @@ def test_cost_check_refuses_a_final_act_sweep(cost_version, tmp_path, capsys, fa
                      "--runs-dir", str(tmp_path)])  # fmt: skip
     assert code == cli.EXIT_USAGE
     assert "assessed com2021_206" in capsys.readouterr().err
+
+
+def test_cost_late_added_reports_a_final_act_sweep(cost_version, tmp_path, capsys,
+                                                   fake_backends):  # fmt: skip
+    directory = _sweep(cost_version, tmp_path, capsys, version="reg2024_1689")
+    assert cli.main(["cost", "late-added", "--sweep", directory]) == cli.EXIT_OK
+    text = capsys.readouterr().out
+    assert text.splitlines()[0].startswith("Not scored: SWD(2021) 84 assessed the proposal")
+    assert "dev-only (fake backend)" in text and "across repetitions" in text
+    assert cli.main(["cost", "late-added", "--sweep", directory, "--json"]) == cli.EXIT_OK
+    data = json.loads(capsys.readouterr().out)
+    assert data["scored"] is False and set(data["repetitions"]) == {"1", "2"}
+    assert data["repetitions"]["1"]["added_records"]
+
+
+def test_cost_late_added_refuses_a_proposal_sweep(cost_version, tmp_path, capsys,
+                                                  fake_backends):  # fmt: skip
+    directory = _sweep(cost_version, tmp_path, capsys)
+    assert cli.main(["cost", "late-added", "--sweep", directory]) == cli.EXIT_USAGE
+    assert "not the proposal" in capsys.readouterr().err
