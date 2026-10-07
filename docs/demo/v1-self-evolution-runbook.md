@@ -276,12 +276,35 @@ uv run womm evolve failures --sv <version_id> --from-db             # source col
 
 - Every mark is stored in `analyst_feedback`, keyed by its LangSmith feedback id.
 - `missing_impact` and `weak_evidence` also become Failure Memory events of the kinds
-  `analyst_missing_impact` and `analyst_weak_evidence` (source `human`). The Improvement Planner
-  sees them in its patterns. They never satisfy the new-expert trigger, which takes the judge's
-  `missed_impact` kind only, so hand-entered feedback cannot force a topology proposal (honesty
-  rules above).
-- `missing_impact` is never added to a golden case directly. `stage` appends it to the case's
-  open draft in `evals/golden/drafts/` as a pending `human_added` candidate, and the review gate
-  blocks publication until a reviewer verifies, edits (adding the IA anchor) or rejects it. A
-  case without an open draft keeps the candidate queued.
+  `analyst_missing_impact` and `analyst_weak_evidence` (source `human`). They are for people:
+  `womm evolve failures` lists them (source column `human`). The Improvement Planner does not
+  see them: its reflective records take the judge's events and patterns only. They never
+  satisfy the new-expert trigger either, which takes the judge's `missed_impact` kind only, so
+  hand-entered feedback cannot force a topology proposal (honesty rules above).
+- `missing_impact` is never added to a golden case directly, and only a mark on a **train** run
+  becomes a golden candidate (val is for selection; an analyst must not change what it scores).
+  `stage` appends it to the case's open train draft in `evals/golden/drafts/` as a pending
+  `human_added` candidate that records the analyst (`provenance.raised_by`), its
+  `feedback_id` and an `analyst_digest` over both, so CI fails if either is edited; it refuses val and
+  holdout drafts. It edits the draft in place (the counts in `stats` and the appended
+  candidates only, so reviewers' comments survive) and writes nothing if the file changed while
+  it was staging (rerun `stage`). The review gate blocks publication until a reviewer decides it: it is kept
+  only as `edited`, by a reviewer other than that analyst, with `ia_section`, `ia_anchor`,
+  `affected_actor`, `mechanism` and a valid `category` filled in. `publish_golden_cases.py`
+  checks the anchor against the cached IA when `.cache/ia/<fixture>/` is on the machine and
+  otherwise prints a note for the reviewer to confirm it by hand. Run it with `DATABASE_URL`
+  set: it then checks each kept analyst item against its `analyst_feedback` row (exists, not
+  retracted, train `missing_impact` of this case, made by `raised_by`) and refuses a mismatch;
+  without a database it prints a note instead. A case without an open train draft keeps the
+  candidate queued.
+- A published analyst candidate is an expected impact with `origin: human`. Its misses are
+  scored like any other, but their `missed_impact` events carry `golden_origin: human` and the
+  new-expert trigger leaves them out, so analysts cannot force a topology change indirectly
+  through golden cases either.
+- A mark edited in LangSmith after its import replaces the stored one on the next `import` (the
+  old version stays in the row's `history`; its Failure Memory event is replaced). A mark
+  deleted in LangSmith is reported; `import ... --apply-retractions` retracts it (the row stays
+  with `retracted_at`, its event is removed, a queued candidate is dropped). If the candidate was
+  already staged into a draft, the script warns and exits 2: update or reject the draft item by
+  hand.
 - `accept`, `reject` and `edit` are recorded only; v1 has no consumer for them.

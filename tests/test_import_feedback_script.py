@@ -44,9 +44,18 @@ class FakeClient:
         assert feedback_key == [FEEDBACK_KEY]
         return [f for f in self.feedback if str(f.run_id) in set(map(str, run_ids))]
 
+    config_error: Exception | None = None
+
     def create_feedback_config(self, key, *, feedback_config, **_):
+        if self.config_error is not None:
+            raise self.config_error
         self.configs.append(key)
         assert [c["label"] for c in feedback_config["categories"]][-1] == "weak_evidence"
+
+    def list_runs(self, *, run_ids=None, **_):
+        self.looked_up = [*getattr(self, "looked_up", []), sorted(map(str, run_ids))]
+        return [SimpleNamespace(id=r, session_id="00000000-0000-0000-0000-00000000000a",
+                                start_time=NOW) for r in run_ids if r != "t_untraced"]  # fmt: skip
 
     def list_annotation_queues(self, *, name=None, **_):
         return [q for q in self.queues.values() if q.name == name]
@@ -56,16 +65,19 @@ class FakeClient:
         self.queues[name] = SimpleNamespace(id=f"q-{name}", name=name)
         return self.queues[name]
 
-    def add_runs_to_annotation_queue(self, queue_id, *, run_ids=None, **_):
-        self.queued.setdefault(queue_id, []).extend(map(str, run_ids))
+    def add_runs_to_annotation_queue(self, queue_id, *, runs=None, run_ids=None):
+        assert run_ids is None, "the deprecated run_ids path is not used"
+        assert all({"run_id", "session_id", "start_time"} <= set(r) for r in runs)
+        self.queued.setdefault(queue_id, []).extend(str(r["run_id"]) for r in runs)
 
 
 MISSING = f"impact: Buyers pay twice\nprovisions: {K1}"
 
 
-def _fb(fid, run="t1", value="missing_impact", comment=MISSING):
+def _fb(fid, run="t1", value="missing_impact", comment=MISSING, modified_at=NOW):
     return SimpleNamespace(id=fid, run_id=run, key=FEEDBACK_KEY, value=value, score=None,
                            comment=comment, correction=None, created_at=NOW,
+                           modified_at=modified_at,
                            feedback_source=SimpleNamespace(user_name="ana"))  # fmt: skip
 
 
@@ -198,3 +210,74 @@ def test_refused_with_the_holdout_url_in_the_environment(setup, monkeypatch, cap
     monkeypatch.setenv("HOLDOUT_DATABASE_URL", "postgresql://x/y")
     assert _main(setup, FakeClient(), "import", "--sv", "sv_x") == 2
     assert "HOLDOUT_DATABASE_URL" in capsys.readouterr().err
+
+
+def test_an_edited_mark_is_reimported_and_a_deleted_one_reported(setup, capsys):
+    """P2: a newer LangSmith modification replaces the stored mark and its event; a mark gone
+    from LangSmith is only reported unless --apply-retractions is given."""
+    client = FakeClient([_fb("fb1"), _fb("fb2", run="t2", value="weak_evidence",
+                                          comment="finding: f1")])  # fmt: skip
+    assert _main(setup, client, "import", "--sv", "sv_x") == 0
+    capsys.readouterr()
+    later = NOW + dt.timedelta(hours=1)
+    client.feedback = [_fb("fb1", comment=f"impact: Buyers pay thrice\nprovisions: {K1}",
+                           modified_at=later)]  # fmt: skip
+    assert _main(setup, client, "import", "--sv", "sv_x") == 2
+    io = capsys.readouterr()
+    assert "1 updated" in io.out and "fb2" in io.err and "--apply-retractions" in io.err
+    rows, pats = _rows(setup.url)
+    by_id = {r["feedback_id"]: r for r in rows}
+    assert by_id["fb1"]["payload"]["impact"] == "Buyers pay thrice"
+    assert by_id["fb2"]["retracted_at"] is None  # report-only by default
+    assert _main(setup, client, "import", "--sv", "sv_x", "--apply-retractions") == 0
+    assert "retracted fb2" in capsys.readouterr().out
+    rows, pats = _rows(setup.url)
+    assert {r["feedback_id"]: r["retracted_at"] is not None for r in rows} == {
+        "fb1": False, "fb2": True
+    }  # fmt: skip
+    assert {p["kind"] for p in pats} == {"analyst_missing_impact"}
+    assert _main(setup, client, "import", "--sv", "sv_x") == 0  # nothing left to report
+
+
+def test_an_edit_after_staging_is_reported_loudly(setup, capsys):
+    client = FakeClient([_fb("fb1")])
+    assert _main(setup, client, "import", "--sv", "sv_x") == 0
+    assert _main(setup, client, "stage") == 0
+    capsys.readouterr()
+    client.feedback = [_fb("fb1", comment=f"impact: changed\nprovisions: {K1}",
+                           modified_at=NOW + dt.timedelta(hours=1))]  # fmt: skip
+    assert _main(setup, client, "import", "--sv", "sv_x") == 2
+    err = capsys.readouterr().err
+    assert "fb1" in err and "already staged" in err and "by hand" in err
+
+
+def test_queue_reports_a_conflicting_feedback_config(setup, capsys):
+    from langsmith.utils import LangSmithError
+
+    client = FakeClient()
+    client.config_error = LangSmithError("400 Bad Request: feedback config differs")
+    assert _main(setup, client, "queue", "--sv", "sv_x") == 2
+    err = capsys.readouterr().err
+    assert "womm_analyst" in err and "differs" in err and client.queued == {}
+
+
+def test_queue_and_import_go_in_chunks(setup, monkeypatch):
+    monkeypatch.setattr(import_feedback, "CHUNK", 1)
+    client = FakeClient([_fb("fb1"), _fb("fb2", run="t2")])
+    assert _main(setup, client, "queue", "--sv", "sv_x") == 0
+    assert client.looked_up == [["t1"], ["t2"]]
+    assert client.queued == {"q-womm-analyst-review": ["t1", "t2"]}
+    assert _main(setup, client, "import", "--sv", "sv_x") == 0
+    assert client.listed == [["t1"], ["t2"]]
+
+
+def test_queue_reports_runs_langsmith_does_not_know(setup, capsys):
+    path = next(setup.runs_dir.glob("eval_*.json"))
+    data = json.loads(path.read_text())
+    data["case_runs"].append(_case_run("r3", 3).model_dump(mode="json"))
+    data["scores"].append({"run_id": "r3", "graph_run_id": "t_untraced"})
+    path.write_text(json.dumps(data))
+    client = FakeClient()
+    assert _main(setup, client, "queue", "--sv", "sv_x") == 2
+    assert "t_untraced" in capsys.readouterr().err
+    assert client.queued == {"q-womm-analyst-review": ["t1", "t2"]}

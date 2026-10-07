@@ -6,6 +6,7 @@
     # 2. Analysts mark findings in the LangSmith UI (rubric key womm_analyst).
     # 3. Import the marks into Postgres: the audit table, Failure Memory, the candidate queue.
     uv run python scripts/import_feedback.py import --sv <version_id> [--dry-run]
+    #    [--apply-retractions]  (retract stored marks deleted in LangSmith; default: report)
     # 4. Stage queued missing-impact candidates into open golden drafts for the review gate.
     uv run python scripts/import_feedback.py stage
 
@@ -16,26 +17,37 @@ missing_impact or weak_evidence. Its details go in the comment, one ``field: val
     edited: <the corrected text>   edit
     impact: <what is missing>      missing_impact (also actor, mechanism, provisions, category)
 
-Any other comment line is the analyst's note. See ``womm.evolve.feedback`` for the flow.
+A value may continue on the indented lines below its field line; a field given twice refuses
+the mark. Any other comment line is the analyst's note. See ``womm.evolve.feedback`` for the
+flow.
 
 Train/val only. The runs come from the version's eval reports in ``--runs-dir`` (holdout runs are
 never traced and never in a report; a report naming a holdout split is refused), each mark is
 resolved against the saved run, and the run must already be in Failure Memory (``womm eval``
 with DATABASE_URL set records it). Like every ``womm evolve`` command, this script refuses to run
 with HOLDOUT_DATABASE_URL in its environment. Missing-impact marks are never added to golden
-cases: ``stage`` appends them as pending ``possibly_missing`` items of an open draft in
+cases: ``stage`` appends them as pending ``possibly_missing`` items of an open train draft in
 ``evals/golden/drafts/``, which the review gate blocks until a reviewer decides each one; a case
-without an open draft keeps its candidates queued until it is re-drafted.
+without an open train draft keeps its candidates queued until it is re-drafted. ``stage`` edits
+the draft in place (only the ``stats`` counts and the appended items change, so comments
+survive) and writes nothing to a draft that changed while it was staging.
+
+Edited and deleted marks. A mark edited in LangSmith after its import (a newer ``modified_at``)
+replaces the stored one: the previous version is kept in the row's ``history`` and its Failure
+Memory event is replaced. If its candidate was already staged into a draft, the draft item is
+not changed: the script warns, and the reviewer updates or rejects it by hand. A stored mark on
+the queried runs that LangSmith no longer lists is reported; ``--apply-retractions`` retracts it
+(the row stays, marked ``retracted_at``; its event is removed; a queued candidate is dropped).
 
 Exit codes: 0 done, 2 at least one mark or candidate was refused (the others are still
-imported or staged), or a usage error.
+imported or staged), a mark needs attention (edited after staging, gone from LangSmith without
+--apply-retractions, or retracted after staging), or a usage error.
 """
 
 from __future__ import annotations
 
 import argparse
 import asyncio
-import contextlib
 import os
 import sys
 from pathlib import Path
@@ -62,6 +74,7 @@ from womm.evolve.feedback import (
 from womm.evolve.planner_view import HoldoutEnvRefused, refuse_holdout_env
 
 DEFAULT_QUEUE = "womm-analyst-review"
+CHUNK = 50  # run ids per LangSmith call
 MARK_HELP = {
     "accept": "The finding is right and useful as written.",
     "reject": "The finding is wrong or irrelevant.",
@@ -73,7 +86,8 @@ MARK_HELP = {
 INSTRUCTIONS = (
     "Mark one finding per feedback with the womm_analyst key. Name the finding in the comment "
     "as 'finding: <finding_id>' (the board in the run outputs lists the ids); a missing impact "
-    "names none. Other comment lines are your note."
+    "names none. Continue a long value on indented lines; give each field once. Other comment "
+    "lines are your note."
 )
 
 
@@ -87,18 +101,41 @@ def _client() -> Any:
     return Client()
 
 
+def _chunks(ids: list[str]) -> list[list[str]]:
+    return [ids[i : i + CHUNK] for i in range(0, len(ids), CHUNK)]
+
+
+def _run_keys(client: Any, trace_ids: list[str]) -> tuple[list[dict], list[str]]:
+    """LangSmith run keys (run id, session id, start time) of ``trace_ids``, looked up in
+    chunks, and the ids LangSmith does not know."""
+    keys: dict[str, dict] = {}
+    for chunk in _chunks(trace_ids):
+        for run in client.list_runs(run_ids=chunk):
+            keys[str(run.id)] = {"run_id": str(run.id), "session_id": str(run.session_id),
+                                 "start_time": run.start_time}  # fmt: skip
+    return [keys[t] for t in trace_ids if t in keys], [t for t in trace_ids if t not in keys]
+
+
 def _queue(client: Any, args: argparse.Namespace) -> int:
-    from langsmith.utils import LangSmithConflictError
+    from langsmith.utils import LangSmithError
+    from requests import HTTPError
 
     index = report_runs(Path(args.runs_dir), args.sv)
     if not index:
         info(f"no traced, scored train/val runs of {args.sv} in {args.runs_dir}")
         return 2
-    with contextlib.suppress(LangSmithConflictError):  # the key exists already
+    try:
+        # Returns the existing config when it is identical; a different one is an error.
         client.create_feedback_config(FEEDBACK_KEY, feedback_config={
             "type": "categorical",
             "categories": [{"value": i, "label": m} for i, m in enumerate(MARKS)],
         })  # fmt: skip
+    except (LangSmithError, HTTPError) as exc:
+        info(f"error: the LangSmith feedback key {FEEDBACK_KEY!r} exists with a different "
+             f"configuration than the {len(MARKS)} categorical marks {MARKS} (or could not be "
+             f"created): {exc}. Fix or delete that feedback config in LangSmith; nothing was "
+             "queued.")  # fmt: skip
+        return 2
     found = list(client.list_annotation_queues(name=args.queue))
     queue = found[0] if found else client.create_annotation_queue(
         name=args.queue,
@@ -107,9 +144,14 @@ def _queue(client: Any, args: argparse.Namespace) -> int:
         rubric_items=[{"feedback_key": FEEDBACK_KEY, "description": INSTRUCTIONS,
                        "value_descriptions": MARK_HELP, "is_required": True}],
     )  # fmt: skip
-    client.add_runs_to_annotation_queue(queue.id, run_ids=sorted(index))
-    print(f"queued {len(index)} train/val run(s) of {args.sv} in {args.queue}")
-    return 0
+    # Runs are added by their full key (the SDK's preferred path; bare run ids are deprecated).
+    keys, unknown = _run_keys(client, sorted(index))
+    for chunk in range(0, len(keys), CHUNK):
+        client.add_runs_to_annotation_queue(queue.id, runs=keys[chunk : chunk + CHUNK])
+    for t in unknown:
+        info(f"not queued: LangSmith has no run {t} (run {index[t].run_id} of {index[t].case_id})")
+    print(f"queued {len(keys)} train/val run(s) of {args.sv} in {args.queue}")
+    return 2 if unknown else 0
 
 
 async def _import(client: Any, args: argparse.Namespace, url: str) -> int:
@@ -119,8 +161,15 @@ async def _import(client: Any, args: argparse.Namespace, url: str) -> int:
         info(f"no traced, scored train/val runs of {args.sv} in {args.runs_dir}")
         return 0
     records: list[FeedbackRecord] = []
+    seen: set[str] = set()
     refused = 0
-    for raw in client.list_feedback(run_ids=sorted(index), feedback_key=[FEEDBACK_KEY]):
+    listed = (
+        raw
+        for chunk in _chunks(sorted(index))
+        for raw in client.list_feedback(run_ids=chunk, feedback_key=[FEEDBACK_KEY])
+    )
+    for raw in listed:
+        seen.add(str(raw.id))
         try:
             fb = parse_feedback(raw)
             case_run = index.get(fb.trace_run_id)
@@ -142,21 +191,55 @@ async def _import(client: Any, args: argparse.Namespace, url: str) -> int:
         return 2 if refused else 0
     db = Database(url)
     await db.open()
-    new = 0
+    counts = {"new": 0, "updated": 0, "unchanged": 0}
+    attention = 0
     try:
         await db.migrate()
         for r in records:
+            fid = r.feedback.feedback_id
             try:
-                new += await db.record_analyst_feedback(r)
+                status = await db.record_analyst_feedback(r)
             except psycopg.errors.ForeignKeyViolation:
-                info(f"refused: feedback {r.feedback.feedback_id}: run {r.run.run_id} of "
-                     f"{r.run.case_id} is not in Failure Memory (persist its eval report "
-                     "first)")  # fmt: skip
+                info(f"refused: feedback {fid}: run {r.run.run_id} of {r.run.case_id} is not "
+                     "in Failure Memory (persist its eval report first)")  # fmt: skip
                 refused += 1
+                continue
+            if status == "updated_staged":
+                info(f"warning: feedback {fid} was edited in LangSmith after its candidate was "
+                     "already staged into a golden draft; the stored mark and its event were "
+                     "replaced, but the draft item is not: update or reject it by hand")  # fmt: skip
+                attention += 1
+                status = "updated"
+            counts[status] += 1
+        attention += await _gone(db, args, index, seen)
     finally:
         await db.close()
-    print(f"{new} new mark(s) of {len(records)} read; {refused} refused")
-    return 2 if refused else 0
+    print(f"{counts['new']} new, {counts['updated']} updated, {counts['unchanged']} unchanged "
+          f"mark(s) of {len(records)} read; {refused} refused")  # fmt: skip
+    return 2 if refused or attention else 0
+
+
+async def _gone(db: Database, args: argparse.Namespace, index: dict, seen: set[str]) -> int:
+    """Stored marks on the queried runs that LangSmith no longer lists (deleted feedback):
+    reported, and retracted with --apply-retractions. Returns how many need attention."""
+    rows = [r for r in await db.analyst_feedback(args.sv)
+            if r["retracted_at"] is None and r["trace_run_id"] in index
+            and r["feedback_id"] not in seen]  # fmt: skip
+    attention = 0
+    for row in rows:
+        fid, what = row["feedback_id"], f"{row['mark']} on {row['case_id']} run {row['run_id']}"
+        if not args.apply_retractions:
+            info(f"gone from LangSmith: feedback {fid} ({what}); rerun with "
+                 "--apply-retractions to retract it and its Failure Memory event")  # fmt: skip
+            attention += 1
+            continue
+        status = await db.retract_analyst_feedback(fid)
+        print(f"retracted {fid} ({what})")
+        if status == "retracted_staged":
+            info(f"warning: retracted feedback {fid} was already staged into "
+                 f"{row['golden_draft']}; reject that draft item by hand")  # fmt: skip
+            attention += 1
+    return attention
 
 
 async def _stage(args: argparse.Namespace, url: str) -> int:
@@ -193,6 +276,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--holdout-registry", default=str(HOLDOUT_REGISTRY))
     parser.add_argument("--database-url", default=None, help="default: $DATABASE_URL")
     parser.add_argument("--dry-run", action="store_true", help="import: resolve, write nothing")
+    parser.add_argument(
+        "--apply-retractions",
+        action="store_true",
+        help="import: retract stored marks gone from LangSmith (default: report them only)",
+    )
     args = parser.parse_args(argv)
     try:
         refuse_holdout_env()

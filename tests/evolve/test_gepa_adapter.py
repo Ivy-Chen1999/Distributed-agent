@@ -241,6 +241,35 @@ async def test_reflective_dataset_comes_from_failure_memory(env):
     assert len(json.dumps(small["expert:fiscal"])) <= 1000
 
 
+async def test_reflective_records_never_carry_analyst_marks(env):
+    """U11: analyst events (source human) are for people (`womm evolve failures`), not for the
+    Improvement Planner, even when they sit on the very runs a trajectory replayed."""
+    from womm.evolve.failure_memory import FailureEvent
+
+    a = adapter(env)
+    seed = a.seed_candidate()
+    out = await asyncio.to_thread(a.evaluate, [CaseRef("train", CASE.case_id)], seed, True)
+    traj = out.trajectories[0]
+    async with env["db"].pool.connection() as conn:
+        row = await (await conn.execute(
+            "SELECT * FROM failure_case_runs WHERE run_id = %s", (traj["run_ids"][0],)
+        )).fetchone()  # fmt: skip
+    human = FailureEvent(
+        kind="analyst_missing_impact", case_id=CASE.case_id, fixture=CASE.fixture,
+        split="train", item_id="human:k", category="sme_specific", owner="none",
+        run_id=row["run_id"], repetition=row["repetition"], system_version=row["system_version"],
+        judge_version=row["judge_version"], git_sha=row["git_sha"], detail={"impact": "x"},
+    )  # fmt: skip
+    await env["db"].record_failure_events([human], [])
+    patterns = await env["view"].failure_patterns(row["system_version"], ("train",),
+                                                  judge_version=row["judge_version"],
+                                                  git_sha=row["git_sha"])  # fmt: skip
+    assert "human" in {p["source"] for p in patterns}  # stored and visible to people
+    data = await asyncio.to_thread(a.make_reflective_dataset, seed, out, ["expert:fiscal"])
+    text = json.dumps(data)
+    assert data["expert:fiscal"] and "analyst_" not in text and "sme_specific" not in text
+
+
 # ---------------------------------------------------------------- (c)+(d) proposals as U2 edits
 
 RECORDS = {"expert:fiscal": [{"Inputs": {"case_id": "c"}, "Feedback": {"score": 0.0}}]}

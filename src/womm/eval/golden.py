@@ -45,6 +45,11 @@ class ExpectedImpact(StrictModel):
     ia_section: str = Field(description="Where in the impact assessment this is stated.")
     category: str | None = Field(default=None, description="Drafting category, if drafted.")
     provenance: ItemProvenance | None = None
+    origin: Literal["human"] | None = Field(
+        default=None,
+        description="'human' when a person (an analyst) raised the item rather than the drafting "
+        "tool; misses on such items never drive the new-expert trigger.",
+    )
 
 
 class Omission(StrictModel):

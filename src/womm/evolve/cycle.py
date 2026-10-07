@@ -10,13 +10,16 @@ from __future__ import annotations
 import asyncio
 import logging
 import math
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 
 import gepa
 
 from womm.eval.evaluators import CaseScore
+from womm.eval.golden import GoldenCase
 from womm.evolve.archive import Archive
 from womm.evolve.edits import EditRejected, build_candidate, render_diff, validate_diff
+from womm.evolve.failure_memory import FailureEvent, patterns
 from womm.evolve.gepa_adapter import (
     PROPOSAL_SPLITS,
     CandidateEvaluator,
@@ -276,6 +279,29 @@ def unowned_patterns(patterns: list[dict], min_proposals: int = 2) -> list[dict]
     ]
 
 
+def trigger_events(
+    events: list[FailureEvent], cases: Mapping[str, GoldenCase]
+) -> list[FailureEvent]:
+    """The events the new-expert trigger may count: a ``missed_impact`` on an expected impact
+    an analyst raised (``origin: human`` in the golden case, or ``golden_origin: human`` on the
+    event) is left out, so analysts cannot force a topology change through golden cases."""
+
+    human = {
+        (case_id, i.expected_id)
+        for case_id, case in cases.items()
+        for i in case.expected_impacts
+        if i.origin == "human"
+    }
+    return [
+        e
+        for e in events
+        if not (
+            e.kind == "missed_impact"
+            and (e.detail.get("golden_origin") == "human" or (e.case_id, e.item_id) in human)
+        )
+    ]
+
+
 @dataclass
 class TopologyResult:
     candidate: SystemVersion | None
@@ -294,7 +320,8 @@ async def _examples(
     """The missed impacts behind ``target``: train golden text only."""
     cases = view.cases("train")
     seen, out = set(), []
-    for e in await view.failure_events(version_id, PROPOSAL_SPLITS, **population):
+    events = await view.failure_events(version_id, PROPOSAL_SPLITS, **population)
+    for e in trigger_events(events, cases):
         key = (e.case_id, e.item_id)
         if (e.kind, e.category, e.owner) != ("missed_impact", target["category"], "none"):
             continue
@@ -330,8 +357,13 @@ async def run_topology_stage(
     spend = spend if spend is not None else Spend(proposer, budget.max_usd)
     if len(parent.spec.experts) > len(seed.spec.experts):
         return TopologyResult(None, "expert cap reached: the parent already adds an expert")
+    scope = population(evaluator)
+    events = trigger_events(
+        await view.failure_events(parent.version_id, PROPOSAL_SPLITS, **scope),
+        view.cases("train"),
+    )
     targets = unowned_patterns(
-        await view.failure_patterns(parent.version_id, PROPOSAL_SPLITS, **population(evaluator)),
+        patterns(events, await view.case_runs(parent.version_id, PROPOSAL_SPLITS, **scope)),
         budget.min_pattern_proposals,
     )
     if not targets:

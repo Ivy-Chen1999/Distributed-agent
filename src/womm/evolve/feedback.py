@@ -5,7 +5,8 @@ LangSmith annotation queues first). ``scripts/import_feedback.py --queue`` adds 
 graph runs of a version's train/val eval reports to a queue whose rubric is one categorical
 feedback key, ``womm_analyst``, with the five marks of R31. The analyst picks a mark and writes
 the details in the comment, one ``field: value`` line each (``finding``, ``provisions``,
-``actor``, ``mechanism``, ``impact``, ``category``, ``edited``); any other line is the note. A
+``actor``, ``mechanism``, ``impact``, ``category``, ``edited``), a value continuing on the
+indented lines below it, each field at most once; any other line is the note. A
 ``correction`` dict with the same fields, when the feedback has one, takes precedence.
 
 **Flow.** ``scripts/import_feedback.py`` reads the marks back and resolves each against the
@@ -16,30 +17,36 @@ saved run (``runs/<run_id>.json``, for the finding and the experts touching a pr
   feedback id, so an import is idempotent;
 - ``missing_impact`` and ``weak_evidence`` also become Failure Memory events of the human kinds
   ``analyst_missing_impact`` / ``analyst_weak_evidence`` (``source = human``), aggregated with
-  the judge's events by ``(kind, category, owner)``;
-- ``missing_impact`` is also a golden-case candidate. It is never added to a golden case: it is
-  ``queued`` until ``stage_candidates`` appends it to the case's open golden draft as a
-  ``possibly_missing`` item of origin ``human_added``, decision ``pending``, where the review
-  gate (``womm.eval.golden_review.check_draft``) blocks publication until a named reviewer
-  verifies, edits or rejects it.
+  the judge's events by ``(kind, category, owner)``. They are shown to people (``womm evolve
+  failures``); the Improvement Planner's reflective records leave them out;
+- ``missing_impact`` on a **train** run is also a golden-case candidate (a val run's never is:
+  val is for selection). It is never added to a golden case: it is ``queued`` until
+  ``stage_candidates`` appends it to the case's open train draft as a ``possibly_missing`` item
+  of origin ``human_added`` raised by the analyst, decision ``pending``, where the review gate
+  (``womm.eval.golden_review.check_draft``) blocks publication until a reviewer other than the
+  analyst edits it (with its IA anchor) or rejects it. Published, it is an expected impact of
+  ``origin: human``, whose misses the new-expert trigger ignores.
 
 ``accept``, ``reject`` and ``edit`` are recorded only (v1 has no consumer for them).
 
 **Holdout.** Feedback on holdout material never exists: holdout runs are never traced (so no
 annotation queue can hold one), eval reports never contain one, a report naming a holdout split
 is refused, every resolution re-checks the split, the database tables ``CHECK`` the split, and
-staging refuses a holdout draft or a fixture registered as a holdout proposal.
+staging refuses a holdout (or val) draft or a fixture registered as a holdout proposal.
 """
 
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
 import json
+import os
 import re
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any, Literal, get_args
 
+import yaml
 from pydantic import BaseModel, Field, model_validator
 
 from womm.eval.drafting import (
@@ -52,10 +59,10 @@ from womm.eval.drafting import (
     ItemProvenance,
     JudgeBlock,
     Review,
+    _reviewer_order,
+    analyst_digest,
     case_prefix,
     draft_path,
-    load_draft,
-    write_draft,
 )
 from womm.eval.golden import HOLDOUT_REFUSAL, GoldenError
 from womm.eval.golden_review import HOLDOUT_REGISTRY, ReviewError, refuse_holdout_fixture
@@ -95,6 +102,9 @@ class AnalystFeedback(BaseModel):
     note: str | None = None
     analyst: str | None = None
     created_at: dt.datetime
+    modified_at: dt.datetime | None = Field(
+        default=None, description="LangSmith's last modification; a newer one replaces the mark."
+    )
 
     @model_validator(mode="after")
     def _required_fields(self) -> AnalystFeedback:
@@ -131,14 +141,33 @@ def _mark(value: Any, score: Any) -> str:
 
 
 def _fields(comment: str | None, correction: Any) -> tuple[dict[str, str], str | None]:
-    found: dict[str, str] = {}
+    """``field: value`` lines of a comment, a value continuing on the indented lines that follow
+    it; any other line is the note. A field given twice is refused. A ``correction`` dict
+    overrides the comment's fields."""
+    parts: dict[str, list[str]] = {}
+    repeated: set[str] = set()
     note: list[str] = []
+    current: str | None = None
     for line in (comment or "").splitlines():
         m = _FIELD_LINE.match(line)
-        if m and m.group(2).strip():
-            found[m.group(1).lower()] = m.group(2).strip()
-        elif line.strip():
-            note.append(line.strip())
+        if m:
+            current = m.group(1).lower()
+            if current in parts:
+                repeated.add(current)
+            parts[current] = [m.group(2).strip()] if m.group(2).strip() else []
+        elif current is not None and line[:1] in (" ", "\t") and line.strip():
+            parts[current].append(line.strip())
+        else:
+            current = None
+            if line.strip():
+                note.append(line.strip())
+    if repeated:
+        raise FeedbackError(f"repeated field(s) in the comment: {', '.join(sorted(repeated))}")
+    found = {
+        name: (", " if name == "provisions" else " ").join(values)
+        for name, values in parts.items()
+        if values
+    }
     if isinstance(correction, Mapping):
         for name in FIELDS:
             value = correction.get(name)
@@ -156,7 +185,10 @@ def parse_feedback(fb: Any) -> AnalystFeedback:
     fid = str(_get(fb, "id"))
     if _get(fb, "run_id") is None:
         raise FeedbackError(f"feedback {fid} is not attached to a run")
-    found, note = _fields(_get(fb, "comment"), _get(fb, "correction"))
+    try:
+        found, note = _fields(_get(fb, "comment"), _get(fb, "correction"))
+    except FeedbackError as exc:
+        raise FeedbackError(f"feedback {fid}: {exc}") from None
     source = _get(fb, "feedback_source")
     analyst = None
     if source is not None:
@@ -177,6 +209,7 @@ def parse_feedback(fb: Any) -> AnalystFeedback:
             note=note,
             analyst=str(analyst) if analyst is not None else None,
             created_at=_get(fb, "created_at") or dt.datetime.now(dt.UTC),
+            modified_at=_get(fb, "modified_at"),
         )  # fmt: skip
     except ValueError as exc:
         raise FeedbackError(f"feedback {fid}: {exc}") from None
@@ -263,7 +296,8 @@ def resolve_feedback(fb: AnalystFeedback, case_run: CaseRun, run: RunResult) -> 
         )  # fmt: skip
     return FeedbackRecord(
         feedback=fb, run=case_run, event=event,
-        golden_candidate="queued" if fb.mark == "missing_impact" else None,
+        golden_candidate="queued" if fb.mark == "missing_impact" and case_run.split == "train"
+        else None,
     )  # fmt: skip
 
 
@@ -274,10 +308,12 @@ def golden_candidate(row: Mapping[str, Any], candidate_id: str) -> DraftCandidat
     """A queued ``missing_impact`` row as a ``possibly_missing`` draft item that only a human can
     decide: origin ``human_added``, decision ``pending``, no judge verdict and no IA anchor yet.
     The review gate requires a named reviewer to verify, edit (adding the IA anchor) or reject
-    it before the draft can be published."""
+    it before the draft can be published. ``feedback_id`` and ``analyst_digest`` tie the item to
+    its mark, so ``raised_by`` cannot be edited to dodge the reviewer-is-not-the-analyst rule."""
     payload = row.get("payload") or {}
     unchecked = DimensionVerdict(verdict="unknown", reason="analyst feedback; not judged")
     note = (row.get("note") or "").strip()
+    raised_by, feedback_id = row.get("analyst") or None, str(row["feedback_id"])
     return DraftCandidate(
         candidate_id=candidate_id,
         affected_actor=payload.get("affected_actor") or "",
@@ -299,7 +335,12 @@ def golden_candidate(row: Mapping[str, Any], candidate_id: str) -> DraftCandidat
             overall="uncertain",
         ),  # fmt: skip
         provenance=ItemProvenance(
-            origin="human_added", status="needs_human", drafting_model="none (analyst feedback)"
+            origin="human_added",
+            status="needs_human",
+            drafting_model="none (analyst feedback)",
+            raised_by=raised_by,
+            feedback_id=feedback_id,
+            analyst_digest=analyst_digest(row["case_id"], candidate_id, feedback_id, raised_by),
         ),  # fmt: skip
         review=Review(decision="pending"),
     )
@@ -324,6 +365,54 @@ def _next_candidate_id(draft: GoldenDraft) -> str:
     return f"{prefix}{n:02d}"
 
 
+_COUNTS = ("items", "possibly_missing", "pending", "human_decisions_needed")
+
+
+def _append_to_draft(
+    path: Path, read: bytes, draft: GoldenDraft, new: list[DraftCandidate]
+) -> None:
+    """Write ``new`` candidates (already in ``draft``) into the draft file as an edit in place:
+    the four counts of ``stats`` are updated on their own lines and the candidates appended to
+    ``possibly_missing`` (the last section), so a reviewer's comments and layout survive. The
+    result is re-parsed and must equal ``draft``; otherwise, or when the file changed since it
+    was read (``read``, compared by sha256), nothing is written and the rows stay queued."""
+    for name in _COUNTS:
+        setattr(draft.stats, name, getattr(draft.stats, name) + len(new))
+    text = read.decode("utf-8")
+    where = f"draft {draft.case_id}"
+    stats = re.search(r"^stats:[ \t]*\n((?:[ \t]+.*\n|[ \t]*\n)+)", text, re.MULTILINE)
+    section = list(re.finditer(r"^possibly_missing:[ \t]*(\[\])?[ \t]*$", text, re.MULTILINE))
+    if stats is None or len(section) != 1 or re.search(r"^\w", text[section[0].end():],
+                                                       re.MULTILINE):  # fmt: skip
+        raise FeedbackError(f"{where}: possibly_missing is not the last section in block style; "
+                            "not staged (re-draft or restore the tool's layout)")  # fmt: skip
+    block = stats.group(1)
+    for name in _COUNTS:
+        block = re.sub(rf"^([ \t]+{name}:[ \t]*)\d+[ \t]*$",
+                       lambda m, n=name: f"{m.group(1)}{getattr(draft.stats, n)}",
+                       block, count=1, flags=re.MULTILINE)  # fmt: skip
+    m = section[0]
+    head = text[: stats.start(1)] + block + text[stats.end(1) : m.start()]
+    tail = "possibly_missing:" + text[m.end() :] if m.group(1) else text[m.start() :]
+    tail = tail if tail.endswith("\n") else tail + "\n"
+    items = [_reviewer_order(c.model_dump(mode="json")) for c in new]
+    entries = yaml.safe_dump(items, sort_keys=False, allow_unicode=True, width=100)
+    indent = re.search(r"^([ \t]*)- ", tail, re.MULTILINE)
+    if indent and indent.group(1):
+        entries = "".join(indent.group(1) + line if line.strip() else line
+                          for line in entries.splitlines(keepends=True))  # fmt: skip
+    out = head + tail + entries
+    if GoldenDraft.model_validate(yaml.safe_load(out)) != draft:
+        raise FeedbackError(f"{where}: an in-place edit would not give the expected draft; "
+                            "not staged")  # fmt: skip
+    if hashlib.sha256(path.read_bytes()).digest() != hashlib.sha256(read).digest():
+        raise FeedbackError(f"{where}: the draft changed while candidates were being staged "
+                            "(a reviewer saved it?); not staged, rerun stage")  # fmt: skip
+    tmp = path.with_name(f".{path.name}.staging")
+    tmp.write_text(out, encoding="utf-8")
+    os.replace(tmp, path)
+
+
 def stage_candidates(
     rows: Iterable[Mapping[str, Any]],
     drafts_dir: Path,
@@ -344,32 +433,39 @@ def stage_candidates(
         path = drafts_dir / f"{case_id}.yaml"
         if not path.is_file():
             continue
-        draft = load_draft(path)
+        read = path.read_bytes()
+        draft = GoldenDraft.model_validate(yaml.safe_load(read.decode("utf-8")))
         try:
             _check_split(draft.split, f"draft {case_id}")
             refuse_holdout_fixture(draft.fixture, f"draft {case_id}", registry)
         except (GoldenError, ReviewError) as exc:
             problems.append(str(exc))
             continue
+        if draft.split != "train":
+            problems.append(f"draft {case_id}: analyst candidates are staged into train drafts "
+                            f"only, not {draft.split!r} (val is for selection)")  # fmt: skip
+            continue
         if draft_path(case_id, draft.split, drafts_dir) != path.resolve():
             problems.append(f"draft {case_id}: unexpected path {path}")
             continue
         present = _staged_ids(draft)
-        added = 0
+        new: list[DraftCandidate] = []
+        case_staged: dict[str, Path] = {}
         for row in case_rows:
             if row["fixture"] != draft.fixture:
                 problems.append(f"feedback {row['feedback_id']}: fixture {row['fixture']} is not "
                                 f"draft {case_id}'s {draft.fixture}")  # fmt: skip
                 continue
             if row["feedback_id"] not in present:
-                draft.possibly_missing.append(golden_candidate(row, _next_candidate_id(draft)))
-                added += 1
-            staged[row["feedback_id"]] = path
-        if added:
-            s = draft.stats
-            s.items += added
-            s.possibly_missing += added
-            s.pending += added
-            s.human_decisions_needed += added
-            write_draft(draft, drafts_dir)
+                cand = golden_candidate(row, _next_candidate_id(draft))
+                draft.possibly_missing.append(cand)
+                new.append(cand)
+            case_staged[row["feedback_id"]] = path
+        if new:
+            try:
+                _append_to_draft(path, read, draft, new)
+            except FeedbackError as exc:
+                problems.append(str(exc))
+                continue
+        staged |= case_staged
     return staged, problems
