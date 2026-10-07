@@ -787,6 +787,65 @@ async def cmd_noise_report(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _sv_path(value: str) -> Path:
+    """A SystemVersion YAML path, or a file name under system_versions/ ("v1.0-cost")."""
+    path = Path(value)
+    if path.is_file():
+        return path
+    named = REPO_ROOT / "system_versions" / f"{value.removesuffix('.yaml')}.yaml"
+    if named.is_file():
+        return named
+    raise UsageError(f"no system version {value!r} (a YAML path or a name in system_versions/)")
+
+
+async def cmd_cost_sweep(args: argparse.Namespace) -> int:
+    """Cost records for every duty and prohibition of one corpus version (EU cost plan U5)."""
+    from womm.cost.sweep import SweepError, SweepProgress, plan_sweep, run_sweep
+    from womm.data.corpus import load_default_corpus
+
+    sv = load_system_version(_sv_path(args.sv or args.system_version), REPO_ROOT)
+    try:
+        plan = plan_sweep(sv, load_default_corpus(), args.version)
+    except SweepError as exc:
+        raise UsageError(str(exc)) from None
+    backends, cli_version, _ = await prepare_backends(sv, skip_self_check=args.skip_self_check)
+    backend = backends[plan.role.backend]
+    progress = SweepProgress()
+    out = await run_sweep(
+        plan, backend=backend, root=Path(args.runs_dir) / "cost_sweeps",
+        code=code_identity(cli_version), repetitions=args.repetitions, max_usd=args.max_usd,
+        progress=progress, log=info,
+    )  # fmt: skip
+    dev_only = plan.role.backend != "api"
+    data = {
+        "directory": str(out),
+        "system_version": sv.version_id,
+        "version": plan.version,
+        "batches": len(plan.batches),
+        "records": sum(len(b.items) for b in plan.batches),
+        "repetitions": args.repetitions,
+        "calls": progress.calls,
+        "skipped": progress.skipped,
+        "failed": progress.failed,
+        "stopped_at_budget": progress.stopped_at_budget,
+        "tokens": sum(u.input_tokens + u.output_tokens for u in progress.usage),
+        "cost_usd": round(progress.cost_usd, 4),
+        "dev_only": dev_only,
+    }
+    text = (
+        f"cost sweep {sv.version_id} on {plan.version}: {data['records']} records in "
+        f"{data['batches']} batches x {args.repetitions} repetitions"
+        f"{' (dev-only: ' + plan.role.backend + ' backend)' if dev_only else ''}\n"
+        f"calls={progress.calls} skipped={progress.skipped} failed={len(progress.failed)} "
+        f"tokens={data['tokens']} cost≈${progress.cost_usd:.3f}"
+        + ("\nstopped at --max-usd; rerun to resume" if progress.stopped_at_budget else "")
+        + (f"\n{len(progress.failed)} batch(es) failed; rerun to retry" if progress.failed else "")
+        + f"\nsaved {out}"
+    )
+    emit(args, data, text)
+    return EXIT_FAILED if progress.failed or progress.stopped_at_budget else EXIT_OK
+
+
 def build_parser() -> argparse.ArgumentParser:
     settings = load_settings()
     common = argparse.ArgumentParser(add_help=False)
@@ -976,6 +1035,15 @@ def _add_calibration_parsers(sub: Any, common: argparse.ArgumentParser) -> None:
                         help="append formal_noise_runs and mdd_reports records")  # fmt: skip
     p_nrep.add_argument("--policy", default=str(POLICY_PATH), help=argparse.SUPPRESS)
     p_nrep.add_argument("--records", default=str(RECORDS_PATH), help=argparse.SUPPRESS)
+    p_cost = sub.add_parser("cost", help="EU-level cost estimation (cost records, IA cost check)")
+    cost = p_cost.add_subparsers(dest="cost_cmd", required=True)
+    p_sweep = cost.add_parser("sweep", parents=[common],
+                              help="cost records for every duty of one corpus version")  # fmt: skip
+    p_sweep.add_argument("--sv", help="cost-enabled SystemVersion: YAML path or name (v1.0-cost)")
+    p_sweep.add_argument("--version", required=True, help="corpus version (com2021_206, ...)")
+    p_sweep.add_argument("--repetitions", type=int, default=3)
+    p_sweep.add_argument("--max-usd", type=float, help="stop scheduling batches at this spend")
+    p_sweep.add_argument("--skip-self-check", action="store_true", help="dev only")
 
 
 HANDLERS = {
@@ -1002,10 +1070,12 @@ EVOLVE_HANDLERS = {
 
 CALIBRATE_HANDLERS = {"sample": cmd_calibrate_sample, "score": cmd_calibrate_score}
 NOISE_HANDLERS = {"report": cmd_noise_report}
+COST_HANDLERS = {"sweep": cmd_cost_sweep}
 GROUPS = {
     "evolve": ("evolve_cmd", EVOLVE_HANDLERS),
     "calibrate": ("calibrate_cmd", CALIBRATE_HANDLERS),
     "noise": ("noise_cmd", NOISE_HANDLERS),
+    "cost": ("cost_cmd", COST_HANDLERS),
 }
 
 
