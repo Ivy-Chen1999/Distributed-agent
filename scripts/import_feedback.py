@@ -6,6 +6,7 @@
     # 2. Analysts mark findings in the LangSmith UI (rubric key womm_analyst).
     # 3. Import the marks into Postgres: the audit table, Failure Memory, the candidate queue.
     uv run python scripts/import_feedback.py import --sv <version_id> [--dry-run]
+    #    [--apply-retractions]  (retract stored marks deleted in LangSmith; default: report)
     # 4. Stage queued missing-impact candidates into open golden drafts for the review gate.
     uv run python scripts/import_feedback.py stage
 
@@ -27,8 +28,16 @@ cases: ``stage`` appends them as pending ``possibly_missing`` items of an open d
 ``evals/golden/drafts/``, which the review gate blocks until a reviewer decides each one; a case
 without an open draft keeps its candidates queued until it is re-drafted.
 
+Edited and deleted marks. A mark edited in LangSmith after its import (a newer ``modified_at``)
+replaces the stored one: the previous version is kept in the row's ``history`` and its Failure
+Memory event is replaced. If its candidate was already staged into a draft, the draft item is
+not changed: the script warns, and the reviewer updates or rejects it by hand. A stored mark on
+the queried runs that LangSmith no longer lists is reported; ``--apply-retractions`` retracts it
+(the row stays, marked ``retracted_at``; its event is removed; a queued candidate is dropped).
+
 Exit codes: 0 done, 2 at least one mark or candidate was refused (the others are still
-imported or staged), or a usage error.
+imported or staged), a mark needs attention (edited after staging, gone from LangSmith without
+--apply-retractions, or retracted after staging), or a usage error.
 """
 
 from __future__ import annotations
@@ -119,8 +128,10 @@ async def _import(client: Any, args: argparse.Namespace, url: str) -> int:
         info(f"no traced, scored train/val runs of {args.sv} in {args.runs_dir}")
         return 0
     records: list[FeedbackRecord] = []
+    seen: set[str] = set()
     refused = 0
     for raw in client.list_feedback(run_ids=sorted(index), feedback_key=[FEEDBACK_KEY]):
+        seen.add(str(raw.id))
         try:
             fb = parse_feedback(raw)
             case_run = index.get(fb.trace_run_id)
@@ -142,21 +153,55 @@ async def _import(client: Any, args: argparse.Namespace, url: str) -> int:
         return 2 if refused else 0
     db = Database(url)
     await db.open()
-    new = 0
+    counts = {"new": 0, "updated": 0, "unchanged": 0}
+    attention = 0
     try:
         await db.migrate()
         for r in records:
+            fid = r.feedback.feedback_id
             try:
-                new += await db.record_analyst_feedback(r)
+                status = await db.record_analyst_feedback(r)
             except psycopg.errors.ForeignKeyViolation:
-                info(f"refused: feedback {r.feedback.feedback_id}: run {r.run.run_id} of "
-                     f"{r.run.case_id} is not in Failure Memory (persist its eval report "
-                     "first)")  # fmt: skip
+                info(f"refused: feedback {fid}: run {r.run.run_id} of {r.run.case_id} is not "
+                     "in Failure Memory (persist its eval report first)")  # fmt: skip
                 refused += 1
+                continue
+            if status == "updated_staged":
+                info(f"warning: feedback {fid} was edited in LangSmith after its candidate was "
+                     "already staged into a golden draft; the stored mark and its event were "
+                     "replaced, but the draft item is not: update or reject it by hand")  # fmt: skip
+                attention += 1
+                status = "updated"
+            counts[status] += 1
+        attention += await _gone(db, args, index, seen)
     finally:
         await db.close()
-    print(f"{new} new mark(s) of {len(records)} read; {refused} refused")
-    return 2 if refused else 0
+    print(f"{counts['new']} new, {counts['updated']} updated, {counts['unchanged']} unchanged "
+          f"mark(s) of {len(records)} read; {refused} refused")  # fmt: skip
+    return 2 if refused or attention else 0
+
+
+async def _gone(db: Database, args: argparse.Namespace, index: dict, seen: set[str]) -> int:
+    """Stored marks on the queried runs that LangSmith no longer lists (deleted feedback):
+    reported, and retracted with --apply-retractions. Returns how many need attention."""
+    rows = [r for r in await db.analyst_feedback(args.sv)
+            if r["retracted_at"] is None and r["trace_run_id"] in index
+            and r["feedback_id"] not in seen]  # fmt: skip
+    attention = 0
+    for row in rows:
+        fid, what = row["feedback_id"], f"{row['mark']} on {row['case_id']} run {row['run_id']}"
+        if not args.apply_retractions:
+            info(f"gone from LangSmith: feedback {fid} ({what}); rerun with "
+                 "--apply-retractions to retract it and its Failure Memory event")  # fmt: skip
+            attention += 1
+            continue
+        status = await db.retract_analyst_feedback(fid)
+        print(f"retracted {fid} ({what})")
+        if status == "retracted_staged":
+            info(f"warning: retracted feedback {fid} was already staged into "
+                 f"{row['golden_draft']}; reject that draft item by hand")  # fmt: skip
+            attention += 1
+    return attention
 
 
 async def _stage(args: argparse.Namespace, url: str) -> int:
@@ -193,6 +238,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--holdout-registry", default=str(HOLDOUT_REGISTRY))
     parser.add_argument("--database-url", default=None, help="default: $DATABASE_URL")
     parser.add_argument("--dry-run", action="store_true", help="import: resolve, write nothing")
+    parser.add_argument(
+        "--apply-retractions",
+        action="store_true",
+        help="import: retract stored marks gone from LangSmith (default: report them only)",
+    )
     args = parser.parse_args(argv)
     try:
         refuse_holdout_env()

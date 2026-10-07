@@ -36,10 +36,10 @@ async def _with_runs(db, *run_ids):
 
 async def test_marks_are_stored_once_with_their_events(db):
     await _with_runs(db, "r1", "r2")
-    assert await db.record_analyst_feedback(_record()) is True
-    assert await db.record_analyst_feedback(_record()) is False  # idempotent by feedback id
-    assert await db.record_analyst_feedback(_record("weak_evidence", "fb2", "r2")) is True
-    assert await db.record_analyst_feedback(_record("accept", "fb3")) is True
+    assert await db.record_analyst_feedback(_record()) == "new"
+    assert await db.record_analyst_feedback(_record()) == "unchanged"  # idempotent by id
+    assert await db.record_analyst_feedback(_record("weak_evidence", "fb2", "r2")) == "new"
+    assert await db.record_analyst_feedback(_record("accept", "fb3")) == "new"
     rows = {r["feedback_id"]: r for r in await db.analyst_feedback("sv_x")}
     assert (rows["fb1"]["golden_candidate"], rows["fb3"]["golden_candidate"]) == ("queued", None)
     assert rows["fb3"]["failure_event_id"] is None and rows["fb1"]["failure_event_id"]
@@ -114,7 +114,89 @@ async def test_a_val_missing_impact_is_stored_but_never_queued(db):
     fb = AnalystFeedback(feedback_id="fbv", trace_run_id="t", mark="missing_impact",
                          impact="x", created_at=NOW)  # fmt: skip
     rec = resolve_feedback(fb, _case_run("r1").model_copy(update={"split": "val"}), _run("r1"))
-    assert await db.record_analyst_feedback(rec) is True
+    assert await db.record_analyst_feedback(rec) == "new"
     (row,) = await db.analyst_feedback("sv_x")
     assert row["golden_candidate"] is None and row["failure_event_id"]
     assert await db.queued_golden_candidates() == []
+
+
+LATER = NOW + dt.timedelta(hours=1)
+
+
+async def _events(db):
+    return sorted((e.kind, e.item_id, e.detail.get("impact")) for e in
+                  (await db.failure_memory("sv_x"))[0])  # fmt: skip
+
+
+async def test_an_edited_mark_replaces_its_row_and_event(db):
+    """P2: a newer LangSmith modification updates the audit row (keeping the old version in its
+    history) and replaces the derived Failure Memory event."""
+    await _with_runs(db, "r1")
+    await db.record_analyst_feedback(_record(modified_at=NOW))
+    assert await db.record_analyst_feedback(_record(modified_at=NOW)) == "unchanged"
+    edited = _record(modified_at=LATER, impact="SMEs pay three times",
+                     provision_keys=["reg/a/7"])  # fmt: skip
+    assert await db.record_analyst_feedback(edited) == "updated"
+    (row,) = await db.analyst_feedback("sv_x")
+    assert row["payload"]["impact"] == "SMEs pay three times" and row["modified_at"] == LATER
+    assert [h["payload"]["impact"] for h in row["history"]] == ["SMEs pay twice"]
+    assert row["golden_candidate"] == "queued"
+    assert await _events(db) == [("analyst_missing_impact", "human:reg/a/7",
+                                  "SMEs pay three times")]  # fmt: skip
+    # An older copy never overwrites a newer one.
+    assert await db.record_analyst_feedback(_record(modified_at=NOW)) == "unchanged"
+
+
+async def test_an_edit_that_changes_the_mark_drops_the_candidate_and_event(db):
+    await _with_runs(db, "r1")
+    await db.record_analyst_feedback(_record(modified_at=NOW))
+    assert await db.record_analyst_feedback(_record("accept", modified_at=LATER)) == "updated"
+    (row,) = await db.analyst_feedback("sv_x")
+    assert (row["mark"], row["golden_candidate"], row["failure_event_id"]) == ("accept", None,
+                                                                               None)  # fmt: skip
+    assert await _events(db) == []
+
+
+async def test_an_edit_keeps_a_shared_event_another_mark_still_uses(db):
+    await _with_runs(db, "r1")
+    await db.record_analyst_feedback(_record(modified_at=NOW))
+    await db.record_analyst_feedback(_record(fid="fb9", modified_at=NOW))
+    await db.record_analyst_feedback(_record("accept", modified_at=LATER))
+    assert [k for k, *_ in await _events(db)] == ["analyst_missing_impact"]
+
+
+async def test_an_edit_after_staging_is_applied_and_reported(db):
+    await _with_runs(db, "r1")
+    await db.record_analyst_feedback(_record(modified_at=NOW))
+    await db.mark_candidate_staged("fb1", "evals/golden/drafts/case_x.yaml")
+    assert await db.record_analyst_feedback(_record(modified_at=LATER, impact="new")) == (
+        "updated_staged"
+    )
+    (row,) = await db.analyst_feedback("sv_x")
+    assert (row["golden_candidate"], row["payload"]["impact"]) == ("staged", "new")
+
+
+async def test_retracting_a_mark_keeps_the_row_and_removes_its_event(db):
+    await _with_runs(db, "r1")
+    await db.record_analyst_feedback(_record(modified_at=NOW))
+    await db.record_analyst_feedback(_record("weak_evidence", "fb2", modified_at=NOW))
+    assert await db.retract_analyst_feedback("fb1") == "retracted"
+    assert await db.retract_analyst_feedback("fb1") == "unchanged"
+    rows = {r["feedback_id"]: r for r in await db.analyst_feedback("sv_x")}
+    assert rows["fb1"]["retracted_at"] is not None and rows["fb1"]["golden_candidate"] is None
+    assert rows["fb1"]["failure_event_id"] is None and rows["fb2"]["retracted_at"] is None
+    assert [k for k, *_ in await _events(db)] == ["analyst_weak_evidence"]
+    assert await db.queued_golden_candidates() == []
+    # A mark that shows up again is restored.
+    assert await db.record_analyst_feedback(_record(modified_at=NOW)) == "updated"
+    rows = {r["feedback_id"]: r for r in await db.analyst_feedback("sv_x")}
+    assert rows["fb1"]["retracted_at"] is None and rows["fb1"]["golden_candidate"] == "queued"
+
+
+async def test_retracting_a_staged_mark_is_reported(db):
+    await _with_runs(db, "r1")
+    await db.record_analyst_feedback(_record(modified_at=NOW))
+    await db.mark_candidate_staged("fb1", "d.yaml")
+    assert await db.retract_analyst_feedback("fb1") == "retracted_staged"
+    (row,) = await db.analyst_feedback("sv_x")
+    assert row["golden_candidate"] == "staged" and row["retracted_at"] is not None

@@ -224,4 +224,10 @@ uv run womm evolve failures --sv <version_id> --from-db             # source col
   scored like any other, but their `missed_impact` events carry `golden_origin: human` and the
   new-expert trigger leaves them out, so analysts cannot force a topology change indirectly
   through golden cases either.
+- A mark edited in LangSmith after its import replaces the stored one on the next `import` (the
+  old version stays in the row's `history`; its Failure Memory event is replaced). A mark
+  deleted in LangSmith is reported; `import ... --apply-retractions` retracts it (the row stays
+  with `retracted_at`, its event is removed, a queued candidate is dropped). If the candidate was
+  already staged into a draft, the script warns and exits 2: update or reject the draft item by
+  hand.
 - `accept`, `reject` and `edit` are recorded only; v1 has no consumer for them.

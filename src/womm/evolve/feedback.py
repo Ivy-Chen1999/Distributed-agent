@@ -97,6 +97,9 @@ class AnalystFeedback(BaseModel):
     note: str | None = None
     analyst: str | None = None
     created_at: dt.datetime
+    modified_at: dt.datetime | None = Field(
+        default=None, description="LangSmith's last modification; a newer one replaces the mark."
+    )
 
     @model_validator(mode="after")
     def _required_fields(self) -> AnalystFeedback:
@@ -179,6 +182,7 @@ def parse_feedback(fb: Any) -> AnalystFeedback:
             note=note,
             analyst=str(analyst) if analyst is not None else None,
             created_at=_get(fb, "created_at") or dt.datetime.now(dt.UTC),
+            modified_at=_get(fb, "modified_at"),
         )  # fmt: skip
     except ValueError as exc:
         raise FeedbackError(f"feedback {fid}: {exc}") from None

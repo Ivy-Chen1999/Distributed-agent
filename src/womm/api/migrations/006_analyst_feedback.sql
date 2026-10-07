@@ -20,6 +20,12 @@ ALTER TABLE failure_events ADD CONSTRAINT failure_events_source_matches_kind
 -- candidate: `queued` until it is staged into an open train golden draft, where the review gate
 -- decides it; it is never added to a golden case directly. A val run's mark never is (val is for
 -- selection, and analysts must not change what it scores).
+--
+-- A mark edited in LangSmith (a newer `modified_at`) replaces the stored one: the previous
+-- version is appended to `history` and its Failure Memory event is replaced. A mark that is gone
+-- from LangSmith is retracted (`retracted_at`) on request: the row stays as the audit record, its
+-- event is removed and it is no longer a queued candidate. A candidate already staged into a
+-- draft stays `staged` (the draft item is reconciled by hand).
 CREATE TABLE analyst_feedback (
     feedback_id      text PRIMARY KEY,
     mark             text NOT NULL CHECK (mark IN ('accept', 'reject', 'edit', 'missing_impact',
@@ -38,11 +44,17 @@ CREATE TABLE analyst_feedback (
     golden_candidate text CHECK (golden_candidate IN ('queued', 'staged')),
     golden_draft     text,
     created_at       timestamptz NOT NULL,
+    modified_at      timestamptz,
+    retracted_at     timestamptz,
+    history          jsonb NOT NULL DEFAULT '[]'::jsonb,
     imported_at      timestamptz NOT NULL DEFAULT now(),
     FOREIGN KEY (system_version, case_id, run_id)
         REFERENCES failure_case_runs (system_version, case_id, run_id),
-    CHECK ((golden_candidate IS NOT NULL) = (mark = 'missing_impact' AND split = 'train')),
-    CHECK ((golden_candidate = 'staged') = (golden_draft IS NOT NULL)),
-    CHECK ((failure_event_id IS NOT NULL) = (mark IN ('missing_impact', 'weak_evidence')))
+    CHECK (golden_candidate IS NULL OR split = 'train'),
+    CHECK (golden_candidate IS NOT DISTINCT FROM 'staged' OR (golden_candidate IS NOT NULL)
+           = (mark = 'missing_impact' AND split = 'train' AND retracted_at IS NULL)),
+    CHECK ((golden_candidate IS NOT DISTINCT FROM 'staged') = (golden_draft IS NOT NULL)),
+    CHECK ((failure_event_id IS NOT NULL)
+           = (mark IN ('missing_impact', 'weak_evidence') AND retracted_at IS NULL))
 );
 CREATE INDEX analyst_feedback_version_idx ON analyst_feedback (system_version);

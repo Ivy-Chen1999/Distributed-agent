@@ -63,9 +63,10 @@ class FakeClient:
 MISSING = f"impact: Buyers pay twice\nprovisions: {K1}"
 
 
-def _fb(fid, run="t1", value="missing_impact", comment=MISSING):
+def _fb(fid, run="t1", value="missing_impact", comment=MISSING, modified_at=NOW):
     return SimpleNamespace(id=fid, run_id=run, key=FEEDBACK_KEY, value=value, score=None,
                            comment=comment, correction=None, created_at=NOW,
+                           modified_at=modified_at,
                            feedback_source=SimpleNamespace(user_name="ana"))  # fmt: skip
 
 
@@ -198,3 +199,42 @@ def test_refused_with_the_holdout_url_in_the_environment(setup, monkeypatch, cap
     monkeypatch.setenv("HOLDOUT_DATABASE_URL", "postgresql://x/y")
     assert _main(setup, FakeClient(), "import", "--sv", "sv_x") == 2
     assert "HOLDOUT_DATABASE_URL" in capsys.readouterr().err
+
+
+def test_an_edited_mark_is_reimported_and_a_deleted_one_reported(setup, capsys):
+    """P2: a newer LangSmith modification replaces the stored mark and its event; a mark gone
+    from LangSmith is only reported unless --apply-retractions is given."""
+    client = FakeClient([_fb("fb1"), _fb("fb2", run="t2", value="weak_evidence",
+                                          comment="finding: f1")])  # fmt: skip
+    assert _main(setup, client, "import", "--sv", "sv_x") == 0
+    capsys.readouterr()
+    later = NOW + dt.timedelta(hours=1)
+    client.feedback = [_fb("fb1", comment=f"impact: Buyers pay thrice\nprovisions: {K1}",
+                           modified_at=later)]  # fmt: skip
+    assert _main(setup, client, "import", "--sv", "sv_x") == 2
+    io = capsys.readouterr()
+    assert "1 updated" in io.out and "fb2" in io.err and "--apply-retractions" in io.err
+    rows, pats = _rows(setup.url)
+    by_id = {r["feedback_id"]: r for r in rows}
+    assert by_id["fb1"]["payload"]["impact"] == "Buyers pay thrice"
+    assert by_id["fb2"]["retracted_at"] is None  # report-only by default
+    assert _main(setup, client, "import", "--sv", "sv_x", "--apply-retractions") == 0
+    assert "retracted fb2" in capsys.readouterr().out
+    rows, pats = _rows(setup.url)
+    assert {r["feedback_id"]: r["retracted_at"] is not None for r in rows} == {
+        "fb1": False, "fb2": True
+    }  # fmt: skip
+    assert {p["kind"] for p in pats} == {"analyst_missing_impact"}
+    assert _main(setup, client, "import", "--sv", "sv_x") == 0  # nothing left to report
+
+
+def test_an_edit_after_staging_is_reported_loudly(setup, capsys):
+    client = FakeClient([_fb("fb1")])
+    assert _main(setup, client, "import", "--sv", "sv_x") == 0
+    assert _main(setup, client, "stage") == 0
+    capsys.readouterr()
+    client.feedback = [_fb("fb1", comment=f"impact: changed\nprovisions: {K1}",
+                           modified_at=NOW + dt.timedelta(hours=1))]  # fmt: skip
+    assert _main(setup, client, "import", "--sv", "sv_x") == 2
+    err = capsys.readouterr().err
+    assert "fb1" in err and "already staged" in err and "by hand" in err

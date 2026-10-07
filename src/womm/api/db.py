@@ -57,6 +57,53 @@ def _event_params(e: Any, git_sha: str | None) -> tuple:
             e.judge_version, e.git_sha or git_sha, e.source)  # fmt: skip
 
 
+_PAYLOAD_FIELDS = {"provision_keys", "affected_actor", "mechanism", "impact", "category", "edited"}
+
+
+def _feedback_payload(fb: Any) -> dict:
+    return _without_nul(fb.model_dump(mode="json", include=_PAYLOAD_FIELDS))
+
+
+def _history_entry(row: dict) -> dict:
+    """The stored version of a mark, kept when an edit or a retraction replaces it."""
+    keep = ("mark", "finding_id", "note", "payload", "failure_event_id", "golden_candidate")
+    entry = {k: row[k] for k in keep}
+    for k in ("modified_at", "retracted_at"):
+        entry[k] = row[k].isoformat() if row[k] is not None else None
+    return entry
+
+
+async def _store_event(conn: Any, event: Any, *, refresh: bool = False) -> int | None:
+    """Insert a mark's Failure Memory event; a second mark on the same item of the same run
+    shares the first one's event. ``refresh`` (an edited mark) rewrites the shared event's
+    description with the edited one."""
+    if event is None:
+        return None
+    on_conflict = (
+        "DO UPDATE SET category = EXCLUDED.category, touching_agents = EXCLUDED.touching_agents,"
+        " owner = EXCLUDED.owner, detail = EXCLUDED.detail"
+        if refresh
+        else "DO UPDATE SET kind = EXCLUDED.kind"
+    )
+    cur = await conn.execute(
+        _INSERT_EVENT + f" ON CONFLICT (run_id, kind, item_id) {on_conflict} RETURNING id",
+        _event_params(event, None),
+    )
+    return (await cur.fetchone())["id"]
+
+
+async def _drop_unused_event(conn: Any, event_id: int | None) -> None:
+    """Delete a Failure Memory event no mark refers to any more (a mark that was edited or
+    retracted); an event another mark shares stays."""
+    if event_id is None:
+        return
+    await conn.execute(
+        "DELETE FROM failure_events WHERE id = %s AND NOT EXISTS"
+        " (SELECT 1 FROM analyst_feedback WHERE failure_event_id = %s)",
+        (event_id, event_id),
+    )
+
+
 class Database:
     def __init__(
         self, url: str, *, min_size: int = 1, max_size: int = 5, statement_timeout_ms: int = 30_000
@@ -338,48 +385,85 @@ class Database:
 
     # ------------------------------------------------------------------ analyst feedback (U11)
 
-    async def record_analyst_feedback(self, record: Any) -> bool:
+    async def record_analyst_feedback(self, record: Any) -> str:
         """Store one resolved analyst mark (``womm.evolve.feedback.FeedbackRecord``) and its
-        Failure Memory event in one transaction. Returns False when the mark was imported
-        before. The run must be a scored train/val run in Failure Memory: anything else fails
-        on the foreign key or the split CHECK, and nothing is written."""
+        Failure Memory event in one transaction. Returns ``new``; ``unchanged`` when the mark
+        was imported before and LangSmith has no newer modification; ``updated`` when a newer
+        modification (or a retracted mark showing up again) replaced the stored one, its
+        previous version kept in ``history`` and its event replaced; ``updated_staged`` when
+        that mark's candidate was already staged into a draft, which is not changed here. The
+        run must be a scored train/val run in Failure Memory: anything else fails on the
+        foreign key or the split CHECK, and nothing is written."""
         try:
             return await self._record_analyst_feedback(record)
         except psycopg.errors.UniqueViolation:  # a concurrent import stored it first
-            return False
+            return "unchanged"
 
-    async def _record_analyst_feedback(self, record: Any) -> bool:
-        fb, run, event = record.feedback, record.run, record.event
+    async def _record_analyst_feedback(self, record: Any) -> str:
+        fb, run = record.feedback, record.run
         async with self.pool.connection() as conn, conn.transaction():
             cur = await conn.execute(
-                "SELECT 1 FROM analyst_feedback WHERE feedback_id = %s", (fb.feedback_id,)
+                "SELECT * FROM analyst_feedback WHERE feedback_id = %s FOR UPDATE",
+                (fb.feedback_id,),
             )
-            if await cur.fetchone():
-                return False
-            event_id = None
-            if event is not None:
-                # A second mark on the same item of the same run shares the first one's event.
-                cur = await conn.execute(
-                    _INSERT_EVENT + " ON CONFLICT (run_id, kind, item_id)"
-                    " DO UPDATE SET kind = EXCLUDED.kind RETURNING id",
-                    _event_params(event, None),
-                )
-                event_id = (await cur.fetchone())["id"]
-            payload = fb.model_dump(
-                mode="json", include={"provision_keys", "affected_actor", "mechanism", "impact",
-                                      "category", "edited"},
-            )  # fmt: skip
+            old = await cur.fetchone()
+            if old is None:
+                event_id = await _store_event(conn, record.event)
+                await conn.execute(
+                    "INSERT INTO analyst_feedback (feedback_id, mark, system_version, case_id,"
+                    " fixture, split, run_id, trace_run_id, finding_id, analyst, note, payload,"
+                    " failure_event_id, golden_candidate, created_at, modified_at)"
+                    " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                    (fb.feedback_id, fb.mark, run.system_version, run.case_id, run.fixture,
+                     run.split, run.run_id, fb.trace_run_id, fb.finding_id, fb.analyst,
+                     _without_nul(fb.note), Jsonb(_feedback_payload(fb)), event_id,
+                     record.golden_candidate, fb.created_at, fb.modified_at),
+                )  # fmt: skip
+                return "new"
+            newer = fb.modified_at is not None and (
+                old["modified_at"] is None or fb.modified_at > old["modified_at"]
+            )
+            if not newer and old["retracted_at"] is None:
+                return "unchanged"
+            event_id = await _store_event(conn, record.event, refresh=True)
+            staged = old["golden_candidate"] == "staged"
+            candidate = "staged" if staged else record.golden_candidate
             await conn.execute(
-                "INSERT INTO analyst_feedback (feedback_id, mark, system_version, case_id,"
-                " fixture, split, run_id, trace_run_id, finding_id, analyst, note, payload,"
-                " failure_event_id, golden_candidate, created_at)"
-                " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                (fb.feedback_id, fb.mark, run.system_version, run.case_id, run.fixture,
-                 run.split, run.run_id, fb.trace_run_id, fb.finding_id, fb.analyst,
-                 _without_nul(fb.note), Jsonb(_without_nul(payload)), event_id,
-                 record.golden_candidate, fb.created_at),
+                "UPDATE analyst_feedback SET mark = %s, trace_run_id = %s, finding_id = %s,"
+                " analyst = %s, note = %s, payload = %s, failure_event_id = %s,"
+                " golden_candidate = %s, modified_at = %s, retracted_at = NULL,"
+                " history = history || %s WHERE feedback_id = %s",
+                (fb.mark, fb.trace_run_id, fb.finding_id, fb.analyst, _without_nul(fb.note),
+                 Jsonb(_feedback_payload(fb)), event_id, candidate, fb.modified_at,
+                 Jsonb([_history_entry(old)]), fb.feedback_id),
             )  # fmt: skip
-        return True
+            if old["failure_event_id"] != event_id:
+                await _drop_unused_event(conn, old["failure_event_id"])
+        return "updated_staged" if staged else "updated"
+
+    async def retract_analyst_feedback(self, feedback_id: str) -> str:
+        """Retract a mark that is gone from LangSmith: the row stays (the audit record, its last
+        version also appended to ``history``) with ``retracted_at`` set, its Failure Memory
+        event is removed unless another mark shares it, and it is no longer a queued candidate.
+        Returns ``retracted``, ``retracted_staged`` (its candidate is already in a draft, which
+        is not changed here) or ``unchanged`` (unknown or already retracted)."""
+        async with self.pool.connection() as conn, conn.transaction():
+            cur = await conn.execute(
+                "SELECT * FROM analyst_feedback WHERE feedback_id = %s FOR UPDATE",
+                (feedback_id,),
+            )
+            old = await cur.fetchone()
+            if old is None or old["retracted_at"] is not None:
+                return "unchanged"
+            staged = old["golden_candidate"] == "staged"
+            await conn.execute(
+                "UPDATE analyst_feedback SET failure_event_id = NULL, retracted_at = now(),"
+                " golden_candidate = CASE WHEN golden_candidate = 'staged' THEN 'staged' END,"
+                " history = history || %s WHERE feedback_id = %s",
+                (Jsonb([_history_entry(old)]), feedback_id),
+            )
+            await _drop_unused_event(conn, old["failure_event_id"])
+        return "retracted_staged" if staged else "retracted"
 
     async def analyst_feedback(self, system_version: str) -> list[dict]:
         async with self.pool.connection() as conn:
