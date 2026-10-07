@@ -12,10 +12,13 @@ Pre-registered metrics (computed per repetition, reported as mean with min-max):
 - ``band_exact`` / ``band_within_one``: per IA item with a band, the highest band among matching
   records (in the item's recurrence) against the band of the IA figure;
 - ``payer_recurrence_agreement``: the IA's recurring items (human oversight and user
-  documentation on deployers, the authorities' staff): a matching record carries a recurring
-  band;
+  documentation on deployers, the authorities' staff): a record on the item's keys with the
+  IA's payer, a recurring band and a primary effort type among the item's ``effort_types``
+  (human_oversight for the oversight item; secondary types do not count);
 - ``rank_tau_b``: Kendall's tau-b between band points and IA figures over the items that share
-  a unit (one-off, per application, provider). Descriptive only, printed with its n;
+  a unit (one-off, per application, provider) and have a predicted band; items without one
+  are left out, not ranked lowest. Descriptive only, printed with its n (per repetition, so
+  the report gives its min-max);
 - ``ia_silent_costly``: provisions with records at ``medium`` or higher that no IA item covers.
   Reported, never scored (IA silence does not mean "no cost").
 """
@@ -35,7 +38,7 @@ from womm.config import REPO_ROOT
 from womm.cost.categories import FTE_EUR, band_for_eur
 from womm.data.corpus import Corpus
 from womm.models.base import StrictModel
-from womm.models.cost import Band, CostRecord, band_rank
+from womm.models.cost import Band, CostRecord, EffortType, band_rank
 
 REFERENCE_PATH = REPO_ROOT / "evals" / "cost_reference" / "ai_act_swd2021_84.yaml"
 SCORED = ("cost_recall", "band_exact", "band_within_one", "payer_recurrence_agreement")
@@ -55,6 +58,11 @@ class ReferenceItem(StrictModel):
     payer: str = Field(min_length=1)
     payers: list[str] = Field(min_length=1)
     recurrence: Literal["one_off", "recurring", "both"]
+    effort_types: list[EffortType] = Field(
+        default_factory=list,
+        description="Recurring items: the effort types a record must carry as its primary type "
+        "to agree on payer and recurrence.",
+    )
     figure_text: str = Field(min_length=1)
     eur_low: float | None = None
     eur_high: float | None = None
@@ -143,6 +151,9 @@ def load_reference(path: Path, corpus: Corpus) -> CostReference:
             f"{path} is unverified: one person checks it against SWD(2021) 84 and sets status: "
             "verified, verified_by and verified_on before any scored check"
         )
+    for i in ref.items:
+        if i.recurrence == "recurring" and not i.effort_types:
+            raise CostReferenceError(f"{path}: {i.item_id} is recurring and names no effort_types")
     ids = [i.item_id for i in ref.items]
     if len(ids) != len(set(ids)):
         raise CostReferenceError(f"{path}: duplicate item ids")
@@ -239,10 +250,12 @@ def score_records(
             exact.append(d["band_exact"])
             within.append(d["band_within_one"])
         if item.recurrence == "recurring":
-            d["payer_recurrence"] = any(r.recurring is not None for r in matching)
+            d["payer_recurrence"] = any(
+                r.recurring is not None and r.effort_type in item.effort_types for r in matching
+            )
             payer_rec.append(d["payer_recurrence"])
-        if item.comparable_unit and item.midpoint_eur is not None:
-            tau_x.append(band_rank(_predicted(item, matching)))
+        if item.comparable_unit and item.midpoint_eur is not None and predicted is not None:
+            tau_x.append(band_rank(predicted))
             tau_y.append(item.midpoint_eur)
         detail[item.item_id] = d
     tau = kendall_tau_b(tau_x, tau_y) if len(tau_x) >= 2 else None
@@ -268,7 +281,8 @@ def score_records(
         "rank_n": len(tau_x),
         "rank_note": "descriptive, not significant"
         if tau is not None
-        else "undefined: every comparable item has the same band (or the same figure)",
+        else "undefined: fewer than two comparable items with a prediction, or they share one "
+        "band (or one figure)",
         "ia_silent_costly": silent,
         "payers_by_basis": dict(sorted(bases.items())),
         "items": detail,
@@ -310,7 +324,11 @@ def score_repetitions(
         "repetitions": len(reps),
         "metrics": {name: _spread([m[name] for m in reps]) for name in SCORED},
         "rank_tau_b": _spread([m["rank_tau_b"] for m in reps]),
-        "rank_n": reps[0]["rank_n"] if reps else 0,
+        "rank_n": {
+            "min": min((m["rank_n"] for m in reps), default=0),
+            "max": max((m["rank_n"] for m in reps), default=0),
+            "values": [m["rank_n"] for m in reps],
+        },
         "ia_silent_costly": silent,
         "payers_by_basis": dict(sorted(bases.items())),
         "per_repetition": per_rep,
@@ -339,10 +357,16 @@ def format_report(out: dict[str, Any], header: dict[str, Any]) -> str:
         lines.append(f"- scored items limited to the keys of {header['restricted_to']}")
     lines += ["", "| metric | mean (min, max) |", "|---|---|"]
     lines += [f"| {name} | {_fmt(out['metrics'][name])} |" for name in SCORED]
+    n = out["rank_n"]
+    n_text = str(n["min"]) if n["min"] == n["max"] else f"{n['min']}-{n['max']}"
     lines += [
         "",
-        f"rank_tau_b: {_fmt(out['rank_tau_b'])}, n = {out['rank_n']} "
-        "(descriptive, not significant; undefined when the comparable items share one band)",
+        "payer_recurrence_agreement counts a recurring IA item only when a record carries its "
+        "payer, a recurring band and the expected primary effort type.",
+        "",
+        f"rank_tau_b: {_fmt(out['rank_tau_b'])}, n = {n_text} items with a prediction "
+        "(descriptive, not significant; undefined when fewer than two items have a prediction "
+        "or they share one band)",
         "",
         "Payers of the scored records by basis (recall depends on the payer fallback): "
         + (", ".join(f"{b} {n}" for b, n in out["payers_by_basis"].items()) or "none"),

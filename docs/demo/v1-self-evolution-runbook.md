@@ -218,7 +218,11 @@ Honesty rules for cost results:
 - Record the results in the v1 progress report, labelled dev-only or formal, with the reference
   sha and the IA figure audit's limits next to the numbers: the IA quantifies about 11 cost
   items covering about a quarter of the proposal's duties; IA silence is not "no cost";
-  `rank_tau_b` is descriptive over five items and never a headline.
+  `rank_tau_b` is descriptive over at most five items (those with a prediction; the report
+  gives n) and never a headline.
+- `payer_recurrence_agreement` is the strict form: a recurring IA item agrees only when a record
+  carries the IA's payer, a recurring band and the expected primary effort type
+  (`effort_types` in the reference, for example `human_oversight` for the oversight item).
 - Recall depends on the payer fallback (rule table and inferred payers); quote the payer-basis
   breakdown with it.
 - Nothing sums euros: bands are ordinal classes per entity and item.

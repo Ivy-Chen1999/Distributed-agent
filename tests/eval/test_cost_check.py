@@ -52,11 +52,11 @@ def ref(tmp_path, corpus):
 
 
 def rec(key, payer, *, one_off=None, recurring=None, oid=None, status="estimated",
-        basis="rule_field"):  # fmt: skip
+        basis="rule_field", effort="documentation"):  # fmt: skip
     return CostRecord(
         obligation_id=oid or f"{key}#{payer}#{one_off}#{recurring}", unit_id="u", provision_key=key,
         source_id="s", records_version="com2021_206", status=status, payer=payer,
-        payer_basis=basis, effort_type="documentation", one_off=one_off, recurring=recurring,
+        payer_basis=basis, effort_type=effort, one_off=one_off, recurring=recurring,
     )  # fmt: skip
 
 
@@ -68,7 +68,8 @@ def _matching_all(ref):
         kw = {"one_off": band} if item.recurrence in ("one_off", "both") else {}
         if item.recurrence in ("recurring", "both"):
             kw["recurring"] = band
-        out.append(rec(item.keys[0], item.payers[0], **kw))
+        effort = item.effort_types[0] if item.effort_types else "documentation"
+        out.append(rec(item.keys[0], item.payers[0], effort=effort, **kw))
     return out
 
 
@@ -186,3 +187,43 @@ def test_unfilled_fields_fail_loading(tmp_path, corpus):
 
 def test_the_reference_lives_under_evals_only():
     assert REFERENCE_PATH.is_relative_to(REPO_ROOT / "evals")
+
+
+def test_payer_recurrence_needs_the_expected_effort_type(ref):
+    by = {i.item_id: i for i in ref.items}
+    assert by["ia05_human_oversight"].effort_types == ["human_oversight"]
+    key = by["ia05_human_oversight"].keys[0]
+    others = [r for r in _matching_all(ref) if r.provision_key != key]
+    wrong = rec(key, "deployer", recurring="medium", effort="documentation")
+    m = score_records([*others, wrong], ref)
+    assert m["items"]["ia05_human_oversight"]["payer_recurrence"] is False
+    secondary = wrong.model_copy(update={"secondary_types": ["human_oversight"]})
+    m = score_records([*others, secondary], ref)
+    assert m["items"]["ia05_human_oversight"]["payer_recurrence"] is False
+    right = rec(key, "deployer", recurring="medium", effort="human_oversight")
+    m = score_records([*others, right], ref)
+    assert m["items"]["ia05_human_oversight"]["payer_recurrence"] is True
+
+
+def test_a_recurring_item_without_expected_effort_types_fails_loading(tmp_path, corpus):
+    def unfilled(data):
+        for item in data["items"]:
+            if item["item_id"] == "ia05_human_oversight":
+                item.pop("effort_types", None)
+
+    with pytest.raises(CostReferenceError, match="ia05_human_oversight.*effort_types"):
+        load_reference(_verified(tmp_path, unfilled), corpus)
+
+
+def test_tau_b_counts_only_items_with_a_prediction(ref):
+    comparable = [i for i in ref.items if i.comparable_unit]
+    bands = ["low", "medium", "high"]
+    records = [
+        rec(i.keys[0], i.payers[0], one_off=b) for i, b in zip(comparable[:3], bands, strict=True)
+    ]
+    m = score_records(records, ref)
+    assert m["rank_n"] == 3
+    out = score_repetitions({1: records, 2: records[:2]}, ref)
+    assert out["rank_n"] == {"min": 2, "max": 3, "values": [3, 2]}
+    text = format_report(out, header={"reference_sha": "abc", "backend": "api"})
+    assert "n = 2-3" in text

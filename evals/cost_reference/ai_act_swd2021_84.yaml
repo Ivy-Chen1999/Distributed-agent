@@ -23,6 +23,10 @@ notes: >-
   post-market monitoring and incident reporting (Art 61-62), importer, distributor and
   authorised-representative duties (Art 25-28), most user duties beyond oversight (Art 29),
   sandboxes and SME measures (Art 53-55), penalties (Art 71) and codes of conduct (Art 69).
+  effort_types (recurring items only) is our reading of the kind of effort the IA prices, not
+  IA text: human oversight is human_oversight, user documentation is documentation, the
+  authorities' staff is new_process or assessment. payer_recurrence_agreement needs a matching
+  record whose primary effort type is one of them.
 items:
   - item_id: ia01_data
     label: Compliance costs regarding data, including risk assessment and testing
@@ -84,6 +88,7 @@ items:
     payer: deployer
     payers: [deployer]
     recurrence: recurring
+    effort_types: [human_oversight]
     figure_text: EUR 5 000-8 000 a year per application (about 0.1 FTE); Table 8b gives EUR 7 764
     eur_low: 5000
     eur_high: 8000
@@ -98,6 +103,7 @@ items:
     payer: deployer
     payers: [deployer]
     recurrence: recurring
+    effort_types: [documentation]
     figure_text: negligible (relies on in-built use logs installed by the provider)
     eur_low: null
     eur_high: null
@@ -138,6 +144,7 @@ items:
     payer: member_state
     payers: [member_state, national_competent_authority, market_surveillance_authority, notifying_authority]
     recurrence: recurring
+    effort_types: [new_process, assessment]
     figure_text: 1-25 FTE per Member State
     fte_low: 1
     fte_high: 25
@@ -151,6 +158,7 @@ items:
     payer: union
     payers: [commission, board, ai_office, union_institutions]
     recurrence: recurring
+    effort_types: [new_process]
     figure_text: 10 FTE at EU level (§6.2) or 5 FTE (Table 5)
     fte_low: 5
     fte_high: 10
