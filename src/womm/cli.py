@@ -66,6 +66,10 @@ examples:
   womm eval --split val --local
   womm eval --baseline
   womm eval --split val --repetitions 6 --formal   # R34 noise run (api backend only)
+  womm calibrate sample --sv sv_761d872bb18e --report runs/eval_X.json --n 30 --seed 1 \
+      --annotator alice --annotator bob --out .cache/calibration/2026-10
+  womm calibrate score --dir .cache/calibration/2026-10 --record
+  womm noise report --report runs/eval_X.json --holdout-cases 8 --holdout-proposals 8 --record
 """
 
 _RUN_EXIT = {
@@ -667,6 +671,122 @@ async def cmd_evolve_diffcheck(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+# ----------------------------------------------------------------------------- calibration
+
+
+def _resolve_sv(ref: str) -> SystemVersion:
+    """A SystemVersion file, or a version id found among ``system_versions/*.yaml``."""
+    path = Path(ref)
+    if path.suffix in (".yaml", ".yml") and path.is_file():
+        return load_system_version(path, REPO_ROOT)
+    for candidate in sorted((REPO_ROOT / "system_versions").glob("*.yaml")):
+        try:
+            sv = load_system_version(candidate, REPO_ROOT)
+        except Exception:  # noqa: BLE001 - an unrelated broken file must not block the lookup
+            continue
+        if sv.version_id == ref:
+            return sv
+    raise UsageError(f"no system version {ref} under system_versions/ (pass its YAML file, or "
+                     "write an archived one with `womm evolve materialize`)")  # fmt: skip
+
+
+async def cmd_calibrate_sample(args: argparse.Namespace) -> int:
+    """Draw (dossier, expected impact) pairs for a blind coverage-judge calibration."""
+    from womm.eval import judge_calibration as jc
+    from womm.eval.evaluators import judge_version
+
+    sv = _resolve_sv(args.sv)
+    cases = {c.case_id: c for c in load_all_golden(Path(args.golden_dir))}
+    try:
+        summary = jc.write_sample(
+            Path(args.out), system_version=sv.version_id, judge_version=judge_version(sv),
+            reports=[Path(r) for r in args.report], cases=cases,
+            runs_dirs=[Path(args.runs_dir)], n=args.n, seed=args.seed,
+            annotators=args.annotator or ["annotator1"],
+        )  # fmt: skip
+    except jc.CalibrationError as exc:
+        raise UsageError(str(exc)) from None
+    pop = summary["population"]
+    text = (f"{summary['pairs']} pairs ({summary['judge_covered']} judge-covered, "
+            f"{summary['judge_missed']} judge-missed) from {summary['cases']} case(s); "
+            f"population {pop['pairs']} pairs, judge covered rate "
+            f"{pop['natural_covered_rate']:.1%}\n"
+            f"wrote {summary['out']}: send each annotator sheet_<name>.md and "
+            f"answers_<name>.yaml; keep {jc.KEY_FILE} private")  # fmt: skip
+    emit(args, summary, text)
+    return EXIT_OK
+
+
+async def cmd_calibrate_score(args: argparse.Namespace) -> int:
+    """Agreement of the coverage judge with the annotators; --record appends the aggregate."""
+    from womm.eval import judge_calibration as jc
+    from womm.evolve import promotion as pm
+
+    directory = Path(args.dir)
+    try:
+        key = json.loads((directory / jc.KEY_FILE).read_text(encoding="utf-8"))
+        answers = jc.read_answers(directory, set(key["pairs"]))
+    except FileNotFoundError:
+        raise UsageError(f"no {jc.KEY_FILE} in {directory}: run `womm calibrate sample`") from None
+    except jc.CalibrationError as exc:
+        raise UsageError(str(exc)) from None
+    result = jc.score(key, answers)
+    text = jc.format_result(result)
+    if args.record:
+        if problems := jc.record_problems(result):
+            raise UsageError("not recorded: " + "; ".join(problems))
+        record = jc.calibration_record(result, dt.date.today().isoformat())
+        try:
+            pm.append_records(Path(args.records), "judge_calibrations", [record])
+        except pm.GateRefused as exc:
+            raise UsageError(str(exc)) from None
+        result["recorded"] = record
+        text += f"\nrecorded in {args.records}; commit it"
+    emit(args, result, text)
+    return EXIT_OK
+
+
+async def cmd_noise_report(args: argparse.Namespace) -> int:
+    """R34 run-to-run noise and the holdout MDD; --record appends both records."""
+    from womm.eval import noise_report as nr
+    from womm.eval.run_eval import read_report
+    from womm.evolve import promotion as pm
+
+    report = read_report(Path(args.report))
+    try:
+        policy, _ = pm.load_policy(Path(args.policy))
+    except pm.GateRefused as exc:
+        raise UsageError(str(exc)) from None
+    repetitions = args.repetitions or policy.repetitions
+    try:
+        result = nr.noise_report(
+            report, repetitions=repetitions, n_cases=args.holdout_cases,
+            n_proposals=args.holdout_proposals, icc=args.icc, alpha=args.alpha, power=args.power,
+        )  # fmt: skip
+    except ValueError as exc:
+        raise UsageError(str(exc)) from None
+    text = nr.format_report(result, expected_gain=policy.expected_gain)
+    if repetitions != policy.repetitions:
+        text += (f"\nnote: {repetitions} repetitions, the policy runs {policy.repetitions}; the "
+                 "gate ignores an MDD report for other repetitions")  # fmt: skip
+    if not policy.signed:
+        text += "\nnote: the promotion policy is not signed yet"
+    if args.record:
+        if result["formal_problems"]:
+            raise UsageError("not recorded: " + "; ".join(result["formal_problems"]))
+        noise_run, mdds = nr.records_for(result, dt.date.today().isoformat())
+        try:
+            pm.append_records(Path(args.records), "formal_noise_runs", [noise_run])
+            if mdds:
+                pm.append_records(Path(args.records), "mdd_reports", mdds)
+        except pm.GateRefused as exc:
+            raise UsageError(str(exc)) from None
+        result["recorded"] = {"formal_noise_runs": [noise_run], "mdd_reports": mdds}
+        text += f"\nrecorded 1 noise run and {len(mdds)} MDD report(s) in {args.records}; commit it"
+    emit(args, result, text)
+    return EXIT_OK
+
+
 def build_parser() -> argparse.ArgumentParser:
     settings = load_settings()
     common = argparse.ArgumentParser(add_help=False)
@@ -809,7 +929,53 @@ def build_parser() -> argparse.ArgumentParser:
         help="gate decisions from the sealed holdout audit (local; needs HOLDOUT_DATABASE_URL)",
     )  # fmt: skip
     p_show.add_argument("candidate")
+    _add_calibration_parsers(sub, common)
     return parser
+
+
+def _add_calibration_parsers(sub: Any, common: argparse.ArgumentParser) -> None:
+    from womm.eval.golden import GOLDEN_DIR
+    from womm.evolve.promotion import POLICY_PATH, RECORDS_PATH
+
+    p_cal = sub.add_parser("calibrate", help="coverage-judge calibration (train/val only)")
+    cal = p_cal.add_subparsers(dest="calibrate_cmd", required=True)
+    p_sample = cal.add_parser(
+        "sample", parents=[common],
+        help="draw blind (dossier, expected impact) pairs and write labeling sheets",
+    )  # fmt: skip
+    p_sample.add_argument("--sv", required=True, help="version id or YAML file of the judge's SV")
+    p_sample.add_argument("--report", action="append", required=True,
+                          help="train/val eval report from `womm eval` (repeatable)")  # fmt: skip
+    p_sample.add_argument("--n", type=int, default=30, help="pairs to draw (default 30)")
+    p_sample.add_argument("--seed", type=int, required=True)
+    p_sample.add_argument("--annotator", action="append",
+                          help="annotator name; one sheet each (repeatable)")  # fmt: skip
+    p_sample.add_argument("--out", required=True, help="e.g. .cache/calibration/<name>/")
+    p_sample.add_argument("--golden-dir", default=str(GOLDEN_DIR), help=argparse.SUPPRESS)
+    p_score = cal.add_parser("score", parents=[common], help="judge agreement with annotators")
+    p_score.add_argument("--dir", required=True, help="the `calibrate sample --out` directory")
+    p_score.add_argument("--record", action="store_true",
+                         help="append a judge_calibrations record (aggregates only)")  # fmt: skip
+    p_score.add_argument("--records", default=str(RECORDS_PATH), help=argparse.SUPPRESS)
+    p_noise = sub.add_parser("noise", help="R34 noise and minimum detectable delta")
+    noise = p_noise.add_subparsers(dest="noise_cmd", required=True)
+    p_nrep = noise.add_parser("report", parents=[common],
+                              help="noise SD and holdout MDD from a formal noise run")  # fmt: skip
+    p_nrep.add_argument("--report", required=True, help="the R34 formal eval report")
+    p_nrep.add_argument("--holdout-cases", type=int, required=True,
+                        help="sealed holdout case count")  # fmt: skip
+    p_nrep.add_argument("--holdout-proposals", type=int, required=True,
+                        help="sealed holdout proposal count")  # fmt: skip
+    p_nrep.add_argument("--icc", type=float, default=1.0,
+                        help="intra-proposal correlation (default 1.0, conservative)")  # fmt: skip
+    p_nrep.add_argument("--alpha", type=float, default=0.05)
+    p_nrep.add_argument("--power", type=float, default=0.8)
+    p_nrep.add_argument("--repetitions", type=int,
+                        help="per holdout case and arm (default: the policy's)")  # fmt: skip
+    p_nrep.add_argument("--record", action="store_true",
+                        help="append formal_noise_runs and mdd_reports records")  # fmt: skip
+    p_nrep.add_argument("--policy", default=str(POLICY_PATH), help=argparse.SUPPRESS)
+    p_nrep.add_argument("--records", default=str(RECORDS_PATH), help=argparse.SUPPRESS)
 
 
 HANDLERS = {
@@ -834,6 +1000,15 @@ EVOLVE_HANDLERS = {
 }
 
 
+CALIBRATE_HANDLERS = {"sample": cmd_calibrate_sample, "score": cmd_calibrate_score}
+NOISE_HANDLERS = {"report": cmd_noise_report}
+GROUPS = {
+    "evolve": ("evolve_cmd", EVOLVE_HANDLERS),
+    "calibrate": ("calibrate_cmd", CALIBRATE_HANDLERS),
+    "noise": ("noise_cmd", NOISE_HANDLERS),
+}
+
+
 # `womm evolve` subcommands allowed to run with the holdout URL set: only the promotion gate
 # (U7) and the local reader of its audit. Every other evolve command is Improvement-Planner side.
 HOLDOUT_SIDE_EVOLVE = frozenset({"promote", "show"})
@@ -852,7 +1027,11 @@ def _refuse_holdout_for_planner_side(args: argparse.Namespace) -> None:
 def main(argv: list[str] | None = None) -> int:
     load_dotenv(REPO_ROOT / ".env", override=False)
     args = build_parser().parse_args(argv)
-    handler = EVOLVE_HANDLERS[args.evolve_cmd] if args.cmd == "evolve" else HANDLERS[args.cmd]
+    if args.cmd in GROUPS:
+        dest, table = GROUPS[args.cmd]
+        handler = table[getattr(args, dest)]
+    else:
+        handler = HANDLERS[args.cmd]
     try:
         _refuse_holdout_for_planner_side(args)
         return asyncio.run(handler(args))
