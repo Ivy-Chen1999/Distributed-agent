@@ -16,7 +16,8 @@ saved run (``runs/<run_id>.json``, for the finding and the experts touching a pr
   feedback id, so an import is idempotent;
 - ``missing_impact`` and ``weak_evidence`` also become Failure Memory events of the human kinds
   ``analyst_missing_impact`` / ``analyst_weak_evidence`` (``source = human``), aggregated with
-  the judge's events by ``(kind, category, owner)``;
+  the judge's events by ``(kind, category, owner)``. They are shown to people (``womm evolve
+  failures``); the Improvement Planner's reflective records leave them out;
 - ``missing_impact`` on a **train** run is also a golden-case candidate (a val run's never is:
   val is for selection). It is never added to a golden case: it is ``queued`` until
   ``stage_candidates`` appends it to the case's open train draft as a ``possibly_missing`` item

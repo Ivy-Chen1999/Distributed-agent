@@ -206,10 +206,11 @@ uv run womm evolve failures --sv <version_id> --from-db             # source col
 
 - Every mark is stored in `analyst_feedback`, keyed by its LangSmith feedback id.
 - `missing_impact` and `weak_evidence` also become Failure Memory events of the kinds
-  `analyst_missing_impact` and `analyst_weak_evidence` (source `human`). The Improvement Planner
-  sees them in its patterns. They never satisfy the new-expert trigger, which takes the judge's
-  `missed_impact` kind only, so hand-entered feedback cannot force a topology proposal (honesty
-  rules above).
+  `analyst_missing_impact` and `analyst_weak_evidence` (source `human`). They are for people:
+  `womm evolve failures` lists them (source column `human`). The Improvement Planner does not
+  see them: its reflective records take the judge's events and patterns only. They never
+  satisfy the new-expert trigger either, which takes the judge's `missed_impact` kind only, so
+  hand-entered feedback cannot force a topology proposal (honesty rules above).
 - `missing_impact` is never added to a golden case directly, and only a mark on a **train** run
   becomes a golden candidate (val is for selection; an analyst must not change what it scores).
   `stage` appends it to the case's open train draft in `evals/golden/drafts/` as a pending

@@ -285,8 +285,18 @@ class WommAdapter:
         self, sv: SystemVersion, trajectories: list[dict], components: list[str]
     ) -> dict[str, list[dict]]:
         scope = population(self.evaluator)
-        events = await self.view.failure_events(sv.version_id, PROPOSAL_SPLITS, **scope)
-        patterns = await self.view.failure_patterns(sv.version_id, PROPOSAL_SPLITS, **scope)
+        # The judge's events only: analyst marks (source human) are shown to people (`womm
+        # evolve failures`), never to the Improvement Planner (U11 runbook).
+        events = [
+            e
+            for e in await self.view.failure_events(sv.version_id, PROPOSAL_SPLITS, **scope)
+            if e.source == "judge"
+        ]
+        patterns = [
+            p
+            for p in await self.view.failure_patterns(sv.version_id, PROPOSAL_SPLITS, **scope)
+            if p["source"] == "judge"
+        ]
         cases = self.view.cases("train")
         out: dict[str, list[dict]] = {c: [] for c in components}
         for traj in trajectories:
