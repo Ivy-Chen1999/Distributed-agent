@@ -181,3 +181,80 @@ def test_cost_late_added_refuses_a_proposal_sweep(cost_version, tmp_path, capsys
     directory = _sweep(cost_version, tmp_path, capsys)
     assert cli.main(["cost", "late-added", "--sweep", directory]) == cli.EXIT_USAGE
     assert "not the proposal" in capsys.readouterr().err
+
+
+async def _saved_run(tmp_path, scenario, name, script):
+    from womm.data.fixtures import load_fixture
+    from womm.decisions.stub import StubDecisionService
+    from womm.graph.build import run_scenario
+
+    from ..graph.test_cost_node import _fake
+
+    result = await run_scenario(
+        scenario, sv=_fake("v1.0-cost.yaml", cost=True), fixture=load_fixture(),
+        backends={"fake": FakeBackend(script)}, decisions=StubDecisionService(),
+        code_identity=CodeIdentity(git_sha="t", dirty=False), run_id=name,
+    )  # fmt: skip
+    path = tmp_path / f"{name}.json"
+    path.write_text(result.model_dump_json())
+    return path, result
+
+
+def _penalties_script():
+    empty = {"impacts": [], "chains": [], "disagreements": [], "open_questions": [],
+             "discarded": []}  # fmt: skip
+    area = {"provision_keys": ["ai_act/penalties/penalties"], "question": "q", "rationale": "r"}
+    return {
+        "planner": [{"focus_areas": [area]}],
+        "expert/legal": [{"findings": []}],
+        "expert/fiscal": [{"findings": []}],
+        "expert/stakeholder": [{"findings": []}],
+        "synthesis": [empty],
+        "cost": [fake_cost_batch] * 5,
+    }
+
+
+async def test_cost_check_refuses_a_run_on_the_adopted_act(tmp_path, capsys):
+    path, result = await _saved_run(
+        tmp_path, "demo_penalties_amended", "run_final", _penalties_script()
+    )
+    assert {r.records_version for r in result.dossier.costs.records} == {"reg2024_1689"}
+    ref = _verified_reference(tmp_path)
+    args = ["cost", "check", "--runs", str(path), "--reference", str(ref),
+            "--runs-dir", str(tmp_path)]  # fmt: skip
+    assert await __import__("asyncio").to_thread(cli.main, args) == cli.EXIT_USAGE
+    err = capsys.readouterr().err
+    assert "reg2024_1689" in err and "com2021_206" in err
+    assert not (tmp_path / "cost_check").exists()
+
+
+async def test_cost_check_refuses_a_run_without_cost_records(tmp_path, capsys):
+    from ..graph.test_cost_node import SCENARIO
+
+    path, result = await _saved_run(tmp_path, SCENARIO, "run_empty", _penalties_script())
+    data = json.loads(path.read_text())
+    data["dossier"]["costs"]["records"] = []
+    path.write_text(json.dumps(data))
+    ref = _verified_reference(tmp_path)
+    args = ["cost", "check", "--runs", str(path), "--reference", str(ref),
+            "--runs-dir", str(tmp_path)]  # fmt: skip
+    assert await __import__("asyncio").to_thread(cli.main, args) == cli.EXIT_USAGE
+    assert "no cost records" in capsys.readouterr().err
+
+
+async def test_cost_check_names_an_unknown_scenario_as_a_usage_error(tmp_path, capsys):
+    from womm.data.fixtures import load_fixture
+
+    from ..graph.test_cost_node import SCENARIO, _script
+
+    path, _ = await _saved_run(
+        tmp_path, SCENARIO, "run_x", _script(load_fixture(), [fake_cost_batch] * 5)
+    )
+    data = json.loads(path.read_text())
+    data["scenario_id"] = "no_such_scenario"
+    path.write_text(json.dumps(data))
+    ref = _verified_reference(tmp_path)
+    args = ["cost", "check", "--runs", str(path), "--reference", str(ref),
+            "--runs-dir", str(tmp_path)]  # fmt: skip
+    assert await __import__("asyncio").to_thread(cli.main, args) == cli.EXIT_USAGE
+    assert "no_such_scenario" in capsys.readouterr().err

@@ -200,6 +200,8 @@ uv run womm cost check --sweep runs/cost_sweeps/<sv id>/com2021_206/<code>
 uv run womm cost late-added --sweep runs/cost_sweeps/<sv id>/reg2024_1689/<code>
 
 # Cheap in-run check next to case 01: score only the IA items whose keys the scenario has.
+# --runs takes the saved run JSON files `womm run` writes; every run must carry cost records of
+# the proposal (com2021_206). A run on the adopted or consolidated text is refused.
 uv run womm run eval_provider_compliance_costs --system-version system_versions/v1.0-cost.yaml
 uv run womm cost check --runs runs/<run id>.json [runs/<run id 2>.json ...]
 ```

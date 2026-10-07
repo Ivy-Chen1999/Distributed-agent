@@ -860,9 +860,13 @@ async def cmd_cost_sweep(args: argparse.Namespace) -> int:
     return EXIT_FAILED if progress.failed or progress.stopped_at_budget else EXIT_OK
 
 
-def _run_records(paths: list[str]) -> tuple[dict[int, list], set[str], str, str]:
-    """Cost records of saved runs (``womm run`` output), one repetition per run, plus the union
-    of their scenario keys, the system version and the cost backend."""
+def _run_records(
+    paths: list[str], proposal_version: str
+) -> tuple[dict[int, list], set[str], str, str]:
+    """Cost records of saved runs (the JSON ``womm run`` writes under runs/), one repetition per
+    run, plus the union of their scenario keys, the system version and the cost backend. Every
+    run must carry cost records of ``proposal_version`` (the text the IA assessed)."""
+    from womm.data.fixtures import FixtureError
     from womm.data.fixtures import load_fixture as _fixture
 
     reps: dict[int, list] = {}
@@ -873,12 +877,25 @@ def _run_records(paths: list[str]) -> tuple[dict[int, list], set[str], str, str]
         try:
             run = RunResult.model_validate_json(Path(path).read_text(encoding="utf-8"))
         except (OSError, ValidationError) as exc:
-            raise UsageError(f"{path} is not a saved run: {exc}") from None
+            raise UsageError(f"{path} is not a saved run JSON: {exc}") from None
         if run.dossier is None or run.dossier.costs is None:
             raise UsageError(f"{path}: the run has no cost section (not a cost-enabled version)")
-        reps[n] = list(run.dossier.costs.records)
-        keys |= {r.provision_key for r in run.dossier.costs.records}
-        keys |= set(_fixture().scenario(run.scenario_id).provision_keys)
+        records = list(run.dossier.costs.records)
+        if not records:
+            raise UsageError(f"{path}: the run has no cost records to score")
+        other = sorted({r.records_version for r in records} - {proposal_version})
+        if other:
+            raise UsageError(
+                f"{path}: cost records of {', '.join(other)}; the IA assessed "
+                f"{proposal_version}, so only runs on the proposal are scored"
+            )
+        try:
+            scenario = _fixture().scenario(run.scenario_id)
+        except FixtureError as exc:
+            raise UsageError(f"{path}: {exc}") from None
+        reps[n] = records
+        keys |= {r.provision_key for r in records}
+        keys |= set(scenario.provision_keys)
         versions.add(run.system_version)
         backends |= {u.backend for u in run.usage if u.role == "cost"}
     return reps, keys, ",".join(sorted(versions)), ",".join(sorted(backends)) or "unknown"
@@ -910,7 +927,7 @@ async def cmd_cost_check(args: argparse.Namespace) -> int:
         reps, sv_id, backend = sweep.repetitions, sweep.system_version, sweep.cost_backend
         source = str(sweep.directory)
     else:
-        reps, restrict, sv_id, backend = _run_records(args.runs)
+        reps, restrict, sv_id, backend = _run_records(args.runs, ref.proposal_version)
         source = ", ".join(args.runs)
     out = cc.score_repetitions(reps, ref, restrict_keys=restrict)
     header = {
@@ -1188,7 +1205,10 @@ def _add_calibration_parsers(sub: Any, common: argparse.ArgumentParser) -> None:
                               help="R6: score cost records against SWD(2021) 84")  # fmt: skip
     source = p_check.add_mutually_exclusive_group(required=True)
     source.add_argument("--sweep", help="a `womm cost sweep` directory of the proposal")
-    source.add_argument("--runs", nargs="+", help="saved runs of a cost-enabled version")
+    source.add_argument(
+        "--runs", nargs="+",
+        help="saved run JSON files (womm run output) of a cost-enabled version on the proposal",
+    )  # fmt: skip
     p_check.add_argument("--reference", default=str(COST_REFERENCE), help=argparse.SUPPRESS)
     p_late = cost.add_parser(
         "late-added", parents=[common], help="R7: costs the ex-ante IA could not see (not scored)"
