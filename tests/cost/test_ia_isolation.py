@@ -1,18 +1,23 @@
 """IA isolation for the cost path (EU cost plan U8; parent R11, R24).
 
 The impact assessment, the IA cost reference and cost scores never reach any agent: no graph,
-cost or Planner-side module imports the cost check, no prompt or rendered cost input carries an
-IA figure, and the coverage judge never sees the cost section.
+cost or Planner-side module imports the cost check or reads under evals/ (two allow-listed
+Planner-side config reads aside), no prompt, rendered cost batch or fake-run LLM input carries
+an IA figure or identifier (canaries derived from the reference file), and the coverage judge
+never sees the cost section.
 """
 
+import ast
 import re
 import shutil
 from pathlib import Path
 
 import pytest
+import yaml
 
 import womm
 from womm.config import REPO_ROOT
+from womm.cost.categories import BAND_EDGES_EUR
 from womm.cost.estimate import render_batch
 from womm.cost.sweep import plan_sweep
 from womm.data.corpus import load_default_corpus
@@ -24,22 +29,84 @@ from ..evolve.test_planner_boundary import HOLDOUT_SIDE, _imports, _module_file
 SRC = Path(womm.__file__).parent
 COST_CHECK = "womm.eval.cost_check"
 
-# SWD(2021) 84 figures (EU cost plan, IA figure audit): none may appear in any agent input.
-CANARIES = {
-    "2 763": r"2[\s,.  ]?763",
-    "4 390": r"4[\s,.  ]?390",
-    "3 627": r"3[\s,.  ]?627",
-    "10 733": r"10[\s,.  ]?733",
-    "7 764": r"7[\s,.  ]?764",
-    "170 000": r"170[\s,.  ]?000",
-    "1-25 FTE": r"1\s*[-–—]\s*25\s*FTE",
+# Canaries are derived from the IA cost reference itself (EU cost plan, IA figure audit), so a
+# new item or figure there is a new canary here: every eur_* / fte_* value and range in common
+# renderings, the figure_text clauses, the numbers in figure_text / inconsistency / notes, the
+# IA's identifiers and its section and table labels. None may appear in any agent input.
+# The band edges (EUR 1 000, 5 000, 25 000) are the system's own ordinal scale, stated in the
+# cost prompt; a round IA figure equal to an edge is a canary in its ranges and clauses only.
+BAND_EDGES = {float(e) for edges in BAND_EDGES_EUR.values() for e in edges if e}
+SEP = r"[\s,.'\u00a0\u202f]?"  # thousands separators: space, comma, dot, apostrophe, nbsp
+DASH = r"\s*(?:-|–|—|to)\s*"
+CURRENCY_BEFORE = r"(?:EUR|€|euros?)\s*"
+IA_LABELS = {
+    "SWD(2021) 84": r"SWD\s*\(\s*2021\s*\)\s*0*84\b",
+    "Standard Cost Model": r"standard\s+cost\s+model",
+    "IA section §6.x": r"§\s*6\.\d",
+    "IA Table 5/8": r"\bTable\s+(?:5|8[ab]?)\b",
+    "IA Annex 3/4": r"\bAnnex\s+[34]\b",
 }
 
 
+def _number(value: float) -> str:
+    """A figure in any thousands rendering: 2 763, 2,763, 2.763, 2763 (and 0.1 as is)."""
+    if value != int(value):
+        return re.escape(f"{value:g}")
+    digits = str(int(value))
+    groups = []
+    while digits:
+        groups.insert(0, digits[-3:])
+        digits = digits[:-3]
+    return SEP.join(groups)
+
+
+def _bounded(pattern: str) -> str:
+    """No digit (or separator and digit) on either side, so 12 763 or 5 000 000 do not match."""
+    return rf"(?<!\d)(?<!\d[\s,.'\u00a0\u202f]){pattern}(?![\s,.'\u00a0\u202f]?\d)"
+
+
+def _clauses(text: str) -> list[str]:
+    parts = re.split(r"[;,()]", text)
+    return [p.strip() for p in parts if len(p.split()) >= 4]
+
+
+def derive_canaries(path: Path = REFERENCE_PATH) -> dict[str, str]:
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    out: dict[str, str] = dict(IA_LABELS)
+    texts = [data.get("notes") or ""]
+    for item in data["items"]:
+        texts += [item.get("figure_text") or "", item.get("inconsistency") or ""]
+        for clause in _clauses(item.get("figure_text") or ""):
+            words = r"\s+".join(re.escape(w) for w in clause.split())
+            out[f"{item['item_id']} text: {clause}"] = words
+        for kind, suffix in (("eur", ""), ("fte", r"\s*FTE")):
+            low, high = item.get(f"{kind}_low"), item.get(f"{kind}_high")
+            for value in {v for v in (low, high) if v is not None}:
+                if kind == "fte":
+                    out[f"{value:g} FTE"] = _bounded(_number(value)) + suffix
+                elif value % 1000:
+                    out[f"EUR {value:g}"] = _bounded(_number(value))
+                elif value not in BAND_EDGES:  # a round figure counts with a currency mark only
+                    out[f"EUR {value:g}"] = CURRENCY_BEFORE + _bounded(_number(value))
+            if low is not None and high is not None and low != high:
+                out[f"{low:g}-{high:g}{' FTE' if suffix else ''}"] = (
+                    _bounded(_number(low)) + DASH + _bounded(_number(high)) + suffix
+                )
+    for text in texts:  # numbers written with separators in the reference's own words
+        for raw in re.findall(r"\d{1,3}(?:[ \u00a0]\d{3})+", text):
+            value = float(raw.replace(" ", "").replace("\u00a0", ""))
+            if value in BAND_EDGES:
+                continue
+            pattern = _bounded(_number(value))
+            out.setdefault(f"EUR {value:g}", pattern if value % 1000 else CURRENCY_BEFORE + pattern)
+    return out
+
+
+CANARIES = derive_canaries()
+
+
 def canaries_in(text: str) -> list[str]:
-    return [
-        name for name, pattern in CANARIES.items() if re.search(rf"(?<!\d){pattern}(?!\d)", text)
-    ]
+    return [name for name, pattern in CANARIES.items() if re.search(pattern, text, re.I)]
 
 
 # ---------------------------------------------------------------- import boundary
@@ -124,27 +191,57 @@ def test_an_added_from_import_in_a_planner_module_is_caught(tmp_path):
 # ---------------------------------------------------------------- content canaries
 
 
+def test_the_canaries_cover_every_reference_figure():
+    data = yaml.safe_load(REFERENCE_PATH.read_text(encoding="utf-8"))
+    for item in data["items"]:
+        for field in ("eur_low", "eur_high", "fte_low", "fte_high"):
+            if item.get(field) is not None:
+                value = item[field]
+                named = f"{value:g} FTE" in CANARIES or f"EUR {value:g}" in CANARIES
+                ranged = any(k.startswith(f"{value:g}-") or f"-{value:g}" in k for k in CANARIES)
+                assert named or (value in BAND_EDGES and ranged), (item["item_id"], field)
+    assert {"EUR 7764", "EUR 170000", "1-25 FTE", "5000-8000"} <= set(CANARIES)
+
+
 def test_no_prompt_file_carries_an_ia_figure():
-    for path in sorted((REPO_ROOT / "prompts").rglob("*.md")):
-        assert canaries_in(path.read_text(encoding="utf-8")) == [], path
+    for path in sorted((REPO_ROOT / "prompts").rglob("*")):
+        if path.is_file():
+            assert canaries_in(path.read_text(encoding="utf-8")) == [], path
 
 
-@pytest.mark.parametrize("text", ["EUR 2 763 per application", "about €10,733", "1–25 FTE"])
-def test_the_canary_catches_an_ia_figure_in_any_spacing(text):
-    assert canaries_in(text)
+@pytest.mark.parametrize(
+    "text",
+    [
+        "EUR 2 763 per application", "about €10,733", "1–25 FTE", "2.763", "2763 euro",
+        "EUR 5,000-8,000 a year", "5 000 to 8 000", "€ 170.000", "10 FTE at EU level",
+        "EUR 3 000–7 500", "see SWD (2021) 84", "the Standard Cost Model", "Table 8b",
+        "Part 1 §6.1.3", "Annex 3", "EUR 7 764", "1 720 hours", "EUR 2 000",
+        "aggregate EUR 100-500 million for high-risk applications",
+        "relies on in-built use logs installed by the provider",
+    ],
+)  # fmt: skip
+def test_the_canary_catches_an_ia_figure_in_any_rendering(text):
+    assert canaries_in(text), text
 
 
 def test_the_canary_ignores_other_numbers():
-    assert canaries_in("Article 27(63) and EUR 1 000 to 5 000; 12 763 records") == []
+    assert canaries_in("medium: EUR 5 000 to below 25 000; negligible: below EUR 1 000") == []
+    text = (
+        "Article 27(63), Annex IV, Table of contents; 12 763 records; fines up to EUR 35 000 000 "
+        "or 7 % of turnover; 2 years; 5 000 000; within 15 days"
+    )
+    assert canaries_in(text) == []
 
 
-def test_every_rendered_cost_batch_of_both_versions_is_canary_free():
+def test_every_rendered_cost_batch_of_every_version_is_canary_free():
     from womm.models.system_version import load_system_version
 
     sv = load_system_version(REPO_ROOT / "system_versions" / "v1.0-cost.yaml", REPO_ROOT)
     corpus = load_default_corpus()
     assert canaries_in(sv.prompt_text(sv.spec.cost)) == []
-    for version in ("com2021_206", "reg2024_1689"):
+    versions = [v.version_id for v in corpus.index.versions]
+    assert {"com2021_206", "reg2024_1689"} <= set(versions)
+    for version in versions:
         for batch in plan_sweep(sv, corpus, version).batches:
             assert canaries_in(render_batch(batch)) == [], (version, batch.batch_id)
 
@@ -202,3 +299,106 @@ def test_cost_reports_and_the_reference_stay_out_of_agent_inputs():
         path = _module_file(SRC, mod)
         text = path.read_text(encoding="utf-8") if path else ""
         assert "cost_reference" not in text and "cost_check" not in text, mod
+
+
+# ---------------------------------------------------------------- reference-file boundary
+
+# Agent-side modules never read under evals/. The only exceptions are Planner-side modules that
+# read fixed, non-IA configuration or a scoring reference of their own, each named with the one
+# evals/ location it may build. Nothing agent-side may name the IA cost reference.
+EVALS_ALLOWED = {
+    # the proposers' fixed prompts and models (never an IA figure, never a cost score)
+    "womm.evolve.proposers": {"evals", "evolution.yaml"},
+    # the diff-regression reference the gate scores against (a golden case, not the IA)
+    "womm.evolve.diff_regression": {"evals", "diff_regression", "demo_penalties_amended.yaml"},
+}
+EVALS_NAMES = ("REFERENCE_PATH", "IA_INDEX_PATH", "GOLDEN_DIR", "POLICY_PATH", "RECORDS_PATH")
+
+
+def _docstrings(tree: ast.AST) -> set[int]:
+    out = set()
+    for node in ast.walk(tree):
+        kinds = (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+        first = node.body[0] if isinstance(node, kinds) and node.body else None
+        if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant):
+            out.add(id(first.value))
+    return out
+
+
+def evals_reads(path: Path) -> list[str]:
+    """String constants (docstrings aside) that build a path under evals/ or name the IA cost
+    reference, and imported evaluation-file locations."""
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    docs = _docstrings(tree)
+    out = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Constant) and isinstance(node.value, str) and id(node) not in docs:
+            v = node.value
+            if v == "evals" or "evals/" in v or "cost_reference" in v or "swd2021" in v.lower():
+                out.append(v)
+        if isinstance(node, ast.ImportFrom):
+            out += [a.name for a in node.names if a.name in EVALS_NAMES]
+    return out
+
+
+def _closure(root: Path, starts: list[str]) -> set[str]:
+    seen: set[str] = set()
+    queue = list(starts)
+    while queue:
+        mod = queue.pop()
+        if mod not in seen:
+            seen.add(mod)
+            queue.extend(_imports(root, mod))
+    return seen
+
+
+def evals_violations(root: Path) -> dict[str, list[str]]:
+    out = {}
+    for mod in agent_side(root):
+        path = _module_file(root, mod)
+        found = evals_reads(path) if path else []
+        allowed = EVALS_ALLOWED.get(mod, set())
+        bad = [v for v in found if v not in allowed]
+        if bad:
+            out[mod] = bad
+    # The cost path itself (graph and cost package, and everything they import) has no
+    # exception at all.
+    cost_path = [*_modules(root, "womm.graph"), *_modules(root, "womm.cost"), "womm.cost"]
+    for mod in sorted(_closure(root, cost_path)):
+        path = _module_file(root, mod)
+        found = evals_reads(path) if path else []
+        if found or mod.startswith("womm.eval"):
+            out.setdefault(mod, []).extend(found or [mod])
+    return out
+
+
+def test_no_agent_side_module_reads_under_evals():
+    assert set(EVALS_ALLOWED) <= set(agent_side(SRC))
+    assert evals_violations(SRC) == {}
+
+
+def test_only_the_scoring_side_names_the_ia_cost_reference():
+    hits = []
+    for path in sorted(SRC.rglob("*.py")):
+        if "cost_reference" in path.read_text(encoding="utf-8"):
+            hits.append(path.relative_to(SRC).as_posix())
+    assert hits == ["eval/cost_check.py"]
+
+
+@pytest.mark.parametrize(
+    ("module", "line"),
+    [
+        ("cost/estimate.py", 'X = open("evals/cost_reference/ai_act_swd2021_84.yaml")'),
+        ("cost/payer.py", 'from womm.config import REPO_ROOT\nX = REPO_ROOT / "evals" / "x"'),
+        ("graph/cost.py", "from womm.data.ia_index import IA_INDEX_PATH  # noqa"),
+        ("evolve/proposers.py", 'X = REPO_ROOT / "evals" / "cost_reference"'),
+    ],
+)
+def test_an_added_evals_read_is_caught(tmp_path, module, line):
+    tree = tmp_path / "womm"
+    shutil.copytree(SRC, tree, ignore=shutil.ignore_patterns("__pycache__"))
+    target = tree / module
+    target.write_text(target.read_text() + "\n" + line + "\n")
+    name = "womm." + module.removesuffix(".py").replace("/", ".")
+    bad = evals_violations(tree)
+    assert name in bad or "womm.data.ia_index" in bad, bad
