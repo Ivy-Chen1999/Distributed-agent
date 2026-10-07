@@ -161,6 +161,66 @@ Before the first formal comparison, a person must also:
 
 The gate refuses, before any holdout run, whatever is missing.
 
+## Cost analysis (EU cost plan R4-R7, U9; separate from the cycle)
+
+Cost records (who pays, effort type, ordinal one-off and recurring bands, dates), the IA cost
+check (R6) and the report of costs the ex-ante IA could not see (R7). This is not part of the
+self-evolution story: the evolution base stays `v1.0-unscoped`, the cost prompt is not
+evolvable, and cost scores are never GEPA scores, `sv_metrics` rows, Failure Memory rows or
+promotion metrics. The holdout and the promotion policy are untouched.
+
+Before the first scored sweep (once):
+
+1. The user confirms the plan's Decision-context defaults (effort-type mapping, EUR band edges,
+   `not_costed`, R7 = `added` units only). Changing them later moves the goalposts.
+2. One person checks `evals/cost_reference/ai_act_swd2021_84.yaml` against SWD(2021) 84 Part 1
+   §6.1.3 and §6.2 and Part 2 Annex 3 (Table 5) and Annex 4 (about 1 hour), then sets
+   `status: verified`, `verified_by` and `verified_on` and commits it. `womm cost check` refuses
+   the file until then. Every report prints the commit sha of the reference.
+3. The user lists `v1.0-cost.yaml` and `v1.0-cost-api.yaml` in `system_versions/PROMOTIONS.md`
+   as cost-analysis candidates (not promotions).
+
+Runs (dev on `claude_code`, labelled dev-only; formal on `v1.0-cost-api` when an api key
+exists). A proposal sweep is 9 calls per repetition and a final-act sweep 17, so three
+repetitions of both are about 80 calls, a few hours on `claude_code` at parallelism 3. Start
+them in the background and poll; rerunning the same command resumes (finished batches are
+skipped, failed ones are retried). `--max-usd` caps api spend.
+
+```bash
+# Whole-version sweeps (R6 needs the proposal, R7 the adopted act).
+nohup uv run womm cost sweep --sv v1.0-cost --version com2021_206 --repetitions 3 \
+  > runs/cost_sweep_proposal.log 2>&1 &
+nohup uv run womm cost sweep --sv v1.0-cost --version reg2024_1689 --repetitions 3 \
+  > runs/cost_sweep_final.log 2>&1 &
+# Each prints its directory: runs/cost_sweeps/<sv id>/<version>/git-<sha>[-dirty-<hash>]/
+
+# R6: the five metrics with min-max over repetitions, payer bases, IA-silent costly provisions.
+uv run womm cost check --sweep runs/cost_sweeps/<sv id>/com2021_206/<code>
+# R7: records on obligations added after the proposal (first line: not scored).
+uv run womm cost late-added --sweep runs/cost_sweeps/<sv id>/reg2024_1689/<code>
+
+# Cheap in-run check next to case 01: score only the IA items whose keys the scenario has.
+uv run womm run eval_provider_compliance_costs --system-version system_versions/v1.0-cost.yaml
+uv run womm cost check --runs runs/<run id>.json [runs/<run id 2>.json ...]
+```
+
+`womm cost check` writes JSON and Markdown under `runs/cost_check/`. The console shows cost
+sections of runs made with a cost-enabled version (`WOMM_SYSTEM_VERSION=
+system_versions/v1.0-cost.yaml` for the API): the Costs tab on Run detail and the cost column
+on the pipeline. `final_vs_proposal` (explore, proposal to adopted act) and
+`demo_penalties_amended` show records added after the proposal marked; R6 and R7 reports stay
+CLI-only in v1.
+
+Honesty rules for cost results:
+
+- Record the results in the v1 progress report, labelled dev-only or formal, with the reference
+  sha and the IA figure audit's limits next to the numbers: the IA quantifies about 11 cost
+  items covering about a quarter of the proposal's duties; IA silence is not "no cost";
+  `rank_tau_b` is descriptive over five items and never a headline.
+- Recall depends on the payer fallback (rule table and inferred payers); quote the payer-basis
+  breakdown with it.
+- Nothing sums euros: bands are ordinal classes per entity and item.
+
 ## The 2026-11-20 fallback decision (R30)
 
 By **2026-11-20** decide whether the demo uses the new-expert route or falls back to a

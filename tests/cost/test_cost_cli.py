@@ -157,6 +157,25 @@ def test_cost_late_added_reports_a_final_act_sweep(cost_version, tmp_path, capsy
     assert data["repetitions"]["1"]["added_records"]
 
 
+async def test_womm_run_summary_prints_cost_coverage_and_hotspots():
+    from womm.data.fixtures import load_fixture
+    from womm.decisions.stub import StubDecisionService
+    from womm.graph.build import run_scenario
+
+    from ..graph.test_cost_node import SCENARIO, _fake, _script
+
+    fixture = load_fixture()
+    result = await run_scenario(
+        SCENARIO, sv=_fake("v1.0-cost.yaml", cost=True), fixture=fixture,
+        backends={"fake": FakeBackend(_script(fixture, [fake_cost_batch] * 5))},
+        decisions=StubDecisionService(),
+        code_identity=CodeIdentity(git_sha="t", dirty=False), run_id="run_summary",
+    )  # fmt: skip
+    text = cli.summarize(result)
+    assert "cost records=103" in text and "hotspot (one_off): ai_act/" in text
+    assert "EUR" not in text
+
+
 def test_cost_late_added_refuses_a_proposal_sweep(cost_version, tmp_path, capsys,
                                                   fake_backends):  # fmt: skip
     directory = _sweep(cost_version, tmp_path, capsys)

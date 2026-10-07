@@ -70,6 +70,9 @@ examples:
       --annotator alice --annotator bob --out .cache/calibration/2026-10
   womm calibrate score --dir .cache/calibration/2026-10 --record
   womm noise report --report runs/eval_X.json --holdout-cases 8 --holdout-proposals 8 --record
+  womm cost sweep --sv v1.0-cost --version com2021_206 --repetitions 3
+  womm cost check --sweep runs/cost_sweeps/<sv>/com2021_206/<code>
+  womm cost late-added --sweep runs/cost_sweeps/<sv>/reg2024_1689/<code>
 """
 
 _RUN_EXIT = {
@@ -127,6 +130,17 @@ def summarize(result: RunResult) -> str:
             agents = ", ".join(f.agent for f in i.findings)
             lines.append(f"  {i.impact_id}: {i.summary}  [{agents}]")
         lines.extend(f"  note: {n}" for n in d.notes)
+        if d.costs is not None:
+            c = d.costs.coverage
+            lines.append(
+                f"cost records={c.relevant}  estimated={c.estimated}  not_costed={c.not_costed}  "
+                f"not_estimated={c.not_estimated}  added_after_proposal={len(d.costs.late_added)}"
+            )
+            for h in [h for h in d.costs.hotspots if h.dimension == "provision"][:5]:
+                lines.append(
+                    f"  hotspot ({h.recurrence}): {h.value}  medium/high={h.medium_or_high}  "
+                    f"low={h.low}"
+                )
     tokens = sum(u.input_tokens + u.output_tokens for u in result.usage)
     cost = sum(u.cost_usd or 0 for u in result.usage)
     lines.append(f"llm calls={len(result.usage)}  tokens={tokens}  cost≈${cost:.3f}")
