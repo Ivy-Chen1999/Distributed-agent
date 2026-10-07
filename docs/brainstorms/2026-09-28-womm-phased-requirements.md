@@ -127,8 +127,10 @@ R16 tracing is on by default from P1.
   `docs/brainstorms/2026-10-02-next-stage-cost-and-methodology-requirements.md`. Proposed timing:
   - **v1.1** (moved from v1 on 2026-10-03, user decision): Stage A (LLM obligation enrichment, and
     the adversarial reviewer).
-  - **v1 if time allows, otherwise v1.1:** Stage B (EU-level cost estimation scored against the IA
-    cost sections).
+  - **v1** (moved into v1 on 2026-10-07, user decision; previously "v1 if time allows, otherwise
+    v1.1"): Stage B (EU-level cost estimation scored against the IA cost sections). Plan:
+    `docs/plans/2026-10-07-001-feat-eu-cost-estimation-plan.md`. The R30 demo cycle keeps priority
+    from about 2026-11-16.
   - **After v1:** Stage C (municipal organization case and VNG/PBLQ validation) and Stage D (data
     quality and generality).
 - R18. Evidence expert and Workforce expert go live (5 in total). External evidence is discovered via Exa; each item keeps its source and provenance.
