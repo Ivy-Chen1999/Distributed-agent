@@ -215,7 +215,9 @@ uv run womm evolve failures --sv <version_id> --from-db             # source col
   becomes a golden candidate (val is for selection; an analyst must not change what it scores).
   `stage` appends it to the case's open train draft in `evals/golden/drafts/` as a pending
   `human_added` candidate that records the analyst (`provenance.raised_by`); it refuses val and
-  holdout drafts. The review gate blocks publication until a reviewer decides it: it is kept
+  holdout drafts. It edits the draft in place (the counts in `stats` and the appended
+  candidates only, so reviewers' comments survive) and writes nothing if the file changed while
+  it was staging (rerun `stage`). The review gate blocks publication until a reviewer decides it: it is kept
   only as `edited`, by a reviewer other than that analyst, with `ia_section`, `ia_anchor`,
   `affected_actor`, `mechanism` and a valid `category` filled in. `publish_golden_cases.py`
   checks the anchor against the cached IA when `.cache/ia/<fixture>/` is on the machine and

@@ -24,9 +24,11 @@ never traced and never in a report; a report naming a holdout split is refused),
 resolved against the saved run, and the run must already be in Failure Memory (``womm eval``
 with DATABASE_URL set records it). Like every ``womm evolve`` command, this script refuses to run
 with HOLDOUT_DATABASE_URL in its environment. Missing-impact marks are never added to golden
-cases: ``stage`` appends them as pending ``possibly_missing`` items of an open draft in
+cases: ``stage`` appends them as pending ``possibly_missing`` items of an open train draft in
 ``evals/golden/drafts/``, which the review gate blocks until a reviewer decides each one; a case
-without an open draft keeps its candidates queued until it is re-drafted.
+without an open train draft keeps its candidates queued until it is re-drafted. ``stage`` edits
+the draft in place (only the ``stats`` counts and the appended items change, so comments
+survive) and writes nothing to a draft that changed while it was staging.
 
 Edited and deleted marks. A mark edited in LangSmith after its import (a newer ``modified_at``)
 replaces the stored one: the previous version is kept in the row's ``history`` and its Failure

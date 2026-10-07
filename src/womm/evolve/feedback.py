@@ -37,12 +37,15 @@ staging refuses a holdout (or val) draft or a fixture registered as a holdout pr
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
 import json
+import os
 import re
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any, Literal, get_args
 
+import yaml
 from pydantic import BaseModel, Field, model_validator
 
 from womm.eval.drafting import (
@@ -55,10 +58,9 @@ from womm.eval.drafting import (
     ItemProvenance,
     JudgeBlock,
     Review,
+    _reviewer_order,
     case_prefix,
     draft_path,
-    load_draft,
-    write_draft,
 )
 from womm.eval.golden import HOLDOUT_REFUSAL, GoldenError
 from womm.eval.golden_review import HOLDOUT_REGISTRY, ReviewError, refuse_holdout_fixture
@@ -335,6 +337,54 @@ def _next_candidate_id(draft: GoldenDraft) -> str:
     return f"{prefix}{n:02d}"
 
 
+_COUNTS = ("items", "possibly_missing", "pending", "human_decisions_needed")
+
+
+def _append_to_draft(
+    path: Path, read: bytes, draft: GoldenDraft, new: list[DraftCandidate]
+) -> None:
+    """Write ``new`` candidates (already in ``draft``) into the draft file as an edit in place:
+    the four counts of ``stats`` are updated on their own lines and the candidates appended to
+    ``possibly_missing`` (the last section), so a reviewer's comments and layout survive. The
+    result is re-parsed and must equal ``draft``; otherwise, or when the file changed since it
+    was read (``read``, compared by sha256), nothing is written and the rows stay queued."""
+    for name in _COUNTS:
+        setattr(draft.stats, name, getattr(draft.stats, name) + len(new))
+    text = read.decode("utf-8")
+    where = f"draft {draft.case_id}"
+    stats = re.search(r"^stats:[ \t]*\n((?:[ \t]+.*\n|[ \t]*\n)+)", text, re.MULTILINE)
+    section = list(re.finditer(r"^possibly_missing:[ \t]*(\[\])?[ \t]*$", text, re.MULTILINE))
+    if stats is None or len(section) != 1 or re.search(r"^\w", text[section[0].end():],
+                                                       re.MULTILINE):  # fmt: skip
+        raise FeedbackError(f"{where}: possibly_missing is not the last section in block style; "
+                            "not staged (re-draft or restore the tool's layout)")  # fmt: skip
+    block = stats.group(1)
+    for name in _COUNTS:
+        block = re.sub(rf"^([ \t]+{name}:[ \t]*)\d+[ \t]*$",
+                       lambda m, n=name: f"{m.group(1)}{getattr(draft.stats, n)}",
+                       block, count=1, flags=re.MULTILINE)  # fmt: skip
+    m = section[0]
+    head = text[: stats.start(1)] + block + text[stats.end(1) : m.start()]
+    tail = "possibly_missing:" + text[m.end() :] if m.group(1) else text[m.start() :]
+    tail = tail if tail.endswith("\n") else tail + "\n"
+    items = [_reviewer_order(c.model_dump(mode="json")) for c in new]
+    entries = yaml.safe_dump(items, sort_keys=False, allow_unicode=True, width=100)
+    indent = re.search(r"^([ \t]*)- ", tail, re.MULTILINE)
+    if indent and indent.group(1):
+        entries = "".join(indent.group(1) + line if line.strip() else line
+                          for line in entries.splitlines(keepends=True))  # fmt: skip
+    out = head + tail + entries
+    if GoldenDraft.model_validate(yaml.safe_load(out)) != draft:
+        raise FeedbackError(f"{where}: an in-place edit would not give the expected draft; "
+                            "not staged")  # fmt: skip
+    if hashlib.sha256(path.read_bytes()).digest() != hashlib.sha256(read).digest():
+        raise FeedbackError(f"{where}: the draft changed while candidates were being staged "
+                            "(a reviewer saved it?); not staged, rerun stage")  # fmt: skip
+    tmp = path.with_name(f".{path.name}.staging")
+    tmp.write_text(out, encoding="utf-8")
+    os.replace(tmp, path)
+
+
 def stage_candidates(
     rows: Iterable[Mapping[str, Any]],
     drafts_dir: Path,
@@ -355,7 +405,8 @@ def stage_candidates(
         path = drafts_dir / f"{case_id}.yaml"
         if not path.is_file():
             continue
-        draft = load_draft(path)
+        read = path.read_bytes()
+        draft = GoldenDraft.model_validate(yaml.safe_load(read.decode("utf-8")))
         try:
             _check_split(draft.split, f"draft {case_id}")
             refuse_holdout_fixture(draft.fixture, f"draft {case_id}", registry)
@@ -370,21 +421,23 @@ def stage_candidates(
             problems.append(f"draft {case_id}: unexpected path {path}")
             continue
         present = _staged_ids(draft)
-        added = 0
+        new: list[DraftCandidate] = []
+        case_staged: dict[str, Path] = {}
         for row in case_rows:
             if row["fixture"] != draft.fixture:
                 problems.append(f"feedback {row['feedback_id']}: fixture {row['fixture']} is not "
                                 f"draft {case_id}'s {draft.fixture}")  # fmt: skip
                 continue
             if row["feedback_id"] not in present:
-                draft.possibly_missing.append(golden_candidate(row, _next_candidate_id(draft)))
-                added += 1
-            staged[row["feedback_id"]] = path
-        if added:
-            s = draft.stats
-            s.items += added
-            s.possibly_missing += added
-            s.pending += added
-            s.human_decisions_needed += added
-            write_draft(draft, drafts_dir)
+                cand = golden_candidate(row, _next_candidate_id(draft))
+                draft.possibly_missing.append(cand)
+                new.append(cand)
+            case_staged[row["feedback_id"]] = path
+        if new:
+            try:
+                _append_to_draft(path, read, draft, new)
+            except FeedbackError as exc:
+                problems.append(str(exc))
+                continue
+        staged |= case_staged
     return staged, problems

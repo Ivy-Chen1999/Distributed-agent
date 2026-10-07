@@ -382,3 +382,48 @@ def test_analyst_candidates_end_to_end_never_drive_the_topology_trigger(tmp_path
     assert only_human == [] and unowned_patterns(patterns(only_human, runs)) == []
     # Control: the same misses on a tool-drafted impact do trigger.
     assert unowned_patterns(patterns(kept, runs))
+
+
+# ----------------------------------------------------------------- staging edits drafts in place
+
+
+def test_staging_appends_without_losing_reviewer_comments(tmp_path):
+    path = _drafts(tmp_path)
+    text = path.read_text()
+    text = text.replace(
+        "\npossibly_missing:\n", "\n# reviewer: m01 checked against 6.2.3\npossibly_missing:\n"
+    )
+    text = "# draft notes kept by the reviewer\n" + text
+    path.write_text(text)
+    staged, problems = stage_candidates([_row()], path.parent, registry=tmp_path / "none.yaml")
+    assert staged == {"fb1": path} and problems == []
+    old, new = text.splitlines(), path.read_text().splitlines()
+    # Everything before the appended candidate is untouched except the four counts.
+    changed = [b for a, b in zip(old, new[: len(old)], strict=True) if a != b]
+    counts = ("items", "possibly_missing", "pending", "human_decisions_needed")
+    assert sorted(line.split(":")[0].strip() for line in changed) == sorted(counts)
+    assert "# reviewer: m01 checked against 6.2.3" in new
+    draft = load_draft(path)
+    assert (draft.stats.possibly_missing, draft.possibly_missing[-1].candidate_id) == (
+        3,
+        "c90_fb01",
+    )
+
+
+def test_staging_refuses_a_draft_changed_while_it_was_staged(tmp_path, monkeypatch):
+    """P2 lost update: a reviewer saving the draft between our read and our write wins; the
+    candidate stays queued and is staged on the next run."""
+    import womm.evolve.feedback as feedback
+
+    path = _drafts(tmp_path)
+    real = feedback.golden_candidate
+
+    def racing(row, cid):
+        path.write_text(path.read_text() + "# saved by a reviewer meanwhile\n")
+        return real(row, cid)
+
+    monkeypatch.setattr(feedback, "golden_candidate", racing)
+    staged, problems = stage_candidates([_row()], path.parent, registry=tmp_path / "none.yaml")
+    assert staged == {} and "changed while" in problems[0]
+    assert path.read_text().endswith("# saved by a reviewer meanwhile\n")
+    assert len(load_draft(path).possibly_missing) == 2
