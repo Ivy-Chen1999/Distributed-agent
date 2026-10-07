@@ -437,3 +437,29 @@ async def record_langsmith_experiment(
         client=client,
     )
     return results.experiment_name
+
+
+# ---------------------------------------------------------------- reading written reports
+
+
+def read_report(path: Path) -> dict[str, Any]:
+    """A report written by ``write_report``, as JSON. A holdout report cannot exist (holdout
+    cases are scored only by the sealed entry point), so one that claims a holdout split is
+    refused."""
+    try:
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise GoldenError(f"cannot read eval report {path}: {exc}") from None
+    if not isinstance(data, dict) or "scores" not in data or "metadata" not in data:
+        raise GoldenError(f"{path} is not an eval report written by `womm eval`")
+    meta = data["metadata"]
+    splits = {meta.get("split"), *meta.get("splits", []), *data.get("case_splits", {}).values()}
+    splits |= {r.get("split") for r in data.get("case_runs", [])}
+    if "holdout" in splits:
+        raise GoldenError(f"{path} contains a holdout split; {HOLDOUT_REFUSAL}")
+    return data
+
+
+def report_judge_versions(data: dict[str, Any]) -> set[str]:
+    """The judge versions recorded on a report's scored runs (Failure Memory's ``case_runs``)."""
+    return {r["judge_version"] for r in data.get("case_runs", []) if r.get("judge_version")}
