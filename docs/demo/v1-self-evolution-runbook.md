@@ -143,3 +143,31 @@ rehearsal.
   prints the decision and exits non-zero; the audit row is authoritative.
 - A run that stopped mid-comparison keeps its budget reservation; rerun the same pair with
   `womm evolve promote ... --resume`.
+
+## Analyst feedback (R31, U11; optional)
+
+Analysts mark findings of **train/val** eval runs in a LangSmith annotation queue; holdout runs
+are never traced, so they can never be marked. The flow is `scripts/import_feedback.py`
+(details in its docstring and in `womm.evolve.feedback`):
+
+```bash
+# After `womm eval --split train` (or val) with LangSmith tracing and DATABASE_URL set:
+uv run python scripts/import_feedback.py queue --sv <version_id>    # fill the review queue
+# Analysts pick a womm_analyst mark per finding: accept / reject / edit / missing_impact /
+# weak_evidence, with "finding: <id>", "edited: ...", "impact: ..." comment lines.
+uv run python scripts/import_feedback.py import --sv <version_id>   # audit rows + Failure Memory
+uv run python scripts/import_feedback.py stage                      # candidates into open drafts
+uv run womm evolve failures --sv <version_id> --from-db             # source column shows "human"
+```
+
+- Every mark is stored in `analyst_feedback`, keyed by its LangSmith feedback id.
+- `missing_impact` and `weak_evidence` also become Failure Memory events of the kinds
+  `analyst_missing_impact` and `analyst_weak_evidence` (source `human`). The Improvement Planner
+  sees them in its patterns. They never satisfy the new-expert trigger, which takes the judge's
+  `missed_impact` kind only, so hand-entered feedback cannot force a topology proposal (honesty
+  rules above).
+- `missing_impact` is never added to a golden case directly. `stage` appends it to the case's
+  open draft in `evals/golden/drafts/` as a pending `human_added` candidate, and the review gate
+  blocks publication until a reviewer verifies, edits (adding the IA anchor) or rejects it. A
+  case without an open draft keeps the candidate queued.
+- `accept`, `reject` and `edit` are recorded only; v1 has no consumer for them.
