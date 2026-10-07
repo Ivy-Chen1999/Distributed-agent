@@ -12,6 +12,12 @@ fewer than 3 expected impacts is refused. The published case must pass
 ``check_against_fixture``; then the draft is deleted and its audit counts are added to
 evals/golden/audit_tally.yaml (counts per fixture only), so a proposal's escalation spans PRs.
 
+A ``human_added`` item (an analyst's missing impact, staged by scripts/import_feedback.py) is
+kept only as ``edited`` by a reviewer other than the analyst, with its IA anchor filled in; the
+anchor is checked against the cached IA (``.cache/ia/<fixture>/``) when it is on this machine,
+otherwise the script prints a note asking the reviewer to confirm it by hand. Published, it
+carries ``origin: human`` (misses on it never drive the new-expert trigger).
+
 A draft whose fixture is registered as a holdout proposal in the gitignored local registry
 (evals/private/holdout_scenarios.yaml) is refused: all cases of one proposal share a split.
 
@@ -50,8 +56,10 @@ from womm.eval.golden_review import (
     load_audit_tally,
     refuse_holdout_fixture,
     scenario_keys_for,
+    unchecked_human_anchors,
     write_audit_tally,
 )
+from womm.eval.ia_sources import IaSourceError, load_cached_ia
 
 _ZERO = audit_result([])
 
@@ -67,6 +75,15 @@ def _display(path: Path) -> str:
         return str(path)
 
 
+def _cached_ia_text(fixture: str, root: Path | None) -> str | None:
+    """The cached IA full text of ``fixture`` when it is on this machine, else None."""
+    try:
+        cached = load_cached_ia(fixture, root)
+    except (IaSourceError, OSError, ValueError):
+        return None
+    return cached.full_text if cached is not None and cached.full_text else None
+
+
 def publish_one(
     draft: GoldenDraft,
     source: Path,
@@ -77,6 +94,7 @@ def publish_one(
     dry_run: bool,
     tally: Tally | None = None,
     registry: Path = HOLDOUT_REGISTRY,
+    ia_root: Path | None = None,
 ) -> Path:
     """Write one case; raises ReviewError (or GoldenError) with the reasons when refused."""
     if draft.split == "holdout":
@@ -86,7 +104,10 @@ def publish_one(
         )
     refuse_holdout_fixture(draft.fixture, "publishing a train/val case", registry)
     escalated = draft.fixture in escalated_fixtures(all_drafts, tally)
-    problems = check_draft(draft, scenario_keys_for(draft), escalated=escalated)
+    ia_text = _cached_ia_text(draft.fixture, ia_root)
+    problems = check_draft(draft, scenario_keys_for(draft), escalated=escalated, ia_text=ia_text)
+    for note in unchecked_human_anchors(draft, ia_text):
+        info(f"note: {note}")
     if problems:
         raise ReviewError("not fully decided:\n  " + "\n  ".join(problems))
     audit = fixture_audit(draft.fixture, all_drafts, tally)
@@ -116,6 +137,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--holdout-registry", type=Path, default=HOLDOUT_REGISTRY, help=argparse.SUPPRESS
     )
+    parser.add_argument("--ia-root", type=Path, default=None, help=argparse.SUPPRESS)
     return parser.parse_args(argv)
 
 
@@ -154,7 +176,7 @@ def main(argv: list[str] | None = None) -> int:
             target = publish_one(
                 draft, path, all_drafts=all_drafts, golden_dir=args.golden_dir,
                 today=today, dry_run=args.dry_run, tally=before,
-                registry=args.holdout_registry,
+                registry=args.holdout_registry, ia_root=args.ia_root,
             )  # fmt: skip
         except (ReviewError, GoldenError) as exc:
             info(f"refused {draft.case_id}: {exc}")

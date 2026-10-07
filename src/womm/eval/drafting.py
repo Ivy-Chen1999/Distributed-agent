@@ -237,6 +237,10 @@ class ItemProvenance(StrictModel):
         "llm_judged", "needs_human", "human_verified", "human_edited", "human_confirmed_candidate"
     ]
     drafting_model: str
+    raised_by: str | None = Field(
+        default=None,
+        description="Who raised a human_added item (an analyst); may not be its reviewer.",
+    )
 
 
 class Review(StrictModel):
@@ -399,7 +403,12 @@ def tool_fields(item: _DraftItem) -> dict[str, Any]:
     auto status. Not the review block or ``provenance.status``, which a human decision sets."""
     data = item.model_dump(mode="json")
     data.pop("review")
-    data["provenance"] = {k: v for k, v in data["provenance"].items() if k != "status"}
+    # ``raised_by`` is left out when unset, so digests of drafts written before it existed hold.
+    data["provenance"] = {
+        k: v
+        for k, v in data["provenance"].items()
+        if k != "status" and not (k == "raised_by" and v is None)
+    }
     data["auto_status"] = auto_status(item)
     return data
 

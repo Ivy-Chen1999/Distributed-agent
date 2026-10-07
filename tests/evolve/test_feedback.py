@@ -23,7 +23,7 @@ from womm.evolve.feedback import (
 )
 
 from ..eval import draft_factory as df
-from .test_failure_memory import K1, K2, _finding, _run
+from .test_failure_memory import K1, K2, _finding, _run, _score
 
 NOW = dt.datetime(2026, 10, 7, tzinfo=dt.UTC)
 
@@ -268,3 +268,117 @@ def test_analyst_rows_never_trigger_a_new_expert():
     (row,) = patterns(events, runs)
     assert (row["owner"], row["persistent_misses"], len(row["proposals"])) == ("none", 2, 2)
     assert unowned_patterns([row]) == []
+
+
+# ----------------------------------------------------------------- analyst candidates: train only,
+# reviewed by someone else, anchored, and never a topology trigger
+
+ANCHOR = "widget buyers would pay twice for the same switching service under the option"
+IA_TEXT = f"6.2.3. Intervention on widget services. {ANCHOR}. Other text follows here."
+FILLED = {"ia_section": "6.2.3. Intervention on widget services", "ia_anchor": ANCHOR,
+          "affected_actor": "Widget buyers", "mechanism": "Double charging on switching",
+          "category": "consumers_users"}  # fmt: skip
+
+
+def _staged(tmp_path):
+    path = _drafts(tmp_path)
+    stage_candidates([_row()], path.parent, registry=tmp_path / "none.yaml")
+    return load_draft(path).model_dump(mode="json")
+
+
+def test_a_missing_impact_on_a_val_run_is_never_a_golden_candidate():
+    """Val is for selection: an analyst must not be able to change what val scores."""
+    fb = parse_feedback(_fb(comment="impact: x\nprovisions: reg/a/3"))
+    rec = resolve_feedback(fb, _case_run(split="val"), _run())
+    assert rec.event.kind == "analyst_missing_impact" and rec.golden_candidate is None
+
+
+def test_staging_refuses_val_drafts(tmp_path):
+    path = _drafts(tmp_path, split="val")
+    staged, problems = stage_candidates([_row()], path.parent, registry=tmp_path / "none.yaml")
+    assert staged == {} and "train drafts only" in problems[0]
+    assert len(load_draft(path).possibly_missing) == 2
+
+
+def test_a_staged_candidate_records_the_analyst(tmp_path):
+    cand = df.to_draft(_staged(tmp_path)).possibly_missing[-1]
+    assert cand.provenance.raised_by == "ana"
+
+
+@pytest.mark.parametrize(
+    ("decision", "edit", "reviewer", "message"),
+    [
+        ("verified", FILLED, "octo-cat", "only as 'edited'"),
+        ("edited", FILLED | {"ia_anchor": ""}, "octo-cat", "ia_anchor is empty"),
+        ("edited", FILLED | {"ia_section": " "}, "octo-cat", "ia_section is empty"),
+        ("edited", FILLED | {"mechanism": ""}, "octo-cat", "mechanism is empty"),
+        ("edited", FILLED | {"affected_actor": ""}, "octo-cat", "affected_actor is empty"),
+        ("edited", FILLED, "Ana", "raised it"),
+    ],
+)
+def test_a_human_added_candidate_needs_an_edited_anchored_decision_by_another_person(
+    tmp_path, decision, edit, reviewer, message
+):
+    data = df.decide(_staged(tmp_path), "c90_fb01", decision, reviewer=reviewer, **edit)
+    problems = check_draft(df.to_draft(data), set(df.KEYS))
+    assert any("c90_fb01" in p and message in p for p in problems), problems
+
+
+def test_a_human_added_candidate_without_an_analyst_is_refused(tmp_path):
+    data = df.decide(_staged(tmp_path), "c90_fb01", "edited", **FILLED)
+    data["possibly_missing"][-1]["provenance"]["raised_by"] = None
+    problems = check_draft(df.to_draft(data), set(df.KEYS))
+    assert any("names nobody who raised it" in p for p in problems), problems
+
+
+def test_the_anchor_is_checked_against_the_cached_ia_when_available(tmp_path):
+    from womm.eval.golden_review import unchecked_human_anchors
+
+    data = df.decide(_staged(tmp_path), "c90_fb01", "edited", **FILLED)
+    draft = df.to_draft(data)
+    assert check_draft(draft, set(df.KEYS)) == []
+    # Without the IA here, the anchor is not blocking but flagged for the reviewer.
+    assert [n for n in unchecked_human_anchors(draft, None) if "c90_fb01" in n]
+    assert check_draft(draft, set(df.KEYS), ia_text=IA_TEXT) == []
+    assert unchecked_human_anchors(draft, IA_TEXT) == []
+    other = "an unrelated sentence that the analyst invented for this candidate item"
+    problems = check_draft(draft, set(df.KEYS), ia_text=IA_TEXT.replace(ANCHOR, other))
+    assert any("c90_fb01" in p and "anchor" in p for p in problems), problems
+
+
+def test_analyst_candidates_end_to_end_never_drive_the_topology_trigger(tmp_path):
+    """A missing impact staged, edited and published becomes an origin-human expected impact;
+    persistent unowned misses on it across two proposals never satisfy the new-expert trigger,
+    while the same misses on a tool-drafted impact do."""
+    from womm.eval.golden_review import AuditResult, build_case
+    from womm.evolve.cycle import trigger_events, unowned_patterns
+    from womm.evolve.failure_memory import failure_events
+
+    data = df.decide(_staged(tmp_path), "c90_fb01", "edited", **FILLED)
+    draft = df.to_draft(data)
+    assert check_draft(draft, set(df.KEYS), ia_text=IA_TEXT) == []
+    case = build_case(draft, published_on=NOW.date(), audit=AuditResult(0, 0, 0))
+    origins = {i.expected_id: i.origin for i in case.expected_impacts}
+    assert origins["c90_fb01"] == "human" and origins["c90_e01"] is None
+    assert "origin" not in case.expected_impacts[0].model_dump(exclude_none=True)
+
+    events, runs = [], []
+    for fixture in ("data_act", "other_act"):
+        other = case.model_copy(update={"fixture": fixture, "case_id": f"case_91_{fixture}"})
+        for rep in (1, 2):
+            run = _run(f"{fixture}{rep}")
+            score = _score(other, missed=("c90_fb01", "c90_e01"), run_id=run.run_id)
+            events += failure_events(other, score, run, split="train", repetition=rep,
+                                     system_version="sv")  # fmt: skip
+            runs.append(_case_run(run_id=run.run_id, rep=rep).model_copy(
+                update={"fixture": fixture, "case_id": other.case_id}))  # fmt: skip
+    human = [e for e in events if e.item_id == "c90_fb01"]
+    assert human and all(e.detail.get("golden_origin") == "human" for e in human)
+    cases = {f"case_91_{f}": case.model_copy(update={"fixture": f, "case_id": f"case_91_{f}"})
+             for f in ("data_act", "other_act")}  # fmt: skip
+    kept = trigger_events(events, cases)
+    assert {e.item_id for e in kept} == {"c90_e01"}
+    only_human = trigger_events(human, cases)
+    assert only_human == [] and unowned_patterns(patterns(only_human, runs)) == []
+    # Control: the same misses on a tool-drafted impact do trigger.
+    assert unowned_patterns(patterns(kept, runs))

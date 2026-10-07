@@ -144,6 +144,23 @@ async def test_pattern_in_one_proposal_does_not_trigger(env, two_proposals):
     assert env["proposer"].backend.calls == []
 
 
+def _human_first(case):
+    first = case.expected_impacts[0].model_copy(update={"origin": "human"})
+    return case.model_copy(update={"expected_impacts": [first, *case.expected_impacts[1:]]})
+
+
+async def test_misses_on_analyst_raised_impacts_never_trigger(env, monkeypatch):
+    """U11: a persistent unowned miss pattern on expected impacts an analyst raised (origin
+    human in the golden case) across two proposals proposes no expert."""
+    human = [_human_first(c) for c in (*TRAIN, OTHER)]
+    monkeypatch.setitem(CASES, "train", human)
+    await seed_pattern(env["db"], env["sv"].version_id)
+    env["proposer"].backend = FakeBackend({})
+    result = await run_topology_stage(**topology_kw(env))
+    assert result.candidate is None and "pattern" in result.reason
+    assert env["proposer"].backend.calls == []
+
+
 async def test_owned_or_unknown_persistence_does_not_trigger(env, two_proposals):
     await seed_pattern(env["db"], env["sv"].version_id, owner="fiscal")
     rows = await env["view"].failure_patterns(env["sv"].version_id)

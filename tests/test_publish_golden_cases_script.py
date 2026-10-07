@@ -1,5 +1,6 @@
 """scripts/publish_golden_cases.py (U5): fully decided drafts become scored golden cases."""
 
+import copy
 import importlib.util
 import sys
 
@@ -191,3 +192,56 @@ def _human_items(data):
             ident = item.get("expected_id") or item.get("omission_id") or item.get("candidate_id")
             if item["review"]["decision"] == "pending" or section == "possibly_missing":
                 yield ident, "verified"
+
+
+ANCHOR = "widget buyers would pay twice for the same switching service under the option"
+
+
+def _with_analyst_candidate(reviewer="octo-cat", anchor=ANCHOR):
+    """``fully_decided`` plus an analyst's missing impact, edited and anchored by a reviewer."""
+    data = fully_decided()
+    cand = copy.deepcopy(data["possibly_missing"][0])
+    cand.update(
+        candidate_id="c90_fb01",
+        affected_actor="Widget buyers",
+        impact="Pay twice",
+        mechanism="Double charging",
+        ia_anchor=anchor,
+        flags=["analyst feedback fb1"],
+    )
+    cand["provenance"].update(origin="human_added", status="needs_human", raised_by="ana")
+    cand["review"].update(decision="edited", reviewer=reviewer, note=None, audit=False)
+    data["possibly_missing"].append(cand)
+    return data
+
+
+def _ia_cache(tmp_path, text):
+    directory = tmp_path / "ia" / "data_act"
+    directory.mkdir(parents=True)
+    (directory / "manifest.json").write_text("{}")
+    (directory / "ia_full.txt").write_text(text)
+    return ["--ia-root", str(tmp_path / "ia")]
+
+
+def test_an_analyst_candidate_is_published_as_origin_human(tmp_path, capsys):
+    write(tmp_path / "drafts" / f"{CASE}.yaml", _with_analyst_candidate())
+    assert _run(tmp_path, *_ia_cache(tmp_path, f"Section 6.2.3. {ANCHOR}.")) == 0
+    case = load_golden(tmp_path / "golden" / f"{CASE}.yaml")
+    by_id = {e.expected_id: e for e in case.expected_impacts}
+    assert by_id["c90_fb01"].origin == "human" and by_id["c90_m01"].origin is None
+    assert "IA anchor not checked" not in capsys.readouterr().err
+
+
+def test_an_analyst_candidate_without_the_cached_ia_is_flagged_for_the_reviewer(tmp_path, capsys):
+    write(tmp_path / "drafts" / f"{CASE}.yaml", _with_analyst_candidate())
+    assert _run(tmp_path, "--ia-root", str(tmp_path / "no-ia")) == 0
+    assert "c90_fb01: IA anchor not checked" in capsys.readouterr().err
+
+
+def test_an_analyst_candidate_is_refused_on_a_bad_anchor_or_self_review(tmp_path, capsys):
+    write(tmp_path / "drafts" / f"{CASE}.yaml", _with_analyst_candidate())
+    assert _run(tmp_path, *_ia_cache(tmp_path, "an impact assessment without that quote")) == 2
+    assert "c90_fb01: human_added item: IA anchor" in capsys.readouterr().err
+    write(tmp_path / "drafts" / f"{CASE}.yaml", _with_analyst_candidate(reviewer="ana"))
+    assert _run(tmp_path, "--ia-root", str(tmp_path / "no-ia")) == 2
+    assert "raised it" in capsys.readouterr().err

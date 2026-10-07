@@ -107,3 +107,14 @@ async def test_the_planner_view_sees_analyst_events(db, database_url, tmp_path):
     async with PlannerView(database_url, runs_dir=tmp_path) as view:
         (row,) = await view.failure_patterns("sv_x")
     assert (row["kind"], row["source"]) == ("analyst_missing_impact", "human")
+
+
+async def test_a_val_missing_impact_is_stored_but_never_queued(db):
+    await db.record_failure_events([], [_case_run("r1").model_copy(update={"split": "val"})])
+    fb = AnalystFeedback(feedback_id="fbv", trace_run_id="t", mark="missing_impact",
+                         impact="x", created_at=NOW)  # fmt: skip
+    rec = resolve_feedback(fb, _case_run("r1").model_copy(update={"split": "val"}), _run("r1"))
+    assert await db.record_analyst_feedback(rec) is True
+    (row,) = await db.analyst_feedback("sv_x")
+    assert row["golden_candidate"] is None and row["failure_event_id"]
+    assert await db.queued_golden_candidates() == []

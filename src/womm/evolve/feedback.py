@@ -17,18 +17,20 @@ saved run (``runs/<run_id>.json``, for the finding and the experts touching a pr
 - ``missing_impact`` and ``weak_evidence`` also become Failure Memory events of the human kinds
   ``analyst_missing_impact`` / ``analyst_weak_evidence`` (``source = human``), aggregated with
   the judge's events by ``(kind, category, owner)``;
-- ``missing_impact`` is also a golden-case candidate. It is never added to a golden case: it is
-  ``queued`` until ``stage_candidates`` appends it to the case's open golden draft as a
-  ``possibly_missing`` item of origin ``human_added``, decision ``pending``, where the review
-  gate (``womm.eval.golden_review.check_draft``) blocks publication until a named reviewer
-  verifies, edits or rejects it.
+- ``missing_impact`` on a **train** run is also a golden-case candidate (a val run's never is:
+  val is for selection). It is never added to a golden case: it is ``queued`` until
+  ``stage_candidates`` appends it to the case's open train draft as a ``possibly_missing`` item
+  of origin ``human_added`` raised by the analyst, decision ``pending``, where the review gate
+  (``womm.eval.golden_review.check_draft``) blocks publication until a reviewer other than the
+  analyst edits it (with its IA anchor) or rejects it. Published, it is an expected impact of
+  ``origin: human``, whose misses the new-expert trigger ignores.
 
 ``accept``, ``reject`` and ``edit`` are recorded only (v1 has no consumer for them).
 
 **Holdout.** Feedback on holdout material never exists: holdout runs are never traced (so no
 annotation queue can hold one), eval reports never contain one, a report naming a holdout split
 is refused, every resolution re-checks the split, the database tables ``CHECK`` the split, and
-staging refuses a holdout draft or a fixture registered as a holdout proposal.
+staging refuses a holdout (or val) draft or a fixture registered as a holdout proposal.
 """
 
 from __future__ import annotations
@@ -263,7 +265,8 @@ def resolve_feedback(fb: AnalystFeedback, case_run: CaseRun, run: RunResult) -> 
         )  # fmt: skip
     return FeedbackRecord(
         feedback=fb, run=case_run, event=event,
-        golden_candidate="queued" if fb.mark == "missing_impact" else None,
+        golden_candidate="queued" if fb.mark == "missing_impact" and case_run.split == "train"
+        else None,
     )  # fmt: skip
 
 
@@ -299,7 +302,10 @@ def golden_candidate(row: Mapping[str, Any], candidate_id: str) -> DraftCandidat
             overall="uncertain",
         ),  # fmt: skip
         provenance=ItemProvenance(
-            origin="human_added", status="needs_human", drafting_model="none (analyst feedback)"
+            origin="human_added",
+            status="needs_human",
+            drafting_model="none (analyst feedback)",
+            raised_by=row.get("analyst") or None,
         ),  # fmt: skip
         review=Review(decision="pending"),
     )
@@ -350,6 +356,10 @@ def stage_candidates(
             refuse_holdout_fixture(draft.fixture, f"draft {case_id}", registry)
         except (GoldenError, ReviewError) as exc:
             problems.append(str(exc))
+            continue
+        if draft.split != "train":
+            problems.append(f"draft {case_id}: analyst candidates are staged into train drafts "
+                            f"only, not {draft.split!r} (val is for selection)")  # fmt: skip
             continue
         if draft_path(case_id, draft.split, drafts_dir) != path.resolve():
             problems.append(f"draft {case_id}: unexpected path {path}")

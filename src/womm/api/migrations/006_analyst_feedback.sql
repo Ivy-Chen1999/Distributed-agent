@@ -16,9 +16,10 @@ ALTER TABLE failure_events ADD CONSTRAINT failure_events_source_matches_kind
 -- One row per imported analyst mark (the audit log of R31). `feedback_id` is the LangSmith
 -- feedback id, so an import is idempotent and every human Failure Memory row links back to the
 -- mark that produced it. A mark may only refer to a scored train/val run already recorded in
--- Failure Memory (the foreign key). A `missing_impact` mark is also a golden-case candidate:
--- `queued` until it is staged into an open golden draft, where the review gate decides it; it is
--- never added to a golden case directly.
+-- Failure Memory (the foreign key). A `missing_impact` mark on a train run is also a golden-case
+-- candidate: `queued` until it is staged into an open train golden draft, where the review gate
+-- decides it; it is never added to a golden case directly. A val run's mark never is (val is for
+-- selection, and analysts must not change what it scores).
 CREATE TABLE analyst_feedback (
     feedback_id      text PRIMARY KEY,
     mark             text NOT NULL CHECK (mark IN ('accept', 'reject', 'edit', 'missing_impact',
@@ -40,7 +41,7 @@ CREATE TABLE analyst_feedback (
     imported_at      timestamptz NOT NULL DEFAULT now(),
     FOREIGN KEY (system_version, case_id, run_id)
         REFERENCES failure_case_runs (system_version, case_id, run_id),
-    CHECK ((golden_candidate IS NOT NULL) = (mark = 'missing_impact')),
+    CHECK ((golden_candidate IS NOT NULL) = (mark = 'missing_impact' AND split = 'train')),
     CHECK ((golden_candidate = 'staged') = (golden_draft IS NOT NULL)),
     CHECK ((failure_event_id IS NOT NULL) = (mark IN ('missing_impact', 'weak_evidence')))
 );

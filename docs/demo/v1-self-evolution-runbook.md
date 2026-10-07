@@ -210,8 +210,18 @@ uv run womm evolve failures --sv <version_id> --from-db             # source col
   sees them in its patterns. They never satisfy the new-expert trigger, which takes the judge's
   `missed_impact` kind only, so hand-entered feedback cannot force a topology proposal (honesty
   rules above).
-- `missing_impact` is never added to a golden case directly. `stage` appends it to the case's
-  open draft in `evals/golden/drafts/` as a pending `human_added` candidate, and the review gate
-  blocks publication until a reviewer verifies, edits (adding the IA anchor) or rejects it. A
-  case without an open draft keeps the candidate queued.
+- `missing_impact` is never added to a golden case directly, and only a mark on a **train** run
+  becomes a golden candidate (val is for selection; an analyst must not change what it scores).
+  `stage` appends it to the case's open train draft in `evals/golden/drafts/` as a pending
+  `human_added` candidate that records the analyst (`provenance.raised_by`); it refuses val and
+  holdout drafts. The review gate blocks publication until a reviewer decides it: it is kept
+  only as `edited`, by a reviewer other than that analyst, with `ia_section`, `ia_anchor`,
+  `affected_actor`, `mechanism` and a valid `category` filled in. `publish_golden_cases.py`
+  checks the anchor against the cached IA when `.cache/ia/<fixture>/` is on the machine and
+  otherwise prints a note for the reviewer to confirm it by hand. A case without an open train
+  draft keeps the candidate queued.
+- A published analyst candidate is an expected impact with `origin: human`. Its misses are
+  scored like any other, but their `missed_impact` events carry `golden_origin: human` and the
+  new-expert trigger leaves them out, so analysts cannot force a topology change indirectly
+  through golden cases either.
 - `accept`, `reject` and `edit` are recorded only; v1 has no consumer for them.

@@ -48,6 +48,7 @@ from womm.eval.drafting import (
     _DraftItem,
     audit_eligible,
     audit_seed_for,
+    check_anchor,
     draw_audit,
     item_digest,
     overall,
@@ -302,6 +303,63 @@ def integrity_problems(draft: GoldenDraft) -> list[str]:
     return problems
 
 
+HUMAN_ADDED_FIELDS = ("affected_actor", "mechanism", "impact", "ia_section", "ia_anchor")
+
+
+def _human_added(item: _DraftItem) -> bool:
+    return item.provenance.origin == "human_added" and isinstance(
+        item, DraftImpact | DraftCandidate
+    )
+
+
+def human_added_problems(item: _DraftItem, where: str, ia_text: str | None) -> list[str]:
+    """A kept ``human_added`` item (an analyst's missing impact) is published only as ``edited``
+    by a reviewer other than the person who raised it, with every field a tool-drafted impact
+    has filled in. Its IA anchor is checked against ``ia_text`` (the cached IA) when given;
+    without it, ``unchecked_human_anchors`` lists the anchor for the reviewer."""
+    rev = item.review
+    if not _human_added(item) or rev.decision in DROPPED_DECISIONS or rev.decision == "pending":
+        return []
+    problems = []
+    if rev.decision != "edited":
+        problems.append(
+            f"{where}: a human_added item is kept only as 'edited' (the reviewer fills in and "
+            f"checks its IA anchor), not {rev.decision!r}"
+        )
+    for name in HUMAN_ADDED_FIELDS:
+        if not str(getattr(item, name, "") or "").strip():
+            problems.append(f"{where}: human_added item: {name} is empty")
+    raised_by = item.provenance.raised_by
+    if not (raised_by or "").strip():
+        problems.append(
+            f"{where}: human_added item names nobody who raised it (provenance.raised_by); "
+            "the reviewer must be someone else"
+        )
+    elif rev.reviewer and _person(rev.reviewer) == _person(raised_by):
+        problems.append(
+            f"{where}: reviewer {rev.reviewer!r} raised it; a human_added item is reviewed by "
+            "someone else"
+        )
+    if ia_text is not None and item.ia_anchor.strip():
+        status = check_anchor(item.ia_anchor, ia_text, "ia").status
+        if status != "verified":
+            problems.append(f"{where}: human_added item: IA anchor {status} in the cached IA")
+    return problems
+
+
+def unchecked_human_anchors(draft: GoldenDraft, ia_text: str | None) -> list[str]:
+    """Kept ``human_added`` items whose IA anchor could not be checked here (no cached IA):
+    not blocking, but the reviewer confirms the anchor by hand."""
+    if ia_text is not None:
+        return []
+    return [
+        f"{draft.case_id}/{i.item_id}: IA anchor not checked (no cached IA here); the reviewer "
+        "confirms it against the impact assessment"
+        for i in draft.items()
+        if _human_added(i) and i.review.decision in ("verified", "edited")
+    ]
+
+
 def check_draft(
     draft: GoldenDraft,
     scenario_keys: set[str] | None,
@@ -310,13 +368,15 @@ def check_draft(
     escalated: bool = False,
     everything: bool = False,
     reviewer_pattern: re.Pattern[str] | None = GITHUB_USERNAME,
+    ia_text: str | None = None,
 ) -> list[str]:
     """Problems that block ``draft``, each prefixed ``<case_id>/<item_id>``.
 
     ``scenario_keys`` are the provision keys an item may cite (None skips the key check).
     ``allow_pending`` is the draft-PR exemption: undecided items and missing reviewers are
     tolerated, malformed decisions are not. ``reviewer_pattern`` None accepts any non-empty
-    reviewer name (local holdout verification)."""
+    reviewer name (local holdout verification). ``ia_text`` is the cached IA, when available,
+    against which ``human_added`` anchors are checked (``human_added_problems``)."""
     cid = draft.case_id
     problems: list[str] = []
     if draft.split == "holdout" and not everything:
@@ -358,6 +418,7 @@ def check_draft(
             problems.append(f"{where}: decision {rev.decision!r} has no reviewer")
         if rev.decision in NOTE_REQUIRED and not (rev.note or "").strip() and not allow_pending:
             problems.append(f"{where}: decision {rev.decision!r} needs a short note saying why")
+        problems.extend(human_added_problems(item, where, ia_text))
         kept_or_open = rev.decision not in DROPPED_DECISIONS
         if kept_or_open and not (allow_pending and rev.decision == "pending"):
             if not item.provision_keys:
@@ -446,6 +507,7 @@ def build_case(
             ia_section=i.ia_section,
             category=i.category,
             provenance=_provenance(i),  # type: ignore[arg-type]
+            origin="human" if i.provenance.origin == "human_added" else None,
         )
         for i in kept_impacts(draft)
     ]

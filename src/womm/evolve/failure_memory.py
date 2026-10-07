@@ -11,7 +11,9 @@ pooled: each such population has its own patterns.
 
 Analysts add two human kinds (U11, R31; ``womm.evolve.feedback``): ``analyst_missing_impact``
 and ``analyst_weak_evidence``, with ``source = human``. They aggregate like the judge's kinds and
-are marked as human in every pattern row.
+are marked as human in every pattern row. A golden expected impact an analyst raised (``origin:
+human``) is scored like any other; its ``missed_impact`` events carry ``golden_origin: human`` and
+the new-expert trigger leaves them out (``womm.evolve.cycle.trigger_events``).
 
 Holdout data can never become an event: the models refuse ``split = holdout``, and the database
 tables carry a ``CHECK`` on the split as well.
@@ -160,8 +162,9 @@ def failure_events(
     for v in score.judge.expected:
         if not v.covered and v.expected_id in expected:
             item = expected[v.expected_id]
+            origin = {"golden_origin": item.origin} if item.origin else {}
             events.append(event("missed_impact", item.expected_id, item.category,
-                                touching(item.provision_keys)))  # fmt: skip
+                                touching(item.provision_keys), **origin))  # fmt: skip
     omissions = {o.omission_id: o for o in case.important_omissions}
     for v in score.judge.omissions:
         if not v.addressed and v.omission_id in omissions:
