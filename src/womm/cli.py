@@ -846,6 +846,78 @@ async def cmd_cost_sweep(args: argparse.Namespace) -> int:
     return EXIT_FAILED if progress.failed or progress.stopped_at_budget else EXIT_OK
 
 
+def _run_records(paths: list[str]) -> tuple[dict[int, list], set[str], str, str]:
+    """Cost records of saved runs (``womm run`` output), one repetition per run, plus the union
+    of their scenario keys, the system version and the cost backend."""
+    from womm.data.fixtures import load_fixture as _fixture
+
+    reps: dict[int, list] = {}
+    keys: set[str] = set()
+    versions: set[str] = set()
+    backends: set[str] = set()
+    for n, path in enumerate(paths, 1):
+        try:
+            run = RunResult.model_validate_json(Path(path).read_text(encoding="utf-8"))
+        except (OSError, ValidationError) as exc:
+            raise UsageError(f"{path} is not a saved run: {exc}") from None
+        if run.dossier is None or run.dossier.costs is None:
+            raise UsageError(f"{path}: the run has no cost section (not a cost-enabled version)")
+        reps[n] = list(run.dossier.costs.records)
+        keys |= {r.provision_key for r in run.dossier.costs.records}
+        keys |= set(_fixture().scenario(run.scenario_id).provision_keys)
+        versions.add(run.system_version)
+        backends |= {u.backend for u in run.usage if u.role == "cost"}
+    return reps, keys, ",".join(sorted(versions)), ",".join(sorted(backends)) or "unknown"
+
+
+async def cmd_cost_check(args: argparse.Namespace) -> int:
+    """R6: cost records against SWD(2021) 84 (scoring side; the reference is never an input)."""
+    from womm.cost.sweep import SweepError, load_sweep
+    from womm.data.corpus import load_default_corpus
+    from womm.eval import cost_check as cc
+
+    corpus = load_default_corpus()
+    try:
+        ref = cc.load_reference(Path(args.reference), corpus)
+    except cc.CostReferenceError as exc:
+        raise UsageError(str(exc)) from None
+    restrict = None
+    if args.sweep:
+        try:
+            sweep = load_sweep(Path(args.sweep))
+        except SweepError as exc:
+            raise UsageError(str(exc)) from None
+        if sweep.version != ref.proposal_version:
+            raise UsageError(
+                f"the IA assessed {ref.proposal_version}; this sweep is of {sweep.version}"
+            )
+        if sweep.missing:
+            raise UsageError(f"the sweep is incomplete ({sweep.missing}); rerun `womm cost sweep`")
+        reps, sv_id, backend = sweep.repetitions, sweep.system_version, sweep.cost_backend
+        source = str(sweep.directory)
+    else:
+        reps, restrict, sv_id, backend = _run_records(args.runs)
+        source = ", ".join(args.runs)
+    out = cc.score_repetitions(reps, ref, restrict_keys=restrict)
+    header = {
+        "reference_sha": cc.reference_sha(Path(args.reference)),
+        "system_version": sv_id,
+        "backend": backend,
+        "source": source,
+        "restricted_to": "the runs' scenarios" if restrict is not None else None,
+    }
+    text = cc.format_report(out, header)
+    out_dir = Path(args.runs_dir) / "cost_check"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    stem = f"cost_check_{_stamp()}_{sv_id.replace(',', '+')}"
+    (out_dir / f"{stem}.json").write_text(
+        json.dumps({"header": header, **out}, indent=1, ensure_ascii=False, default=str) + "\n"
+    )
+    (out_dir / f"{stem}.md").write_text(text + "\n")
+    emit(args, {"header": header, **out}, text + f"\n\nsaved {out_dir / stem}.json and .md")
+    return EXIT_OK
+
+
 def build_parser() -> argparse.ArgumentParser:
     settings = load_settings()
     common = argparse.ArgumentParser(add_help=False)
@@ -993,6 +1065,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _add_calibration_parsers(sub: Any, common: argparse.ArgumentParser) -> None:
+    from womm.eval.cost_check import REFERENCE_PATH as COST_REFERENCE
     from womm.eval.golden import GOLDEN_DIR
     from womm.evolve.promotion import POLICY_PATH, RECORDS_PATH
 
@@ -1044,6 +1117,12 @@ def _add_calibration_parsers(sub: Any, common: argparse.ArgumentParser) -> None:
     p_sweep.add_argument("--repetitions", type=int, default=3)
     p_sweep.add_argument("--max-usd", type=float, help="stop scheduling batches at this spend")
     p_sweep.add_argument("--skip-self-check", action="store_true", help="dev only")
+    p_check = cost.add_parser("check", parents=[common],
+                              help="R6: score cost records against SWD(2021) 84")  # fmt: skip
+    source = p_check.add_mutually_exclusive_group(required=True)
+    source.add_argument("--sweep", help="a `womm cost sweep` directory of the proposal")
+    source.add_argument("--runs", nargs="+", help="saved runs of a cost-enabled version")
+    p_check.add_argument("--reference", default=str(COST_REFERENCE), help=argparse.SUPPRESS)
 
 
 HANDLERS = {
@@ -1070,7 +1149,7 @@ EVOLVE_HANDLERS = {
 
 CALIBRATE_HANDLERS = {"sample": cmd_calibrate_sample, "score": cmd_calibrate_score}
 NOISE_HANDLERS = {"report": cmd_noise_report}
-COST_HANDLERS = {"sweep": cmd_cost_sweep}
+COST_HANDLERS = {"sweep": cmd_cost_sweep, "check": cmd_cost_check}
 GROUPS = {
     "evolve": ("evolve_cmd", EVOLVE_HANDLERS),
     "calibrate": ("calibrate_cmd", CALIBRATE_HANDLERS),

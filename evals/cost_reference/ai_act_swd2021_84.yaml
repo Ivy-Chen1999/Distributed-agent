@@ -1,0 +1,172 @@
+# IA cost reference for the R6 cost check (EU cost plan U6). Scoring side only: never an agent
+# input (tests/cost/test_ia_isolation.py). Read by womm.eval.cost_check alone.
+reference_id: ai_act_swd2021_84
+ia: SWD(2021) 84 final (impact assessment accompanying COM(2021) 206)
+proposal_version: com2021_206
+# One person checks every item against SWD(2021) 84 Part 1 §6.1.3, §6.2 and Part 2 Annex 3
+# (Table 5) and Annex 4, then sets status: verified with name and date. The loader refuses an
+# unverified file, so no scored check runs before that.
+status: unverified
+verified_by: null
+verified_on: null
+notes: >-
+  Hand-written paraphrase of the IA with its figures, transcribed from the cached IA text on
+  2026-10-07; no IA text is copied verbatim. Only the preferred option (3 / 3+) is used. All
+  per-application figures are the IA's estimates for an average AI application assumed to cost
+  about EUR 170 000 to develop (Standard Cost Model, EUR 32 per hour). Bands are computed by
+  the loader from eur_low / eur_high (midpoint) with womm.cost.categories.BAND_EDGES_EUR; FTE
+  figures use 1 FTE = EUR 32 x 1 720 hours. They are never typed here. Two internal
+  inconsistencies are kept, not resolved: EU-level FTE (10 in §6.2, 5 in Annex 3 Table 5) and
+  human oversight (EUR 7 764 in Table 8b, EUR 5 000-8 000 a year in the §6.1.3 text and Table
+  5). Not quantified by the IA, so never counted against the system: prohibitions (Art 5),
+  transparency for certain AI systems (Art 52), registration in the EU database (Art 51, 60),
+  post-market monitoring and incident reporting (Art 61-62), importer, distributor and
+  authorised-representative duties (Art 25-28), most user duties beyond oversight (Art 29),
+  sandboxes and SME measures (Art 53-55), penalties (Art 71) and codes of conduct (Art 69).
+items:
+  - item_id: ia01_data
+    label: Compliance costs regarding data, including risk assessment and testing
+    ia_section: Part 1 §6.1.3 Table 8; Part 2 Annex 4
+    proposal_articles: ["9", "10"]
+    proposal_annexes: []
+    payer: provider
+    payers: [provider]
+    recurrence: one_off
+    figure_text: at most about EUR 2 763 per AI application
+    eur_low: 2763
+    eur_high: 2763
+    unit: per_application
+    comparable_unit: true
+  - item_id: ia02_documentation
+    label: Administrative burden regarding documentation and traceability
+    ia_section: Part 1 §6.1.3 Table 8; Part 2 Annex 4
+    proposal_articles: ["11", "12", "16"]
+    proposal_annexes: ["IV"]
+    payer: provider
+    payers: [provider]
+    recurrence: one_off
+    figure_text: at most about EUR 4 390 per AI product
+    eur_low: 4390
+    eur_high: 4390
+    unit: per_application
+    comparable_unit: true
+  - item_id: ia03_information
+    label: Administrative burden regarding provision of information
+    ia_section: Part 1 §6.1.3 Table 8; Part 2 Annex 4
+    proposal_articles: ["13"]
+    proposal_annexes: []
+    payer: provider
+    payers: [provider]
+    recurrence: one_off
+    figure_text: at most about EUR 3 627 per AI application
+    eur_low: 3627
+    eur_high: 3627
+    unit: per_application
+    comparable_unit: true
+  - item_id: ia04_robustness
+    label: Compliance costs regarding robustness and accuracy, only for firms below state-of-the-art practice
+    ia_section: Part 1 §6.1.3 Table 8a; Part 2 Annex 4
+    proposal_articles: ["15"]
+    proposal_annexes: []
+    payer: provider
+    payers: [provider]
+    recurrence: one_off
+    figure_text: about EUR 10 733 per AI application, for providers not following standard business procedures
+    eur_low: 10733
+    eur_high: 10733
+    unit: per_application
+    comparable_unit: true
+  - item_id: ia05_human_oversight
+    label: Human oversight, an operating cost of users
+    ia_section: Part 1 §6.1.3 Table 8b and text; Part 2 Annex 3 Table 5; Annex 4
+    proposal_articles: ["14", "29"]
+    proposal_annexes: []
+    payer: deployer
+    payers: [deployer]
+    recurrence: recurring
+    figure_text: EUR 5 000-8 000 a year per application (about 0.1 FTE); Table 8b gives EUR 7 764
+    eur_low: 5000
+    eur_high: 8000
+    unit: per_year
+    comparable_unit: false
+    inconsistency: Table 8b gives EUR 7 764; the §6.1.3 text and Table 5 give EUR 5 000-8 000 a year. Both fall in the same band.
+  - item_id: ia06_user_documentation
+    label: Documentation for users, relying on in-built logs
+    ia_section: Part 1 §6.1.3 text
+    proposal_articles: ["12", "29"]
+    proposal_annexes: []
+    payer: deployer
+    payers: [deployer]
+    recurrence: recurring
+    figure_text: negligible (relies on in-built use logs installed by the provider)
+    eur_low: null
+    eur_high: null
+    negligible: true
+    unit: none
+    comparable_unit: false
+  - item_id: ia07_qms_audit
+    label: Audit of the quality management system by a notified body (third-party subset)
+    ia_section: Part 1 §6.1.3 (verification costs); Part 2 Annex 3 Table 5
+    proposal_articles: ["17", "43"]
+    proposal_annexes: []
+    payer: provider
+    payers: [provider]
+    recurrence: both
+    figure_text: initial audit EUR 1 000-2 000 per day; yearly re-audit at about EUR 300 per hour (Table 5)
+    eur_low: 1000
+    eur_high: 2000
+    unit: per_day
+    comparable_unit: false
+  - item_id: ia08_nb_documentation_review
+    label: Notified-body review of the technical documentation (third-party subset)
+    ia_section: Part 1 §6.1.3 (verification costs); Part 2 Annex 3 Table 5
+    proposal_articles: ["43"]
+    proposal_annexes: ["VII"]
+    payer: provider
+    payers: [provider]
+    recurrence: one_off
+    figure_text: EUR 3 000-7 500 per product (one to two and a half days of review)
+    eur_low: 3000
+    eur_high: 7500
+    unit: per_application
+    comparable_unit: true
+  - item_id: ia09_national_authorities
+    label: National competent authorities (supervision, market monitoring)
+    ia_section: Part 1 §6.2; Part 2 Annex 3 Table 5
+    proposal_articles: ["59"]
+    proposal_annexes: []
+    payer: member_state
+    payers: [member_state, national_competent_authority, market_surveillance_authority, notifying_authority]
+    recurrence: recurring
+    figure_text: 1-25 FTE per Member State
+    fte_low: 1
+    fte_high: 25
+    unit: fte_per_member_state
+    comparable_unit: false
+  - item_id: ia10_eu_coordination
+    label: EU-level coordination (Board secretariat)
+    ia_section: Part 1 §6.2; Part 2 Annex 3 Table 5
+    proposal_articles: ["56", "57", "58"]
+    proposal_annexes: []
+    payer: union
+    payers: [commission, board, ai_office, union_institutions]
+    recurrence: recurring
+    figure_text: 10 FTE at EU level (§6.2) or 5 FTE (Table 5)
+    fte_low: 5
+    fte_high: 10
+    unit: fte_eu
+    comparable_unit: false
+    inconsistency: §6.2 gives 10 FTE at EU level; Annex 3 Table 5 gives 5 FTE. Both fall in the same band.
+  - item_id: ia11_aggregate
+    label: Total compliance costs per application after the business-as-usual factor
+    ia_section: Part 1 §6.1.3; Part 2 Annex 3 Table 5
+    proposal_articles: ["8", "16"]
+    proposal_annexes: []
+    payer: provider
+    payers: [provider]
+    recurrence: one_off
+    figure_text: about EUR 6 000-7 000 per application by 2025 (aggregate EUR 100-500 million for high-risk applications; verification about EUR 100 million)
+    eur_low: 6000
+    eur_high: 7000
+    unit: per_application
+    comparable_unit: false
