@@ -108,12 +108,56 @@ Before the first formal comparison, a person must also:
 
 1. Sign and commit the promotion policy (as in B), confirming primary metric, tolerances,
    budget and `expected_gain`.
-2. Record a coverage-judge calibration of at least 85% for the gate's judge in
-   `evals/promotion_records.yaml` (`judge_calibrations`), and commit it.
-3. Run the R34 formal noise run (`uv run womm eval --split val --repetitions 6 --formal`, api
-   key required) and record it under `formal_noise_runs`.
-4. Optionally record a minimum-detectable-delta report (`mdd_reports`). Without one, or when it
-   exceeds `expected_gain`, the gate runs in weak mode (directional).
+2. Calibrate the coverage judge (golden-case plan, Revision 2026-10-04). The tools draw and
+   score the pairs; people only label, then commit the record:
+
+   ```bash
+   # a. Train/val eval reports scored by the gate's judge (the incumbent's), with run files.
+   uv run womm eval --split train --system-version system_versions/v1.0-unscoped-api.yaml
+   uv run womm eval --split val   --system-version system_versions/v1.0-unscoped-api.yaml
+   # b. Draw ~30 blind pairs, half judge-covered and half judge-missed, one sheet per annotator.
+   uv run womm calibrate sample --sv sv_761d872bb18e \
+       --report runs/eval_<train>.json --report runs/eval_<val>.json \
+       --n 30 --seed 20261007 --annotator alice --annotator bob \
+       --out .cache/calibration/2026-10-jv/
+   # c. Send each annotator sheet_<name>.md and answers_<name>.yaml (never key.private.json).
+   #    They fill in label (covered | not_covered | unsure) and an optional note per pair id,
+   #    and return the answers file into the same directory.
+   # d. Score: per-annotator and majority agreement, Cohen's kappa, inter-annotator agreement.
+   uv run womm calibrate score --dir .cache/calibration/2026-10-jv/
+   # e. Append the aggregate judge_calibrations record, then commit it.
+   uv run womm calibrate score --dir .cache/calibration/2026-10-jv/ --record
+   git add evals/promotion_records.yaml && git commit -m "chore: record coverage-judge calibration"
+   ```
+
+   The sample is stratified by the judge's verdict so misses are well represented; agreement is
+   reported raw and reweighted to the judge's natural covered rate, and the recorded
+   `agreement` is the lower of the two. `unsure` labels and ties are excluded and counted.
+   Holdout reports and non-public cases are refused. The gate needs at least 85%; below that,
+   fix the judge rubric and recalibrate (also after any change of the judge prompt or model,
+   which changes `judge_version`).
+3. Run the R34 formal noise run and record it with its minimum-detectable-delta reports:
+
+   ```bash
+   uv run womm eval --split val --repetitions 6 --formal \
+       --system-version system_versions/v1.0-unscoped-api.yaml     # api key, clean tree
+   # Holdout counts from the sealed store's import log (a person passes them in).
+   uv run womm noise report --report runs/eval_<formal>.json \
+       --holdout-cases 8 --holdout-proposals 8
+   uv run womm noise report --report runs/eval_<formal>.json \
+       --holdout-cases 8 --holdout-proposals 8 --record
+   git add evals/promotion_records.yaml && git commit -m "chore: record R34 noise run and MDD"
+   ```
+
+   `--record` refuses a report that is not a formal api run (`claude_code` or dev noise runs
+   print but never record). The MDD uses the signed policy's `repetitions`, two-sided alpha
+   0.05 and power 0.8, Student-t quantiles with (proposals - 1) degrees of freedom, and a
+   cluster-by-proposal design effect `1 + (cases/proposals - 1) * icc` (`--icc`, default 1.0,
+   conservative); the formula is in `src/womm/eval/noise_report.py`. It covers run-to-run noise
+   only, so it is a lower bound. An MDD record for other repetitions than the policy's is
+   ignored by the gate.
+4. Without an MDD report, or when its coverage MDD exceeds `expected_gain`, the gate runs in
+   weak mode (directional).
 
 The gate refuses, before any holdout run, whatever is missing.
 
