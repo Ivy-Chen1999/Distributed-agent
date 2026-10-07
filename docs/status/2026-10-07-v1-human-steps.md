@@ -2,7 +2,7 @@
 
 Everything else in v1 is automated. This page lists the only steps a person must take, in order,
 with who, how long, the exact commands, and what "done" looks like. Commands refer to
-`feat/v1-integration` (PR #6). Tools marked *(being built)* land on that branch this week.
+`feat/v1-integration` (PR #6).
 
 Total human time: about 8–10 hours, spread over three to four people.
 
@@ -55,25 +55,30 @@ The holdout must never be seen by anyone who also tunes the system, so this is n
 The coverage judge decides whether a dossier covers an expected impact. Following Anthropic's
 eval guidance, it is trusted only after it agrees with people on a labelled sample.
 
-- **Prepare (owner, *being built*):**
+- **Prepare (owner):**
 
   ```
   uv run womm calibrate sample --sv <incumbent> --report <train/val eval report> --n 30 \
       --out .cache/calibration/round1/
   ```
 
-  This writes one blind labelling sheet per annotator. The judge's verdicts are kept apart, so
-  annotators cannot see them.
+  This writes one blind labelling sheet per annotator (`sheet_<name>.md`, with an
+  `answers_<name>.yaml` to fill in). Pairs are half judge-covered and half judge-missed, and the
+  order is shuffled per annotator. The judge's verdicts stay in `key.private.json`; never send
+  that file to annotators.
 - **Label (2 classmates, about 30 minutes each):** for each pair, decide whether the dossier
   covers the expected impact: `covered`, `not_covered` or `unsure`, with an optional note.
   Annotators work independently and do not discuss pairs until both are done.
-- **Score and record (owner, *being built*):**
+- **Score and record (owner):**
 
   ```
   uv run womm calibrate score --dir .cache/calibration/round1/ --record
   git commit evals/promotion_records.yaml
   ```
 
+  The score reports agreement per annotator and with the majority, Cohen's kappa and
+  inter-annotator agreement. The recorded agreement is the lower of the raw and the
+  natural-rate figure, so the stratified sample never flatters the judge.
 - **Done:** a `judge_calibrations` record with agreement of at least 0.85 for the incumbent's
   judge version. If agreement is lower, fix the judge prompt and repeat with fresh pairs.
 
@@ -96,11 +101,11 @@ eval guidance, it is trusted only after it agrees with people on a labelled samp
   `.env` file only, never in chat or a commit.
 - **Measure the cost first:** one full run to get the cost per run, then a budget estimate for
   v1.
-- **R34 and MDD (*report tool being built*):**
+- **R34 and MDD:**
 
   ```
   uv run womm eval --split val --repetitions 6 --formal
-  uv run womm noise report --report <that report> --holdout-cases 8 --record
+  uv run womm noise report --report <that report> --holdout-cases 8 --holdout-proposals 8 --record
   git commit evals/promotion_records.yaml
   ```
 
