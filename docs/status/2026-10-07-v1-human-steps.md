@@ -4,7 +4,7 @@ Everything else in v1 is automated. This page lists the only steps a person must
 with who, how long, the exact commands, and what "done" looks like. Commands refer to
 `feat/v1-integration` (PR #6).
 
-Total human time: about 8–10 hours, spread over three to four people.
+Total human time: about 9–11 hours, spread over three to four people.
 
 | # | Step | Who | Time | Blocks |
 |---|---|---|---|---|
@@ -16,6 +16,7 @@ Total human time: about 8–10 hours, spread over three to four people.
 | 6 | Write the R37 reference answers | project owner | about 1 h | nothing (monitoring only) |
 | 7 | Branch protection on `main` | repo owner | 2 min | review gate enforcement |
 | 8 | 2026-11-20 route decision | project owner | 15 min | the demo |
+| 9 | Cost estimation: confirm defaults, check the IA cost reference, commit the cost versions | project owner (check: anyone careful) | about 1.5 h | scored cost sweeps (R6) |
 
 Steps 1, 3 and 7 can start today. Step 4 should come before any holdout comparison, and step 2
 before any promotion.
@@ -132,3 +133,24 @@ Without this, CODEOWNERS on golden files does not block merges.
   across 2+ proposals and the topology candidate passes the gate.
 - **Prompt-only fallback:** otherwise. The runbook (`docs/demo/v1-self-evolution-runbook.md`)
   has both paths.
+
+## 9. Cost estimation (Stage B, plan 2026-10-07-001)
+
+- **Confirm the defaults (owner, 15 min), before the first scored sweep:**
+  - magnitude bands: negligible under €1k, low €1k–5k, medium €5k–25k, high €25k or more, each
+    one-off or recurring;
+  - the mapping of the seven effort types to administrative burden vs compliance cost;
+  - whether `not_costed` (for example prohibitions) is allowed (default: yes);
+  - whether R7 counts only added paragraphs (default) or also modified ones (adds 444 duties);
+  - whether cost demo runs use `v1.0-cost` (default: yes).
+- **Check the IA cost reference (about 1 h, anyone careful who is not tuning the system):** the
+  file transcribes about 11 cost items from the AI Act impact assessment (sections 6.1.3 and
+  6.2, Annexes 3 and 4). Compare each value and unit with the IA, then set `status: verified`.
+  Note that the IA itself gives 10 FTE in section 6.2 and 5 FTE in Annex 3 Table 5 for the EU
+  level; record which one is used.
+- **Commit the cost versions (owner, 5 min):** add `v1.0-cost` and its api twin to
+  `system_versions/PROMOTIONS.md`.
+- **What R6 can and cannot show:** the IA prices only high-risk requirements, conformity
+  assessment and governance (about 16 articles). Recall over those items and band agreement are
+  scored. Rank agreement is descriptive only, and costs the IA does not price are reported, not
+  scored.
