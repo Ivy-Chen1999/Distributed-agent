@@ -30,7 +30,7 @@ HOLDOUT_REFUSAL = (
 
 # How a published item was decided (plan Revision 2026-10-04). Hand-written cases have none.
 ItemProvenance = Literal[
-    "llm_judged", "human_verified", "human_edited", "human_confirmed_candidate"
+    "llm_judged", "llm_tiebroken", "human_verified", "human_edited", "human_confirmed_candidate"
 ]
 
 
