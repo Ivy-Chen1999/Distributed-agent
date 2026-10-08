@@ -1,0 +1,1148 @@
+# DRAFT golden case written by scripts/draft_golden_case.py; not scored until published.
+# Reviewer? Start with docs/eval/reviewer-quickstart.md. The helper lists what to decide:
+#   uv run python scripts/review_draft.py <this file>
+# Decide every item whose review.decision is 'pending' and every possibly_missing candidate
+# as verified / edited / rejected / unclear, with your GitHub username in review.reviewer.
+# Other auto-accepted items need no decision. Do not change tool-written fields of an item
+# you keep as auto_accepted or verified (CI checks provenance.item_digests); the drafter
+# (provenance.drafted_by) cannot review. review_links opens the public IA and proposal on
+# EUR-Lex (train/val only); holdout identifiers never appear in a tracked file.
+case_id: case_06_dma_gatekeeper_obligations
+scenario_id: eval_gatekeeper_obligations
+fixture: dma
+split: train
+ia_reference: 'Impact assessment accompanying the Digital Markets Act proposal (identifiers in the local
+  IA index); sections: Businesses; Consumers; 3.2. Overview of costs'
+notes: ''
+review_links:
+  ia: https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:52020SC0363
+  proposal: https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:52020PC0842
+  ia_parts: 2
+  anchor_parts:
+    c06_e01: 1
+    c06_e02: 1
+    c06_e03: 1
+    c06_e04: 1
+    c06_e05: 1
+    c06_e06: 1
+    c06_e07: 1
+    c06_e08: 1
+    c06_e09: 1
+    c06_e10: 1
+    c06_o01: 1
+    c06_o02: 1
+    c06_o03: 1
+    c06_o04: 2
+    c06_m01: 2
+    c06_m02: 2
+    c06_m03: 2
+    c06_m04: 1
+    c06_m05: 1
+    c06_m06: 1
+    c06_m07: 1
+provenance:
+  tool: scripts/draft_golden_case.py
+  drafted_on: '2026-10-06'
+  drafted_by: Chen Yuxin
+  drafting_model: claude-opus-5-5
+  roles:
+    drafter:
+      backend: claude_code
+      model: claude-opus-5-5
+      prompt: prompts/tools/draft_golden_case.md
+    recall:
+      backend: claude_code
+      model: claude-opus-5-5
+      prompt: prompts/tools/recall_golden_case.md
+    judge_anchor:
+      backend: claude_code
+      model: claude-sonnet-5
+      prompt: prompts/tools/judge_anchor.md
+    judge_derivability:
+      backend: claude_code
+      model: claude-sonnet-5
+      prompt: prompts/tools/judge_derivability.md
+    judge_category:
+      backend: claude_code
+      model: claude-sonnet-5
+      prompt: prompts/tools/judge_category.md
+  prompt_hashes:
+    prompts/tools/draft_golden_case.md: c72bd341e2c3ef75
+    prompts/tools/recall_golden_case.md: 36f0a5dcc15a57c6
+    prompts/tools/judge_anchor.md: 0d81eb4d5d2b43bd
+    prompts/tools/judge_derivability.md: 97471d88c14d32c3
+    prompts/tools/judge_category.md: 8b1885320b65b60f
+  ia_sections:
+  - Businesses
+  - Consumers
+  - 3.2. Overview of costs
+  rsb_status: opinion none found in Cellar
+  audit:
+    seed: 3820557263
+    rate: 0.2
+    eligible: 13
+    eligible_ids:
+    - c06_e02
+    - c06_e03
+    - c06_e04
+    - c06_e05
+    - c06_e06
+    - c06_e07
+    - c06_e08
+    - c06_e09
+    - c06_e10
+    - c06_o01
+    - c06_o02
+    - c06_o03
+    - c06_o04
+    sampled:
+    - c06_e02
+    - c06_e05
+    - c06_e07
+    non_publishable_test_seed: false
+  item_digests:
+    c06_e01: d1c270c1508fa37c9797d13df2cf81414c0a6d976c5f3717bea8990c2cd07fa4
+    c06_e02: 610aa700898df8ec88b4e7de2c1fed336939167d982790427bbd4326e2f88780
+    c06_e03: d259c87b4b5056202fd816d1b85d9689b9b808e1f38ece49530ed870b98fffeb
+    c06_e04: 6be94b692090db59e381b383330675656342b7e12fed27daa83779135487de38
+    c06_e05: af21aa3191659d2b68408a2d48493f018142e9e1417415c1340583431cb9b0e2
+    c06_e06: aae3170ad72db015cafbeeeed3aeed38560e8735500b9416cb9710cbf0cb9ab2
+    c06_e07: 093601e9991600b3b3d5d129eacbedff7f8949c6f1366230cdcc14e08dc8545f
+    c06_e08: f5090c2a5f0a63e64a79eebe434aa37af973faaaab8b3910624ac4623564c42d
+    c06_e09: 64ce178bc909ada75c6dedc8f4e56a3a9dd0bf3faa36b1f82877347f43236a76
+    c06_e10: a8d4dc3639d4ad4a0dc32afb2b786217fbd703c1284f2f8d9f48cfde363baad2
+    c06_o01: a4084b4970f86af2d4165353dd1683b827bcd080f652c2bba49155908e3d796d
+    c06_o02: f2fb85e63ae97f66d17998f4fc45cf146f3fb5c21baf6398c0ecdedc5e525b9e
+    c06_o03: e0823fe09d457408949026b45686835892d763056502d772c43dcd69ac2ab15d
+    c06_o04: 96ec4e7ffc34938e77d45538dfae0590aaef87e1e654f6b9546b658d3da3e198
+    c06_m01: 89265c19a64ea0619c394a431a3aa0db9c54847978e35004eb3524a4cfb61d4d
+    c06_m02: 18249d6fc6820f73ca441095bc34736b5b4c46a69841d5cab014f684b0e6b4be
+    c06_m03: 998a65a65d9d5f2e61cbb8fa4f28d010d72cf3b69fb12eb6f213b5f02a1c7e7f
+    c06_m04: fe5b5fde47dd86980ba6fb5364621d7399ea311efa9b013e135e4fb94a971dae
+    c06_m05: 7548c6eb5b73d6a842805592a6afcdc8b274901083e277b4751cb208163a88f3
+    c06_m06: ff84f37cd2d3385e449547cfefa5cf647db7c5b4b33bf1cca34c3616994060d0
+    c06_m07: ab0d34f3f39370249de29f4511e4396094f5fc06eea695e0eafbf9665cb1b334
+  tiebreak_audit:
+    seed: 3645592030
+    rate: 0.2
+    eligible: 4
+    eligible_ids:
+    - c06_e01
+    - c06_m01
+    - c06_m04
+    - c06_m07
+    sampled:
+    - c06_m01
+    non_publishable_test_seed: false
+stats:
+  items: 21
+  expected_impacts: 10
+  important_omissions: 4
+  possibly_missing: 7
+  anchors_verified: 21
+  judge_agree: 19
+  judge_disagree: 1
+  judge_uncertain: 1
+  auto_accepted: 13
+  pending: 0
+  audited: 4
+  human_decisions_needed: 0
+  llm_kept: 4
+  llm_dropped: 4
+expected_impacts:
+- expected_id: c06_e01
+  affected_actor: Designated gatekeepers
+  mechanism: Gatekeepers must make sure the Article 5 and 6 obligations are fully and effectively complied
+    with (Arts 7 and 11). They have to review their policies against the new rules, deal with the Commission
+    and answer its requests.
+  impact: Gatekeepers need extra legal compliance officers and staff to deal with the regulator. The IA
+    estimates about 20 FTEs per gatekeeper platform. These costs would largely replace what gatekeepers
+    already spend on complying with differing national measures.
+  provision_keys:
+  - dma/proposal/art/5
+  - dma/proposal/art/6
+  - dma/proposal/art/7
+  - dma/proposal/art/11
+  ia_section: Businesses – Gatekeepers
+  ia_anchor: Such costs would imply some additional legal compliance officers to check company policies
+    against the new rules; some employees to interface with the regulator and respond to requests for
+    information.
+  anchor:
+    status: verified
+    against: ia
+  category: compliance_cost
+  derivability:
+    verdict: 'yes'
+    reason: The provisions place a large set of conduct obligations, plus a duty to ensure effective compliance,
+      directly on gatekeepers, so compliance staffing costs clearly follow.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: The anchor text matches the claimed mechanism (compliance officers, regulator liaison) and
+        impact (compliance costs largely substituting national compliance costs); the 20-FTE figure is
+        consistent with the same cost estimate appearing elsewhere in the IA.
+    derivability:
+      verdict: agree
+      reason: Arts 5, 6, 7 and 11 impose a broad set of conduct obligations plus an explicit duty to ensure
+        full and effective compliance, which clearly implies internal compliance resourcing.
+    category:
+      verdict: disagree
+      reason: Reviewing policies, communicating with and answering the Commission's requests describes
+        information/reporting duties to a regulator, which is administrative_burden rather than substantive
+        compliance_cost.
+    overall: disagree
+  tiebreak:
+    verdict: keep
+    original_category: compliance_cost
+    reason: Para 300 states that compliance officers and staff to interface with the regulator are needed
+      and that these costs largely substitute for costs of divergent national measures. The cost table
+      gives 20 FTEs per gatekeeper platform. The IA itself frames these as compliance costs, so compliance_cost
+      stays.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_drafted
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_kept
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c06_e02
+  affected_actor: Designated gatekeepers
+  mechanism: 'Practices that are central to gatekeeper business models are banned or restricted: combining
+    data, self-preferencing, MFN clauses, tying, and using business users'' data.'
+  impact: These indirect costs may be larger than compliance costs. Gatekeepers would have to change their
+    business models, lose some revenue and may see their supra-normal profits fall. The IA says this effect
+    is hard to quantify.
+  provision_keys:
+  - dma/proposal/art/5
+  - dma/proposal/art/6
+  - dma/proposal/art/11
+  ia_section: Businesses – Gatekeepers
+  ia_anchor: Indirect (other than compliance) costs may be higher, as proposed measures are expected to
+    have impact on gatekeepers’ business models and potentially reduce their supra-normal profits.
+  anchor:
+    status: verified
+    against: ia
+  category: market_competition
+  derivability:
+    verdict: 'yes'
+    reason: Banning specific monetisation and leveraging practices clearly limits revenue strategies that
+      gatekeepers use today.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor confirms gatekeepers face indirect costs from impacts on business models and reduced
+        supra-normal profits, and that this is hard to quantify, matching the claim exactly.
+    derivability:
+      verdict: agree
+      reason: Arts 5 and 6 explicitly ban or restrict data combination, self-preferencing, parity clauses,
+        tying and use of business-user data, which are core monetisation practices.
+    category:
+      verdict: agree
+      reason: The impact is framed as revenue/profit effects from forced business-model changes, i.e.
+        a market structure/profit effect, best captured as market_competition.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: true
+    reviewer: null
+    note: null
+- expected_id: c06_e03
+  affected_actor: Competitors and new entrants (including providers of alternative app stores, ID services
+    and ancillary services)
+  mechanism: Gatekeepers may not favour their own products in ranking (Art 6(1)(d)). They must allow third-party
+    apps and app stores (Art 6(1)(c)), give access to the same operating system, hardware and software
+    features (Art 6(1)(f)), and may not force business users to use the gatekeeper's ID service (Art 5(e)).
+  impact: Barriers to entry and expansion come down. Competitors can compete on the merits, for example
+    by building their own distribution channels or ID services.
+  provision_keys:
+  - dma/proposal/art/5
+  - dma/proposal/art/6
+  ia_section: SMEs
+  ia_anchor: Measures preventing unfair self-preferencing and limitations in interoperability would give
+    them the ability to compete on the merits (e.g. develop their own distribution channels or their own
+    ID services).
+  anchor:
+    status: verified
+    against: ia
+  category: market_competition
+  derivability:
+    verdict: 'yes'
+    reason: The self-preferencing, interoperability and ID-service provisions name the third-party providers
+      who benefit.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor quote directly states that preventing self-preferencing and limiting interoperability
+        lets competitors/new entrants compete on the merits via own distribution channels or ID services,
+        matching actor and mechanism.
+    derivability:
+      verdict: agree
+      reason: Art 6(1)(c), (d), (f) and Art 5(e) name third-party app stores, ancillary-service providers
+        and identification services as the intended beneficiaries of these anti-self-preferencing and
+        interoperability duties.
+    category:
+      verdict: agree
+      reason: Lower entry barriers and ability to compete on the merits is a market structure effect.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c06_e04
+  affected_actor: Competing online intermediation services (alternative distribution channels)
+  mechanism: Gatekeepers must let business users offer different prices or conditions through third-party
+    intermediation services, which bans parity (MFN) clauses (Art 5(b)).
+  impact: Competitors have more reason to build alternative distribution channels, because business users
+    can reward better service or lower fees with better terms.
+  provision_keys:
+  - dma/proposal/art/5
+  ia_section: SMEs
+  ia_anchor: Rules on MFN clauses would increase incentives for competitors to develop alternative (to
+    the gatekeepers’ ones) distribution channels, since they could expect that better service or lower
+    price can be awarded by the business user with better commercial conditions.
+  anchor:
+    status: verified
+    against: ia
+  category: market_competition
+  derivability:
+    verdict: 'yes'
+    reason: Art 5(b) expressly allows different prices on third-party intermediation services, which points
+      directly to competing channels as the beneficiaries.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor text states MFN rules increase competitors' incentives to build alternative distribution
+        channels due to business users rewarding better terms, matching the claim precisely.
+    derivability:
+      verdict: agree
+      reason: Art 5(b) expressly bans price/condition parity obligations toward other intermediation services,
+        directly supporting competing distribution channels.
+    category:
+      verdict: agree
+      reason: Encouraging alternative distribution channels is a market competition effect.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c06_e05
+  affected_actor: Business users of gatekeeper platforms
+  mechanism: Gatekeepers may not use non-public data generated by business users and their end users to
+    compete against those business users (Art 6(1)(a), 6(2)).
+  impact: Business users are protected from their data being exploited only for the platform's benefit.
+    This gives them more confidence to sell online.
+  provision_keys:
+  - dma/proposal/art/6
+  ia_section: SMEs
+  ia_anchor: Measures against data misuse would prevent that their data are exploited for the only benefit
+    of the platform.
+  anchor:
+    status: verified
+    against: ia
+  category: market_competition
+  derivability:
+    verdict: 'yes'
+    reason: Art 6(1)(a) explicitly protects business users' non-public data from use by the gatekeeper
+      in competition with them.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor states measures against data misuse prevent exploitation of business users' data
+        for the platform's sole benefit, matching actor, mechanism and impact.
+    derivability:
+      verdict: agree
+      reason: Art 6(1)(a) and 6(2) explicitly forbid gatekeepers from using business users' non-public
+        data to compete with them.
+    category:
+      verdict: agree
+      reason: Protecting business users from data exploitation to boost their confidence to compete is
+        a market competition effect.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: true
+    reviewer: null
+    note: null
+- expected_id: c06_e06
+  affected_actor: Business users of gatekeeper platforms
+  mechanism: Gatekeepers must give business users free, continuous, real-time access to data generated
+    through their use of the core platform service (Art 6(1)(i)), with consent arrangements that are no
+    more burdensome than for the gatekeeper's own services (Art 11(2)).
+  impact: Business users can adapt their business models to demand and better meet customers' expectations.
+  provision_keys:
+  - dma/proposal/art/6
+  - dma/proposal/art/11
+  ia_section: SMEs
+  ia_anchor: Access to data generated by business users’ activity on the platform would allow them to
+    adjust their business model to demand and better meet customers’ expectations.
+  anchor:
+    status: verified
+    against: ia
+  category: market_competition
+  derivability:
+    verdict: 'yes'
+    reason: Art 6(1)(i) gives business users a data-access right in explicit terms.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor directly states access to data generated by business users' activity lets them adjust
+        business models to demand and meet customer expectations, matching the claim.
+    derivability:
+      verdict: agree
+      reason: Art 6(1)(i) creates an explicit free real-time data-access right for business users, with
+        Art 11(2) reinforcing non-burdensome consent.
+    category:
+      verdict: agree
+      reason: Enabling business users to adapt business models via data access is a market competition/contestability
+        effect.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c06_e07
+  affected_actor: Business users of gatekeeper platforms
+  mechanism: Gatekeepers may not make access conditional on subscribing to other core platform services
+    (Art 5(f)). Business users are free to steer customers and contract outside the platform (Art 5(c)),
+    and to use other intermediaries on different terms (Art 5(b)).
+  impact: Business users can multi-home and switch more easily, choose and combine services as they need,
+    and benefit from lower intermediation prices and lower distribution costs.
+  provision_keys:
+  - dma/proposal/art/5
+  ia_section: SMEs
+  ia_anchor: Business users would have an increased possibility to multi-home and switch thus benefitting
+    from increased choice of services and the ability to combine services according to their actual needs
+    and interests
+  anchor:
+    status: verified
+    against: ia
+  category: market_competition
+  derivability:
+    verdict: 'yes'
+    reason: The anti-tying, anti-steering and parity provisions are written to protect business users'
+      freedom of choice.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor confirms increased multi-homing/switching ability and combining services per actual
+        needs, consistent with the claimed mechanism and impact.
+    derivability:
+      verdict: agree
+      reason: Art 5(b), (c) and (f) are drafted precisely to protect business users' freedom to steer,
+        contract and multi-home.
+    category:
+      verdict: agree
+      reason: Easier multi-homing, switching and lower prices for business users is a market competition
+        effect.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: true
+    reviewer: null
+    note: null
+- expected_id: c06_e08
+  affected_actor: End users / consumers
+  mechanism: Effective data portability with real-time access (Art 6(1)(h)), the right to uninstall pre-installed
+    apps (Art 6(1)(b)), sideloading and third-party app stores (Art 6(1)(c)), and a ban on technically
+    restricting switching (Art 6(1)(e)). Gatekeepers may not degrade services or make it hard for users
+    to exercise these choices (Art 11(3)).
+  impact: Search and switching costs fall, so consumers can multi-home across platforms and get better
+    quality, wider choice and more innovative services at affordable prices.
+  provision_keys:
+  - dma/proposal/art/6
+  - dma/proposal/art/11
+  ia_section: Consumers
+  ia_anchor: some of the measures considered under the options aim at reducing the search and switching
+    costs associated with mulit-homing, for instance by allowing portability of data, creating conditions
+    for interoperability, increasing transparency in the market, etc.
+  anchor:
+    status: verified
+    against: ia
+  category: consumers_users
+  derivability:
+    verdict: 'yes'
+    reason: The portability, uninstall and switching provisions directly name end users as the people
+      they benefit.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor explicitly ties reduced search/switching costs to multi-homing enabled by data portability
+        and interoperability measures, matching the claim.
+    derivability:
+      verdict: agree
+      reason: Art 6(1)(b), (c), (e), (h) and Art 11(3) are explicit end-user-facing rights on portability,
+        uninstallation, sideloading and switching.
+    category:
+      verdict: agree
+      reason: Lower search/switching costs and better choice for end users directly concerns consumers_users.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c06_e09
+  affected_actor: Advertisers and publishers (and, downstream, consumers)
+  mechanism: On request, gatekeepers must provide price and remuneration information for advertising services
+    (Art 5(g)) and free access to performance-measuring tools and the data needed for independent verification
+    of ad inventory (Art 6(1)(g)).
+  impact: Greater transparency and contestability are expected to lower prices for advertisers, which
+    then pass through to lower consumer prices. The IA notes that a 10% fall in ad spending would bring
+    gains of more than EUR 5 billion per year.
+  provision_keys:
+  - dma/proposal/art/5
+  - dma/proposal/art/6
+  ia_section: Consumers
+  ia_anchor: the expected increase in market contestability and competition would increase the diversity
+    of offers available to consumers and would reduce the prices for advertisers
+  anchor:
+    status: verified
+    against: ia
+  category: market_competition
+  derivability:
+    verdict: partly
+    reason: The provisions clearly create ad-transparency rights for advertisers and publishers, but the
+      price-lowering effect and its pass-through to consumers are the IA's economic inference.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor confirms increased contestability reduces advertiser prices which pass through to
+        consumers, and the 10%/€5 billion figure matches exactly.
+    derivability:
+      verdict: agree
+      reason: The transparency rights for advertisers/publishers are explicit in Art 5(g) and 6(1)(g),
+        but the resulting price decrease and consumer pass-through is an economic inference beyond the
+        text, matching the 'partly' verdict.
+    category:
+      verdict: agree
+      reason: Transparency leading to lower advertising prices is a market competition/pricing effect.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c06_e10
+  affected_actor: End users / consumers (as data subjects)
+  mechanism: Gatekeepers may not combine personal data across services without specific consent (Art 5(a)).
+    They must submit an independently audited description of their consumer profiling techniques (Art
+    13), and compliance must respect the GDPR and ePrivacy rules (Art 7(1)).
+  impact: Consumers would understand more clearly what data is collected about them and how it is used,
+    and would have more control over their data.
+  provision_keys:
+  - dma/proposal/art/5
+  - dma/proposal/art/13
+  - dma/proposal/art/7
+  ia_section: Consumers
+  ia_anchor: In a more contestable and competitive market, it would be clear to consumers what data is
+    collected about them and how it is used and, crucially, consumers would have more control over their
+    data.
+  anchor:
+    status: verified
+    against: ia
+  category: fundamental_rights
+  derivability:
+    verdict: 'yes'
+    reason: The consent requirement for combining data and the profiling-audit duty clearly target end
+      users' control over their personal data.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor states that in a more contestable market consumers would understand what data is
+        collected and have more control, matching the claimed actor and impact.
+    derivability:
+      verdict: agree
+      reason: Art 5(a) consent requirement and Art 13 profiling-audit duty directly target end-user control
+        over and transparency of personal data.
+    category:
+      verdict: agree
+      reason: Consumer understanding and control over personal data is a fundamental_rights (data protection)
+        effect.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+important_omissions:
+- omission_id: c06_o01
+  description: Who ultimately bears gatekeepers' compliance costs, and how large they are relative to
+    the regulated activity. The IA says the costs are minuscule compared with gatekeeper revenues and
+    would be absorbed rather than passed on to business users (for example through restricted access)
+    or to consumers. A good assessment should address cost pass-through and scale.
+  source: ia
+  provision_keys:
+  - dma/proposal/art/5
+  - dma/proposal/art/6
+  - dma/proposal/art/11
+  ia_section: Businesses – Gatekeepers
+  ia_anchor: Compliance costs under all options would be miniscule as compared to the gatekeepers revenues
+    and could be absorbed by gatekeepers with little incentive for them to pass on costs to business users
+  anchor:
+    status: verified
+    against: ia
+  category: compliance_cost
+  derivability:
+    verdict: partly
+    reason: The provisions show that gatekeepers carry the costs, but judging pass-through and relative
+      scale needs market knowledge beyond the text.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: 'Anchor matches the claim precisely: compliance costs are minuscule relative to gatekeeper
+        revenues and likely absorbed rather than passed on to business users or consumers.'
+    derivability:
+      verdict: agree
+      reason: The provisions establish that gatekeepers bear compliance costs, but pass-through behavior
+        and relative scale against revenue require outside market knowledge.
+    category:
+      verdict: agree
+      reason: Discusses scale and pass-through of gatekeepers' compliance costs, fitting compliance_cost.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- omission_id: c06_o02
+  description: 'A downside for consumers: when business users can sell through several channels and steer
+    customers off-platform (Art 5(b), 5(c)), offers become spread across more platforms. This can raise
+    consumers'' search costs, although consumers can still use the gatekeeper''s service if they prefer.'
+  source: ia
+  provision_keys:
+  - dma/proposal/art/5
+  ia_section: Consumers
+  ia_anchor: This could lead to higher search costs but consumers would still have the possibility to
+    use the gatekeeper services, if they find it preferable to use a single platform
+  anchor:
+    status: verified
+    against: ia
+  category: consumers_users
+  derivability:
+    verdict: partly
+    reason: Multi-channel distribution follows from Art 5(b)-(c), but the effect on consumers' search
+      costs is an indirect inference.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor text states that spreading offers across more platforms could raise search costs
+        while consumers can still use the gatekeeper's service, matching the claim exactly.
+    derivability:
+      verdict: agree
+      reason: Art 5(b)-(c) enable multi-channel distribution and steering, but the resulting consumer
+        search-cost increase is an indirect inference not stated in the text.
+    category:
+      verdict: agree
+      reason: Higher search costs for consumers is a consumers_users effect.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- omission_id: c06_o03
+  description: Whether gatekeepers might react to the obligations by ending or degrading services to dependent
+    SMEs. The IA does not expect this because of network effects, and Art 11(3) bans degrading services
+    for users who exercise their rights. This risk for SME business users should be addressed.
+  source: ia
+  provision_keys:
+  - dma/proposal/art/11
+  - dma/proposal/art/5
+  - dma/proposal/art/6
+  ia_section: SMEs
+  ia_anchor: it is not expected that the obligations introduced by a new framework would result in gatekeepers
+    terminating provision of services to SMEs that are often dependent on these gatekeepers and their
+    core platform services
+  anchor:
+    status: verified
+    against: ia
+  category: sme_specific
+  derivability:
+    verdict: partly
+    reason: The anti-degradation rule in Art 11(3) points to this risk, but the expected market reaction
+      is the IA's own judgement.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor confirms it is not expected that gatekeepers would terminate services to dependent
+        SMEs, attributing this to network effects, matching the claim's core point.
+    derivability:
+      verdict: agree
+      reason: Art 11(3) textually bars degrading service for users exercising their rights, but the expectation
+        that gatekeepers won't retaliate due to network effects is the IA's own economic judgement.
+    category:
+      verdict: agree
+      reason: Risk concerns SME business users specifically, fitting sme_specific.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- omission_id: c06_o04
+  description: 'The information and reporting duties on gatekeepers: notifying all intended digital-sector
+    concentrations with turnover and user data (Art 12), submitting and updating every year an independently
+    audited description of profiling techniques (Art 13), and making reasoned submissions in specification
+    proceedings (Art 7). These create administrative burden separate from the substantive conduct changes.'
+  source: ia
+  provision_keys:
+  - dma/proposal/art/12
+  - dma/proposal/art/13
+  - dma/proposal/art/7
+  ia_section: 3.2. Overview of costs
+  ia_anchor: Compliance costs incurred in order to prepare for compliance with rules, set compliance officers,
+    and respond to requests for information.
+  anchor:
+    status: verified
+    against: ia
+  category: administrative_burden
+  derivability:
+    verdict: 'yes'
+    reason: Arts 12 and 13 set out notification, audit and annual-update duties for gatekeepers in explicit
+      terms.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor's general description of compliance costs for preparing compliance, compliance officers,
+        and responding to information requests supports the claim of administrative/reporting burden separate
+        from conduct changes.
+    derivability:
+      verdict: agree
+      reason: Arts 12 and 13 explicitly impose notification, audit and annual-update duties on gatekeepers,
+        and Art 7 provides for reasoned submissions.
+    category:
+      verdict: agree
+      reason: Notification, documentation and reporting duties are classic administrative_burden items.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+possibly_missing:
+- candidate_id: c06_m01
+  affected_actor: European Commission
+  mechanism: Under Art 7(2), (4) and (5) the Commission may decide which measures a gatekeeper must implement
+    to comply with Art 6. To do so it must open proceedings, issue preliminary findings within 3 months
+    and adopt a decision within 6 months, which creates implementation and supervision costs.
+  impact: 'Higher regulatory costs: Option 2 is estimated at about €16.7m a year (80 FTEs plus experts,
+    IT and meetings), partly because the Commission specifies obligations for individual gatekeepers.'
+  why_missing: All drafted pairs concern gatekeepers, competitors, business users, advertisers or consumers;
+    none covers the Commission's own enforcement and specification costs.
+  provision_keys:
+  - dma/proposal/art/7
+  ia_section: 3.2. Overview of costs
+  ia_anchor: Further implementation costs would stem from the regulator specifying the obligations imposed
+    to a given gatekeeper.
+  anchor:
+    status: verified
+    against: ia
+  category: public_enforcement_cost
+  derivability:
+    verdict: partly
+    reason: Art 7 plainly gives the Commission specification and decision tasks, but the cost size and
+      FTE figures come from the IA.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor states further implementation costs stem from the regulator specifying obligations
+        for a given gatekeeper, and the €16.7m/80 FTE figures match the surrounding cost table exactly.
+    derivability:
+      verdict: agree
+      reason: Art 7(2), (4) and (5) clearly give the Commission specification, preliminary-findings and
+        decision tasks, but the FTE/cost estimates are IA figures not derivable from the text.
+    category:
+      verdict: agree
+      reason: Costs for the Commission to run specification proceedings are public_enforcement_cost.
+    overall: agree
+  tiebreak:
+    verdict: keep
+    original_category: public_enforcement_cost
+    reason: The cost table attributes further implementation costs to the regulator specifying obligations
+      for a given gatekeeper and gives €16.7m a year (80 FTEs plus about €6.4m) for Option 2. Art 7(2),
+      (4) and (5) set up this specification procedure.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_kept
+    audit: true
+    reviewer: null
+    note: null
+- candidate_id: c06_m02
+  affected_actor: National authorities (competent authorities of the Member States)
+  mechanism: When the Commission prepares Art 7 decisions that tailor or specify a gatekeeper's obligations,
+    national regulators have to study the Commission's draft decisions and respond to consultations.
+  impact: About €6m a year in costs for national authorities (3.5 FTE per Member State) under Option 2.
+  why_missing: National authorities do not appear as an affected actor in any drafted pair.
+  provision_keys:
+  - dma/proposal/art/7
+  ia_section: 3.2. Overview of costs
+  ia_anchor: Option 2 would imply costs for national regulators to study Commission
+  anchor:
+    status: verified
+    against: ia
+  category: public_enforcement_cost
+  derivability:
+    verdict: 'no'
+    reason: The text of Art 7 does not mention national authorities; their role comes from the IA and
+      from other DMA provisions.
+  flags:
+  - not_derivable_from_provisions
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor confirms Option 2 requires national regulators to study Commission draft decisions,
+        with the €6m/3.5 FTE figure matching the context exactly.
+    derivability:
+      verdict: agree
+      reason: Article 7 as given makes no reference to national authorities or their consultation role,
+        so this actor/mechanism cannot be derived from the cited text.
+    category:
+      verdict: agree
+      reason: Costs for national authorities to review and consult on Commission decisions are public_enforcement_cost.
+    overall: agree
+  tiebreak:
+    verdict: drop
+    original_category: public_enforcement_cost
+    reason: The €6m and 3.5 FTE figures match the IA, but Art 7 gives national authorities no role in
+      studying or being consulted on draft decisions. So the actor and mechanism do not follow from the
+      listed provisions.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c06_m03
+  affected_actor: Designated gatekeepers
+  mechanism: Under Art 7(7) a gatekeeper can ask for a regulatory dialogue and request a Commission decision
+    on whether its intended Art 6 measures are effective. This makes implementation more flexible and
+    gives more legal certainty.
+  impact: Lower compliance costs, and implementation that disrupts commercial relationships with business
+    users less than self-executing obligations would.
+  why_missing: The drafted gatekeeper pair covers general compliance costs and dealing with the Commission,
+    not the cost-reducing effect of the Art 7 dialogue mechanism.
+  provision_keys:
+  - dma/proposal/art/7
+  ia_section: 3.2. Overview of costs
+  ia_anchor: On the one hand, the possibility of a dialogue would reduce the compliance costs.
+  anchor:
+    status: verified
+    against: ia
+  category: compliance_cost
+  derivability:
+    verdict: partly
+    reason: Art 7(7) sets up the request mechanism; the cost-reduction effect is the IA's assessment.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor directly states the dialogue possibility would reduce compliance costs, matching
+        the claimed actor and mechanism.
+    derivability:
+      verdict: agree
+      reason: Art 7(7) explicitly creates the gatekeeper-requested dialogue/decision mechanism, while
+        the resulting cost reduction is the IA's assessment.
+    category:
+      verdict: agree
+      reason: A dialogue mechanism reducing the gatekeeper's substantive implementation costs fits compliance_cost.
+    overall: agree
+  tiebreak:
+    verdict: unsure
+    original_category: compliance_cost
+    reason: The IA says the possibility of a dialogue would reduce compliance costs, and the same cell
+      adds that market-investigation information requests would bring extra costs. The claimed lower disruption
+      to commercial relationships with business users is not in the quoted text.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c06_m04
+  affected_actor: Business users of gatekeeper platforms (especially SMEs)
+  mechanism: Bans on parity clauses, tying and anti-steering (Art 5(b), (c), (f)) and fair access conditions
+    (Art 6(1)(k)) increase multi-homing and competition between intermediaries.
+  impact: Lower prices for intermediation services, lower distribution costs and more choice of platforms.
+  why_missing: The drafted business-user pairs cover data protections and contractual freedoms but not
+    the resulting cut in intermediation fees and distribution costs.
+  provision_keys:
+  - dma/proposal/art/5
+  - dma/proposal/art/6
+  ia_section: Businesses
+  ia_anchor: They could as a result benefit from lower prices for intermediation services and reduced
+    distribution costs.
+  anchor:
+    status: verified
+    against: ia
+  category: market_competition
+  derivability:
+    verdict: partly
+    reason: The freedoms granted are in the text; the price effect on intermediation fees is an IA inference.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor states business users would benefit from lower prices for intermediation services
+        and reduced distribution costs, matching the claim exactly.
+    derivability:
+      verdict: agree
+      reason: The cited anti-steering, anti-tying and fair-access provisions grant the underlying freedoms,
+        but the quantified price/competition effect on intermediation services is an inference.
+    category:
+      verdict: agree
+      reason: Lower intermediation prices and more platform choice is a market_competition effect.
+    overall: agree
+  tiebreak:
+    verdict: keep
+    original_category: market_competition
+    reason: Para 309 states that business users could multi-home and switch, including because of the
+      ban on tying, and would benefit from lower intermediation prices and reduced distribution costs.
+      This follows from Art 5(b), (c), (f) and 6(1)(k), and no kept item covers it.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_kept
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c06_m05
+  affected_actor: End users / consumers
+  mechanism: Business users pass on lower intermediation fees (from Art 5(b), (c) and Art 6(1)(c), (k))
+    as lower retail prices. Consumers can also deal directly with businesses.
+  impact: Lower prices for goods, services and apps (e.g. up to €490m a year in consumer surplus if app
+    store fees fell from 30% to 15%), plus offers better suited to consumers' needs.
+  why_missing: The drafted consumer pairs cover portability, uninstalling apps, sideloading and data protection,
+    not the price pass-through effect.
+  provision_keys:
+  - dma/proposal/art/5
+  - dma/proposal/art/6
+  ia_section: Consumers
+  ia_anchor: would be passed down to consumers in the form of lower prices for goods and services
+  anchor:
+    status: verified
+    against: ia
+  category: consumers_users
+  derivability:
+    verdict: partly
+    reason: The pass-through mechanism is an IA inference and not stated in the provisions.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: unknown
+      reason: While the anchor confirms lower intermediation prices pass through to lower consumer prices,
+        the specific €490m figure from the claim is not present in this context, so it cannot be verified.
+    derivability:
+      verdict: agree
+      reason: The provisions create the business-user freedoms but the claimed pass-through to consumer
+        retail prices is not stated in the text and is an IA inference.
+    category:
+      verdict: agree
+      reason: Lower retail prices and better-suited offers for consumers fits consumers_users.
+    overall: uncertain
+  tiebreak:
+    verdict: drop
+    original_category: consumers_users
+    reason: The IA context supports pass-through to lower consumer prices, but the €490m consumer-surplus
+      figure does not appear in the evidence, so a key number cannot be checked.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c06_m06
+  affected_actor: End users / consumers
+  mechanism: Multi-homing, offers spread across more platforms and direct contracting outside the gatekeeper
+    (Art 5(b), (c), Art 6(1)(c), (e)) split up where offers are found.
+  impact: Possibly higher search costs for consumers, although they can still use the gatekeeper service
+    if they prefer.
+  why_missing: All drafted consumer pairs are benefits; none covers this cost to consumers.
+  provision_keys:
+  - dma/proposal/art/5
+  - dma/proposal/art/6
+  ia_section: Consumers
+  ia_anchor: This could lead to higher search costs but consumers would still have the possibility to
+    use the gatekeeper services
+  anchor:
+    status: verified
+    against: ia
+  category: consumers_users
+  derivability:
+    verdict: 'no'
+    reason: This negative side effect is not apparent from the provision text; it comes from the IA's
+      analysis.
+  flags:
+  - not_derivable_from_provisions
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor states this could lead to higher search costs while consumers retain the option to
+        use gatekeeper services, matching the claim precisely.
+    derivability:
+      verdict: agree
+      reason: A negative search-cost effect on consumers from multi-homing is not indicated anywhere in
+        the cited provisions and is purely an IA-side analytical claim.
+    category:
+      verdict: agree
+      reason: Higher search costs for consumers is a consumers_users effect.
+    overall: agree
+  tiebreak:
+    verdict: drop
+    original_category: consumers_users
+    reason: This repeats the already kept item c06_o02 (higher search costs for consumers from offers
+      spread across platforms, with the gatekeeper service still available).
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c06_m07
+  affected_actor: Designated gatekeepers
+  mechanism: More contestable markets created by the Art 5 and 6 obligations increase competitive pressure
+    on gatekeepers, which have to keep a large user base.
+  impact: Stronger incentives for gatekeepers to innovate, bring new products to market and offer lower
+    prices, even though their business models are affected.
+  why_missing: The drafted gatekeeper pairs cover only compliance costs and restrictions on business-model
+    practices, not the innovation incentive.
+  provision_keys:
+  - dma/proposal/art/5
+  - dma/proposal/art/6
+  ia_section: Businesses
+  ia_anchor: increased market contestability would continue to incentivise gatekeepers to bring innovative
+    products to the market
+  anchor:
+    status: verified
+    against: ia
+  category: innovation_investment
+  derivability:
+    verdict: 'no'
+    reason: The innovation incentive effect is an economic argument made in the IA, not in the provisions.
+  flags:
+  - not_derivable_from_provisions
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor states increased market contestability would continue to incentivise gatekeepers
+        to bring innovative products even where their business models are impacted, matching the claim.
+    derivability:
+      verdict: agree
+      reason: The claimed innovation-incentive effect on gatekeepers from increased contestability is
+        an economic argument not expressed in the provisions themselves.
+    category:
+      verdict: agree
+      reason: Stronger incentives to innovate and bring new products to market is an innovation_investment
+        effect.
+    overall: agree
+  tiebreak:
+    verdict: keep
+    original_category: innovation_investment
+    reason: Para 303 states that increased market contestability would continue to incentivise gatekeepers
+      to bring innovative products to market and compete for consumers, even where their business models
+      are affected. This effect comes from the Art 5 and 6 obligations.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_kept
+    audit: false
+    reviewer: null
+    note: null
