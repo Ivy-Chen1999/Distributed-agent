@@ -77,7 +77,7 @@ provenance:
     - c03_e10
     non_publishable_test_seed: false
   item_digests:
-    c03_e01: 62a44f23b74d318ac219c5291435c6dc4776581fa49e0d7cb649708e352541fb
+    c03_e01: 2a2a37f2d110b08a98aa1ae6a4140d06e92682898d19b795e26f8d58b6e43679
     c03_e02: b6ce0d14dcc411a92bfbc104021145de5933a379310b6dd279035d8eb16858e8
     c03_e03: ba68d0636f04854562523efb564591e9d50f5d7de2bbf63566d4fa8af51504dd
     c03_e04: 3e5e0538e60592999bb0bdef29acc39c0cbcee2009fef106bdc3265c1a34e080
@@ -85,17 +85,30 @@ provenance:
     c03_e06: 9c5d271c82c56d58c9288a6800a4621360b01833c12ab71e9e01606f238946c4
     c03_e07: 1ce51e7ce6e04b4a0ed8d7f5e468889ecc9c9f012c9cfc915abbfe667263cc67
     c03_e08: afb5dfdf5c95db6b464ca93ac0d5758d0ebf9a53876d1e59fcc36a5939daa15e
-    c03_e09: 7ed07ef263fe13909fe43805f19ca8f11476451d49037dd722bd27d0ac76bb40
+    c03_e09: 0c37ebe2a9e516f34ca2298acca205d52b19d06c9d82d159d4d5b6e90abb99e0
     c03_e10: 91eceac0b96a8f9de3eb58f8d887de7141b54d43dd616180d2d0f8a25906aa57
     c03_o01: ecfca75eac255968de2d7e0bc25e2e6eb30043fad035db0e898706b0dd121cdf
     c03_o02: f25ffe6fe4f10e7d71432339b0210c06dc2e087a701dc6935d1f70147b2c5645
-    c03_o03: 19f5bdda90ca03830d2255771d61a14653372803c13a6ce27080983066e036cc
-    c03_m01: 8b5ce30d5fc1c264abecba0fd20e772b01a48ce9dcb2d66f0559a47529a9882f
-    c03_m02: 0f3a0255dd411a477d572f5fca6eff69f76cf89ed361651bc6848b030b5fe3ca
-    c03_m03: 963da5baef8727f40c04337715f434dc48d61dd2a636f35ef08814e674b42ef3
-    c03_m04: c8b6e6d3136a1e3939de6f05f08e640abeb8cace5ea3ab41ffb1061e41ca2978
-    c03_m05: 01ab0f2f82db87e334d3fff83a39093c2592b02d1e9c0278d67362808dce92d0
-    c03_m06: 6a4dc843d347d210266ad1996cab7fcfb222895ff3941c4d2f5bf0a1ea2ceba7
+    c03_o03: 56b723b05498f5f7da0287e61a6f2b8b590664bb29fa4c2d08de3349fcf45b88
+    c03_m01: e29cfae038728d632b672e3b881b8a2cb2136c55de250877a047cb1b69ab3836
+    c03_m02: 4c88bc383e58ed8f4df7245dd359a52c6da490ca7aa43cc3524ae80add97ed5f
+    c03_m03: 237263d540af5493d9379717e9ce53e3e24ab0e82f21e9ee8d63828ed77d3df9
+    c03_m04: 8aeaffbcd267d8cc9b803d70b057db5044f8aa6439c15686e89c4168ea6a2f29
+    c03_m05: ce48bc485f4982bfe960b5430184be6199758ddc27e3b0fa8e1c8e3b27f6da92
+    c03_m06: 06ff796db64122daad8a0516899c6a9e31917f7d2d0faa3d33df50a93868ea6c
+  tiebreak_audit:
+    seed: 1374466863
+    rate: 0.2
+    eligible: 5
+    eligible_ids:
+    - c03_e01
+    - c03_e09
+    - c03_m01
+    - c03_m03
+    - c03_m05
+    sampled:
+    - c03_e01
+    non_publishable_test_seed: false
 stats:
   items: 19
   expected_impacts: 10
@@ -105,10 +118,12 @@ stats:
   judge_agree: 17
   judge_disagree: 1
   judge_uncertain: 1
-  auto_accepted: 12
-  pending: 7
-  audited: 2
-  human_decisions_needed: 11
+  auto_accepted: 10
+  pending: 0
+  audited: 3
+  human_decisions_needed: 0
+  llm_kept: 5
+  llm_dropped: 4
 expected_impacts:
 - expected_id: c03_e01
   affected_actor: Business customers of cloud and edge services
@@ -127,7 +142,7 @@ expected_impacts:
   anchor:
     status: verified
     against: ia
-  category: consumers_users
+  category: market_competition
   derivability:
     verdict: 'yes'
     reason: Articles 23-25 directly set switching rights, timeframes and the phase-out of charges for
@@ -147,13 +162,21 @@ expected_impacts:
       reason: This is about switching costs and lock-in for business customers, which is core 'market_competition'
         territory, not the 'consumers_users' category meant for end-user/consumer effects.
     overall: disagree
+  tiebreak:
+    verdict: keep
+    original_category: consumers_users
+    reason: The IA says option 2 benefits users of cloud and edge services by cutting switching costs
+      that reach up to 125% of annual subscription costs, and Articles 23-25 set the switching duties.
+      The affected actors are business customers and the effect is lock-in and switching cost, so market_competition
+      fits better than consumers_users.
+    model: claude-opus-5-5
   provenance:
     origin: llm_drafted
-    status: needs_human
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
-    audit: false
+    decision: llm_kept
+    audit: true
     reviewer: null
     note: null
 - expected_id: c03_e02
@@ -289,10 +312,10 @@ expected_impacts:
     overall: agree
   provenance:
     origin: llm_drafted
-    status: needs_human
+    status: llm_judged
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: auto_accepted
     audit: true
     reviewer: null
     note: null
@@ -506,12 +529,19 @@ expected_impacts:
         the obligation to draft standards) or public_enforcement_cost (quasi-public body cost), so it's
         hard to pick a single best fit.
     overall: uncertain
+  tiebreak:
+    verdict: keep
+    original_category: public_enforcement_cost
+    reason: Annex 3 says standardisation bodies developing interoperability standards will incur about
+      EUR 1m per standard, and Art 29(4) lets the Commission request such standards. This is an implementation
+      cost on the public or standardisation side, not a cost of complying with the rules.
+    model: claude-opus-5-5
   provenance:
     origin: llm_drafted
-    status: needs_human
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: llm_kept
     audit: false
     reviewer: null
     note: null
@@ -551,10 +581,10 @@ expected_impacts:
     overall: agree
   provenance:
     origin: llm_drafted
-    status: needs_human
+    status: llm_judged
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: auto_accepted
     audit: true
     reviewer: null
     note: null
@@ -685,12 +715,19 @@ important_omissions:
       verdict: agree
       reason: The critique concerns overlap with DMA switching/market regulation, fitting market_competition.
     overall: agree
+  tiebreak:
+    verdict: drop
+    original_category: market_competition
+    reason: The anchor is an RSB request with no surrounding IA text, so we cannot tell whether the final
+      IA dealt with the DMA overlap. The claim also reads 'Data Market Act' as the Digital Markets Act,
+      and the provisions do not refer to the DMA.
+    model: claude-opus-5-5
   provenance:
     origin: llm_drafted
-    status: needs_human
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: llm_dropped
     audit: false
     reviewer: null
     note: null
@@ -731,12 +768,20 @@ possibly_missing:
       verdict: agree
       reason: The claim specifically addresses SME/start-up benefits from easier switching, matching sme_specific.
     overall: agree
+  tiebreak:
+    verdict: keep
+    original_category: sme_specific
+    reason: Section 6.3.3 says high-tech SMEs and start-ups using cloud services gain most from the harmonised
+      switching conditions because they lack the resources to re-architect digital assets built on proprietary
+      standards. This follows from the switching and portability duties in Articles 23 and 26, and no
+      kept item covers SMEs as customers.
+    model: claude-opus-5-5
   provenance:
     origin: llm_recall
-    status: llm_judged
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: auto_accepted
+    decision: llm_kept
     audit: false
     reviewer: null
     note: null
@@ -777,12 +822,19 @@ possibly_missing:
       verdict: agree
       reason: The claim explicitly targets SME contract imbalances and outcomes, matching sme_specific.
     overall: agree
+  tiebreak:
+    verdict: drop
+    original_category: sme_specific
+    reason: The IA expects the EUR 653m loss from unbalanced contracts to fall because of 'reducing distrust
+      in cloud and increasing competition'. It does not credit this to the Art 24-25 contract terms, so
+      the claimed mechanism is not what the IA says.
+    model: claude-opus-5-5
   provenance:
     origin: llm_recall
-    status: llm_judged
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: auto_accepted
+    decision: llm_dropped
     audit: false
     reviewer: null
     note: null
@@ -804,7 +856,7 @@ possibly_missing:
   anchor:
     status: verified
     against: ia
-  category: market_competition
+  category: sme_specific
   derivability:
     verdict: 'no'
     reason: The provisions do not mention federation partnerships or dependence on non-EU providers.
@@ -824,12 +876,20 @@ possibly_missing:
       reason: Smaller European providers scaling via federation and competing with non-EU providers is
         a market_competition effect.
     overall: agree
+  tiebreak:
+    verdict: keep
+    original_category: market_competition
+    reason: Section 6.3.3 says option 2 supports federation partnerships of smaller European providers,
+      which increases their scalability and reduces dependence on non-EU/EEA providers, because users
+      can combine functions from several providers. That follows from the switching and interoperability
+      rules in Arts 23, 26 and 29. It is categorised under the IA's SME section.
+    model: claude-opus-5-5
   provenance:
     origin: llm_recall
-    status: needs_human
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: llm_kept
     audit: false
     reviewer: null
     note: null
@@ -870,12 +930,19 @@ possibly_missing:
       reason: Preventing price undercutting and creating a level playing field among providers is a market_competition
         effect.
     overall: agree
+  tiebreak:
+    verdict: drop
+    original_category: market_competition
+    reason: 'This repeats kept items: c03_e07 already covers the level playing field where providers cannot
+      compete on price by cutting mitigating measures, and c03_e06 covers the ''advanced investment''
+      framing.'
+    model: claude-opus-5-5
   provenance:
     origin: llm_recall
-    status: llm_judged
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: auto_accepted
+    decision: llm_dropped
     audit: false
     reviewer: null
     note: null
@@ -915,12 +982,20 @@ possibly_missing:
       verdict: agree
       reason: Enabling deployment of new technologies (AI, IoT) via multi-vendor cloud fits innovation_investment.
     overall: agree
+  tiebreak:
+    verdict: keep
+    original_category: innovation_investment
+    reason: Section 6.2.3 says option 2 paves the way to a seamless multi-vendor federated cloud space
+      with many new data processing functions, making it easier for businesses, especially SMEs, to deploy
+      AI, big data and IoT. This is a different route from the take-up and GDP effect in c03_e03, and
+      it rests on the switching and interoperability provisions.
+    model: claude-opus-5-5
   provenance:
     origin: llm_recall
-    status: needs_human
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: llm_kept
     audit: false
     reviewer: null
     note: null
@@ -960,12 +1035,18 @@ possibly_missing:
       verdict: agree
       reason: The claim is about providers' compliance costs remaining limited, matching compliance_cost.
     overall: agree
+  tiebreak:
+    verdict: drop
+    original_category: compliance_cost
+    reason: This duplicates kept item c03_e02, which already says costs stay manageable for providers
+      whose services already include data export features.
+    model: claude-opus-5-5
   provenance:
     origin: llm_recall
-    status: llm_judged
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: auto_accepted
+    decision: llm_dropped
     audit: false
     reviewer: null
     note: null
