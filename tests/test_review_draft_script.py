@@ -144,3 +144,69 @@ def test_holdout_drafts_are_refused(tmp_path, monkeypatch):
     )
     code, _ = _run(directory)
     assert code == 2
+
+
+# ----------------------------------------------------------------------------- analyst items
+
+
+@pytest.fixture
+def staged(tmp_path, monkeypatch):
+    """A drafts folder whose only open item is c90_fb01, an analyst's candidate raised by ana."""
+    from .eval.test_draft_edits import staged_draft
+
+    path = staged_draft(tmp_path)
+    monkeypatch.setattr(review, "git_user", lambda: None)
+    monkeypatch.setattr(review, "TEMPLATE_DIR", tmp_path / "cache" / "review")
+    return path
+
+
+def test_a_human_added_item_is_listed_with_who_raised_it(staged):
+    code, out = _run(staged.parent)
+    assert code == 0 and "decisions needed: 6 (5 made, 1 to go)" in out
+    assert "c90_fb01  [candidate]  needs you because:" in out and "human added" in out
+    assert "raised by: ana (analyst feedback fb1)" in out and "only as 'edited'" in out
+    assert "no anchor yet" in out
+
+
+def test_template_marks_a_human_added_item(staged, tmp_path):
+    out_file = tmp_path / "decisions.yaml"
+    assert _run(staged.parent, "--template", str(out_file))[0] == 0
+    text = out_file.read_text()
+    assert "# raised by ana: decide edited (or reject)" in text and "ia_anchor" in text
+    assert list(yaml.safe_load(text)["decisions"]) == ["c90_fb01"]
+
+
+def test_interactive_keeps_a_human_added_item_only_as_edited(staged):
+    from .eval.test_draft_edits import FILLED
+
+    before = load_draft(staged).possibly_missing[-1].provenance
+    # 'v' is refused; 'e' asks affected_actor, mechanism, impact, provision_keys, ia_section,
+    # category, then ia_anchor; then the note.
+    fields = [FILLED["affected_actor"], FILLED["mechanism"], "", "", FILLED["ia_section"],
+              FILLED["category"], FILLED["ia_anchor"]]  # fmt: skip
+    ans = ["v", "e", *fields, "anchored in 6.2.3"]
+    code, out = _run(staged.parent, "--interactive", "--reviewer", "octo-cat", answers=ans)
+    assert code == 0, out
+    assert "kept only as 'edited'" in out and "  ia_anchor [Enter keeps" in out
+    cand = load_draft(staged).possibly_missing[-1]
+    assert (cand.review.decision, cand.review.reviewer) == ("edited", "octo-cat")
+    assert cand.ia_anchor == FILLED["ia_anchor"]
+    assert cand.provenance.analyst_digest == before.analyst_digest
+    assert cand.provenance.raised_by == "ana" and "Ready" in out
+
+
+def test_interactive_skips_an_item_the_reviewer_raised(staged):
+    text = staged.read_text()
+    code, out = _run(staged.parent, "--interactive", "--reviewer", "ana")
+    assert code == 0 and "you raised this item" in out and "[v]erified" not in out
+    assert staged.read_text() == text
+
+
+def test_apply_refuses_the_analyst_as_reviewer(staged, tmp_path):
+    decisions = tmp_path / "d.yaml"
+    decisions.write_text(
+        "reviewer: ana\ndecisions:\n  c90_fb01:\n    decision: rejected\n    note: dup\n"
+    )
+    text = staged.read_text()
+    code, _ = _run(staged.parent, "--apply", str(decisions))
+    assert code == 2 and staged.read_text() == text

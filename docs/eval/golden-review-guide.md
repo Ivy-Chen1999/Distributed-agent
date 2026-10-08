@@ -131,7 +131,9 @@ A candidate with `provenance.origin: human_added` is an analyst's missing impact
 analyst feedback. Keep it only as `edited`, after filling in its IA section and anchor, and
 only if you are not the analyst named in `provenance.raised_by`. You may edit its content
 fields (`impact`, `affected_actor`, `mechanism`, `provision_keys`, `category`, the IA fields),
-but not `raised_by` or `feedback_id`.
+but not `raised_by` or `feedback_id`. `scripts/review_draft.py` shows who raised the item,
+offers `ia_anchor` as an editable field, accepts `edited` without changes when you filled the
+fields in by hand, and refuses `verified` and a reviewer who raised the item.
 
 ## How to edit in the PR
 

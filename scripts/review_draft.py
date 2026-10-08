@@ -43,6 +43,7 @@ from womm.eval.golden_review import (
     ReviewError,
     _person,
     _valid_reviewer,
+    editable_fields,
     escalated_fixtures,
     human_reasons,
     item_kind,
@@ -173,6 +174,12 @@ def describe(item: _DraftItem, reasons: list[str], draft: GoldenDraft) -> list[s
     status = rev.decision + (f" by {rev.reviewer}" if rev.reviewer else "")
     out = [f"{item.item_id}  [{item_kind(item)}]  needs you because: {', '.join(reasons)}"]
     out.append(f"  decision now: {status}" + (f" (note: {rev.note})" if rev.note else ""))
+    if is_human_added(item):
+        out.append(
+            f"  raised by: {item.provenance.raised_by or '(nobody recorded)'} (analyst feedback "
+            f"{item.provenance.feedback_id or '?'}); keep it only as 'edited', with every field "
+            "and the IA anchor filled in, and only if you did not raise it"
+        )
     for f in CLAIM_FIELDS:
         if f in data:
             out.append(_wrap(f, data[f]))
@@ -182,8 +189,11 @@ def describe(item: _DraftItem, reasons: list[str], draft: GoldenDraft) -> list[s
     where = f" (IA part {part})" if part else ""
     source = " in the RSB opinion" if item.anchor.against == "rsb" else ""
     out.append(_wrap(f"IA section{where}", item.ia_section))
-    out.append(_wrap(f"search the IA{source} for", f'"{search_phrase(item.ia_anchor)}"'))
-    out.append(_wrap("anchor (verbatim)", item.ia_anchor))
+    if item.ia_anchor.strip():
+        out.append(_wrap(f"search the IA{source} for", f'"{search_phrase(item.ia_anchor)}"'))
+        out.append(_wrap("anchor (verbatim)", item.ia_anchor))
+    else:
+        out.append("  anchor: no anchor yet; find the passage in the IA and fill in ia_anchor")
     if item.flags:
         out.append(_wrap("flags", "; ".join(item.flags)))
     j = item.judge
@@ -192,6 +202,10 @@ def describe(item: _DraftItem, reasons: list[str], draft: GoldenDraft) -> list[s
         v = getattr(j, dim)
         out.append(_wrap(f"{dim} {v.verdict}", v.reason, indent="    "))
     return out
+
+
+def is_human_added(item: _DraftItem) -> bool:
+    return item.provenance.origin == "human_added"
 
 
 def list_items(draft: GoldenDraft, path: Path, drafts_dir: Path, show_all: bool, say: Say) -> None:
@@ -223,6 +237,8 @@ def template(draft: GoldenDraft, path: Path, drafts_dir: Path, reviewer: str | N
         "#   edit: {impact: 'Recurring costs of EUR 6 000-7 000 per year'}",
         f"# editable: impacts and candidates {', '.join(EDITABLE['impact'])};",
         f"#   omissions {', '.join(EDITABLE['omission'])}",
+        "# human_added items (an analyst's, see 'raised by'): only edited or rejected/unclear;",
+        "#   also editable: ia_anchor (the verbatim IA quote you found); never your own item",
         "# Details of each item: uv run python scripts/review_draft.py",
         f"reviewer: {yaml.safe_dump(reviewer or PLACEHOLDER).splitlines()[0]}",
         "decisions:",
@@ -232,6 +248,8 @@ def template(draft: GoldenDraft, path: Path, drafts_dir: Path, reviewer: str | N
             str(getattr(item, f)) for f in ("affected_actor", "description") if hasattr(item, f)
         )
         lines.append(f"  # {item_kind(item)}, {', '.join(todo[item.item_id])}: {summary[:70]}")
+        if is_human_added(item):
+            lines.append(f"  # raised by {item.provenance.raised_by}: decide edited (or reject)")
         lines += [f"  {item.item_id}:", "    decision:", "    note:", "    edit: {}"]
     if not items:
         lines.append("  {}  # nothing left to decide")
@@ -259,7 +277,7 @@ def read_decisions(path: Path) -> tuple[str | None, dict[str, dict[str, Any]]]:
 def ask_edit(item: _DraftItem, ask: Ask) -> dict[str, Any]:
     data = item.model_dump(mode="json")
     edit: dict[str, Any] = {}
-    for f in EDITABLE[item_kind(item)]:
+    for f in editable_fields(item):
         current = ", ".join(data[f]) if f == "provision_keys" else data[f]
         new = ask(f"  {f} [Enter keeps: {str(current)[:60]}]: ").strip()
         if new and new != current:
@@ -270,16 +288,20 @@ def ask_edit(item: _DraftItem, ask: Ask) -> dict[str, Any]:
 
 
 def interactive(
-    draft: GoldenDraft, drafts_dir: Path, ask: Ask, say: Say
+    draft: GoldenDraft, drafts_dir: Path, ask: Ask, say: Say, reviewer: str | None = None
 ) -> dict[str, dict[str, Any]]:
     """Decisions for the undecided items that need a human; 's' skips, 'q' stops (keeping the
-    decisions made so far)."""
+    decisions made so far). A ``human_added`` item raised by ``reviewer`` is skipped."""
     todo = needs(draft, drafts_dir)
     items = [i for i in draft.items() if i.item_id in todo and not is_done(i)]
     decisions: dict[str, dict[str, Any]] = {}
     for n, item in enumerate(items, 1):
         say("")
         say(f"[{n}/{len(items)}] " + "\n".join(describe(item, todo[item.item_id], draft)))
+        human = is_human_added(item)
+        if human and reviewer and _person(item.provenance.raised_by) == _person(reviewer):
+            say("  you raised this item; someone else reviews it (skipped)")
+            continue
         while True:
             try:
                 key = ask("[v]erified [e]dited [r]ejected [u]nclear [s]kip [q]uit: ")
@@ -292,10 +314,13 @@ def interactive(
                 break
             if key not in SHORTCUTS:
                 continue
+            if human and key == "v":
+                say("  a human_added item is kept only as 'edited': choose e and fill it in")
+                continue
             entry: dict[str, Any] = {"decision": SHORTCUTS[key]}
             if key == "e":
                 entry["edit"] = ask_edit(item, ask)
-                if not entry["edit"]:
+                if not entry["edit"] and not human:
                     say("  no field changed; choose verified if the item is right as it is")
                     continue
             required = SHORTCUTS[key] in NOTE_REQUIRED
@@ -415,7 +440,7 @@ def run(args: argparse.Namespace, ask: Ask, say: Say) -> int:
     if args.interactive:
         reviewer = args.reviewer or git_user() or ask("your GitHub username: ").strip()
         check_reviewer(draft, reviewer)
-        decisions = interactive(draft, args.drafts_dir, ask, say)
+        decisions = interactive(draft, args.drafts_dir, ask, say, reviewer)
         write_decisions(path, decisions, reviewer, say)
         check(path, args.drafts_dir, say)
         return 0

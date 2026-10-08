@@ -402,6 +402,13 @@ def human_added_problems(item: _DraftItem, where: str, ia_text: str | None) -> l
     return problems
 
 
+def editable_fields(item: _DraftItem) -> tuple[str, ...]:
+    """The fields a reviewer may edit on ``item``: a ``human_added`` item also takes its IA
+    anchor, which the reviewer finds and fills in (an analyst's item is staged without one)."""
+    fields = EDITABLE[item_kind(item)]
+    return (*fields, "ia_anchor") if _human_added(item) else fields
+
+
 def _kept_human_added(draft: GoldenDraft) -> list[_DraftItem]:
     return [
         i for i in draft.items() if _human_added(i) and i.review.decision in ("verified", "edited")
@@ -706,11 +713,24 @@ def decide_item(item: _DraftItem, entry: Mapping[str, Any], reviewer: str) -> _D
     edit = entry.get("edit") or {}
     if not isinstance(edit, Mapping):
         raise ReviewError(f"{where}: 'edit' must be a mapping of field -> new value")
-    if decision == "edited" and not edit:
+    human = _human_added(item)
+    if human:
+        raised_by = item.provenance.raised_by
+        if raised_by and _person(raised_by) == _person(reviewer):
+            raise ReviewError(
+                f"{where}: {reviewer} raised this human_added item; it is reviewed by someone else"
+            )
+        if decision == "verified":
+            raise ReviewError(
+                f"{where}: a human_added item (raised by {raised_by}) is kept only as 'edited': "
+                "fill in its fields and IA anchor (an 'edit' of what you change, or none if it "
+                "is already complete)"
+            )
+    elif decision == "edited" and not edit:
         raise ReviewError(f"{where}: decision 'edited' needs an 'edit' mapping of new values")
     if edit and decision != "edited":
         raise ReviewError(f"{where}: an edit needs decision 'edited', not {decision!r}")
-    allowed = EDITABLE[item_kind(item)]
+    allowed = editable_fields(item)
     bad = sorted(set(edit) - set(allowed))
     if bad:
         raise ReviewError(f"{where}: fields {bad} cannot be edited; editable: {list(allowed)}")
@@ -724,9 +744,14 @@ def decide_item(item: _DraftItem, entry: Mapping[str, Any], reviewer: str) -> _D
         decision=decision, audit=item.review.audit, reviewer=reviewer, note=note or None
     ).model_dump()
     try:
-        return type(item).model_validate(data)
+        decided = type(item).model_validate(data)
     except ValidationError as exc:
         raise ReviewError(f"{where}: the edit is not schema-valid: {exc}") from None
+    if human:
+        problems = human_added_problems(decided, where, None)
+        if problems:
+            raise ReviewError("; ".join(problems))
+    return decided
 
 
 # ----------------------------------------------------------------------------- the CI gate

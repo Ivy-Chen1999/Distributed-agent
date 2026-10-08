@@ -37,6 +37,11 @@ Accept a candidate (`verified`) only if the IA supports it and no other item alr
 same actor and mechanism; otherwise reject it with a note such as "covered by c12_e03". Rejected
 and unclear items are dropped from the published case.
 
+A candidate the helper shows as **raised by** an analyst (`provenance.origin: human_added`) has
+no IA anchor yet. Keep it only as `edited`: find the passage in the IA and fill in `ia_section`,
+`ia_anchor` (the verbatim quote), `affected_actor`, `mechanism` and `category`. If you raised it
+yourself, leave it to another reviewer. Never change its `raised_by` or `feedback_id`.
+
 ## The helper
 
 You need Python and [uv](https://docs.astral.sh/uv/). Then:
@@ -76,6 +81,8 @@ case owner applies it with `--apply`. Or skip the helper and use GitHub suggesti
 | `not valid YAML at or just above line N` | Indentation: `review:` has 2 spaces, its fields 4 |
 | `tool-written fields changed but the decision is 'auto_accepted'` | You changed an item you did not need to decide: undo it, or make it `edited` with a note |
 | `needs a short note saying why` | Rejected and unclear items need `review.note` |
+| `a human_added item is kept only as 'edited'` / `... is empty` | Make the analyst's item `edited` and fill in every field, including the IA anchor |
+| `reviewer ... raised it` | You raised this item; another reviewer decides it |
 
 ## Finish
 

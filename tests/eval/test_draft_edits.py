@@ -191,3 +191,102 @@ def test_every_bad_decision_is_reported_at_once(tmp_path):
     assert "c90_e06: decision must be one of" in str(info.value)
     assert "c90_m02: decision 'rejected' needs a note" in str(info.value)
     assert path.read_text() == before
+
+
+# ----------------------------------------------------------------------------- human_added items
+
+ANCHOR = "widget buyers would pay twice for the same switching service under the option"
+FILLED = {"ia_section": "6.2.3. Intervention on widget services", "ia_anchor": ANCHOR,
+          "affected_actor": "Widget buyers", "mechanism": "Double charging on switching",
+          "category": "consumers_users"}  # fmt: skip
+
+
+def staged_draft(tmp_path):
+    """A fully decided train draft with an analyst's candidate c90_fb01 staged (raised by ana)."""
+    from womm.evolve.feedback import stage_candidates
+
+    from . import draft_factory as df
+
+    path = tmp_path / "drafts" / "case_90_widget_switching.yaml"
+    df.write(path, df.fully_decided("train"))
+    row = {"feedback_id": "fb1", "case_id": "case_90_widget_switching", "fixture": "data_act",
+           "run_id": "r1", "system_version": "sv", "analyst": "ana", "note": "seen twice",
+           "payload": {"impact": "Widget buyers pay twice", "affected_actor": "Buyers",
+                       "provision_keys": [KEYS[0]]}}  # fmt: skip
+    staged, problems = stage_candidates([row], path.parent, registry=tmp_path / "none.yaml")
+    assert staged == {"fb1": path} and problems == []
+    return path
+
+
+def test_a_human_added_item_is_decided_edited_with_its_anchor_and_keeps_its_analyst(tmp_path):
+    path = staged_draft(tmp_path)
+    before = load_draft(path).possibly_missing[-1].provenance
+    entry = {"decision": "edited", "note": "anchored in 6.2.3", "edit": FILLED}
+    draft = apply_decisions_in_place(path, {"c90_fb01": entry}, "octo-cat")
+    cand = draft.possibly_missing[-1]
+    assert cand.ia_anchor == ANCHOR and cand.review.decision == "edited"
+    assert (cand.provenance.raised_by, cand.provenance.feedback_id) == ("ana", "fb1")
+    assert cand.provenance.analyst_digest == before.analyst_digest
+    assert load_draft(path) == draft
+    assert check_draft(draft, set(KEYS)) == []
+
+
+def test_a_completed_human_added_item_may_be_edited_without_changes(tmp_path):
+    """The reviewer filled the fields in by hand; 'edited' then needs no edit mapping, and only
+    the status and review lines change."""
+    path = staged_draft(tmp_path)
+    text = path.read_text()
+    item = load_draft(path).possibly_missing[-1]
+    filled = decide_item(item, {"decision": "edited", "edit": FILLED}, "octo-cat")
+    assert filled.ia_anchor == ANCHOR
+    with pytest.raises(ReviewError, match="ia_anchor is empty"):
+        decide_item(item, {"decision": "edited"}, "octo-cat")
+    head = text.index("candidate_id: c90_fb01")
+    tail = text[head:]
+    for field, value in FILLED.items():
+        tail = re.sub(
+            rf"(?m)^  {field}: .*$",
+            f"  {field}: {yaml.safe_dump(value).splitlines()[0]}",
+            tail,
+            count=1,
+        )
+    path.write_text(text[:head] + tail)
+    draft = apply_decisions_in_place(path, {"c90_fb01": {"decision": "edited"}}, "octo-cat")
+    assert draft.possibly_missing[-1].review.decision == "edited"
+    assert check_draft(draft, set(KEYS)) == []
+
+
+@pytest.mark.parametrize(
+    ("entry", "reviewer", "message"),
+    [
+        ({"decision": "verified"}, "octo-cat", "kept only as 'edited'"),
+        ({"decision": "edited", "edit": FILLED}, "Ana", "raised this human_added item"),
+        ({"decision": "rejected", "note": "dup"}, "ana", "raised this human_added item"),
+        ({"decision": "edited", "edit": FILLED | {"mechanism": " "}}, "octo-cat", "mechanism"),
+        ({"decision": "edited", "edit": {"raised_by": "bob"}}, "octo-cat", "cannot be edited"),
+        ({"decision": "edited", "edit": {"feedback_id": "fb9"}}, "octo-cat", "cannot be edited"),
+    ],
+)
+def test_a_human_added_item_is_refused_unless_edited_complete_and_by_someone_else(
+    tmp_path, entry, reviewer, message
+):
+    path = staged_draft(tmp_path)
+    text = path.read_text()
+    with pytest.raises(DraftEditError, match=re.escape(message)):
+        apply_decisions_in_place(path, {"c90_fb01": entry}, reviewer)
+    assert path.read_text() == text
+
+
+def test_a_human_added_item_may_be_rejected_by_another_reviewer(tmp_path):
+    path = staged_draft(tmp_path)
+    entry = {"decision": "rejected", "note": "covered by c90_e01"}
+    draft = apply_decisions_in_place(path, {"c90_fb01": entry}, "octo-cat")
+    assert draft.possibly_missing[-1].provenance.analyst_digest
+    assert check_draft(draft, set(KEYS)) == []
+
+
+def test_ia_anchor_is_editable_only_on_human_added_items():
+    draft = to_draft(draft_dict())
+    item = next(i for i in draft.items() if i.item_id == "c90_e05")
+    with pytest.raises(ReviewError, match="cannot be edited"):
+        decide_item(item, {"decision": "edited", "edit": {"ia_anchor": ANCHOR}}, "octo-cat")
