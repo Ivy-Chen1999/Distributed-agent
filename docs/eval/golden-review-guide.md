@@ -3,6 +3,14 @@
 First review? Read the one-page [reviewer quickstart](reviewer-quickstart.md) first; this guide
 holds the full rules.
 
+> **Since 2026-10-08 a person reviews nothing by default.** A tie-break judge
+> (`scripts/tiebreak_golden_case.py`, `womm.eval.tiebreak`) settles every item the three judges
+> left open and every `possibly_missing` candidate: `llm_kept` or `llm_dropped` (unsure items
+> are dropped). The audit samples (`audit: true`: 20% of the judges' auto-accepted items and 20%
+> of the tie-break-kept items) are optional spot checks (`AUDIT_BLOCKS` off). The rules below
+> apply to the items a person does decide: spot checks, `human_added` items, any item of an
+> escalated proposal, and drafts made before the tie-break existed.
+
 You are checking reference answers that an LLM drafted from an official impact assessment (IA).
 WOMM is scored against these answers, so a wrong item teaches the wrong lesson. Plan on about
 5–8 minutes per case. Post your minutes as a PR comment; the case owner logs them in
