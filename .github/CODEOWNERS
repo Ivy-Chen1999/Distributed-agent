@@ -1,0 +1,6 @@
+# Golden cases and their drafts are reference answers WOMM is scored against: every change needs
+# the repository owner's review. This takes effect only when branch protection on main has
+# "Require review from Code Owners" enabled (a manual GitHub setting; see
+# docs/eval/golden-review-guide.md).
+/evals/golden/drafts/ @Ivy-Chen1999
+/evals/golden/*.yaml @Ivy-Chen1999

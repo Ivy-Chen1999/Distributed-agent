@@ -1,0 +1,133 @@
+{
+  "regulation_id": "affordable_housing",
+  "title": "Affordable Housing Act",
+  "versions": [
+    {
+      "version_id": "com2026_599",
+      "date": "2026-09-09",
+      "status": "proposal",
+      "source": "52026PC0599",
+      "provisions": [
+        {
+          "provision_key": "affordable_housing/proposal/art/1",
+          "article": "1",
+          "paragraph": null,
+          "text": "This Regulation establishes a common framework for measures taken by competent authorities to safeguard housing affordability and availability with a view to improving the conditions for the establishment and functioning of the internal market. It lays down common rules to ensure that measures taken pursuant to this Regulation are justified, transparent, proportionate and subject to review.",
+          "source_id": "com2026_599/art_1"
+        },
+        {
+          "provision_key": "affordable_housing/proposal/art/2",
+          "article": "2",
+          "paragraph": null,
+          "text": "1. This Regulation applies to the following measures taken by competent authorities, where those measures are justified by the necessity to safeguard housing affordability and availability:\n(a) measures restricting access to, or the provision of, short-term accommodation rental services in residential property;\n(b) measures restricting the acquisition or use of land and residential property that is not acquired or used for the purpose of a primary residence, whether occupied by the owner or by another person.\n\n2. This Regulation does not apply to measures taken solely for overriding reasons relating to the public interest other than the need to safeguard housing affordability and availability.",
+          "source_id": "com2026_599/art_2"
+        },
+        {
+          "provision_key": "affordable_housing/proposal/art/3",
+          "article": "3",
+          "paragraph": null,
+          "text": "1. The measures referred to in Article 2(1), point (a) shall not be subject to Directive 2006/123/EC, including the notification obligation laid down in Article 15(7) of that Directive.\n\n2. This Regulation does not apply to any measures taken by competent authorities for the sole purpose of applying the provisions on registration laid down in Chapter II of Regulation (EU) 2024/1028.",
+          "source_id": "com2026_599/art_3"
+        },
+        {
+          "provision_key": "affordable_housing/proposal/art/4",
+          "article": "4",
+          "paragraph": null,
+          "text": "For the purposes of this Regulation, the following definitions apply:\n(1) ‘competent authority’ means a national, regional or local authority of a Member State that is competent to apply this Regulation, including to take measures restricting access to, or the provision of, short-term accommodation rental services or restricting the acquisition or use of land and residential property;\n(2) ‘area under housing stress’ means a clearly delimited subnational geographical area where a mismatch between housing supply and housing demand gives rise to observable pressures on the housing market, on the basis of an assessment carried out by the competent authority in accordance with Article 6;\n(3) ‘residential property’ means immovable property intended for housing purposes;\n(4) ‘primary residence’ means the residential property in which a natural person continues habitually to reside, and where the habitual centre of their interest is also situated, as further defined under national law;\n(5) ‘price-to-income ratio' means the ratio between the representative price of a dwelling of average size in a specific area, expressed in euro, and the representative disposable income per capita, expressed in euro;\n(6) ‘dwelling’ means a residential unit which may consist of one or several rooms designed for the occupation of households;\n(7) ‘acquisition‘ means the acquisition of ownership of residential property, excluding transfers by way of succession, pursuant to a matrimonial property regime or the division or distribution of an estate, corporate reorganisations that do not result in a change in beneficial ownership, and the realisation of security by a creditor;\n(8) ‘short-term accommodation rental service’ means short-term accommodation rental service as defined in Article 3(4) of Regulation (EU) 2024/1028;\n(9) ‘host’ means host as defined in Article 3(2) of Regulation (EU) 2024/1028;\n(10) ‘measures’ means provisions laid down by law, regulation or administrative action in Member States.",
+          "source_id": "com2026_599/art_4"
+        },
+        {
+          "provision_key": "affordable_housing/proposal/art/5",
+          "article": "5",
+          "paragraph": null,
+          "text": "1. A competent authority may take any of the following measures, to the extent they are justified by the necessity to safeguard housing affordability and availability, and provided that those measures comply with the requirements laid down in Articles 6 to 10:\n(a) measures restricting access to, or the provision of, short-term accommodation rental services in residential property other than the host’s primary residence;\n(b) measures restricting the acquisition or use of land and residential property that is not acquired or used for the purpose of primary residence, whether occupied by the owner or by another person.\n\n2. Measures restricting access to, or the provision of, short-term accommodation rental services solely on the grounds of safeguarding housing affordability and availability under this Regulation apply only to accommodation that is not provided by a host in its primary residence.",
+          "source_id": "com2026_599/art_5"
+        },
+        {
+          "provision_key": "affordable_housing/proposal/art/6",
+          "article": "6",
+          "paragraph": null,
+          "text": "1. The competent authority shall assess whether the area in which it intends to take measures meets the following criteria for being considered an area under housing stress:\n(a) the price-to-income ratio is equal to or exceeds the threshold of eight, corresponding to eight years of disposable per-capita income to purchase a dwelling of average size in the residential building stock of the area concerned;\n(b) the price-to-income ratio has increased over the period covering the most recent 10 years of available data;\n(c) in the absence of the measure, the housing stress is unlikely to ease during the next three years following its adoption based on assessment of the following elements:\n(i) population dynamics;\n(ii) supply of housing;\n(iii) demand for housing.\n\n2. Where the price-to-income ratio is equal to or exceeds the threshold of 10, paragraph 1, point (b), shall not apply.\n\n3. When assessing whether an area meets the criteria set out in paragraph 1, the competent authority shall base its assessment on objective, transparent and verifiable data, and in compliance with sound statistical principles.\n\n4. The price-to-income ratio shall be calculated using data, thresholds, indicators and methodology specified in the Annex. Competent authorities may use alternative data at a more granular level, provided that they can demonstrate that the resulting price-to-income ratio is consistent with the thresholds referred to in paragraph 1, point (a), and paragraph 2.\n\n5. The Commission is empowered to adopt delegated acts in accordance with Article 15 to amend paragraph 1, point (a), and paragraph 2 of this Article, as regards the thresholds, and the Annex, as regards the data, thresholds, indicators and methodology used for calculation, where objective developments, demonstrated by relevant statistical or other reliable evidence, make such amendments necessary to ensure an accurate measurement of housing affordability pressures.",
+          "source_id": "com2026_599/art_6"
+        },
+        {
+          "provision_key": "affordable_housing/proposal/art/7",
+          "article": "7",
+          "paragraph": null,
+          "text": "The territorial scope of an area under housing stress referred to in Article 6 shall not exceed what is necessary to safeguard housing affordability and availability. Such areas may be districts, municipalities, metropolitan areas, functional urban areas, agglomerations, rural areas or any part thereof.",
+          "source_id": "com2026_599/art_7"
+        },
+        {
+          "provision_key": "affordable_housing/proposal/art/8",
+          "article": "8",
+          "paragraph": null,
+          "text": "The measures shall not be directly or indirectly discriminatory between nationals of Member States on grounds of nationality or, in the case of legal persons established in a Member State, on grounds of their Member State of establishment.",
+          "source_id": "com2026_599/art_8"
+        },
+        {
+          "provision_key": "affordable_housing/proposal/art/9",
+          "article": "9",
+          "paragraph": null,
+          "text": "1. The measures may only be taken if they are justified by the need to safeguard housing affordability and availability in the areas under housing stress referred to in Article 6.\n\n2. A competent authority shall take measures referred to in Article 5(1), point (a), only where it can demonstrate that the provision of short-term accommodation rental services in the area under housing stress has had a significant adverse effect on the availability or affordability of housing in that area over at least three years preceding the adoption of the measure. Where available, the competent authority shall take into account data obtained pursuant to Regulation (EU) 2024/1028.\n\n3. A competent authority shall take measures referred to in Article 5(1), point (b), only where it can demonstrate that acquisition and use of land and residential property for purposes other than primary residence in the area under housing stress has had a significant adverse effect on the availability or affordability of housing in that area over at least three years preceding the adoption of the measure.\n\n4. Measures referred to in Article 5(1), point (b) concerning long-term vacancy shall not apply where non occupation is justified, including by reasons of temporary absence for work, education or training, health, ongoing succession proceedings, legal impediment to occupation or inhabitability.",
+          "source_id": "com2026_599/art_9"
+        },
+        {
+          "provision_key": "affordable_housing/proposal/art/10",
+          "article": "10",
+          "paragraph": null,
+          "text": "1. The measures shall be suitable for attaining the objective pursued, shall not go beyond what is necessary to attain that objective and shall meet the following requirements:\n(a) they are territorially limited to the area under housing stress and, where appropriate, calibrated to different levels of housing stress within the area;\n(b) they are based on an assessment that no other less restrictive measure would be sufficient to improve housing affordability and availability in an equally effective manner within a reasonable period;\n(c) they comply with the principles of legal certainty and the protection of legitimate expectations;\n(d) for measures referred to in Article 5(1), point (a), they are calibrated to forms of short-term accommodation rental activity that, by reason of their scale, frequency or commercial character, are more likely to reduce the availability of housing for long-term residential use;\n(e) for measures referred to in Article 5(1), point (a), the competent authority applies and enforces Regulation (EU) 2024/1028 in the relevant geographical area, in particular its provisions on registration, including suspension and withdrawal of registration numbers, verification, data-sharing and orders requiring the removal or disabling of listings without a registration number, with an invalid registration number or involving misuse of a registration number;\n(f) for measures referred to in Article 5(1), point (b), insofar as they impose restrictions on the acquisition of residential property and land, they apply only to property and land acquired after the date of application of the measure;\n(g) for measures referred to in Article 5(1), point (b) relating to long-term vacancy, they are calibrated, on the basis of objective criteria, to the nature and extent of long-term vacancy most likely to reduce the availability of housing for long-term residential use, taking into account in particular the number of dwellings held by the same owner in the area concerned, the duration of non-occupation or acquisition by legal persons.\n\n2. For the purposes of paragraph 1, where measures affect existing lawful situations, they shall include appropriate transitional arrangements.",
+          "source_id": "com2026_599/art_10"
+        },
+        {
+          "provision_key": "affordable_housing/proposal/art/11",
+          "article": "11",
+          "paragraph": null,
+          "text": "Natural and legal persons affected by the measures taken pursuant to Article 5 shall have access to appropriate procedural safeguards and to effective judicial review of those measures, including the possibility to challenge the assessments carried out by the competent authority to ensure compliance with Articles 6 to 10.",
+          "source_id": "com2026_599/art_11"
+        },
+        {
+          "provision_key": "affordable_housing/proposal/art/12",
+          "article": "12",
+          "paragraph": null,
+          "text": "1. Measures shall be adopted for a period not exceeding five years. They may be extended where, following the review referred to in paragraph 2, the competent authority concludes that the requirements laid down in Articles 6 to 10 continue to be fulfilled.\n\n2. A competent authority shall regularly review whether a measure referred to in Article 5 continues to comply with the requirements laid down in Articles 6 to 10. The first review shall be carried out within five years from the date of adoption of the measure.\n\n3. Where, following the review, a competent authority concludes that a measure no longer fulfils the requirements laid down in Articles 6 to 10, it shall withdraw that measure without undue delay.",
+          "source_id": "com2026_599/art_12"
+        },
+        {
+          "provision_key": "affordable_housing/proposal/art/13",
+          "article": "13",
+          "paragraph": null,
+          "text": "1. A competent authority shall make publicly available information on any measure adopted pursuant to Article 5, and on the extension, amendment or withdrawal of the measure, before its entry into force.\n\n2. The information referred to in paragraph 1 shall include:\n(a) the assessments carried out by the competent authority to ensure compliance with Articles 6 to 10;\n(b) the precise territorial scope of the area under housing stress and of the measure;\n(c) the duration of the measure.",
+          "source_id": "com2026_599/art_13"
+        },
+        {
+          "provision_key": "affordable_housing/proposal/art/14",
+          "article": "14",
+          "paragraph": null,
+          "text": "This Regulation shall not apply to measures adopted before … [PO please insert the date: the date of entry into force]. However, a competent authority may review such measures in accordance with this Regulation.",
+          "source_id": "com2026_599/art_14"
+        },
+        {
+          "provision_key": "affordable_housing/proposal/art/15",
+          "article": "15",
+          "paragraph": null,
+          "text": "1. The power to adopt delegated acts is conferred on the Commission subject to the conditions laid down in this Article 6(3).\n\n2. The power to adopt delegated acts referred to in Article 6(3) shall be conferred on the Commission for an indeterminate period of time from … [PO please insert the date: the date of entry into force of this Regulation].\n\n3. The delegation of power referred to in Article 6(3) may be revoked at any time by the European Parliament or by the Council. A decision to revoke shall put an end to the delegation of the power specified in that decision. It shall take effect the day following the publication of the decision in the Official Journal of the European Union or at a later date specified therein. It shall not affect the validity of any delegated acts already in force.\n\n4. Before adopting a delegated act, the Commission shall consult experts designated by each Member State in accordance with the principles laid down in the Interinstitutional Agreement of 13 April 2016 on Better Law-Making.\n\n5. As soon as it adopts a delegated act, the Commission shall notify it simultaneously to the European Parliament and to the Council.\n\n6. A delegated act adopted pursuant to Article 6(3) shall enter into force only if no objection has been expressed either by the European Parliament or the Council within a period of two months of notification of that act to the European Parliament and the Council or if, before the expiry of that period, the European Parliament and the Council have both informed the Commission that they will not object. That period shall be extended by two months at the initiative of the European Parliament or of the Council.",
+          "source_id": "com2026_599/art_15"
+        },
+        {
+          "provision_key": "affordable_housing/proposal/art/16",
+          "article": "16",
+          "paragraph": null,
+          "text": "By … [PO, please insert the date: same day and month as the date of entry into force plus 5 years], the Commission shall evaluate the impact of this Regulation on the functioning of the internal market and on housing affordability and availability and shall submit a report on its main findings to the European Parliament, the Council, the European Economic and Social Committee and the Committee of the Regions.",
+          "source_id": "com2026_599/art_16"
+        },
+        {
+          "provision_key": "affordable_housing/proposal/art/17",
+          "article": "17",
+          "paragraph": null,
+          "text": "This Regulation shall enter into force on the twentieth day following that of its publication in the Official Journal of the European Union.",
+          "source_id": "com2026_599/art_17"
+        }
+      ]
+    }
+  ]
+}

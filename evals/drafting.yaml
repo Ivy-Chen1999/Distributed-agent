@@ -1,0 +1,41 @@
+# Roles of the golden-case drafting tool (scripts/draft_golden_case.py, womm.eval.drafting).
+# Each role is a WOMM backend role; claude_code runs the isolated CLI on the local
+# subscription and must pass its isolation self-check first, like the experts.
+# The three judges are separate calls with separate prompts (one dimension each) and use a
+# different model from the drafter, so a judge does not grade its own draft.
+# The audit rate is pinned at 0.2 in womm.eval.drafting.AUDIT_RATE and cannot be set here.
+max_parallel_llm_calls: 3
+context_chars: 900
+roles:
+  drafter:
+    backend: claude_code
+    model: claude-opus-5-5
+    prompt: prompts/tools/draft_golden_case.md
+    timeout_s: 900
+  recall:
+    backend: claude_code
+    model: claude-opus-5-5
+    prompt: prompts/tools/recall_golden_case.md
+    timeout_s: 900
+  judge_anchor:
+    backend: claude_code
+    model: claude-sonnet-5
+    prompt: prompts/tools/judge_anchor.md
+    timeout_s: 600
+  judge_derivability:
+    backend: claude_code
+    model: claude-sonnet-5
+    prompt: prompts/tools/judge_derivability.md
+    timeout_s: 600
+  judge_category:
+    backend: claude_code
+    model: claude-sonnet-5
+    prompt: prompts/tools/judge_category.md
+    timeout_s: 600
+  # Settles the items the three judges left open (womm.eval.tiebreak); people audit 20% of
+  # what it keeps. A fresh call with the judges' reasons and the full evidence, not the drafter.
+  tiebreak:
+    backend: claude_code
+    model: claude-opus-5-5
+    prompt: prompts/tools/tiebreak_golden_case.md
+    timeout_s: 900
