@@ -1,0 +1,1112 @@
+# DRAFT golden case written by scripts/draft_golden_case.py; not scored until published.
+# Reviewer? Start with docs/eval/reviewer-quickstart.md. The helper lists what to decide:
+#   uv run python scripts/review_draft.py <this file>
+# Decide every item whose review.decision is 'pending' and every possibly_missing candidate
+# as verified / edited / rejected / unclear, with your GitHub username in review.reviewer.
+# Other auto-accepted items need no decision. Do not change tool-written fields of an item
+# you keep as auto_accepted or verified (CI checks provenance.item_digests); the drafter
+# (provenance.drafted_by) cannot review. review_links opens the public IA and proposal on
+# EUR-Lex (train/val only); holdout identifiers never appear in a tracked file.
+case_id: case_04_cra_manufacturer_obligations
+scenario_id: eval_manufacturer_obligations
+fixture: cra
+split: train
+ia_reference: 'Impact assessment accompanying the Cyber Resilience Act proposal (identifiers in the local
+  IA index); sections: 6.3.1. Impacts on manufacturers of products with digital elements and other economic
+  operators; 6.3.2. Impact on SMEs'
+notes: CRA essential cybersecurity requirements and conformity-assessment modules sit in Annexes I-VIII,
+  which are not imported in v1; impacts resting only on annex content are out of scope.
+review_links:
+  ia: https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:52022SC0282
+  proposal: https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:52022PC0454
+  ia_parts: 3
+  anchor_parts:
+    c04_e01: 1
+    c04_e02: 1
+    c04_e03: 1
+    c04_e04: 1
+    c04_e05: 1
+    c04_e06: 1
+    c04_e07: 1
+    c04_e08: 1
+    c04_e09: 1
+    c04_e10: 1
+    c04_o01: 1
+    c04_o02: 1
+    c04_o03: 1
+    c04_m01: 1
+    c04_m02: 1
+    c04_m03: 1
+    c04_m04: 1
+    c04_m05: 1
+    c04_m06: 1
+    c04_m07: 1
+provenance:
+  tool: scripts/draft_golden_case.py
+  drafted_on: '2026-10-06'
+  drafted_by: Chen Yuxin
+  drafting_model: claude-opus-5-5
+  roles:
+    drafter:
+      backend: claude_code
+      model: claude-opus-5-5
+      prompt: prompts/tools/draft_golden_case.md
+    recall:
+      backend: claude_code
+      model: claude-opus-5-5
+      prompt: prompts/tools/recall_golden_case.md
+    judge_anchor:
+      backend: claude_code
+      model: claude-sonnet-5
+      prompt: prompts/tools/judge_anchor.md
+    judge_derivability:
+      backend: claude_code
+      model: claude-sonnet-5
+      prompt: prompts/tools/judge_derivability.md
+    judge_category:
+      backend: claude_code
+      model: claude-sonnet-5
+      prompt: prompts/tools/judge_category.md
+  prompt_hashes:
+    prompts/tools/draft_golden_case.md: c72bd341e2c3ef75
+    prompts/tools/recall_golden_case.md: 36f0a5dcc15a57c6
+    prompts/tools/judge_anchor.md: 0d81eb4d5d2b43bd
+    prompts/tools/judge_derivability.md: 97471d88c14d32c3
+    prompts/tools/judge_category.md: 8b1885320b65b60f
+  ia_sections:
+  - 6.3.1. Impacts on manufacturers of products with digital elements and other economic operators
+  - 6.3.2. Impact on SMEs
+  rsb_status: opinion none found in Cellar; using the IA's procedural-information annex
+  audit:
+    seed: 4011127607
+    rate: 0.2
+    eligible: 11
+    eligible_ids:
+    - c04_e01
+    - c04_e02
+    - c04_e03
+    - c04_e04
+    - c04_e05
+    - c04_e06
+    - c04_e07
+    - c04_e08
+    - c04_e09
+    - c04_e10
+    - c04_o02
+    sampled:
+    - c04_e06
+    - c04_e09
+    - c04_o02
+    non_publishable_test_seed: false
+  item_digests:
+    c04_e01: 34af26916586114ea0405908337a540735eb497533d0923a840c7cef5503c332
+    c04_e02: b9e6a4d9494a51d49221f9ef3e4d5866c548e5ca92677560cb46cba58bf269be
+    c04_e03: 17352d16a6c0308b76d0b14d8d164e4415ac5c8baa57b4ae60c66d36362d189c
+    c04_e04: 474957ea8dac354af264c4121728f71c5e29151053c180fc5902fd1d40a52b3c
+    c04_e05: 275703eb4bdede1df9fdb16d45bf5e4d5c7a380ebe588bf0afd050ef295ea430
+    c04_e06: 3160bdb421e9f0e28fb191b379e2f13ba80103b30d873d051e0ff03c188309c4
+    c04_e07: 2ddf093a004d586086a8d2cede0725ee3f87fc28d429c3d5a7bb5c1af093337b
+    c04_e08: 54dc86a425297a28f96270d4e32c8fe2c088c36091a288417061a7478ce5d5ce
+    c04_e09: 7c5f97ddf7d3f1ccbde0b02ea5c1f609b6c7b381d191a11007a57b2949d600ed
+    c04_e10: 0951dd9dd9229d395f764308b68711df2db079bd779dfc41541285d182104ded
+    c04_o01: c9748f8244eb74b5d1e6e834a83075637219186806b6d42f2cbd03547fe9a6b3
+    c04_o02: 2447415a190071d13f89c41a5e23e958455988dee76597c1c74c717d573245b4
+    c04_o03: 49a005c883a7e5a90bd3a3e42772a4d7baeb293afc6a4a06d2d4fced90b57d4f
+    c04_m01: e76b0a11b515e9bd0134850879b80764e8ac8cc5f44f6dd8f83aa5c4bc90138f
+    c04_m02: eb40d722394fd219c633c5e9776a020fe1c7c140790bfd3aef6a5d7989b6aa54
+    c04_m03: 7ab492eb3931fa2ca0a41c7d43fe37dc52831a3fafbae64ae403b613951d8399
+    c04_m04: b5e88675d9902e19ca6e61993466b05449d59f62ee7031c0b16e8cc87e7e9807
+    c04_m05: 4cf598d645cad69187ebf9e2873441cda28287bc4923a9e46a68cc604e134dee
+    c04_m06: 1505c0ccb786c7660f41e6d045a07085e7837604b25601baac54f0c0ac334bef
+    c04_m07: 8c9efc16b451a8e59bfe12f9a6201f63fd4d45401a66f75e9184057b433b9d43
+  tiebreak_audit:
+    seed: 2692949171
+    rate: 0.2
+    eligible: 4
+    eligible_ids:
+    - c04_m04
+    - c04_m05
+    - c04_o01
+    - c04_o03
+    sampled:
+    - c04_o01
+    non_publishable_test_seed: false
+stats:
+  items: 20
+  expected_impacts: 10
+  important_omissions: 3
+  possibly_missing: 7
+  anchors_verified: 20
+  judge_agree: 16
+  judge_disagree: 3
+  judge_uncertain: 1
+  auto_accepted: 11
+  pending: 0
+  audited: 4
+  human_decisions_needed: 0
+  llm_kept: 4
+  llm_dropped: 5
+expected_impacts:
+- expected_id: c04_e01
+  affected_actor: Manufacturers of hardware and software products with digital elements
+  mechanism: Essential requirements on secure design, development and production, a cybersecurity risk
+    assessment, and vulnerability handling for the product's lifetime or 5 years (Art. 5, 10(1)-(2), 10(4),
+    10(6))
+  impact: Secure product development adds about 30.5% to product development costs where no security practices
+    exist. That is about EUR 42 700 per average product unit of EUR 140 000. The costs are one-off and
+    recurrent and cover security controls, skilled staff and security tools.
+  provision_keys:
+  - cra/proposal/art/5
+  - cra/proposal/art/10
+  ia_section: 6.3.1. Impacts on manufacturers of products with digital elements and other economic operators
+  ia_anchor: This leads to 42 700 EUR of additional product development costs for an average product with
+    digital elements unit (EUR 140 000).
+  anchor:
+    status: verified
+    against: ia
+  category: compliance_cost
+  derivability:
+    verdict: 'yes'
+    reason: Art. 5 and 10 directly require manufacturers to build products to the essential requirements
+      and to handle vulnerabilities, which clearly means substantive development costs.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor states the same EUR 42,700 / EUR 140,000 figures tied to the 30.5% additional product
+        development cost estimate for products with digital elements.
+    derivability:
+      verdict: agree
+      reason: Art. 5 and 10(1)-(2),(4),(6) explicitly impose the secure-design, risk-assessment and vulnerability-handling
+        duties on manufacturers.
+    category:
+      verdict: agree
+      reason: Costs cover security controls, staff and tools needed to actually build secure products,
+        a substantive compliance cost.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c04_e02
+  affected_actor: Manufacturers of non-critical products with digital elements
+  mechanism: Duty to carry out a conformity assessment before placing on the market, using internal control
+    (module A) or another procedure (Art. 10(7), 24(1))
+  impact: Self-assessment costs on average EUR 18 400 per product, covering one-off and recurrent costs.
+    This includes setting up internal testing capacity and testing products internally.
+  provision_keys:
+  - cra/proposal/art/10
+  - cra/proposal/art/24
+  ia_section: 6.3.1. Impacts on manufacturers of products with digital elements and other economic operators
+  ia_anchor: For self-assessment, the average cost was estimated at EUR 18 400 including one-off and recurrent
+    costs (see Box 2).
+  anchor:
+    status: verified
+    against: ia
+  category: compliance_cost
+  derivability:
+    verdict: 'yes'
+    reason: Art. 24(1) requires a conformity assessment by internal control or other modules, which clearly
+      involves testing costs.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor directly states the EUR 18,400 average self-assessment cost including one-off and
+        recurrent costs, matching the claim.
+    derivability:
+      verdict: agree
+      reason: Art. 10(7) and 24(1) explicitly require manufacturers to carry out a conformity assessment
+        (e.g. module A) before placing non-critical products on the market.
+    category:
+      verdict: agree
+      reason: Setting up internal testing capacity and testing products is a substantive technical measure
+        to meet requirements, not mere documentation.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c04_e03
+  affected_actor: Manufacturers of critical products with digital elements (Annex III class I without
+    harmonised standards, and class II)
+  mechanism: Classification as critical products, which makes notified-body procedures mandatory (module
+    B+C or H) (Art. 6(1), 6(4), 24(2)-(3))
+  impact: Third-party assessment costs on average EUR 25 000 per product, including certification fees
+    and recurrent audits. It is expected to apply to a narrow share of the market, about 10% of products.
+  provision_keys:
+  - cra/proposal/art/6
+  - cra/proposal/art/24
+  ia_section: 6.3.1. Impacts on manufacturers of products with digital elements and other economic operators
+  ia_anchor: For third-party assessment, costs were estimated at EUR 25 000, which represents an average
+    of possible costs for different types of products based on secondary data.
+  anchor:
+    status: verified
+    against: ia
+  category: compliance_cost
+  derivability:
+    verdict: 'yes'
+    reason: Art. 6 and 24(2)-(3) explicitly require notified-body procedures for critical products, which
+      means paying external assessment fees.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor confirms the EUR 25,000 third-party assessment cost; the narrow ~10% scope is consistent
+        with the surrounding document discussion of critical products.
+    derivability:
+      verdict: agree
+      reason: Art. 6(1),(4) and 24(2)-(3) explicitly make notified-body procedures mandatory for critical
+        products of class I (absent standards) and class II.
+    category:
+      verdict: agree
+      reason: Third-party certification fees and audits are substantive costs of demonstrating compliance,
+        fitting compliance_cost.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c04_e04
+  affected_actor: Manufacturers
+  mechanism: Duties to draw up and keep updated technical documentation, issue the EU declaration of conformity,
+    affix CE marking and keep documentation for 10 years (Art. 10(7)-(8), 23)
+  impact: Documentation and other conformity obligations, together with reporting, are estimated at an
+    extra 9% of product development costs. This is EUR 3.1 billion for the hardware market. Internal systems
+    are needed to keep documents up to date.
+  provision_keys:
+  - cra/proposal/art/10
+  - cra/proposal/art/23
+  ia_section: 6.3.1. Impacts on manufacturers of products with digital elements and other economic operators
+  ia_anchor: Other costs related to conformity, such as the technical documentation, the declaration of
+    conformity, affixing of the CE market and reporting of exploited vulnerabilities and cybersecurity
+    incidents to ENISA, have been estimated (using the estimate of additional 9% of product development
+    costs based on primary data) at EUR 3.1 billion for the hardware market.
+  anchor:
+    status: verified
+    against: ia
+  category: administrative_burden
+  derivability:
+    verdict: 'yes'
+    reason: Art. 10(7)-(8) and 23 set out documentation, declaration and record-keeping duties in detail.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: 'Anchor matches exactly: 9% additional product development cost estimate equating to EUR
+        3.1 billion for the hardware market for documentation/CE marking/reporting duties.'
+    derivability:
+      verdict: agree
+      reason: Art. 10(7)-(8) and 23 explicitly set out the technical documentation, declaration of conformity,
+        CE marking and 10-year retention duties.
+    category:
+      verdict: agree
+      reason: Technical documentation, declaration of conformity and record-keeping are classic information/documentation
+        obligations.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c04_e05
+  affected_actor: Manufacturers
+  mechanism: Obligation to notify ENISA within 24 hours of actively exploited vulnerabilities and of incidents,
+    and to inform users (Art. 11)
+  impact: One-off costs to set up reporting systems, and recurrent costs to report events to ENISA.
+  provision_keys:
+  - cra/proposal/art/11
+  ia_section: 6.3.1. Impacts on manufacturers of products with digital elements and other economic operators
+  ia_anchor: Furthermore, vulnerability and incident reporting requirements will represent both one-off
+    and recurrent costs for businesses (e.g. to set up the reporting systems and to report regularly on
+    events).
+  anchor:
+    status: verified
+    against: ia
+  category: administrative_burden
+  derivability:
+    verdict: 'yes'
+    reason: Art. 11 explicitly creates 24-hour notification duties to ENISA.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor explicitly states one-off costs to set up reporting systems and recurrent costs to
+        report events, matching the claimed mechanism and impact.
+    derivability:
+      verdict: agree
+      reason: Art. 11(1)-(2) and (4) explicitly create the 24-hour ENISA notification duties and the duty
+        to inform users.
+    category:
+      verdict: agree
+      reason: Reporting incidents/vulnerabilities to ENISA is an information/reporting obligation, i.e.
+        administrative burden.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c04_e06
+  affected_actor: Manufacturers
+  mechanism: Duty to supply Annex II information and instructions, in electronic or physical form, in
+    a language users can easily understand (Art. 10(10)-(11))
+  impact: Information and transparency obligations create one-off and recurrent costs. These were not
+    quantified, and the survey found they would not be significant if the information is provided digitally.
+  provision_keys:
+  - cra/proposal/art/10
+  ia_section: 6.3.1. Impacts on manufacturers of products with digital elements and other economic operators
+  ia_anchor: According to the targeted survey, the costs related to information and transparency would
+    not be significant if provided in digital format.
+  anchor:
+    status: verified
+    against: ia
+  category: administrative_burden
+  derivability:
+    verdict: 'yes'
+    reason: Art. 10(10) explicitly requires user information and instructions and allows electronic form.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor states transparency/information costs could not be estimated and would not be significant
+        if provided digitally, matching the claim exactly.
+    derivability:
+      verdict: agree
+      reason: Art. 10(10)-(11) explicitly require Annex II information/instructions in an easily understood
+        language, in electronic or physical form.
+    category:
+      verdict: agree
+      reason: Supplying information and instructions to users is a documentation/information obligation.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: true
+    reviewer: null
+    note: null
+- expected_id: c04_e07
+  affected_actor: Importers and distributors
+  mechanism: Verification duties (conformity assessment done, CE marking, documentation, contact details),
+    corrective action, informing authorities and record-keeping (Art. 13, 14)
+  impact: Their main costs are familiarisation with the new requirements. These were not quantified; as
+    a benchmark, under the Toy Safety Directive it took 110 man-hours per type for importers and 86 for
+    distributors. Because security must already be ensured by the manufacturer, the burden is not expected
+    to be significant.
+  provision_keys:
+  - cra/proposal/art/13
+  - cra/proposal/art/14
+  ia_section: 6.3.1. Impacts on manufacturers of products with digital elements and other economic operators
+  ia_anchor: The main costs for importers and distributors would be adjustment costs related to familiarisation
+    related to the new requirements.
+  anchor:
+    status: verified
+    against: ia
+  category: administrative_burden
+  derivability:
+    verdict: 'yes'
+    reason: Art. 13 and 14 set out obligations for importers and distributors that are mostly about checking
+      and passing on information.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor states the main cost for importers/distributors is familiarisation-related adjustment
+        costs, matching the claimed actor and mechanism.
+    derivability:
+      verdict: agree
+      reason: Art. 13 and 14 explicitly set out the verification, corrective-action, authority-notification
+        and record-keeping duties of importers and distributors.
+    category:
+      verdict: agree
+      reason: The claim itself frames the cost as familiarisation with rules and record-keeping duties,
+        i.e. administrative burden.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c04_e08
+  affected_actor: SME manufacturers that need notified-body assessment
+  mechanism: Notified bodies must take SMEs' interests into account and reduce conformity assessment fees
+    in proportion (Art. 24(5))
+  impact: This partly offsets SMEs' higher relative third-party assessment costs, because notified bodies
+    set fees according to company size.
+  provision_keys:
+  - cra/proposal/art/24
+  ia_section: 6.3.2. Impact on SMEs
+  ia_anchor: notified bodies conducting the third party assessments would take the size of the company
+    into account when setting their fees, as it is currently the practice in NLF legislation.
+  anchor:
+    status: verified
+    against: ia
+  category: sme_specific
+  derivability:
+    verdict: 'yes'
+    reason: Art. 24(5) explicitly requires lower fees for SMEs.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor directly states notified bodies would take company size into account when setting
+        conformity assessment fees, matching the claim.
+    derivability:
+      verdict: agree
+      reason: Art. 24(5) explicitly requires notified bodies to take SME interests into account and reduce
+        fees proportionately.
+    category:
+      verdict: agree
+      reason: Fee reduction for SMEs by notified bodies is an SME-specific effect/exemption.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c04_e09
+  affected_actor: Businesses as users of products with digital elements
+  mechanism: Secure development and vulnerability handling required of manufacturers shrink the attack
+    surface of products (Art. 5, 10, 11)
+  impact: Cybersecurity incidents fall by about 20-33%, and EU companies' incident-related costs fall
+    by roughly EUR 180-290 billion a year.
+  provision_keys:
+  - cra/proposal/art/5
+  - cra/proposal/art/10
+  - cra/proposal/art/11
+  ia_section: 6.3.1. Impacts on manufacturers of products with digital elements and other economic operators
+  ia_anchor: Using the data available for Germany, it is estimated that option 4 b) could lead to an EU-wide
+    reduction in costs stemming from incidents affecting companies by between roughly EUR 180 billion
+    to EUR 290 billion annually.
+  anchor:
+    status: verified
+    against: ia
+  category: consumers_users
+  derivability:
+    verdict: partly
+    reason: The provisions clearly aim to reduce vulnerabilities, but the benefit to business users comes
+      from an indirect causal chain.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor matches the claimed 20-33% reduction in incidents and EUR 180-290 billion annual
+        cost reduction for option 4b).
+    derivability:
+      verdict: agree
+      reason: Art. 5, 10 and 11 (which reference users directly, e.g. Art 10(2) and 11(4)) establish the
+        attack-surface-reduction mechanism, while the quantified cost savings to businesses is a downstream
+        consequence correctly flagged as only partly derivable.
+    category:
+      verdict: agree
+      reason: Effect is on business users benefiting from fewer incidents, i.e. an effect on users.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: true
+    reviewer: null
+    note: null
+- expected_id: c04_e10
+  affected_actor: Manufacturers of products with digital elements
+  mechanism: Fewer exploitable vulnerabilities in their products because of mandatory secure development
+    and vulnerability handling, plus a harmonised CE-marking framework (Art. 5, 10)
+  impact: Less reputational damage, because incidents affecting their products fall by about 33%. Trust
+    and uptake of CE-marked products also rise, and internal market fragmentation is avoided.
+  provision_keys:
+  - cra/proposal/art/5
+  - cra/proposal/art/10
+  ia_section: 6.3.1. Impacts on manufacturers of products with digital elements and other economic operators
+  ia_anchor: both software and hardware manufacturers would benefit from a reduced reputational fallout
+    following a decrease in the number of cybersecurity incidents of ca. 33% affecting their products
+  anchor:
+    status: verified
+    against: ia
+  category: market_competition
+  derivability:
+    verdict: partly
+    reason: The reputational and trust benefits follow indirectly from the security requirements; the
+      provisions do not state them.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor states manufacturers benefit from reduced reputational fallout tied to a ca. 33%
+        decrease in incidents, matching the claim.
+    derivability:
+      verdict: agree
+      reason: The vulnerability-reduction mechanism for manufacturers is derivable from Art. 5 and 10,
+        but the specific reputational/trust benefits are IA narrative, so partly is appropriate.
+    category:
+      verdict: agree
+      reason: Trust, uptake of CE-marked products and avoided market fragmentation relate to market structure
+        effects.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+important_omissions:
+- omission_id: c04_o01
+  description: Manufacturers can pass the compliance costs created by the secure-development, conformity-assessment
+    and documentation duties on to end users through higher prices. Who finally bears the cost is therefore
+    partly consumers and business users, not only manufacturers.
+  source: ia
+  provision_keys:
+  - cra/proposal/art/10
+  - cra/proposal/art/24
+  ia_section: 6.3.1. Impacts on manufacturers of products with digital elements and other economic operators
+  ia_anchor: It should also be noted that the compliance costs can be off-set by transferring costs to
+    the end-user, which will be further developped under section 6.3.4.
+  anchor:
+    status: verified
+    against: ia
+  category: consumers_users
+  derivability:
+    verdict: partly
+    reason: Cost pass-through is a standard economic consequence of product requirements, but the provisions
+      do not mention it.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor directly states compliance costs can be offset by transferring costs to the end-user,
+        matching the claim.
+    derivability:
+      verdict: disagree
+      reason: The cited provisions only create manufacturer compliance costs and say nothing about market
+        pricing or cost pass-through to end users, so the drafter's own reasoning ('provisions do not
+        mention it') supports a 'no' rather than 'partly', inconsistent with the identical mechanism rated
+        'no' in c04_m03.
+    category:
+      verdict: agree
+      reason: Cost pass-through to end users via prices is an effect on consumers/users.
+    overall: disagree
+  tiebreak:
+    verdict: keep
+    original_category: consumers_users
+    reason: IA 6.3.1 states compliance costs 'can be off-set by transferring costs to the end-user', and
+      6.3.2 confirms end-users may face higher initial prices; the costs passed on are those created by
+      Art. 10 and 24.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_drafted
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_kept
+    audit: true
+    reviewer: null
+    note: null
+- omission_id: c04_o02
+  description: More than 99% of manufacturers are SMEs, and the obligations hit them harder than large
+    firms. They have less capacity to absorb fixed familiarisation, testing and development costs. They
+    lack in-house expertise and testing labs, so they rely on external consultants and laboratories.
+  source: ia
+  provision_keys:
+  - cra/proposal/art/10
+  - cra/proposal/art/24
+  ia_section: 6.3.2. Impact on SMEs
+  ia_anchor: Most importantly, SMEs' financial capacity to absorb fixed costs is much more limited.
+  anchor:
+    status: verified
+    against: ia
+  category: sme_specific
+  derivability:
+    verdict: partly
+    reason: The obligations apply regardless of company size, so a heavier relative burden on SMEs can
+      be inferred, but their share of the market cannot.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor states SMEs' financial capacity to absorb fixed costs is much more limited and details
+        reliance on external consultants/labs, matching the claimed mechanism and impact.
+    derivability:
+      verdict: agree
+      reason: Art. 10/24 duties apply to all manufacturers without size exemption, and Art. 24(5)'s SME
+        fee-reduction clause itself implies recognition of a disproportionate SME burden, supporting partly.
+    category:
+      verdict: agree
+      reason: Claim is explicitly about SMEs bearing disproportionate burden, an SME-specific effect.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: true
+    reviewer: null
+    note: null
+- omission_id: c04_o03
+  description: How broadly the critical-product categories (Annex III, amendable by delegated act) are
+    set decides how many specialised SMEs face mandatory third-party assessment. A broad scope could push
+    some of them out of the market.
+  source: ia
+  provision_keys:
+  - cra/proposal/art/6
+  - cra/proposal/art/24
+  ia_section: 6.3.2. Impact on SMEs
+  ia_anchor: One trade association representing SMEs mentioned that a too extensive scope of products
+    to be covered by third-party assessment could have serious effects on specialised SMEs up to ceasing
+    their activities.
+  anchor:
+    status: verified
+    against: ia
+  category: sme_specific
+  derivability:
+    verdict: partly
+    reason: Art. 6 lets the Commission widen the critical-product list, and Art. 24 ties notified-body
+      assessment to it, but the risk of market exit is not stated.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor directly states an overly extensive third-party assessment scope could seriously
+        affect specialised SMEs up to ceasing activities, matching the claim.
+    derivability:
+      verdict: agree
+      reason: Art. 6's delegated power to expand Annex III combined with Art. 24's notified-body linkage
+        derivably affects how many specialised manufacturers face mandatory third-party assessment, while
+        the market-exit risk is an IA inference, making partly apt.
+    category:
+      verdict: disagree
+      reason: The claim is specifically about specialised SMEs being pushed out of the market depending
+        on scope of critical-product categories, so sme_specific fits better than market_competition.
+    overall: disagree
+  tiebreak:
+    verdict: keep
+    original_category: market_competition
+    reason: IA 6.3.2 reports that a too extensive scope of third-party assessment could make specialised
+      SMEs cease activities; the scope follows from Art. 6 (Annex III, delegated acts) and Art. 24(2)-(3).
+      The claim is about SMEs and sits in the SME section, so sme_specific fits.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_drafted
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_kept
+    audit: false
+    reviewer: null
+    note: null
+possibly_missing:
+- candidate_id: c04_m01
+  affected_actor: SME manufacturers of products with digital elements
+  mechanism: Fixed costs of secure development, getting to know the new rules and showing conformity hit
+    SMEs harder. They have smaller customer bases, little in-house expertise and limited lab capacity,
+    so they turn to external consultants and testing labs (Art. 5, 10).
+  impact: SME manufacturers face higher relative compliance costs than large firms. Some may struggle
+    to bear them and could leave the market, which puts them at a competitive disadvantage against large
+    and non-EU firms.
+  why_missing: The draft covers SMEs only through the fee reduction for notified bodies, not the disproportionate
+    size of their overall compliance costs.
+  provision_keys:
+  - cra/proposal/art/5
+  - cra/proposal/art/10
+  ia_section: 6.3.2. Impact on SMEs
+  ia_anchor: In terms of costs, SMEs as manufacturers would in principle be more affected than large companies
+    for several reasons.
+  anchor:
+    status: verified
+    against: ia
+  category: sme_specific
+  derivability:
+    verdict: partly
+    reason: The provisions show the duties fall on all manufacturers regardless of size. The extra burden
+      on SMEs from economies of scale comes from the IA's reasoning.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor introduces the exact reasoning (smaller customer base, limited expertise/labs) for
+        why SMEs would be more affected than large companies, matching the claim.
+    derivability:
+      verdict: agree
+      reason: Art. 5 and 10 impose uniform duties on all manufacturers, making a size-driven unequal burden
+        a reasonable partial inference not itself stated in the text.
+    category:
+      verdict: agree
+      reason: Claim is about SMEs facing relatively higher compliance costs and competitive disadvantage,
+        an SME-specific effect.
+    overall: agree
+  tiebreak:
+    verdict: drop
+    original_category: sme_specific
+    reason: The IA supports SMEs being more affected (economies of scale, expertise, external labs), but
+      the claim adds a competitive disadvantage against non-EU firms that the quoted IA text does not
+      state.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c04_m02
+  affected_actor: Specialised SME manufacturers of critical products
+  mechanism: Mandatory third-party conformity assessment for Annex III critical products (Art. 6(4), 24(2)-(3)).
+  impact: Third-party assessment could cost SMEs considerably. If the list of critical products is too
+    broad, specialised SMEs could be pushed to stop trading. Being free to choose the assessment procedure
+    helps offset this.
+  why_missing: The drafted pair for critical products names no SME actor, and the drafted SME pair covers
+    only the fee reduction, not the risk of exit.
+  provision_keys:
+  - cra/proposal/art/6
+  - cra/proposal/art/24
+  ia_section: 6.3.2. Impact on SMEs
+  ia_anchor: a too extensive scope of products to be covered by third-party assessment could have serious
+    effects on specialised SMEs up to ceasing their activities
+  anchor:
+    status: verified
+    against: ia
+  category: sme_specific
+  derivability:
+    verdict: partly
+    reason: Art. 6 and 24 make notified-body procedures mandatory. The risk of market exit for SMEs is
+      stated in the IA.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor quote matches the claim almost verbatim about scope of third-party assessment risking
+        specialised SMEs ceasing activities.
+    derivability:
+      verdict: agree
+      reason: Art. 6(4) and 24(2)-(3) make third-party assessment mandatory for critical products, while
+        the SME market-exit consequence is the IA's own extension.
+    category:
+      verdict: agree
+      reason: Effect of third-party assessment specifically on specialised SMEs is an SME-specific effect.
+    overall: agree
+  tiebreak:
+    verdict: drop
+    original_category: sme_specific
+    reason: It repeats the same anchor and claim (specialised SMEs could exit if the third-party assessment
+      scope is too broad) kept under c04_o03.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c04_m03
+  affected_actor: End-users (consumers and business users, including SMEs) of products with digital elements
+  mechanism: Manufacturers pass the costs of meeting the essential requirements and conformity duties
+    on to buyers through prices (Art. 5, 10, 24).
+  impact: End-users may pay higher initial prices for products with digital elements.
+  why_missing: No drafted pair covers price effects on users. The draft treats users only as beneficiaries
+    of a smaller attack surface.
+  provision_keys:
+  - cra/proposal/art/5
+  - cra/proposal/art/10
+  - cra/proposal/art/24
+  ia_section: 6.3.1. Impacts on manufacturers of products with digital elements and other economic operators
+  ia_anchor: It should also be noted that the compliance costs can be off-set by transferring costs to
+    the end-user
+  anchor:
+    status: verified
+    against: ia
+  category: consumers_users
+  derivability:
+    verdict: 'no'
+    reason: The provisions set no prices. The pass-through effect is economic reasoning from the IA.
+  flags:
+  - not_derivable_from_provisions
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor directly supports the claim that compliance costs can be transferred to end-users
+        via pricing.
+    derivability:
+      verdict: agree
+      reason: Art. 5, 10 and 24 regulate manufacturers and assessment procedures only, saying nothing
+        about downstream pricing to end-users, so the price pass-through mechanism is not derivable from
+        the text.
+    category:
+      verdict: agree
+      reason: Price pass-through to end-users (consumers and business users) is a consumers/users effect.
+    overall: agree
+  tiebreak:
+    verdict: drop
+    original_category: consumers_users
+    reason: It duplicates the cost pass-through-to-end-users claim kept under c04_o01, using the same
+      anchor.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c04_m04
+  affected_actor: SMEs as end-users of products with digital elements
+  mechanism: Manufacturers must give users Annex II information on security properties and support (Art.
+    10(10)). This makes products more transparent, so buyers can tell secure products from insecure ones.
+  impact: SME users can make better-informed purchases. They gain the trust they need to invest in digitalisation
+    instead of holding back.
+  why_missing: The draft covers the information duty only as a cost to manufacturers, and the user benefit
+    only as a smaller attack surface, not as transparency.
+  provision_keys:
+  - cra/proposal/art/10
+  ia_section: 6.3.2. Impact on SMEs
+  ia_anchor: SME as end-users would significantly benefit from enhanced transparency of security properties
+    of products.
+  anchor:
+    status: verified
+    against: ia
+  category: sme_specific
+  derivability:
+    verdict: partly
+    reason: Art. 10(10) sets the information duty. The benefit to SME buyers, and the effect on their
+      investment, is the IA's view.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor directly states SME end-users would significantly benefit from enhanced transparency
+        of security properties, matching the claim.
+    derivability:
+      verdict: agree
+      reason: Art. 10(10) explicitly mandates user-facing security information, supporting a partial derivation
+        of better-informed purchasing, while the digitalisation-investment effect is IA reasoning.
+    category:
+      verdict: disagree
+      reason: The affected actor and impact are explicitly framed as SME users gaining trust to invest,
+        matching sme_specific better than the general consumers_users category.
+    overall: disagree
+  tiebreak:
+    verdict: keep
+    original_category: consumers_users
+    reason: IA 6.3.2 states SME end-users 'would significantly benefit from enhanced transparency of security
+      properties', which follows from the Art. 10(10) Annex II user information duty. The IA frames it
+      in the SME section.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_kept
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c04_m05
+  affected_actor: SME manufacturers, importers and distributors
+  mechanism: CE marking and the harmonised requirements build trust with end-users and give seamless access
+    to the internal market, which matters more to firms with smaller customer bases (Art. 5, 10, 13, 14).
+  impact: SMEs could win new customers and gain more in reputation than large firms. They also avoid the
+    costs of handling different rules across Member States.
+  why_missing: The drafted benefit for manufacturers is about fewer vulnerabilities generally. It does
+    not cover the trust and customer gains that apply specifically to SMEs.
+  provision_keys:
+  - cra/proposal/art/5
+  - cra/proposal/art/10
+  - cra/proposal/art/13
+  - cra/proposal/art/14
+  ia_section: 6.3.2. Impact on SMEs
+  ia_anchor: As manufacturers, distributors and importers of products with digital elements, SMEs can
+    benefit from larger trust from end-users and therefore possibly gain new customers.
+  anchor:
+    status: verified
+    against: ia
+  category: sme_specific
+  derivability:
+    verdict: 'no'
+    reason: The reputation and market-access benefits for SMEs are effects the IA describes, not something
+      stated in the provisions.
+  flags:
+  - not_derivable_from_provisions
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor directly states SMEs as manufacturers/distributors/importers can gain trust and new
+        customers, matching the claim.
+    derivability:
+      verdict: agree
+      reason: The provisions establish CE marking and harmonised requirements generally for all manufacturers
+        without any SME-specific differentiation for reputational or market-access gains, so this specific
+        SME-magnified benefit is not derivable from the text.
+    category:
+      verdict: agree
+      reason: Reputational and market-access gains specifically for SMEs with smaller customer bases is
+        an SME-specific effect.
+    overall: agree
+  tiebreak:
+    verdict: keep
+    original_category: sme_specific
+    reason: IA 6.3.2 states SMEs as manufacturers, importers and distributors can gain trust and new customers,
+      and that harmonised requirements are even more beneficial for SMEs. This SME-specific benefit is
+      distinct from kept item e10.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_kept
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c04_m06
+  affected_actor: SME importers and distributors
+  mechanism: Manufacturers must already ensure cybersecurity, so importers and distributors only have
+    to verify it (Art. 13, 14).
+  impact: Burden on SME importers and distributors is limited, mainly the cost of getting to know the
+    new rules. Overall the impact is expected to be small or even positive.
+  why_missing: The drafted importer and distributor pair covers their verification costs in general, not
+    the light burden on SME operators who can rely on manufacturers.
+  provision_keys:
+  - cra/proposal/art/13
+  - cra/proposal/art/14
+  ia_section: 6.3.2. Impact on SMEs
+  ia_anchor: Therefore the burden on SME importers and distributors is not expected to be significant,
+    on the contrary.
+  anchor:
+    status: verified
+    against: ia
+  category: sme_specific
+  derivability:
+    verdict: partly
+    reason: Art. 13 and 14 show the duties are verification-based. The low burden on SMEs is the IA's
+      assessment.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor states the burden on SME importers/distributors is not expected to be significant,
+        consistent with the claimed mechanism and impact.
+    derivability:
+      verdict: agree
+      reason: Art. 13(2) and 14(2) frame importer/distributor duties as verification of manufacturer compliance
+        rather than independent assurance, supporting the lighter-burden mechanism, while the 'positive
+        impact' characterisation is IA judgment.
+    category:
+      verdict: agree
+      reason: Claim is specifically about limited burden on SME importers/distributors, an SME-specific
+        effect.
+    overall: agree
+  tiebreak:
+    verdict: drop
+    original_category: sme_specific
+    reason: It duplicates kept item c04_e07, which already records familiarisation costs and a burden
+      not expected to be significant because security must already be ensured by the manufacturer.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c04_m07
+  affected_actor: Software manufacturers, especially of non-embedded software
+  mechanism: Fewer software products are covered by existing product-safety (NLF) laws, so their existing
+    compliance baseline (business-as-usual costs) is lower. Conformity assessment and secure development
+    therefore add proportionally more cost (Art. 10, 24).
+  impact: Software manufacturers bear higher extra compliance costs than hardware manufacturers. The IA
+    assumes 25% of software testing costs are already incurred, against 40% for hardware, and software
+    firms rated their expected costs high to very high.
+  why_missing: The draft treats hardware and software manufacturers as one group and misses the IA's finding
+    that software manufacturers' additional costs are higher.
+  provision_keys:
+  - cra/proposal/art/10
+  - cra/proposal/art/24
+  ia_section: 6.3.1. Impacts on manufacturers of products with digital elements and other economic operators
+  ia_anchor: For software manufacturers, it is assumed that the BaU factor would be lower, given that
+    less software products are today covered by NLF legislation.
+  anchor:
+    status: verified
+    against: ia
+  category: compliance_cost
+  derivability:
+    verdict: 'no'
+    reason: The difference between hardware and software baselines comes from IA market data, not the
+      provision text.
+  flags:
+  - not_derivable_from_provisions
+  judge:
+    anchor_faithfulness:
+      verdict: unknown
+      reason: The context confirms the 40% vs 25% BaU cost figures for hardware vs software manufacturers,
+        but does not show software firms specifically rating their expected costs as 'high to very high'.
+    derivability:
+      verdict: agree
+      reason: Art. 10 and 24 apply uniformly to hardware and software without referencing any differing
+        baseline compliance levels under existing NLF law, so the software-vs-hardware cost-gap claim
+        is not derivable from the text.
+    category:
+      verdict: agree
+      reason: Higher extra compliance costs for software manufacturers relative to baseline is a substantive
+        compliance cost comparison.
+    overall: uncertain
+  tiebreak:
+    verdict: drop
+    original_category: compliance_cost
+    reason: The 40% vs 25% BaU figures are supported, but the claim that software firms rated their costs
+      'high to very high' is not in the IA text provided, so the item cannot be fully checked.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
