@@ -139,10 +139,16 @@ def test_candidate_needs_a_human_even_when_auto_accepted():
     assert len(problems) == 1 and "possibly_missing candidate" in problems[0]
 
 
-@pytest.mark.parametrize("item_id", ["c90_e05", "c90_e06"])
+@pytest.mark.parametrize("item_id", ["c90_e05"])
 def test_flipping_a_human_item_to_auto_accepted_fails(item_id):
     data = decide(fully_decided(), item_id, "auto_accepted", reviewer=None)
     assert any("not auto_accepted" in p for p in _check(data))
+
+
+def test_an_audit_item_left_auto_accepted_passes():
+    """The audit sample is an optional spot check (AUDIT_BLOCKS off): not deciding it is fine."""
+    data = decide(fully_decided(), "c90_e06", "auto_accepted", reviewer=None)
+    assert _check(data) == []
 
 
 def test_flagged_and_uncertain_items_need_a_human():

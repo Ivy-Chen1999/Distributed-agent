@@ -7,9 +7,15 @@ A 5-minute read before your first review. The full rules are in the
 
 WOMM reads an EU legislative proposal and predicts who is affected and how. We score it against
 **golden cases**: reference answers taken from the Commission's own impact assessment (IA). An
-LLM drafted each case and three separate LLM judges checked it. You check only the items where
-the judges disagreed, a check flagged something, or a random 20% audit sample landed. A wrong
-reference answer teaches WOMM the wrong lesson, so your call matters.
+LLM drafted each case, three separate LLM judges checked it, and a fourth, tie-break judge
+settled every item they left open (`womm.eval.tiebreak`; unsure items are dropped).
+
+**No review is required.** Building reference answers is pipeline work, so a case is published
+without a person deciding anything. The items marked `audit: true` (a random 20% of what the
+judges and the tie-break judge kept) are **optional spot checks**: if you have time, check them as
+below; a decision you make there counts towards the measured error rate, and a proposal whose
+error rate passes 10% goes back to full human review. The task people are needed for is the
+judge calibration (`womm calibrate`), not this one.
 
 Each review PR holds one file, `evals/golden/drafts/<case>.yaml`. The PR description says how
 many decisions you need to make and links the IA and the proposal on EUR-Lex. The same links are
