@@ -1,0 +1,1169 @@
+# DRAFT golden case written by scripts/draft_golden_case.py; not scored until published.
+# Reviewer? Start with docs/eval/reviewer-quickstart.md. The helper lists what to decide:
+#   uv run python scripts/review_draft.py <this file>
+# Decide every item whose review.decision is 'pending' and every possibly_missing candidate
+# as verified / edited / rejected / unclear, with your GitHub username in review.reviewer.
+# Other auto-accepted items need no decision. Do not change tool-written fields of an item
+# you keep as auto_accepted or verified (CI checks provenance.item_digests); the drafter
+# (provenance.drafted_by) cannot review. review_links opens the public IA and proposal on
+# EUR-Lex (train/val only); holdout identifiers never appear in a tracked file.
+case_id: case_13_gigabit_infrastructure_access_and_permits
+scenario_id: eval_infrastructure_access_and_permits
+fixture: gigabit
+split: val
+ia_reference: 'Impact assessment accompanying the Gigabit Infrastructure Act proposal (identifiers in
+  the local IA index); sections: 6.1. Economic impact; 8.1. Outcome of comparison of policy options; 2.
+  Summary of costs and benefits'
+notes: ''
+review_links:
+  ia: https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:52023SC0046
+  proposal: https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:52023PC0094
+  ia_parts: 2
+  anchor_parts:
+    c13_e01: 1
+    c13_e02: 1
+    c13_e03: 1
+    c13_e04: 1
+    c13_e05: 1
+    c13_e06: 1
+    c13_e07: 1
+    c13_e08: 1
+    c13_e09: 1
+    c13_e10: 1
+    c13_o01: 1
+    c13_o02: 1
+    c13_o03: 1
+    c13_m01: 1
+    c13_m02: 1
+    c13_m03: 1
+    c13_m04: 1
+    c13_m05: 1
+    c13_m06: 1
+    c13_m07: 1
+    c13_m08: 1
+provenance:
+  tool: scripts/draft_golden_case.py
+  drafted_on: '2026-10-06'
+  drafted_by: Chen Yuxin
+  drafting_model: claude-opus-5-5
+  roles:
+    drafter:
+      backend: claude_code
+      model: claude-opus-5-5
+      prompt: prompts/tools/draft_golden_case.md
+    recall:
+      backend: claude_code
+      model: claude-opus-5-5
+      prompt: prompts/tools/recall_golden_case.md
+    judge_anchor:
+      backend: claude_code
+      model: claude-sonnet-5
+      prompt: prompts/tools/judge_anchor.md
+    judge_derivability:
+      backend: claude_code
+      model: claude-sonnet-5
+      prompt: prompts/tools/judge_derivability.md
+    judge_category:
+      backend: claude_code
+      model: claude-sonnet-5
+      prompt: prompts/tools/judge_category.md
+  prompt_hashes:
+    prompts/tools/draft_golden_case.md: c72bd341e2c3ef75
+    prompts/tools/recall_golden_case.md: 36f0a5dcc15a57c6
+    prompts/tools/judge_anchor.md: 0d81eb4d5d2b43bd
+    prompts/tools/judge_derivability.md: 97471d88c14d32c3
+    prompts/tools/judge_category.md: 8b1885320b65b60f
+  ia_sections:
+  - 6.1. Economic impact
+  - 8.1. Outcome of comparison of policy options
+  - 2. Summary of costs and benefits
+  rsb_status: opinion none found in Cellar
+  audit:
+    seed: 3176306723
+    rate: 0.2
+    eligible: 9
+    eligible_ids:
+    - c13_e02
+    - c13_e03
+    - c13_e04
+    - c13_e05
+    - c13_e07
+    - c13_e08
+    - c13_e09
+    - c13_e10
+    - c13_o02
+    sampled:
+    - c13_e03
+    - c13_e05
+    non_publishable_test_seed: false
+  item_digests:
+    c13_e01: 066255ad80c12d34c0bec3851c33bf115d78215c969756682cec48e2cbe1e45f
+    c13_e02: 916560c51009169ad7a21492c243ed58e20744ec19e298e0798f268028ead37b
+    c13_e03: d62110e98c730295aaffb4d87a099a208f00f85d7d84fdfddfc441444eb65c82
+    c13_e04: 5299fe0bb64aa95bc736d1c82be2d2969e3f7a66dfbc8305a661851398ab8753
+    c13_e05: 3f2ed6e989d624bcb3f0616c67ef175d9058ce52f82e94d44f88e1df1251719d
+    c13_e06: f35120a818c6686e012695fcd475e1c4a7064a9eca2422346913497bda2ffb14
+    c13_e07: aed5fe06f73839013ede09518433ead703d19d9e7c7aad91c0a5b9bccfc58077
+    c13_e08: 0ffe668d44889f720c3ab055b15b25c7b9b084c2da9d2190c5dd5fa807f11181
+    c13_e09: c3cc858e819ab84edd6d5797ebb9027a32f8b364ed4707a32dddba78a3cceb75
+    c13_e10: a254bf47857031e2ee69af8fe481659a0a13274812df4be47c8b821777236b49
+    c13_o01: ac1b392392f60aa81b724745ed53829315cd530ecf9f186d1111520d47426ad5
+    c13_o02: fa713e96a0a756f450cc0eb67d3e3188e55c5e03405f1cd3587678d6aea4531b
+    c13_o03: 618498e12ba591e1841f36ee90b3d9dd56648efa05d37084e3bf58de834edb2e
+    c13_m01: fdaedeec2685abbb163d7d4d127ae54a95f957c7b94f4cf48451df3e353642f0
+    c13_m02: 870518bdbe9e0993835a3bde9e21c73cec5e3c1d698c160e689ae2552e5c76c7
+    c13_m03: 7e2b6abbc90163da06c0fd8fe9a7ac3c9690b26d21d8b915077441d38e77cc68
+    c13_m04: d3a51d9a9714ce6c4801a7b01d4efd71f9c46965531e1f08035aaac999389d09
+    c13_m05: 1489adceb911fb751544ae89bab3a192984508ded9006f0739203f32972e514c
+    c13_m06: 2cf69d7aaf9feece54a6f53221d27fc3dae12992a4a32576216180e6ccc03628
+    c13_m07: 034283c814eb7f3c98bdc94209aa74554a1e394f5849e8904cb625c68e1db59a
+    c13_m08: d4acebaac369ad9a1fd8796e0e0654cd181374bf2faf0d997ee61253d9a1a1e3
+  tiebreak_audit:
+    seed: 1533973864
+    rate: 0.2
+    eligible: 7
+    eligible_ids:
+    - c13_e01
+    - c13_e06
+    - c13_m02
+    - c13_m03
+    - c13_m05
+    - c13_m06
+    - c13_m07
+    sampled:
+    - c13_e01
+    - c13_m05
+    non_publishable_test_seed: false
+stats:
+  items: 21
+  expected_impacts: 10
+  important_omissions: 3
+  possibly_missing: 8
+  anchors_verified: 21
+  judge_agree: 15
+  judge_disagree: 2
+  judge_uncertain: 4
+  auto_accepted: 9
+  pending: 0
+  audited: 4
+  human_decisions_needed: 0
+  llm_kept: 7
+  llm_dropped: 5
+expected_impacts:
+- expected_id: c13_e01
+  affected_actor: Electronic communications network (ECN) operators deploying very high capacity networks
+  mechanism: The right to access existing physical infrastructure of network operators and public sector
+    bodies on fair and reasonable terms, together with the right to coordinate civil works, lets operators
+    reuse ducts and poles and co-deploy instead of building new civil works.
+  impact: Lower deployment capex, around EUR 12 billion to 2030. Network built by reusing infrastructure
+    or coordinating civil works rises to about 470,000 km, against 250,000 km in the baseline.
+  provision_keys:
+  - gigabit/proposal/art/3
+  - gigabit/proposal/art/5
+  ia_section: 2. Summary of costs and benefits
+  ia_anchor: Cost savings due to improved access to existing infrastructure and co-deployment opportunities
+  anchor:
+    status: verified
+    against: ia
+  category: innovation_investment
+  derivability:
+    verdict: 'yes'
+    reason: Articles 3 and 5 give operators access and coordination rights whose aim is plainly to cut
+      the cost of new civil works.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: The anchor directly attributes ~EUR12bn capex savings to ECN operators from improved infrastructure
+        access/co-deployment, matching actor and mechanism; the km figures are corroborated elsewhere
+        in the same IA and not contradicted here.
+    derivability:
+      verdict: agree
+      reason: Art 3 grants access to existing infrastructure and Art 5 grants coordination of civil works,
+        directly enabling reuse and co-deployment that cut capex.
+    category:
+      verdict: disagree
+      reason: The claim is about reduced deployment capex (substantive cost savings), which is a compliance_cost
+        effect rather than a market structure/competition effect.
+    overall: disagree
+  tiebreak:
+    verdict: keep
+    original_category: market_competition
+    reason: Table 16 attributes ~EUR12bn reduced capex in VHCN deployment to ECN operators from improved
+      access and co-deployment, and section 8.1 gives 470,000 km vs 250,000 km; Arts 3 and 5 grant those
+      rights. This is reduced investment cost for network rollout, not a cost of complying or a change
+      in market structure.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_drafted
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_kept
+    audit: true
+    reviewer: null
+    note: null
+- expected_id: c13_e02
+  affected_actor: ECN operators requesting access
+  mechanism: 'Clearer access rules set out in the text: pricing criteria, a closed list of refusal grounds
+    with written reasons within 1 month, and in-building access rules. These make negotiations simpler
+    and reduce disputes.'
+  impact: Administrative cost savings of around EUR 24m per year.
+  provision_keys:
+  - gigabit/proposal/art/3
+  - gigabit/proposal/art/9
+  ia_section: 2. Summary of costs and benefits
+  ia_anchor: Administrative cost savings from streamlining of access negotiations / reductions in disputes
+    (~EUR24m per annum)
+  anchor:
+    status: verified
+    against: ia
+  category: administrative_burden
+  derivability:
+    verdict: partly
+    reason: The provisions clearly define pricing and refusal criteria, but the saving on negotiation
+      and dispute costs has to be inferred.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor explicitly attributes ~EUR24m/year admin savings to ECN operators from streamlined
+        access negotiations/reduced disputes, matching the claim's actor, mechanism and figure.
+    derivability:
+      verdict: agree
+      reason: Pricing criteria and refusal/response rules in Art 3 and access terms in Art 9 are explicit,
+        but the negotiation/dispute cost savings are a reasonable but not textually stated inference,
+        matching 'partly'.
+    category:
+      verdict: agree
+      reason: Clearer access rules reducing negotiation/dispute costs is a classic information-obligation/administrative_burden
+        saving.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c13_e03
+  affected_actor: ECN operators applying for permits and rights of way
+  mechanism: Electronic submission of permit applications through a single information point, a 4-month
+    decision deadline, tacit approval, permit exemptions and fees capped at administrative costs.
+  impact: Faster deployment and administrative savings of about EUR 15m per year from simpler permit application
+    processes.
+  provision_keys:
+  - gigabit/proposal/art/7
+  ia_section: 2. Summary of costs and benefits
+  ia_anchor: Administrative cost savings from streamlined permit application processes (~EUR15m per annum)
+  anchor:
+    status: verified
+    against: ia
+  category: administrative_burden
+  derivability:
+    verdict: 'yes'
+    reason: Article 7 sets out the deadlines, electronic submission, tacit approval and fee limits that
+      reduce applicants' burden.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor shows ~EUR15m/year savings from streamlined permit application processes for ECN
+        operators, matching the claim exactly.
+    derivability:
+      verdict: agree
+      reason: Art 7 expressly provides electronic submission, 4-month deadlines, tacit approval, and fee
+        caps that reduce operator burden.
+    category:
+      verdict: agree
+      reason: Electronic single-point permit submission and deadlines are administrative/procedural simplifications,
+        fitting administrative_burden.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: true
+    reviewer: null
+    note: null
+- expected_id: c13_e04
+  affected_actor: Competent (local) authorities granting permits
+  mechanism: Authorities must make permit rules consistent across the national territory, run electronic
+    application and status tracking through a single information point, and decide within fixed deadlines.
+  impact: 'Large up-front costs: about EUR 70m in total for the preferred option, including EUR 35-40m
+    one-off for local authorities. Over the medium term, local authorities save about EUR 3-4m per year.'
+  provision_keys:
+  - gigabit/proposal/art/7
+  ia_section: 8.1. Outcome of comparison of policy options
+  ia_anchor: policy option 3 involves significant certain short term costs (EUR70m), in particular linked
+    to the establishment of consistent permit granting procedures and the establishment of digital platforms
+    for the processing of permits for ECN deployment
+  anchor:
+    status: verified
+    against: ia
+  category: public_enforcement_cost
+  derivability:
+    verdict: 'yes'
+    reason: Article 7 directly requires consistent procedures, electronic processing and deadlines from
+      competent authorities.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor confirms EUR70m short-term costs for option 3 linked to establishing consistent permit
+        procedures/digital platforms, consistent with the claim's actor and figures.
+    derivability:
+      verdict: agree
+      reason: Art 7 directly imposes consistency, electronic single-point processing and fixed deadlines
+        on competent authorities.
+    category:
+      verdict: agree
+      reason: Up-front and ongoing costs for authorities running the permit/single-information-point system
+        are public authority costs, fitting public_enforcement_cost.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c13_e05
+  affected_actor: Network operators and public sector bodies holding physical infrastructure or planning
+    civil works
+  mechanism: Duties to supply georeferenced minimum information on existing infrastructure, allow on-site
+    surveys, and notify planned civil works in advance through the single information point.
+  impact: New administrative costs for implementing georeferencing and supplying and updating infrastructure
+    and civil-works information. Other network operators face roughly EUR 5-7m in one-off adjustment costs.
+  provision_keys:
+  - gigabit/proposal/art/4
+  - gigabit/proposal/art/6
+  ia_section: 2. Summary of costs and benefits
+  ia_anchor: Administrative costs, such as the transparency obligations (implementing georeferencing,
+    providing information about existing physical infrastructure, pro-active notification of planned civil
+    works)
+  anchor:
+    status: verified
+    against: ia
+  category: administrative_burden
+  derivability:
+    verdict: 'yes'
+    reason: Articles 4 and 6 expressly require georeferenced information and advance notice of planned
+      works in electronic format.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor's transparency-obligation text (georeferencing, infrastructure info, civil works
+        notification) matches the claim's mechanism, and the EUR5-7m figure for other network operators
+        appears in the same cost table.
+    derivability:
+      verdict: agree
+      reason: Art 4 and Art 6 expressly require georeferenced minimum information, on-site surveys, and
+        advance notice of planned civil works.
+    category:
+      verdict: agree
+      reason: Supplying and updating georeferenced infrastructure information is an information/documentation
+        duty, fitting administrative_burden.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: true
+    reviewer: null
+    note: null
+- expected_id: c13_e06
+  affected_actor: Other (non-telecom) network operators, e.g. energy and transport
+  mechanism: Access requests and civil-works coordination requests from telecom operators lead to rental
+    of their infrastructure and sharing of works.
+  impact: New revenue and cost-saving opportunities, plus synergies with digitising their core business,
+    such as smart energy.
+  provision_keys:
+  - gigabit/proposal/art/3
+  - gigabit/proposal/art/5
+  ia_section: 2. Summary of costs and benefits
+  ia_anchor: Revenue and cost saving opportunities, synergies with digitisation of core business (e.g.
+    smart energy)
+  anchor:
+    status: verified
+    against: ia
+  category: innovation_investment
+  derivability:
+    verdict: partly
+    reason: The access obligations and cost-recovery pricing are visible in the text, but the revenue
+      and synergy benefits must be inferred.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor's 'revenue and cost saving opportunities, synergies with digitisation of core business
+        (e.g. smart energy)' sits under the 'other network operators' column, matching the claim's actor
+        and impact.
+    derivability:
+      verdict: agree
+      reason: Art 3 and 5 obligations apply broadly to 'network operators' including non-telecom ones,
+        supporting revenue/cost-sharing, while synergy benefits are an inferred extension, matching 'partly'.
+    category:
+      verdict: unknown
+      reason: The claim mixes new revenue/cost-saving opportunities with synergies in digitising core
+        business, which could equally fit innovation_investment or other, not clearly market_competition.
+    overall: uncertain
+  tiebreak:
+    verdict: keep
+    original_category: market_competition
+    reason: Table 15's 'other network operators' column states revenue and cost-saving opportunities and
+      synergies with digitisation (smart energy); Arts 3 and 5 apply to network operators generally, including
+      energy and transport.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_drafted
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_kept
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c13_e07
+  affected_actor: Member States (public subsidy budgets)
+  mechanism: Infrastructure reuse and co-deployment under the access and coordination rules reduce the
+    funding gap for rolling out very high capacity networks in non-viable areas.
+  impact: Subsidies needed to reach 90% FTTH coverage could fall by about EUR 2.4 billion.
+  provision_keys:
+  - gigabit/proposal/art/3
+  - gigabit/proposal/art/5
+  ia_section: 2. Summary of costs and benefits
+  ia_anchor: Cost savings in VHCN deployment leading to the opportunity to reduce subsidies for FTTH deployment
+    by EUR2.4bln
+  anchor:
+    status: verified
+    against: ia
+  category: other
+  derivability:
+    verdict: partly
+    reason: Lower deployment costs follow from the provisions, but the knock-on effect on public subsidy
+      needs is indirect.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor directly states the EUR2.4bn subsidy reduction opportunity for Member States from
+        VHCN cost savings, matching the claim exactly.
+    derivability:
+      verdict: agree
+      reason: Lower deployment costs flow from Art 3/5 access and coordination rights, but the effect
+        on public subsidy need is an indirect downstream inference, consistent with 'partly'.
+    category:
+      verdict: agree
+      reason: A reduced public subsidy funding gap is a public budgetary effect not well covered by the
+        listed categories, so other is a reasonable fit.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c13_e08
+  affected_actor: ECN operators connecting new or renovated buildings
+  mechanism: The mandatory fibre-ready in-building infrastructure, fibre wiring and access point in new
+    and majorly renovated buildings, combined with the right to access that infrastructure on fair and
+    non-discriminatory terms.
+  impact: Faster deployment and savings of around EUR 200 per new or renovated premise.
+  provision_keys:
+  - gigabit/proposal/art/8
+  - gigabit/proposal/art/9
+  ia_section: 2. Summary of costs and benefits
+  ia_anchor: Accelerated deployment, savings of around EUR200 for new / renovated premises
+  anchor:
+    status: verified
+    against: ia
+  category: compliance_cost
+  derivability:
+    verdict: 'yes'
+    reason: Articles 8 and 9 require pre-installed in-building fibre and grant operators access to it,
+      which clearly avoids connection works.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor's EUR200 savings for new/renovated premises falls under the ECN operators column
+        in the benefits table (mandated in-building FTTH row), matching the claim's actor and figure.
+    derivability:
+      verdict: agree
+      reason: Art 8 mandates fibre-ready in-building infrastructure and Art 9 grants access to it, directly
+        avoiding in-building connection works.
+    category:
+      verdict: agree
+      reason: Mandatory in-building fibre infrastructure is a substantive technical requirement, fitting
+        compliance_cost.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c13_e09
+  affected_actor: Mobile network operators deploying 5G small cells
+  mechanism: Categories of deployment exempted from permit procedures by implementing act, a ban on individual
+    prior permits for those elements, and shorter permit deadlines.
+  impact: Faster mid-band 5G deployment, with coverage reaching about 77% of the population by 2030 against
+    75% in the status quo.
+  provision_keys:
+  - gigabit/proposal/art/7
+  ia_section: 8.1. Outcome of comparison of policy options
+  ia_anchor: policy option 3 could accelerate the deployment of mid-band 5G, by simplifying the process
+    of deploying small cells
+  anchor:
+    status: verified
+    against: ia
+  category: innovation_investment
+  derivability:
+    verdict: 'yes'
+    reason: Article 7(8)-(9) exempts categories of deployment from permits, which plainly makes small-cell
+      rollout easier.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor states policy option 3 accelerates mid-band 5G deployment via simplified small cell
+        deployment, reaching ~77% coverage vs 75% status quo, matching the claim's actor, mechanism and
+        figures.
+    derivability:
+      verdict: agree
+      reason: Art 7(8)-(9) creates permit exemptions and bans individual prior permits for qualifying
+        VHCN deployment elements, which plausibly covers small-cell rollout and speeds it up.
+    category:
+      verdict: agree
+      reason: Permit exemptions speeding 5G deployment and raising coverage reflects investment/rollout
+        outcomes, fitting innovation_investment.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c13_e10
+  affected_actor: Citizens and consumers (end-users)
+  mechanism: Deployment cost savings from infrastructure reuse, co-deployment and in-building fibre are
+    passed on through lower prices or wider coverage.
+  impact: 'Lower Gigabit broadband prices or wider Gigabit coverage: 6.5% more households if FTTH, or
+    9.1% if 5G FWA.'
+  provision_keys:
+  - gigabit/proposal/art/3
+  - gigabit/proposal/art/5
+  - gigabit/proposal/art/8
+  ia_section: 2. Summary of costs and benefits
+  ia_anchor: Reduced Gigabit broadband prices or increased Gigabit coverage (by 6.5% if FTTH or 9.1% if
+    5G FWA)
+  anchor:
+    status: verified
+    against: ia
+  category: consumers_users
+  derivability:
+    verdict: partly
+    reason: Benefits to end-users depend on savings being passed on or reinvested, which is an indirect
+      effect of the provisions.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: 'Anchor directly matches the claim: reduced Gigabit prices or increased coverage by 6.5%
+        (FTTH) or 9.1% (5G FWA) for citizens/consumers.'
+    derivability:
+      verdict: agree
+      reason: Deployment cost savings are derivable from Art 3/5/8, but pass-through to consumers via
+        prices or coverage is an inferred downstream effect, matching 'partly'.
+    category:
+      verdict: agree
+      reason: Lower prices or wider coverage passed to end-users directly concerns consumers_users.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+important_omissions:
+- omission_id: c13_o01
+  description: The in-building fibre mandate in Article 8 creates a direct installation cost for each
+    premise. Building owners, developers and ultimately citizens bear this cost, either directly or through
+    building prices; the IA puts the cost at around EUR 50 per installation for citizens. A good assessment
+    must say who bears this cost, not only the savings to operators.
+  source: ia
+  provision_keys:
+  - gigabit/proposal/art/8
+  ia_section: 6.1. Economic impact
+  ia_anchor: Cost of in-building infrastructure per premise (greenfield) EUR
+  anchor:
+    status: verified
+    against: ia
+  category: compliance_cost
+  derivability:
+    verdict: 'yes'
+    reason: Article 8 requires every new or majorly renovated building to carry fibre infrastructure,
+      wiring and an access point, so the cost obviously falls on owners.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: disagree
+      reason: The anchor shows a EUR200 per-premise in-building infrastructure cost, not the EUR50 per-installation
+        figure the claim attributes to citizens, so the number does not match.
+    derivability:
+      verdict: agree
+      reason: Art 8 imposes mandatory fibre-ready equipment on buildings, so the installation cost burden
+        on owners/developers is directly derivable.
+    category:
+      verdict: agree
+      reason: Installation costs for in-building fibre are substantive compliance costs borne by owners/citizens,
+        fitting compliance_cost.
+    overall: disagree
+  tiebreak:
+    verdict: drop
+    original_category: compliance_cost
+    reason: The anchor gives EUR200 per premise for in-building infrastructure, not the EUR50 per installation
+      the claim assigns to citizens, so the number is unsupported.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_drafted
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
+- omission_id: c13_o02
+  description: Public sector bodies must meet reasonable access requests on fair, reasonable and non-discriminatory
+    terms and give written reasons for any refusal within 1 month. Their administrative costs may go up
+    or down. This depends on whether Member States standardise the terms and set up a coordinating body
+    under Article 3(4).
+  source: ia
+  provision_keys:
+  - gigabit/proposal/art/3
+  ia_section: 2. Summary of costs and benefits
+  ia_anchor: the introduction of requirements for public authorities to make available access to their
+    physical infrastructure on fair and non-discriminatory terms might either lead to increased or reduced
+    administrative costs
+  anchor:
+    status: verified
+    against: ia
+  category: public_enforcement_cost
+  derivability:
+    verdict: 'yes'
+    reason: Article 3 places access duties on public sector bodies and lets Member States set up a coordinating
+      body.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor directly states that requiring public authorities to grant fair/non-discriminatory
+        access may increase or decrease their administrative costs depending on MS standardisation, matching
+        the claim exactly.
+    derivability:
+      verdict: agree
+      reason: Art 3 imposes access duties on public bodies and Art 3(4) allows a coordinating body, supporting
+        a variable administrative cost effect.
+    category:
+      verdict: agree
+      reason: Changes in public sector bodies' administrative costs for handling access requests fit public_enforcement_cost
+        as costs for public authorities.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- omission_id: c13_o03
+  description: Under Article 7, permits are deemed granted if the 4-month deadline is missed, and operators
+    can claim compensation for missed deadlines. This shifts risk and possible liability onto competent
+    authorities. It also affects third parties and the rights at stake in permit decisions, which raises
+    constitutional issues in some Member States.
+  source: ia
+  provision_keys:
+  - gigabit/proposal/art/7
+  ia_section: 8.1. Outcome of comparison of policy options
+  ia_anchor: on tacit approval for permits to take account of constitutional issues
+  anchor:
+    status: verified
+    against: ia
+  category: fundamental_rights
+  derivability:
+    verdict: 'yes'
+    reason: Article 7(7) and 7(11) expressly provide for tacit approval and compensation for missed deadlines.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: unknown
+      reason: The anchor only discusses a constitutional-issues limitation on tacit approval and says
+        nothing about compensation claims or liability shifting onto authorities, so that part of the
+        claim cannot be confirmed or denied from this context.
+    derivability:
+      verdict: agree
+      reason: Art 7(7) tacit approval and Art 7(11) compensation for missed deadlines directly create
+        the risk/liability shift onto authorities described.
+    category:
+      verdict: unknown
+      reason: The claim covers both authority liability/cost exposure (public_enforcement_cost) and constitutional/third-party
+        rights issues (fundamental_rights), fitting both about equally.
+    overall: uncertain
+  tiebreak:
+    verdict: drop
+    original_category: fundamental_rights
+    reason: The anchor only mentions limits on tacit approval to account for constitutional issues; it
+      does not support the claimed liability shift or the compensation exposure for authorities.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_drafted
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
+possibly_missing:
+- candidate_id: c13_m01
+  affected_actor: Construction companies and building owners/developers
+  mechanism: Duty to fit fibre-ready in-building infrastructure, fibre wiring and access points in new
+    and majorly renovated buildings to nationally adopted standards, with certified test reports as a
+    condition for the building permit.
+  impact: One-off adjustment costs (about EUR1-2m) for construction companies, and buildings that become
+    more valuable or earn more rent once they are fibre-ready.
+  why_missing: The draft covers Art 8 only from the side of ECN operators connecting buildings, not the
+    builders or owners who carry the duty.
+  provision_keys:
+  - gigabit/proposal/art/8
+  ia_section: 8.1. Outcome of comparison of policy options
+  ia_anchor: such as the development of standards for in-building infrastructure for use by construction
+    firms
+  anchor:
+    status: verified
+    against: ia
+  category: compliance_cost
+  derivability:
+    verdict: partly
+    reason: The text sets the equipment and certification duties for buildings. The cost figures and the
+      property-value benefit come only from the IA.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor references development of in-building infrastructure standards for use by construction
+        firms, matching the claim's actor and mechanism; related cost/benefit figures appear elsewhere
+        in the same tables without contradiction.
+    derivability:
+      verdict: agree
+      reason: Art 8 sets equipment and certification duties affecting construction/building owners, but
+        cost figures and value uplift are IA-only additions, matching 'partly'.
+    category:
+      verdict: agree
+      reason: Adjustment costs for construction companies to meet fibre-ready standards are substantive
+        technical compliance costs.
+    overall: agree
+  tiebreak:
+    verdict: drop
+    original_category: compliance_cost
+    reason: The anchor only says Member States develop in-building standards for construction firms; the
+      EUR1-2m adjustment cost and the property-value gain are not shown in the cited text.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c13_m02
+  affected_actor: Dispute settlement bodies
+  mechanism: Clearer statutory rules on access pricing, refusal grounds, civil-works cost allocation and
+    in-building access, possibly with Commission/BEREC guidance, cut the number of disputes referred to
+    DSBs.
+  impact: Fewer disputes and less DSB resources needed to resolve them.
+  why_missing: Drafted pairs cover how clearer rules help operators in negotiations, not the lower workload
+    for the public bodies that settle disputes.
+  provision_keys:
+  - gigabit/proposal/art/3
+  - gigabit/proposal/art/5
+  - gigabit/proposal/art/9
+  ia_section: 2. Summary of costs and benefits
+  ia_anchor: Fewer disputes and less resources needed to resolve disputes if clear guidance available
+  anchor:
+    status: verified
+    against: ia
+  category: public_enforcement_cost
+  derivability:
+    verdict: partly
+    reason: The provisions on guidance and clearer rules suggest fewer disputes, but they do not name
+      the effect on DSBs.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor's 'fewer disputes and less resources needed to resolve disputes if clear guidance
+        available' sits in the DSB column, matching the claim exactly.
+    derivability:
+      verdict: agree
+      reason: Clearer rules and guidance provisions in Art 3(9), 5(5) and 9(6) plausibly reduce disputes,
+        though the effect on DSBs specifically is not named, matching 'partly'.
+    category:
+      verdict: agree
+      reason: Fewer disputes reducing dispute settlement body resource needs is a public authority cost
+        effect.
+    overall: agree
+  tiebreak:
+    verdict: keep
+    original_category: public_enforcement_cost
+    reason: Table 15's DSB column states 'fewer disputes and less resources needed to resolve disputes
+      if clear guidance available', and section 8.1 confirms the reduced burden on DSBs; this follows
+      from the clearer rules and guidance in Arts 3, 5 and 9.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_kept
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c13_m03
+  affected_actor: Local authorities / public sector bodies owning non-network physical infrastructure
+  mechanism: The obligation to meet reasonable access requests to public physical infrastructure on fair,
+    reasonable and non-discriminatory terms, including price, creates access revenue and synergies with
+    smart-city digitisation.
+  impact: New revenue and cost-saving opportunities for municipalities, with synergies for digitising
+    their core business (smart cities).
+  why_missing: The draft covers access revenue for non-telecom network operators and transparency duties
+    for public bodies, but not access revenue for public bodies.
+  provision_keys:
+  - gigabit/proposal/art/3
+  ia_section: 2. Summary of costs and benefits
+  ia_anchor: Revenue and cost saving opportunities, synergies with digitisation of core business (smart
+    cities)
+  anchor:
+    status: verified
+    against: ia
+  category: other
+  derivability:
+    verdict: partly
+    reason: Access at a price that recovers costs implies revenue. The smart-city synergies are stated
+      only in the IA.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor's 'revenue and cost saving opportunities, synergies with digitisation of core business
+        (smart cities)' falls under the local authorities column, matching the claim's actor and impact.
+    derivability:
+      verdict: agree
+      reason: Art 3's price-based access obligation on public sector bodies implies revenue potential,
+        while smart-city synergies are an added inference, matching 'partly'.
+    category:
+      verdict: unknown
+      reason: Revenue and smart-city digitisation synergies for municipalities could fit innovation_investment
+        as well as other.
+    overall: uncertain
+  tiebreak:
+    verdict: keep
+    original_category: other
+    reason: Table 15's local authorities column states revenue and cost-saving opportunities with smart-city
+      synergies; Art 3 obliges public sector bodies to grant access on terms that include price. This
+      is not a duplicate of o02, which covers administrative costs.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_kept
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c13_m04
+  affected_actor: Other (non-telecom) network operators, e.g. energy and transport
+  mechanism: Streamlined, digitised permit-granting procedures, which Member States may extend to cover
+    all networks, speed up their own deployments.
+  impact: Faster deployment and lower administrative costs for permits.
+  why_missing: The drafted pair for other network operators covers only access and civil-works coordination
+    requests, not the permit-procedure benefits.
+  provision_keys:
+  - gigabit/proposal/art/7
+  ia_section: 2. Summary of costs and benefits
+  ia_anchor: Accelerated deployment and saved administrative costs if MS extend digital platforms to cover
+    all networks
+  anchor:
+    status: verified
+    against: ia
+  category: administrative_burden
+  derivability:
+    verdict: 'no'
+    reason: Art 7 is limited to VHCN deployment. Any spillover to other networks depends on Member State
+      choices that only the IA describes.
+  flags:
+  - not_derivable_from_provisions
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor directly attributes accelerated deployment and saved administrative costs to other
+        network operators if MS extend digital platforms, matching the claim.
+    derivability:
+      verdict: agree
+      reason: Art 7 is confined to VHCN element permitting and contains no text extending streamlined
+        procedures to other network sectors, so 'no' is correct.
+    category:
+      verdict: agree
+      reason: Streamlined digitised permit procedures lowering administrative costs for other operators
+        fits administrative_burden.
+    overall: agree
+  tiebreak:
+    verdict: drop
+    original_category: administrative_burden
+    reason: The IA makes the benefit conditional on Member States extending digital platforms to all networks,
+      which Art 7 (limited to VHCN permits) does not provide for.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c13_m05
+  affected_actor: SME ECN operators without their own physical infrastructure
+  mechanism: The right to access existing physical infrastructure and in-building infrastructure lets
+    operators without their own ducts or poles deploy without building new civil works.
+  impact: These operators gain the most from the cost reductions, and SME ECN operators face lower administrative
+    burdens.
+  why_missing: The draft treats ECN operators as one group and does not single out the effect on SMEs
+    or entrants without their own infrastructure.
+  provision_keys:
+  - gigabit/proposal/art/3
+  - gigabit/proposal/art/9
+  ia_section: 2. Summary of costs and benefits
+  ia_anchor: SME ECN Operators without own physical infrastructure reap most benefits from BCRD cost reductions
+  anchor:
+    status: verified
+    against: ia
+  category: sme_specific
+  derivability:
+    verdict: partly
+    reason: The access rights clearly favour operators without their own infrastructure. The SME distribution
+      effect comes from the IA.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor states SME ECN operators without own physical infrastructure reap most benefits from
+        BCRD cost reductions, matching the claim's actor and impact.
+    derivability:
+      verdict: agree
+      reason: Art 3 and 9 access rights clearly favour operators lacking own infrastructure, but SME-specific
+        distributional effects are an added inference, matching 'partly'.
+    category:
+      verdict: agree
+      reason: The claim explicitly concerns effects on SME operators without own infrastructure, fitting
+        sme_specific.
+    overall: agree
+  tiebreak:
+    verdict: keep
+    original_category: sme_specific
+    reason: Table 15's SME column states that SME ECN operators without their own physical infrastructure
+      reap most benefits and face reduced burdens; the access rights in Arts 3 and 9 are what benefit
+      operators without their own infrastructure.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_kept
+    audit: true
+    reviewer: null
+    note: null
+- candidate_id: c13_m06
+  affected_actor: Citizens and consumers (end-users)
+  mechanism: Fibre-ready in-building infrastructure and access points, open to any provider on fair and
+    non-discriminatory terms, allow more than one network to serve each building.
+  impact: Lower FTTH connection costs and more infrastructure competition at building level.
+  why_missing: The drafted consumer pair is about general cost savings being passed on, not more competition
+    between providers at building level.
+  provision_keys:
+  - gigabit/proposal/art/8
+  - gigabit/proposal/art/9
+  ia_section: 2. Summary of costs and benefits
+  ia_anchor: Reduced FTTH connection costs, increased infrastructure competition | As for consumers and
+    ECN operators
+  anchor:
+    status: verified
+    against: ia
+  category: market_competition
+  derivability:
+    verdict: 'yes'
+    reason: Open access to a mandated access point and in-building infrastructure directly lets several
+      providers compete.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor's reduced FTTH connection costs and increased infrastructure competition for consumers
+        matches the claim's actor and mechanism.
+    derivability:
+      verdict: agree
+      reason: Art 8's mandated access point plus Art 9's open, non-discriminatory access directly enable
+        multiple providers to compete at building level.
+    category:
+      verdict: agree
+      reason: Open access points enabling multiple networks per building directly concerns market/infrastructure
+        competition.
+    overall: agree
+  tiebreak:
+    verdict: keep
+    original_category: market_competition
+    reason: Table 15 lists 'reduced FTTH connection costs, increased infrastructure competition' for consumers
+      under the mandated in-building FTTH row; Arts 8 and 9 create open access points. This is distinct
+      from e10's price and coverage effect.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_kept
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c13_m07
+  affected_actor: Environment / society (GHG emissions)
+  mechanism: More reuse of existing ducts and poles and more coordinated civil works reduce new civil
+    engineering for VHCN rollout.
+  impact: About 0.7 Mt of GHG emissions avoided to 2030, roughly a 1% reduction compared with the status
+    quo.
+  why_missing: No drafted pair covers environmental impacts.
+  provision_keys:
+  - gigabit/proposal/art/3
+  - gigabit/proposal/art/5
+  ia_section: 8.1. Outcome of comparison of policy options
+  ia_anchor: could avoid 0.7 million tonnes in GHG emissions in the period to 2030
+  anchor:
+    status: verified
+    against: ia
+  category: social_environmental
+  derivability:
+    verdict: 'no'
+    reason: The provisions do not mention environmental effects. The link and the size of the effect come
+      from the IA modelling.
+  flags:
+  - not_derivable_from_provisions
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor directly states 0.7 million tonnes GHG avoided and ~1% reduction versus status quo,
+        matching the claim's figures exactly.
+    derivability:
+      verdict: agree
+      reason: Nothing in Art 3 or 5 addresses environmental or emissions effects, so this link is not
+        derivable from the provisions.
+    category:
+      verdict: agree
+      reason: Avoided GHG emissions from reduced civil works is an environmental effect, fitting social_environmental.
+    overall: agree
+  tiebreak:
+    verdict: keep
+    original_category: social_environmental
+    reason: Section 8.1 states 0.7 Mt of GHG avoided to 2030 and around 1% reduction vs status quo, resulting
+      from greater infrastructure sharing and civil-works coordination, which Arts 3 and 5 enable.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_kept
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c13_m08
+  affected_actor: Local government (competent authorities) and municipalities
+  mechanism: Requiring electronic permit procedures through a single information point acts as a catalyst
+    for wider digitisation of local government processes and smart-city adoption.
+  impact: Wider economic and social benefits from digitised local administration and smart-city initiatives,
+    plus medium-term savings of about EUR3-4m a year.
+  why_missing: The drafted authority pair covers compliance duties and deadlines, not the digitisation
+    spillover or the medium-term savings for authorities.
+  provision_keys:
+  - gigabit/proposal/art/7
+  ia_section: 8.1. Outcome of comparison of policy options
+  ia_anchor: could also act as a catalyst for digitisation of local Government processes and the adoption
+    of smart city initiatives
+  anchor:
+    status: verified
+    against: ia
+  category: other
+  derivability:
+    verdict: 'no'
+    reason: Art 7 only requires electronic permit submission. The wider digitisation spillover is an IA
+      judgement.
+  flags:
+  - not_derivable_from_provisions
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor states policy option 3 could act as a catalyst for digitisation of local government
+        processes and smart city initiatives with wider societal benefits, matching the claim's actor
+        and mechanism.
+    derivability:
+      verdict: agree
+      reason: Art 7 only requires electronic permit submission; broader local-government digitisation
+        or smart-city spillovers are not supported by the text.
+    category:
+      verdict: unknown
+      reason: Digitisation of local administration/smart-city benefits could equally be framed as innovation_investment
+        or other.
+    overall: uncertain
+  tiebreak:
+    verdict: drop
+    original_category: other
+    reason: The digitisation spillover to local government is an IA speculation not grounded in Art 7's
+      text, and the EUR3-4m medium-term savings already appear in kept item c13_e04.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
