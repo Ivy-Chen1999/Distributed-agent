@@ -83,18 +83,29 @@ provenance:
     - c12_e07
     non_publishable_test_seed: false
   item_digests:
-    c12_e01: 0c9b57d5157aa2de5a58e78b6bf14fc0944feac9cd23ff9b87095e254d7abc42
+    c12_e01: 1aff4e97fa37fbe21e21ac3145d17c76c8cf1ad1284e0c8edd86a7dc167c9949
     c12_e02: 8067705fba56b394271ef56f00fdae73579d77038ef67b0760e67a60fee8900c
     c12_e03: 6b3a8f1c669ad6c6999c14755328f1de2fd2c4182e9b56e254855ab83fd8b4a3
-    c12_e04: bea5e889729ec6f0ac4e4349240f7f40bd529020fb28c0a0f5d7bcab03e60ef9
-    c12_e05: 73945187e9ff387d05835572e12e1fe7643ceeee973f63abf78f5238db6eef4a
+    c12_e04: f209531589f2846327f937a7427fba1578466116f6324900d8ef04f78ead5316
+    c12_e05: 50debf0eb39a720a281ab9bae8603d15e805fc38e627d57aa97edd55f9562545
     c12_e06: 720333d994cc84efcd5a5205ff265ccda842ddd3484a58a59530d8040848f4e6
     c12_e07: 008f914cfdb3293c301bdba5e1a5bba6c67cdd88d666476e46d6ed3c275fa80a
-    c12_o01: e0aa765aaf1a85cb6565382cadda44c2ae4e4bc9feaea87c93134767dc24b010
+    c12_o01: 3fe4b4e17872832fddfb88c4ab04a19e399e931071f1cd2bcd927e4bd05549c7
     c12_o02: 19ad008fb31290a185bd1164975a03bb5a4717d398c2693abb584be69a16e99e
     c12_o03: 227af54b346bfbcdbfd37ede8cf42a4f193b671f8f8d3479ee19ea949529466d
-    c12_m01: a36832ff2ec7fa12b6c9c21518a2074edbb9a341e8d6b6cab70d556e403995d1
-    c12_m02: dea4fa1cb728600661e1a8684b8d927e1547727709191dac61eb1ad258d13fcb
+    c12_m01: 9dbdd4979f4629b3c70ad81d0a221c1a58cbb7b0c7da9c4067c8b85f67ca9219
+    c12_m02: b2ec08cd822cf311a71582511bc73c786a611b34dde3afac9d7cd5c763d35313
+  tiebreak_audit:
+    seed: 1090618831
+    rate: 0.2
+    eligible: 3
+    eligible_ids:
+    - c12_e01
+    - c12_e04
+    - c12_e05
+    sampled:
+    - c12_e01
+    non_publishable_test_seed: false
 stats:
   items: 12
   expected_impacts: 7
@@ -104,10 +115,12 @@ stats:
   judge_agree: 8
   judge_disagree: 2
   judge_uncertain: 2
-  auto_accepted: 5
-  pending: 7
-  audited: 2
-  human_decisions_needed: 8
+  auto_accepted: 6
+  pending: 0
+  audited: 3
+  human_decisions_needed: 0
+  llm_kept: 3
+  llm_dropped: 3
 expected_impacts:
 - expected_id: c12_e01
   affected_actor: Data reusers (researchers and innovators applying for data permits)
@@ -126,7 +139,7 @@ expected_impacts:
   anchor:
     status: verified
     against: ia
-  category: innovation_investment
+  category: administrative_burden
   derivability:
     verdict: 'yes'
     reason: The provisions require data holders to make data available and set up a permit procedure with
@@ -148,13 +161,21 @@ expected_impacts:
         process replacing individual consent gathering, which could fit administrative_burden just as
         well as the proposed innovation_investment (data value creation).
     overall: uncertain
+  tiebreak:
+    verdict: keep
+    original_category: innovation_investment
+    reason: Section 6.1.3.2 credits reusers (researchers, innovators, regulators, policy-makers) with
+      EUR 3.4 billion in efficiency gains from cheaper access to data, which follows from Arts 33, 34
+      and 46. The IA describes these gains as simpler procedures and lower burden for requesting data,
+      so administrative_burden fits better than innovation_investment.
+    model: claude-opus-5-5
   provenance:
     origin: llm_drafted
-    status: needs_human
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
-    audit: false
+    decision: llm_kept
+    audit: true
     reviewer: null
     note: null
 - expected_id: c12_e02
@@ -198,10 +219,10 @@ expected_impacts:
     overall: agree
   provenance:
     origin: llm_drafted
-    status: needs_human
+    status: llm_judged
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: auto_accepted
     audit: true
     reviewer: null
     note: null
@@ -260,7 +281,7 @@ expected_impacts:
   anchor:
     status: verified
     against: ia
-  category: compliance_cost
+  category: administrative_burden
   derivability:
     verdict: 'yes'
     reason: The fee provisions and permit conditions directly create costs for data users.
@@ -280,12 +301,19 @@ expected_impacts:
         costs for data users, better matching administrative_burden than the substantive technical/organisational
         measures covered by compliance_cost.
     overall: disagree
+  tiebreak:
+    verdict: keep
+    original_category: compliance_cost
+    reason: The anchor gives a cost of EUR 97-204 million for data reusers to access EHDS data, and Arts
+      42 and 46(6)(e) make users pay fees and go through the permit procedure. These are procedural access
+      costs, so administrative_burden fits better than compliance_cost.
+    model: claude-opus-5-5
   provenance:
     origin: llm_drafted
-    status: needs_human
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: llm_kept
     audit: false
     reviewer: null
     note: null
@@ -306,7 +334,7 @@ expected_impacts:
   anchor:
     status: verified
     against: ia
-  category: other
+  category: public_enforcement_cost
   derivability:
     verdict: 'yes'
     reason: Art 34 lists support to public sector and regulatory bodies as permitted purposes, so better-informed
@@ -326,12 +354,20 @@ expected_impacts:
       reason: Savings from better regulatory evidence and price renegotiation sit ambiguously between
         market_competition (prices) and the proposed other, with no clearly better single fit.
     overall: uncertain
+  tiebreak:
+    verdict: keep
+    original_category: other
+    reason: The IA puts savings from real-world evidence at EUR 0.8 billion, through lower costs in regulatory
+      processes and public procurement for EMA, national agencies and HTA bodies. Arts 34(1)(a)-(c) and
+      34(2) give these bodies the access. The savings fall on public authorities, so public_enforcement_cost
+      fits better than other.
+    model: claude-opus-5-5
   provenance:
     origin: llm_drafted
-    status: needs_human
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: llm_kept
     audit: false
     reviewer: null
     note: null
@@ -417,10 +453,10 @@ expected_impacts:
     overall: agree
   provenance:
     origin: llm_drafted
-    status: needs_human
+    status: llm_judged
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: auto_accepted
     audit: true
     reviewer: null
     note: null
@@ -463,12 +499,19 @@ important_omissions:
       reason: The claim explicitly concerns uneven cost burden on non-micro SMEs versus exempt micro-enterprises,
         which is an SME-specific effect.
     overall: disagree
+  tiebreak:
+    verdict: drop
+    original_category: sme_specific
+    reason: The anchor comes from section 6.1.4.2 on Policy Option 3, not the preferred option. It ties
+      the harm to smaller dataset owners to high mandatory certification costs, not to the duties under
+      Art 41, the fines under Art 43(5) or partial fee compensation.
+    model: claude-opus-5-5
   provenance:
     origin: llm_drafted
-    status: needs_human
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: llm_dropped
     audit: false
     reviewer: null
     note: null
@@ -600,12 +643,18 @@ possibly_missing:
       reason: Here the cost is framed as the substantive expense of obtaining and maintaining a data quality
         label (technical/organisational effort), fitting compliance_cost.
     overall: agree
+  tiebreak:
+    verdict: drop
+    original_category: compliance_cost
+    reason: This repeats kept item c12_o02, which already covers the label documentation duty for data
+      holders under Art 41(3) and the same EUR 20,000-50,000 and EUR 20,000-35,000 label costs.
+    model: claude-opus-5-5
   provenance:
     origin: llm_recall
-    status: llm_judged
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: auto_accepted
+    decision: llm_dropped
     audit: false
     reviewer: null
     note: null
@@ -652,12 +701,19 @@ possibly_missing:
       reason: Price renegotiation and reduced manufacturer revenue due to real-world evidence is a market/price
         effect.
     overall: agree
+  tiebreak:
+    verdict: drop
+    original_category: market_competition
+    reason: The IA describes savings for public payers from renegotiating prices but never mentions lost
+      revenue for manufacturers. Arts 33 and 34 also say nothing about price renegotiation, so the claim
+      is the drafter's inference.
+    model: claude-opus-5-5
   provenance:
     origin: llm_recall
-    status: needs_human
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: llm_dropped
     audit: false
     reviewer: null
     note: null
