@@ -282,5 +282,8 @@ def test_committed_scenarios_match_scenarios_in_the_script():
     assert {s.scenario_id: s for s in built} == load_fixture().scenarios
     explore = [s for s in built if s.mode == "explore"]
     assert {s.after_version for s in explore} == {
-        build_fixture.PROPOSAL.version_id, build_fixture.CONSOLIDATED_VERSION_ID
+        build_fixture.PROPOSAL.version_id, build_fixture.CONSOLIDATED_VERSION_ID,
+        build_fixture.FINAL.version_id,  # final_vs_proposal (EU cost plan U7, demo)
     }  # fmt: skip
+    (r7,) = [s for s in explore if s.scenario_id == "final_vs_proposal"]
+    assert (r7.kind, r7.before_version) == ("demo", build_fixture.PROPOSAL.version_id)

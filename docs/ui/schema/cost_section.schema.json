@@ -1,0 +1,446 @@
+{
+  "$defs": {
+    "CostCoverage": {
+      "properties": {
+        "relevant": {
+          "default": 0,
+          "title": "Relevant",
+          "type": "integer"
+        },
+        "estimated": {
+          "default": 0,
+          "title": "Estimated",
+          "type": "integer"
+        },
+        "not_costed": {
+          "default": 0,
+          "title": "Not Costed",
+          "type": "integer"
+        },
+        "not_estimated": {
+          "default": 0,
+          "title": "Not Estimated",
+          "type": "integer"
+        },
+        "invalid_dropped": {
+          "default": 0,
+          "title": "Invalid Dropped",
+          "type": "integer"
+        },
+        "not_covered_keys": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Not Covered Keys",
+          "type": "array"
+        },
+        "payers_by_basis": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Payers By Basis",
+          "type": "object"
+        }
+      },
+      "title": "CostCoverage",
+      "type": "object"
+    },
+    "CostHotspot": {
+      "description": "One row of a hotspot ranking: records at ``medium`` or ``high``, then at ``low``.",
+      "properties": {
+        "dimension": {
+          "enum": [
+            "provision",
+            "payer",
+            "effort_type"
+          ],
+          "title": "Dimension",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "string"
+        },
+        "recurrence": {
+          "enum": [
+            "one_off",
+            "recurring"
+          ],
+          "title": "Recurrence",
+          "type": "string"
+        },
+        "medium_or_high": {
+          "title": "Medium Or High",
+          "type": "integer"
+        },
+        "low": {
+          "title": "Low",
+          "type": "integer"
+        },
+        "records": {
+          "title": "Records",
+          "type": "integer"
+        },
+        "provision_keys": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Provision Keys",
+          "type": "array"
+        }
+      },
+      "required": [
+        "dimension",
+        "value",
+        "recurrence",
+        "medium_or_high",
+        "low",
+        "records"
+      ],
+      "title": "CostHotspot",
+      "type": "object"
+    },
+    "CostRecord": {
+      "properties": {
+        "obligation_id": {
+          "title": "Obligation Id",
+          "type": "string"
+        },
+        "unit_id": {
+          "title": "Unit Id",
+          "type": "string"
+        },
+        "provision_key": {
+          "title": "Provision Key",
+          "type": "string"
+        },
+        "source_id": {
+          "description": "The citable obligation view of the record's provision.",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "records_version": {
+          "title": "Records Version",
+          "type": "string"
+        },
+        "statement_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Statement Type"
+        },
+        "status": {
+          "enum": [
+            "estimated",
+            "not_costed",
+            "not_estimated"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "payer": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Payer"
+        },
+        "payer_basis": {
+          "default": "unknown",
+          "enum": [
+            "rule_field",
+            "rule_table",
+            "inferred",
+            "unknown"
+          ],
+          "title": "Payer Basis",
+          "type": "string"
+        },
+        "payer_legal_basis": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "For a rule-table payer: the provision that names the payer.",
+          "title": "Payer Legal Basis"
+        },
+        "payer_quote": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Payer Quote"
+        },
+        "sector": {
+          "anyOf": [
+            {
+              "enum": [
+                "private",
+                "public"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sector"
+        },
+        "effort_type": {
+          "anyOf": [
+            {
+              "enum": [
+                "new_process",
+                "documentation",
+                "registration",
+                "notification",
+                "human_oversight",
+                "training",
+                "assessment"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Effort Type"
+        },
+        "secondary_types": {
+          "items": {
+            "enum": [
+              "new_process",
+              "documentation",
+              "registration",
+              "notification",
+              "human_oversight",
+              "training",
+              "assessment"
+            ],
+            "type": "string"
+          },
+          "title": "Secondary Types",
+          "type": "array"
+        },
+        "ia_category": {
+          "anyOf": [
+            {
+              "enum": [
+                "compliance_cost",
+                "administrative_burden",
+                "public_enforcement_cost"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ia Category"
+        },
+        "one_off": {
+          "anyOf": [
+            {
+              "enum": [
+                "negligible",
+                "low",
+                "medium",
+                "high"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "One Off"
+        },
+        "recurring": {
+          "anyOf": [
+            {
+              "enum": [
+                "negligible",
+                "low",
+                "medium",
+                "high"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Recurring"
+        },
+        "applies_from": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Applies From"
+        },
+        "date_label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Date Label"
+        },
+        "date_withheld": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Date Withheld"
+        },
+        "unit_delta": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit Delta"
+        },
+        "changed_after_proposal": {
+          "default": false,
+          "title": "Changed After Proposal",
+          "type": "boolean"
+        },
+        "late_added": {
+          "default": false,
+          "title": "Late Added",
+          "type": "boolean"
+        },
+        "rationale": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rationale"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "obligation_id",
+        "unit_id",
+        "provision_key",
+        "source_id",
+        "records_version",
+        "status"
+      ],
+      "title": "CostRecord",
+      "type": "object"
+    }
+  },
+  "description": "The dossier's cost section (R4/R5). Never read by the coverage judge or synthesis.",
+  "properties": {
+    "records": {
+      "items": {
+        "$ref": "#/$defs/CostRecord"
+      },
+      "title": "Records",
+      "type": "array"
+    },
+    "hotspots": {
+      "items": {
+        "$ref": "#/$defs/CostHotspot"
+      },
+      "title": "Hotspots",
+      "type": "array"
+    },
+    "coverage": {
+      "$ref": "#/$defs/CostCoverage"
+    },
+    "late_added": {
+      "description": "Obligation ids added after the proposal.",
+      "items": {
+        "type": "string"
+      },
+      "title": "Late Added",
+      "type": "array"
+    },
+    "delta_basis": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "What the change marks compare, when the run has a before.",
+      "title": "Delta Basis"
+    },
+    "notes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Notes",
+      "type": "array"
+    }
+  },
+  "title": "CostSection",
+  "type": "object"
+}

@@ -140,7 +140,10 @@ export function RunPicker({
   onClose: () => void;
 }) {
   const list = scenarios.data ?? [];
-  const [pick, setPick] = useState(list.find((s) => s.scenario_id === initial)?.scenario_id ?? list[0]?.scenario_id ?? initial);
+  // Until the user clicks a scenario, follow `initial` (the current run's scenario): the picker can
+  // open before the runs or scenarios have loaded, and must not freeze the fallback it saw then.
+  const [chosen, setPick] = useState<string | null>(null);
+  const pick = chosen ?? list.find((s) => s.scenario_id === initial)?.scenario_id ?? list[0]?.scenario_id ?? initial;
   return (
     <Modal label="Start a run" onClose={onClose}>
       <div style={{ display: 'flex', alignItems: 'center' }}>

@@ -192,6 +192,21 @@ SCENARIOS: list[dict] = [
         "ia_reference": None,
     },
     {
+        "scenario_id": "final_vs_proposal",
+        "kind": "demo",
+        "mode": "explore",
+        "description": (
+            "COM(2021) 206 proposal -> Regulation (EU) 2024/1689 as adopted, the whole act. The "
+            "Planner chooses the provisions to study from the index of the changed articles and "
+            "annexes. With a cost-enabled version, the dossier marks the cost records on "
+            "obligations added after the proposal: costs the ex-ante impact assessment could not "
+            "see. A demo, never scored."
+        ),
+        "before_version": PROPOSAL.version_id,
+        "after_version": FINAL.version_id,
+        "ia_reference": None,
+    },
+    {
         "scenario_id": "omnibus_2026",
         "kind": "demo",
         "mode": "explore",

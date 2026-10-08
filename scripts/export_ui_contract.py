@@ -10,6 +10,7 @@ import json
 from pathlib import Path
 
 from womm.api.evolution import CandidateDetail, CandidateDiff, Lineage
+from womm.models.cost import CostSection
 from womm.models.decisions import DecisionRecord
 from womm.models.dossier import (
     Disagreement,
@@ -174,6 +175,7 @@ def main() -> None:
         "evolution_lineage": Lineage,
         "evolution_candidate": CandidateDetail,
         "evolution_diff": CandidateDiff,
+        "cost_section": CostSection,
     }.items():
         (schema_dir / f"{name}.schema.json").write_text(
             json.dumps(model.model_json_schema(), indent=2, ensure_ascii=False) + "\n"

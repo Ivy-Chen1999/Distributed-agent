@@ -17,6 +17,7 @@ export const AG: Record<string, AgentStyle> = {
   board: { n: 'Impact Board', c: '#00C4CC' },
   citation: { n: 'Citation check', c: '#00C4CC' },
   synthesis: { n: 'Synthesis', c: '#8B5CF6' },
+  cost: { n: 'Cost step', c: '#B5651D' },
   dossier: { n: 'Impact Dossier', c: '#8FA3A6' },
 };
 

@@ -74,6 +74,74 @@ export interface ImpactDossier {
   unprocessed: ImpactFinding[];
   failed_experts: ExpertFailure[];
   notes: string[];
+  /** Cost records and hotspots (cost-enabled versions only; null or absent otherwise). */
+  costs?: CostSection | null;
+}
+
+// ---------- cost section (src/womm/models/cost.py) ----------
+
+export type EffortType = 'new_process' | 'documentation' | 'registration' | 'notification' | 'human_oversight' | 'training' | 'assessment';
+export type CostBand = 'negligible' | 'low' | 'medium' | 'high';
+export type PayerBasis = 'rule_field' | 'rule_table' | 'inferred' | 'unknown';
+export type CostStatus = 'estimated' | 'not_costed' | 'not_estimated';
+export type Recurrence = 'one_off' | 'recurring';
+export type HotspotDimension = 'provision' | 'payer' | 'effort_type';
+
+export interface CostRecord {
+  obligation_id: string;
+  unit_id: string;
+  provision_key: string;
+  source_id: string;
+  records_version: string;
+  statement_type?: string | null;
+  status: CostStatus;
+  payer?: string | null;
+  payer_basis: PayerBasis;
+  payer_legal_basis?: string | null;
+  payer_quote?: string | null;
+  sector?: 'private' | 'public' | null;
+  effort_type?: EffortType | null;
+  secondary_types: EffortType[];
+  ia_category?: 'compliance_cost' | 'administrative_burden' | 'public_enforcement_cost' | null;
+  one_off?: CostBand | null;
+  recurring?: CostBand | null;
+  applies_from?: string | null;
+  date_label?: string | null;
+  date_withheld?: string | null;
+  unit_delta?: string | null;
+  changed_after_proposal: boolean;
+  late_added: boolean;
+  rationale?: string | null;
+  reason?: string | null;
+}
+
+export interface CostHotspot {
+  dimension: HotspotDimension;
+  value: string;
+  recurrence: Recurrence;
+  medium_or_high: number;
+  low: number;
+  records: number;
+  provision_keys: string[];
+}
+
+export interface CostCoverage {
+  relevant: number;
+  estimated: number;
+  not_costed: number;
+  not_estimated: number;
+  invalid_dropped: number;
+  not_covered_keys: string[];
+  payers_by_basis: Record<string, number>;
+}
+
+export interface CostSection {
+  records: CostRecord[];
+  hotspots: CostHotspot[];
+  coverage: CostCoverage;
+  late_added: string[];
+  delta_basis?: string | null;
+  notes: string[];
 }
 
 export interface DecisionRecord {
@@ -160,6 +228,7 @@ export interface EventPayload {
   error?: string;
   status?: string;
   impacts?: number;
+  cost?: { records: number; estimated: number; not_costed: number; not_estimated: number };
 }
 
 export interface RunEvent {

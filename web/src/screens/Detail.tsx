@@ -10,6 +10,8 @@ import { humanize, regulationTitle, scenarioName } from '../model/scenario';
 import { elapsedAt } from '../model/trace';
 import type { ImpactDossier, ProvisionChange } from '../types';
 import { useNarrow } from '../hooks';
+import { BANDS, NO_FILTER, bandWord, dateText, effortLabel, filterOptions, filterRecords, fiscalFindingsByKey, hotspotRows, payerText, type CostFilter } from '../model/costs';
+import type { HotspotDimension, Recurrence } from '../types';
 
 const MONO = { fontFamily: FONT, fontVariantNumeric: 'tabular-nums' } as const;
 
@@ -49,6 +51,7 @@ export function Detail() {
     ['chains', 'Impact chains', d ? String(chains.length) : ''],
     ['disagree', 'Disagreements', d ? String(disagreements.length) : ''],
     ['questions', 'Open questions', d ? String(questions.length) : ''],
+    ['costs', 'Costs', d?.costs ? String(d.costs.records.length) : ''],
     ['log', 'Event log', ''],
   ];
 
@@ -211,6 +214,8 @@ export function Detail() {
               </div>
             </div>
           )}
+
+          {C.tab === 'costs' && <CostsTab d={d} />}
 
           {C.tab === 'log' && <EventLog />}
         </div>
@@ -475,5 +480,155 @@ function SegmentText({ sg }: { sg: Segment }) {
       {sg.text}
       <span className="sr-only">]</span>
     </Tag>
+  );
+}
+
+// ---------- Costs tab (EU cost plan R5) ----------
+
+const HOTSPOT_TITLES: [HotspotDimension, string][] = [
+  ['provision', 'By provision'],
+  ['payer', 'By payer'],
+  ['effort_type', 'By effort type'],
+];
+
+const SELECT: CSSProperties = { font: `600 12px ${FONT}`, border: '1px solid var(--line)', borderRadius: 6, padding: '5px 8px', background: 'var(--card)', color: 'var(--ink)' };
+const BADGE: CSSProperties = { font: `700 11px ${FONT}`, borderRadius: 4, padding: '2px 7px', whiteSpace: 'nowrap' };
+
+function CostsTab({ d }: { d: ImpactDossier }) {
+  const C = useConsole();
+  const [rec, setRec] = useState<Recurrence>('one_off');
+  const [filter, setFilter] = useState<CostFilter>(NO_FILTER);
+  const s = d.costs;
+  if (!s) return <EmptyCard title="No cost section" sub="This version has no cost step." />;
+  const cov = s.coverage;
+  const shown = filterRecords(s.records, filter);
+  const opts = filterOptions(s.records);
+  const fiscal = fiscalFindingsByKey(d);
+  const set = (k: keyof CostFilter) => (e: { target: { value: string } }) => setFilter({ ...filter, [k]: e.target.value });
+  const bases = Object.entries(cov.payers_by_basis).map(([b, n]) => `${n} ${b.replace(/_/g, ' ')}`).join(' · ');
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ ...CARD, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div style={LABEL}>Cost records</div>
+        <div style={{ fontSize: 14 }}>
+          {cov.relevant} obligations · {cov.estimated} estimated · {cov.not_costed} not costed · {cov.not_estimated} not estimated
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--n2)' }}>Payers: {bases || '—'}. Bands are ordinal classes per affected entity, never euro totals.</div>
+        {s.delta_basis && <div style={{ fontSize: 12, color: 'var(--n2)' }}>Change marks compare {s.delta_basis} · {s.late_added.length} added after the proposal</div>}
+        {cov.not_covered_keys.length > 0 && <div style={{ fontSize: 12, color: 'var(--n2)' }}>Not covered (no obligation records): {cov.not_covered_keys.join(', ')}</div>}
+        {s.notes.map((n) => (
+          <div key={n} style={{ fontSize: 12, color: WARN_INK }}>
+            {n}
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 12, color: 'var(--n2)' }}>Hotspots</span>
+        <Seg<Recurrence>
+          options={[
+            { v: 'one_off', label: 'One-off' },
+            { v: 'recurring', label: 'Recurring' },
+          ]}
+          value={rec}
+          onChange={setRec}
+        />
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,280px),1fr))', gap: 12 }}>
+        {HOTSPOT_TITLES.map(([dim, title]) => {
+          const rows = hotspotRows(s, dim, rec).slice(0, 8);
+          return (
+            <div key={dim} style={{ ...CARD, padding: '14px 16px' }} aria-label={`Hotspots ${title.toLowerCase()}`}>
+              <div style={LABEL}>{title}</div>
+              {rows.length === 0 && <div style={{ fontSize: 13, color: 'var(--n1)', marginTop: 8 }}>No {rec === 'one_off' ? 'one-off' : 'recurring'} bands.</div>}
+              {rows.map((h) => (
+                <div key={h.value} style={{ display: 'flex', gap: 10, alignItems: 'baseline', marginTop: 8, fontSize: 13 }}>
+                  <span style={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere', ...(dim === 'provision' ? MONO : {}) }}>{h.label}</span>
+                  <span style={{ ...MONO, color: 'var(--ink)' }} title="records at medium or high">
+                    {h.medium_or_high} med/high
+                  </span>
+                  <span style={{ ...MONO, color: 'var(--n2)' }} title="records at low">
+                    {h.low} low
+                  </span>
+                </div>
+              ))}
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <select aria-label="Payer" value={filter.payer} onChange={set('payer')} style={SELECT}>
+          <option value="all">All payers</option>
+          {opts.payers.map((p) => (
+            <option key={p} value={p}>
+              {p === 'unknown' ? 'Payer not identified' : p.replace(/_/g, ' ')}
+            </option>
+          ))}
+        </select>
+        <select aria-label="Effort type" value={filter.effort} onChange={set('effort')} style={SELECT}>
+          <option value="all">All effort types</option>
+          {opts.efforts.map((e) => (
+            <option key={e} value={e}>
+              {effortLabel(e)}
+            </option>
+          ))}
+        </select>
+        <select aria-label="Band" value={filter.band} onChange={set('band')} style={SELECT}>
+          <option value="all">All bands</option>
+          {BANDS.map((b) => (
+            <option key={b} value={b}>
+              {bandWord(b)}
+            </option>
+          ))}
+        </select>
+        <select aria-label="Change after the proposal" value={filter.change} onChange={set('change')} style={SELECT}>
+          <option value="all">Any change</option>
+          <option value="changed">Changed after the proposal</option>
+          <option value="added">Added after the proposal</option>
+        </select>
+        <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--n2)' }}>
+          Showing {shown.length} of {s.records.length} records
+        </span>
+      </div>
+
+      <div style={{ ...CARD, overflow: 'hidden' }}>
+        {shown.length === 0 && <div style={{ padding: '14px 18px', fontSize: 14, color: 'var(--n1)' }}>No records match these filters.</div>}
+        {shown.map((r) => {
+          const fs = fiscal[r.provision_key] ?? [];
+          return (
+            <div key={r.obligation_id} data-testid="cost-record" style={{ padding: '12px 18px', borderBottom: '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                <button type="button" onClick={() => C.openSource(r.source_id, `[${r.obligation_id}]`)} style={{ background: 'none', border: 'none', padding: 0, font: `600 12px ${FONT}`, ...TABULAR, color: 'var(--accInk)', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 }}>
+                  {r.obligation_id}
+                </button>
+                <span style={{ font: `500 12px ${FONT}`, ...TABULAR, color: 'var(--n2)' }}>{r.provision_key}</span>
+                {r.late_added && <span style={{ ...BADGE, background: WARN_BG, color: WARN_INK }}>Added after the proposal</span>}
+                {!r.late_added && r.changed_after_proposal && <span style={{ ...BADGE, background: 'var(--soft)', color: 'var(--n1)' }}>Changed after the proposal</span>}
+              </div>
+              <div style={{ fontSize: 13, display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+                <span>{payerText(r)}</span>
+                {r.status === 'estimated' ? (
+                  <>
+                    <span>{effortLabel(r.effort_type)}</span>
+                    <span>One-off: {bandWord(r.one_off)}</span>
+                    <span>Recurring: {bandWord(r.recurring)}</span>
+                  </>
+                ) : (
+                  <span style={{ color: 'var(--n2)' }}>{r.status === 'not_costed' ? 'Not costed' : 'Not estimated'}{r.reason ? `: ${r.reason}` : ''}</span>
+                )}
+                <span style={{ color: 'var(--n2)' }}>Applies from: {dateText(r)}</span>
+              </div>
+              {r.rationale && <div style={{ fontSize: 12, color: 'var(--n1)' }}>{r.rationale}</div>}
+              {fs.length > 0 && (
+                <div style={{ fontSize: 12, color: 'var(--n2)' }}>
+                  Fiscal findings on this provision: {fs.map((f) => f.impact).join(' · ')}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }

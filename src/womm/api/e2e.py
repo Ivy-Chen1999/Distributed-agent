@@ -48,7 +48,7 @@ from womm.api.app import create_app
 from womm.config import DEFAULT_SYSTEM_VERSION, REPO_ROOT, load_settings
 from womm.data.fixtures import Fixture, load_fixture
 from womm.llm.base import LLMError
-from womm.llm.fake import FakeBackend
+from womm.llm.fake import FakeBackend, fake_cost_batch
 from womm.models.run import CallUsage
 from womm.models.system_version import (
     RoleConfig,
@@ -58,6 +58,7 @@ from womm.models.system_version import (
 )
 
 SAMPLE_RUN = REPO_ROOT / "docs" / "ui" / "sample_run.json"
+COST_PROMPT = "prompts/v1/cost.md"
 DEGRADED_SCENARIO = "demo_penalties_amended"
 DEGRADED_EXPERT = "stakeholder"
 FABRICATED_SCENARIO = "eval_provider_compliance_costs"
@@ -93,6 +94,9 @@ def fake_system_version() -> SystemVersion:
         data[role]["backend"] = "fake"
     data["experts"] = [{**e, "role": {**e["role"], "backend": "fake"}} for e in data["experts"]]
     data["router"]["mode"] = "shadow"
+    # The cost step (EU cost plan U4) with the deterministic fake cost answer, so the Costs tab
+    # and the pipeline's cost column have data.
+    data["cost"] = {"backend": "fake", "model": base.planner.model, "prompt": COST_PROMPT}
     data["name"] = f"{base.name}-e2e"
     data["description"] = "Playwright e2e: every role on the scripted fake backend."
     return build_system_version(type(base).model_validate(data), REPO_ROOT)
@@ -334,6 +338,7 @@ def e2e_script(fixture: Fixture, experts: list[str]) -> dict[str, list[Any]]:
         "planner": [plan] * STEPS,
         "synthesis": [s.synthesis] * STEPS,
         "ask": [s.ask] * STEPS,
+        "cost": [fake_cost_batch] * STEPS,
     }
     for i, e in enumerate(experts):
         script[f"expert/{e}"] = [s.expert(e, i)] * STEPS

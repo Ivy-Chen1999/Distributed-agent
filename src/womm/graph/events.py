@@ -42,6 +42,14 @@ def _payload(node: str, result: dict[str, Any] | None) -> dict[str, Any]:
         out["grounding"] = {"passed": g.passed, "total": g.total}
         out["supported"] = len(validation.supported)
         out["unsupported"] = len(validation.unsupported)
+    if cost := result.get("cost"):
+        c = cost.coverage
+        out["cost"] = {
+            "records": len(cost.records),
+            "estimated": c.estimated,
+            "not_costed": c.not_costed,
+            "not_estimated": c.not_estimated,
+        }
     if (err := result.get("fatal_error")) or (err := result.get("synthesis_error")):
         out["error"] = err[:300]
     if dossier := result.get("dossier"):
