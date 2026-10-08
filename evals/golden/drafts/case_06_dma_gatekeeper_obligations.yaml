@@ -101,7 +101,7 @@ provenance:
     - c06_e07
     non_publishable_test_seed: false
   item_digests:
-    c06_e01: ac858b2908f41937907422f560107a155c6de5d0d02e8a4feea89ab778275307
+    c06_e01: d1c270c1508fa37c9797d13df2cf81414c0a6d976c5f3717bea8990c2cd07fa4
     c06_e02: 610aa700898df8ec88b4e7de2c1fed336939167d982790427bbd4326e2f88780
     c06_e03: d259c87b4b5056202fd816d1b85d9689b9b808e1f38ece49530ed870b98fffeb
     c06_e04: 6be94b692090db59e381b383330675656342b7e12fed27daa83779135487de38
@@ -115,13 +115,25 @@ provenance:
     c06_o02: f2fb85e63ae97f66d17998f4fc45cf146f3fb5c21baf6398c0ecdedc5e525b9e
     c06_o03: e0823fe09d457408949026b45686835892d763056502d772c43dcd69ac2ab15d
     c06_o04: 96ec4e7ffc34938e77d45538dfae0590aaef87e1e654f6b9546b658d3da3e198
-    c06_m01: 49686111252f60cf6f6fdc96aa11ae88bef45e7f76807c358eb91a26ce03bef0
-    c06_m02: 564d2908fab5950af9ce120a3af3a886f6bd792174e75afe3ee9543279b65951
-    c06_m03: 2484ec76eb5c312b09d4e60bd11c65423f4cc6cdbd36c10e210fd01115133fe6
-    c06_m04: bd2ff7849acd651df07482da07ab03f0a335a4bfa67a70c69fdc105dc0ecb801
-    c06_m05: 3725df1cb4d04a43813ecc81937bf2b706ef2116e2ebc5fd4cd1955ec1060fc5
-    c06_m06: 0973be2ade2c3b3688a0925f0a850967889944e47b37817b164d7e567c0afeb5
-    c06_m07: 331677ba92ee0e57f0da1b56e6e8fbac7512bdfa69219ec2f16984d3ac857f0e
+    c06_m01: 89265c19a64ea0619c394a431a3aa0db9c54847978e35004eb3524a4cfb61d4d
+    c06_m02: 18249d6fc6820f73ca441095bc34736b5b4c46a69841d5cab014f684b0e6b4be
+    c06_m03: 998a65a65d9d5f2e61cbb8fa4f28d010d72cf3b69fb12eb6f213b5f02a1c7e7f
+    c06_m04: fe5b5fde47dd86980ba6fb5364621d7399ea311efa9b013e135e4fb94a971dae
+    c06_m05: 7548c6eb5b73d6a842805592a6afcdc8b274901083e277b4751cb208163a88f3
+    c06_m06: ff84f37cd2d3385e449547cfefa5cf647db7c5b4b33bf1cca34c3616994060d0
+    c06_m07: ab0d34f3f39370249de29f4511e4396094f5fc06eea695e0eafbf9665cb1b334
+  tiebreak_audit:
+    seed: 3645592030
+    rate: 0.2
+    eligible: 4
+    eligible_ids:
+    - c06_e01
+    - c06_m01
+    - c06_m04
+    - c06_m07
+    sampled:
+    - c06_m01
+    non_publishable_test_seed: false
 stats:
   items: 21
   expected_impacts: 10
@@ -132,9 +144,11 @@ stats:
   judge_disagree: 1
   judge_uncertain: 1
   auto_accepted: 13
-  pending: 8
-  audited: 3
-  human_decisions_needed: 11
+  pending: 0
+  audited: 4
+  human_decisions_needed: 0
+  llm_kept: 4
+  llm_dropped: 4
 expected_impacts:
 - expected_id: c06_e01
   affected_actor: Designated gatekeepers
@@ -178,12 +192,20 @@ expected_impacts:
         information/reporting duties to a regulator, which is administrative_burden rather than substantive
         compliance_cost.
     overall: disagree
+  tiebreak:
+    verdict: keep
+    original_category: compliance_cost
+    reason: Para 300 states that compliance officers and staff to interface with the regulator are needed
+      and that these costs largely substitute for costs of divergent national measures. The cost table
+      gives 20 FTEs per gatekeeper platform. The IA itself frames these as compliance costs, so compliance_cost
+      stays.
+    model: claude-opus-5-5
   provenance:
     origin: llm_drafted
-    status: needs_human
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: llm_kept
     audit: false
     reviewer: null
     note: null
@@ -226,10 +248,10 @@ expected_impacts:
     overall: agree
   provenance:
     origin: llm_drafted
-    status: needs_human
+    status: llm_judged
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: auto_accepted
     audit: true
     reviewer: null
     note: null
@@ -360,10 +382,10 @@ expected_impacts:
     overall: agree
   provenance:
     origin: llm_drafted
-    status: needs_human
+    status: llm_judged
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: auto_accepted
     audit: true
     reviewer: null
     note: null
@@ -448,10 +470,10 @@ expected_impacts:
     overall: agree
   provenance:
     origin: llm_drafted
-    status: needs_human
+    status: llm_judged
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: auto_accepted
     audit: true
     reviewer: null
     note: null
@@ -806,13 +828,20 @@ possibly_missing:
       verdict: agree
       reason: Costs for the Commission to run specification proceedings are public_enforcement_cost.
     overall: agree
+  tiebreak:
+    verdict: keep
+    original_category: public_enforcement_cost
+    reason: The cost table attributes further implementation costs to the regulator specifying obligations
+      for a given gatekeeper and gives €16.7m a year (80 FTEs plus about €6.4m) for Option 2. Art 7(2),
+      (4) and (5) set up this specification procedure.
+    model: claude-opus-5-5
   provenance:
     origin: llm_recall
-    status: llm_judged
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: auto_accepted
-    audit: false
+    decision: llm_kept
+    audit: true
     reviewer: null
     note: null
 - candidate_id: c06_m02
@@ -848,12 +877,19 @@ possibly_missing:
       verdict: agree
       reason: Costs for national authorities to review and consult on Commission decisions are public_enforcement_cost.
     overall: agree
+  tiebreak:
+    verdict: drop
+    original_category: public_enforcement_cost
+    reason: The €6m and 3.5 FTE figures match the IA, but Art 7 gives national authorities no role in
+      studying or being consulted on draft decisions. So the actor and mechanism do not follow from the
+      listed provisions.
+    model: claude-opus-5-5
   provenance:
     origin: llm_recall
-    status: needs_human
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: llm_dropped
     audit: false
     reviewer: null
     note: null
@@ -891,12 +927,19 @@ possibly_missing:
       verdict: agree
       reason: A dialogue mechanism reducing the gatekeeper's substantive implementation costs fits compliance_cost.
     overall: agree
+  tiebreak:
+    verdict: unsure
+    original_category: compliance_cost
+    reason: The IA says the possibility of a dialogue would reduce compliance costs, and the same cell
+      adds that market-investigation information requests would bring extra costs. The claimed lower disruption
+      to commercial relationships with business users is not in the quoted text.
+    model: claude-opus-5-5
   provenance:
     origin: llm_recall
-    status: llm_judged
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: auto_accepted
+    decision: llm_dropped
     audit: false
     reviewer: null
     note: null
@@ -934,12 +977,19 @@ possibly_missing:
       verdict: agree
       reason: Lower intermediation prices and more platform choice is a market_competition effect.
     overall: agree
+  tiebreak:
+    verdict: keep
+    original_category: market_competition
+    reason: Para 309 states that business users could multi-home and switch, including because of the
+      ban on tying, and would benefit from lower intermediation prices and reduced distribution costs.
+      This follows from Art 5(b), (c), (f) and 6(1)(k), and no kept item covers it.
+    model: claude-opus-5-5
   provenance:
     origin: llm_recall
-    status: llm_judged
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: auto_accepted
+    decision: llm_kept
     audit: false
     reviewer: null
     note: null
@@ -977,12 +1027,18 @@ possibly_missing:
       verdict: agree
       reason: Lower retail prices and better-suited offers for consumers fits consumers_users.
     overall: uncertain
+  tiebreak:
+    verdict: drop
+    original_category: consumers_users
+    reason: The IA context supports pass-through to lower consumer prices, but the €490m consumer-surplus
+      figure does not appear in the evidence, so a key number cannot be checked.
+    model: claude-opus-5-5
   provenance:
     origin: llm_recall
-    status: needs_human
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: llm_dropped
     audit: false
     reviewer: null
     note: null
@@ -1022,12 +1078,18 @@ possibly_missing:
       verdict: agree
       reason: Higher search costs for consumers is a consumers_users effect.
     overall: agree
+  tiebreak:
+    verdict: drop
+    original_category: consumers_users
+    reason: This repeats the already kept item c06_o02 (higher search costs for consumers from offers
+      spread across platforms, with the gatekeeper service still available).
+    model: claude-opus-5-5
   provenance:
     origin: llm_recall
-    status: needs_human
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: llm_dropped
     audit: false
     reviewer: null
     note: null
@@ -1068,12 +1130,19 @@ possibly_missing:
       reason: Stronger incentives to innovate and bring new products to market is an innovation_investment
         effect.
     overall: agree
+  tiebreak:
+    verdict: keep
+    original_category: innovation_investment
+    reason: Para 303 states that increased market contestability would continue to incentivise gatekeepers
+      to bring innovative products to market and compete for consumers, even where their business models
+      are affected. This effect comes from the Art 5 and 6 obligations.
+    model: claude-opus-5-5
   provenance:
     origin: llm_recall
-    status: needs_human
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: llm_kept
     audit: false
     reviewer: null
     note: null
