@@ -70,6 +70,13 @@ TOOL = "scripts/draft_golden_case.py"
 # Share of auto-accepted impacts and omissions re-checked by a human. Pinned: not configurable,
 # and the review gate refuses a draft whose recorded rate differs.
 AUDIT_RATE = 0.2
+# Whether a person must decide the audit sample before a train/val case is published. Off since
+# 2026-10-08: building the reference answers is pipeline work, settled by the judges and the
+# tie-break judge (womm.eval.tiebreak); people spend their time calibrating the scoring judge
+# instead (``womm calibrate``), as Anthropic's eval guidance advises. The sample is still drawn
+# and marked ``audit: true`` as optional spot checks; any a person decides count towards the
+# per-proposal error rate and its escalation.
+AUDIT_BLOCKS = False
 # Public EUR-Lex page of a document by CELEX number; what reviewers of a train/val draft open.
 EURLEX_URL = "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:"
 EURLEX_LINK = r"^https://eur-lex\.europa\.eu/legal-content/EN/TXT/\?uri=CELEX:[0-9A-Za-z%]+$"
@@ -109,7 +116,10 @@ CATEGORY_GUIDE = {
 Derivable = Literal["yes", "partly", "no"]
 JudgeVerdict = Literal["agree", "disagree", "unknown"]
 Overall = Literal["agree", "disagree", "uncertain"]
-Decision = Literal["pending", "auto_accepted", "verified", "edited", "rejected", "unclear"]
+Decision = Literal[
+    "pending", "auto_accepted", "verified", "edited", "rejected", "unclear",
+    "llm_kept", "llm_dropped",
+]  # fmt: skip
 Split = Literal["train", "val", "holdout"]
 DIMENSIONS = ("anchor_faithfulness", "derivability", "category")
 JUDGE_ROLES = {
@@ -132,9 +142,12 @@ class DraftingRoles(StrictModel):
     judge_anchor: RoleConfig
     judge_derivability: RoleConfig
     judge_category: RoleConfig
+    # Settles what the three judges left open (womm.eval.tiebreak); None turns it off.
+    tiebreak: RoleConfig | None = None
 
     def as_dict(self) -> dict[str, RoleConfig]:
-        return {name: getattr(self, name) for name in type(self).model_fields}
+        roles = {name: getattr(self, name) for name in type(self).model_fields}
+        return {name: role for name, role in roles.items() if role is not None}
 
 
 class DraftingConfig(StrictModel):
@@ -237,10 +250,28 @@ class JudgeBlock(StrictModel):
     overall: Overall
 
 
+class TiebreakBlock(StrictModel):
+    """The tie-break judge's ruling on an item the three judges left open (womm.eval.tiebreak).
+
+    ``keep`` keeps the item (``review.decision: llm_kept``) with ``category``; ``drop`` and
+    ``unsure`` drop it (``llm_dropped``): an unsure item is left out of the yardstick rather than
+    sent to a person."""
+
+    verdict: Literal["keep", "drop", "unsure"]
+    original_category: Category = Field(description="The drafted category, before any fix.")
+    reason: str
+    model: str = Field(description="The tie-break model, or 'deterministic' for a failed check.")
+
+
 class ItemProvenance(StrictModel):
     origin: Literal["llm_drafted", "llm_recall", "human_added"]
     status: Literal[
-        "llm_judged", "needs_human", "human_verified", "human_edited", "human_confirmed_candidate"
+        "llm_judged",
+        "needs_human",
+        "human_verified",
+        "human_edited",
+        "human_confirmed_candidate",
+        "llm_tiebroken",
     ]
     drafting_model: str
 
@@ -261,6 +292,7 @@ class _DraftItem(StrictModel):
     derivability: Derivability
     flags: list[str] = Field(default_factory=list)
     judge: JudgeBlock
+    tiebreak: TiebreakBlock | None = None
     provenance: ItemProvenance
     review: Review
 
@@ -329,6 +361,10 @@ class DraftProvenance(StrictModel):
     item_digests: dict[str, str] = Field(
         description="item id -> sha256 of its tool-written fields (``item_digest``)."
     )
+    tiebreak_audit: AuditSample | None = Field(
+        default=None,
+        description="The audit sample of tie-break-kept items (``womm.eval.tiebreak``).",
+    )
 
 
 class DraftStats(StrictModel):
@@ -343,8 +379,10 @@ class DraftStats(StrictModel):
     auto_accepted: int
     pending: int
     audited: int
-    # Pending items plus every possibly_missing candidate (a human decides those anyway).
+    # Pending items plus every candidate the tie-break judge has not settled.
     human_decisions_needed: int
+    llm_kept: int = 0
+    llm_dropped: int = 0
 
 
 class ReviewLinks(StrictModel):
@@ -428,6 +466,8 @@ def tool_fields(item: _DraftItem) -> dict[str, Any]:
     auto status. Not the review block or ``provenance.status``, which a human decision sets."""
     data = item.model_dump(mode="json")
     data.pop("review")
+    if data["tiebreak"] is None:  # absent before a tie-break, so older digests hold
+        del data["tiebreak"]
     data["provenance"] = {k: v for k, v in data["provenance"].items() if k != "status"}
     data["auto_status"] = auto_status(item)
     return data
@@ -728,7 +768,8 @@ async def draft_case(
     sampled = draw_audit(eligible, AUDIT_RATE, seed)
     for kind, r in rows:
         if r["id"] in sampled:
-            r["review"] = {**r["review"], "decision": "pending", "audit": True}
+            decision = "pending" if AUDIT_BLOCKS else r["review"]["decision"]
+            r["review"] = {**r["review"], "decision": decision, "audit": True}
         r["provenance"] = ItemProvenance(
             origin="llm_recall" if kind == "candidate" else "llm_drafted",
             status="llm_judged" if r["review"]["decision"] == "auto_accepted" else "needs_human",
@@ -853,13 +894,16 @@ def draft_path(case_id: str, split: Split, out_dir: Path | None = None) -> Path:
 ITEM_KEY_ORDER = (
     "expected_id", "omission_id", "candidate_id", "affected_actor", "mechanism", "impact",
     "description", "source", "why_missing", "provision_keys", "ia_section", "ia_anchor", "anchor",
-    "category", "derivability", "flags", "judge", "provenance", "review",
+    "category", "derivability", "flags", "judge", "tiebreak", "provenance", "review",
 )  # fmt: skip
 
 
 def _reviewer_order(item: dict) -> dict:
-    """Id and claim first, then evidence, checks and the review block."""
-    return {k: item[k] for k in ITEM_KEY_ORDER if k in item} | item
+    """Id and claim first, then evidence, checks and the review block; no empty tiebreak."""
+    ordered = {k: item[k] for k in ITEM_KEY_ORDER if k in item} | item
+    if ordered.get("tiebreak", ...) is None:
+        del ordered["tiebreak"]
+    return ordered
 
 
 def write_draft(draft: GoldenDraft, out_dir: Path | None = None) -> Path:
@@ -868,6 +912,8 @@ def write_draft(draft: GoldenDraft, out_dir: Path | None = None) -> Path:
     data = draft.model_dump(mode="json")
     if data["review_links"] is None:
         del data["review_links"]
+    if data["provenance"]["tiebreak_audit"] is None:
+        del data["provenance"]["tiebreak_audit"]
     for section in ("expected_impacts", "important_omissions", "possibly_missing"):
         data[section] = [_reviewer_order(i) for i in data[section]]
     body = yaml.safe_dump(data, sort_keys=False, allow_unicode=True, width=100)

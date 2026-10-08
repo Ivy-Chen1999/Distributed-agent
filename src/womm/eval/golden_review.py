@@ -45,6 +45,7 @@ from pydantic import ValidationError
 
 from womm.config import REPO_ROOT
 from womm.eval.drafting import (
+    AUDIT_BLOCKS,
     AUDIT_RATE,
     DIMENSIONS,
     DRAFTS_DIR,
@@ -56,6 +57,7 @@ from womm.eval.drafting import (
     _DraftItem,
     audit_eligible,
     audit_seed_for,
+    auto_status,
     draw_audit,
     item_digest,
     load_draft,
@@ -64,8 +66,10 @@ from womm.eval.drafting import (
 from womm.eval.golden import GOLDEN_DIR, ExpectedImpact, GoldenCase, Omission
 
 HUMAN_DECISIONS = ("verified", "edited", "rejected", "unclear")
-KEPT_DECISIONS = ("auto_accepted", "verified", "edited")
-DROPPED_DECISIONS = ("rejected", "unclear")
+KEPT_DECISIONS = ("auto_accepted", "verified", "edited", "llm_kept")
+DROPPED_DECISIONS = ("rejected", "unclear", "llm_dropped")
+# Set only by the tie-break judge (womm.eval.tiebreak), never by a person.
+TIEBREAK_DECISIONS = {"keep": "llm_kept", "drop": "llm_dropped", "unsure": "llm_dropped"}
 AUDIT_ERRORS = ("edited", "rejected", "unclear")
 NOTE_REQUIRED = ("rejected", "unclear")
 ESCALATION_RATE = 0.10
@@ -113,14 +117,16 @@ def human_reasons(
 
     ``everything`` is the holdout rule: every item is verified by a human."""
     reasons = []
-    if item.judge.overall != "agree":
-        reasons.append(f"judge {item.judge.overall}")
-    if item.flags:
-        reasons.append("flagged: " + "; ".join(item.flags))
-    if item.review.audit:
+    # A tie-break ruling settles what the judges left open; only its audit sample needs a person.
+    if item.tiebreak is None:
+        if item.judge.overall != "agree":
+            reasons.append(f"judge {item.judge.overall}")
+        if item.flags:
+            reasons.append("flagged: " + "; ".join(item.flags))
+        if isinstance(item, DraftCandidate):
+            reasons.append("possibly_missing candidate")
+    if item.review.audit and AUDIT_BLOCKS:
         reasons.append("audit sample")
-    if isinstance(item, DraftCandidate):
-        reasons.append("possibly_missing candidate")
     if item.provenance.origin == "human_added":
         reasons.append("human added")
     if escalated:
@@ -321,6 +327,7 @@ def integrity_problems(draft: GoldenDraft) -> list[str]:
             f"{cid}/{gone}: item removed from the draft; put it back and decide it 'rejected' "
             "with a note instead"
         )
+    problems.extend(tiebreak_problems(draft))
     drafter = _person(p.drafted_by)
     if drafter:
         for item in draft.items():
@@ -330,6 +337,55 @@ def integrity_problems(draft: GoldenDraft) -> list[str]:
                     "the drafter cannot be the reviewer"
                 )
     return problems
+
+
+def tiebreak_problems(draft: GoldenDraft) -> list[str]:
+    """The tie-break rulings and their audit sample, recomputed: a ruling only on an item the
+    judges left open, an ``llm_*`` decision only as its ruling says, and the pinned sample."""
+    from womm.eval.tiebreak import tiebreak_audit_seed_for
+
+    cid = draft.case_id
+    tb = draft.provenance.tiebreak_audit
+    problems: list[str] = []
+    ruled = [i for i in draft.items() if i.tiebreak is not None]
+    for item in draft.items():
+        where = f"{cid}/{item.item_id}"
+        if item.tiebreak is None:
+            if item.review.decision in TIEBREAK_DECISIONS.values():
+                problems.append(
+                    f"{where}: decision {item.review.decision!r} is set only by the tie-break "
+                    f"judge; {DECIDE}"
+                )
+            continue
+        if tb is None:
+            problems.append(f"{where}: tie-break ruling without a tie-break audit sample")
+        if item.provenance.origin == "human_added" or (
+            not isinstance(item, DraftCandidate) and auto_status(item) == "auto_accepted"
+        ):
+            problems.append(f"{where}: tie-break ruling on an item the judges did not leave open")
+        llm = TIEBREAK_DECISIONS[item.tiebreak.verdict]
+        if item.review.decision in TIEBREAK_DECISIONS.values() and item.review.decision != llm:
+            problems.append(
+                f"{where}: decision {item.review.decision!r} contradicts the tie-break ruling "
+                f"{item.tiebreak.verdict!r}"
+            )
+    if tb is None:
+        return problems
+    seed = tiebreak_audit_seed_for(cid)
+    kept = sorted(i.item_id for i in ruled if i.tiebreak.verdict == "keep")
+    if tb.rate != AUDIT_RATE or tb.seed != seed:
+        problems.append(f"{cid}: tie-break audit rate or seed is not the pinned one")
+    if tb.eligible_ids != kept or tb.eligible != len(kept):
+        problems.append(f"{cid}: tie-break audit eligible ids are not the tie-break-kept items")
+    if sorted(tb.sampled) != draw_audit(kept, AUDIT_RATE, seed):
+        problems.append(f"{cid}: tie-break audit sample does not match draw_audit(kept, ...)")
+    return problems
+
+
+def audit_sampled(draft: GoldenDraft) -> set[str]:
+    """Every audited id: the judges' sample plus the tie-break sample."""
+    tb = draft.provenance.tiebreak_audit
+    return set(draft.provenance.audit.sampled) | set(tb.sampled if tb else ())
 
 
 def check_draft(
@@ -356,7 +412,7 @@ def check_draft(
         problems.append(f"{cid}/{dup}: duplicate item id")
     # The tool-written blocks must not be edited to dodge a review.
     problems.extend(integrity_problems(draft))
-    sampled = set(draft.provenance.audit.sampled)
+    sampled = audit_sampled(draft)
     for item in draft.items():
         dims = {d: getattr(item.judge, d) for d in DIMENSIONS}
         if item.judge.overall != overall(dims):
@@ -387,6 +443,11 @@ def check_draft(
                 )
             elif rev.decision == "pending" and not allow_pending:
                 problems.append(f"{where}: pending ({', '.join(reasons)}); {DECIDE}")
+            elif rev.decision in TIEBREAK_DECISIONS.values() and not allow_pending:
+                problems.append(
+                    f"{where}: needs a human decision ({', '.join(reasons)}), not "
+                    f"{rev.decision}; {DECIDE}"
+                )
         if decided and not rev.reviewer and not allow_pending:
             problems.append(
                 f"{where}: decision {rev.decision!r} has no reviewer; set review.reviewer to "
@@ -418,11 +479,15 @@ def check_draft(
 def kept_impacts(draft: GoldenDraft) -> list[DraftImpact | DraftCandidate]:
     """Impacts and human-accepted candidates that a publish would keep."""
     impacts = [i for i in draft.expected_impacts if i.review.decision in KEPT_DECISIONS]
-    candidates = [c for c in draft.possibly_missing if c.review.decision in ("verified", "edited")]
+    candidates = [
+        c for c in draft.possibly_missing if c.review.decision in ("verified", "edited", "llm_kept")
+    ]
     return [*impacts, *candidates]
 
 
 def _provenance(item: _DraftItem) -> str:
+    if item.review.decision == "llm_kept":
+        return "llm_tiebroken"
     if isinstance(item, DraftCandidate):
         return "human_confirmed_candidate"
     return {
@@ -446,7 +511,8 @@ def review_notes(
     p = draft.provenance
     parts = [
         f"Drafted on {p.drafted_on.isoformat()} by {p.drafting_model} ({p.tool}) and checked by "
-        "isolated LLM judges.",
+        "isolated LLM judges"
+        + (", open items settled by a tie-break judge." if p.tiebreak_audit else "."),
         f"Human review by {', '.join(reviewers) or 'nobody (all items auto-accepted)'}; "
         f"{action} on {published_on.isoformat()}.",
         "Decisions: " + ", ".join(f"{k} {v}" for k, v in counts.items()) + ".",
@@ -461,6 +527,8 @@ def review_notes(
         )
     if declined:
         parts.append(f"Declined candidates: {declined}.")
+    if dropped["llm_dropped"]:
+        parts.append(f"Dropped by the tie-break judge: {dropped['llm_dropped']}.")
     return " ".join(parts)
 
 

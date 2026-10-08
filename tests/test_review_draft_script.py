@@ -55,7 +55,8 @@ def test_lists_only_the_items_to_decide_with_links_and_judges(drafts):
     assert "c90_e01  [" not in out
     assert 'search the IA for: "widget providers would face cost number 5' in out
     assert "needs you because: judge disagree" in out and "category disagree: r" in out
-    assert "needs you because: audit sample" in out
+    # A legacy pending audit item (drafted while the audit blocked) is still listed.
+    assert "needs you because: left pending by the drafting tool" in out
     assert "possibly_missing candidate" in out
 
 
