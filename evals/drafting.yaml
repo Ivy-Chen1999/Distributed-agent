@@ -32,3 +32,10 @@ roles:
     model: claude-sonnet-5
     prompt: prompts/tools/judge_category.md
     timeout_s: 600
+  # Settles the items the three judges left open (womm.eval.tiebreak); people audit 20% of
+  # what it keeps. A fresh call with the judges' reasons and the full evidence, not the drafter.
+  tiebreak:
+    backend: claude_code
+    model: claude-opus-5-5
+    prompt: prompts/tools/tiebreak_golden_case.md
+    timeout_s: 900
