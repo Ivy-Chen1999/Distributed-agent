@@ -17,20 +17,32 @@ import yaml
 from pydantic import ValidationError
 
 from womm.config import REPO_ROOT
-from womm.eval.drafting import DRAFTS_DIR, EVALS_DIR, load_draft
+from womm.eval.drafting import DRAFTS_DIR, EVALS_DIR
 from womm.eval.golden_review import (
     AuditResult,
+    ReviewError,
     TallyError,
     audit_result,
     check_draft,
     escalated_fixtures,
+    gate_hint,
     human_reasons,
     load_audit_tally,
-    scenario_keys_for,
+    load_draft_for_review,
+    review_gate,
     write_audit_tally,
 )
 
-from .draft_factory import DRAFTER, KEYS, decide, draft_dict, fully_decided, seal, to_draft
+from .draft_factory import (
+    DRAFTER,
+    KEYS,
+    decide,
+    draft_dict,
+    fully_decided,
+    seal,
+    to_draft,
+    write,
+)
 
 DRAFT_PR = os.environ.get("WOMM_DRAFT_PR", "").strip().lower() == "true"
 DRAFT_FILES = sorted(DRAFTS_DIR.glob("*.yaml"))
@@ -55,21 +67,13 @@ def _evals_files() -> list:
 
 @pytest.mark.parametrize("path", DRAFT_FILES, ids=[p.stem for p in DRAFT_FILES])
 def test_draft_is_reviewed(path):
-    """Every item needing a human is decided by a GitHub user (draft PRs: not yet required)."""
-    try:
-        draft = load_draft(path)
-    except (ValidationError, yaml.YAMLError) as exc:
-        pytest.fail(f"{path.name}: the draft is not schema-valid after editing:\n{exc}")
-    others = [load_draft(p) for p in DRAFT_FILES]
-    escalated = draft.fixture in escalated_fixtures(others, load_audit_tally())
-    problems = check_draft(
-        draft, scenario_keys_for(draft), allow_pending=DRAFT_PR, escalated=escalated
-    )
-    hint = (
-        "\nDecide these items following docs/eval/golden-review-guide.md, or keep the PR in "
-        "draft (WOMM_DRAFT_PR=true) while the review is in progress."
-    )
-    assert not problems, "\n".join(problems) + hint
+    """Every item needing a human is decided by a GitHub user (draft PRs: not yet required).
+
+    Failures print one plain line per problem plus what to do, without a traceback."""
+    problems = review_gate(path, allow_pending=DRAFT_PR)
+    if problems:
+        rel = path.relative_to(REPO_ROOT)
+        pytest.fail("\n".join(problems) + "\n" + gate_hint(rel), pytrace=False)
 
 
 def test_drafts_live_only_in_the_drafts_folder():
@@ -117,7 +121,10 @@ def test_pending_item_fails_with_case_and_item_id():
 
 def test_decided_item_without_reviewer_fails():
     data = decide(fully_decided(), "c90_e06", "verified", reviewer=None)
-    assert _check(data) == ["case_90_widget_switching/c90_e06: decision 'verified' has no reviewer"]
+    assert _check(data) == [
+        "case_90_widget_switching/c90_e06: decision 'verified' has no reviewer; set "
+        "review.reviewer to your GitHub username"
+    ]
 
 
 def test_reviewer_must_be_a_github_username():
@@ -223,10 +230,12 @@ def test_changed_tool_field_needs_an_edited_decision(decision):
     if decision == "verified":
         data = decide(data, "c90_e01", "verified")
     problems = _check(data)
-    assert problems == [
+    assert len(problems) == 1
+    assert problems[0].startswith(
         "case_90_widget_switching/c90_e01: tool-written fields changed but the decision is "
         f"'{decision}'; a changed item must be 'edited' with a reviewer"
-    ]
+    )
+    assert "undo it (git diff shows it)" in problems[0]
     assert _check(decide(data, "c90_e01", "edited", note="fixed")) == []
 
 
@@ -363,3 +372,63 @@ def test_holdout_pattern_catches_yaml_and_json():
     assert HOLDOUT_SPLIT.search("split: holdout")
     assert HOLDOUT_SPLIT.search('{"split": "holdout"}')
     assert not HOLDOUT_SPLIT.search("split: train  # holdout is never here")
+
+
+# ----------------------------------------------------------------------------- messages
+
+
+def _gate(tmp_path, text: str) -> list[str]:
+    path = tmp_path / "drafts" / "case_90_widget_switching.yaml"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+    return review_gate(path, allow_pending=True, drafts_dir=path.parent)
+
+
+def _text(data) -> str:
+    return yaml.safe_dump(data, sort_keys=False, width=100)
+
+
+def test_typo_in_a_decision_names_the_item(tmp_path):
+    data = draft_dict()
+    data["expected_impacts"][5]["review"]["decision"] = "verifed"
+    (problem,) = _gate(tmp_path, _text(data))
+    assert "c90_e06: review.decision is 'verifed'; use one of verified, edited" in problem
+    assert "pydantic" not in problem
+
+
+def test_misspelt_review_field_names_the_item(tmp_path):
+    data = draft_dict()
+    data["expected_impacts"][5]["review"]["reviwer"] = "octo-cat"
+    (problem,) = _gate(tmp_path, _text(data))
+    assert "c90_e06: unknown field 'review.reviwer'" in problem
+    assert "review fields: decision, audit, reviewer, note" in problem
+
+
+def test_indentation_slip_gives_the_line(tmp_path):
+    text = _text(draft_dict())
+    lines = text.splitlines(keepends=True)
+    n = next(i for i, ln in enumerate(lines) if ln == "    audit: true\n")
+    lines[n] = "   audit: true\n"
+    (problem,) = _gate(tmp_path, "".join(lines))
+    assert f"not valid YAML at or just above line {n + 1}" in problem or (
+        f"line {n + 2}" in problem
+    )
+    assert "indented 2 spaces" in problem
+
+
+def test_display_name_reviewer_gets_a_hint():
+    data = decide(fully_decided(), "c90_e06", "verified", reviewer="Jane Doe")
+    assert any("not your display name" in p for p in _check(data))
+
+
+def test_gate_hint_points_to_the_helper():
+    hint = gate_hint("evals/golden/drafts/case_90.yaml")
+    assert "scripts/review_draft.py evals/golden/drafts/case_90.yaml --check" in hint
+    assert "reviewer-quickstart.md" in hint and "WOMM_DRAFT_PR" not in hint
+
+
+def test_load_draft_for_review_raises_review_error(tmp_path):
+    path = tmp_path / "x.yaml"
+    write(path, {"case_id": "case_90_widget_switching"})
+    with pytest.raises(ReviewError, match="is missing"):
+        load_draft_for_review(path)
