@@ -15,7 +15,8 @@ val draft for a proposal registered as holdout in the gitignored local registry
 (evals/private/holdout_scenarios.yaml) is refused.
 
 The audit sample (20%, pinned) is drawn with a seed derived from the case id; it cannot be set
-here. A train/val draft gets ``review_links``: public EUR-Lex links to its IA and proposal, and
+here. A train/val draft then goes to the tie-break judge (role ``tiebreak``, womm.eval.tiebreak),
+which settles the items the judges left open, so people only check the audit samples. It gets ``review_links``: public EUR-Lex links to its IA and proposal, and
 the IA part holding each anchor (see scripts/add_review_links.py). ``--drafted-by`` (default: ``git config github.user``, else ``git config user.name``) is
 recorded in the draft; the review gate refuses the drafter as a reviewer.
 """
@@ -45,6 +46,7 @@ from womm.eval.drafting import (
     write_draft,
 )
 from womm.eval.golden_review import HOLDOUT_REGISTRY, ReviewError, refuse_holdout_fixture
+from womm.eval.tiebreak import tiebreak_draft
 from womm.llm.base import LLMBackend, LLMError, get_backend
 from womm.llm.claude_code import ClaudeCodeBackend
 from womm.models.regulation import Scenario
@@ -153,6 +155,8 @@ async def run(args: argparse.Namespace, backends: dict[str, LLMBackend] | None =
     if backends is None:
         backends = await prepare_backends(config, skip_self_check=args.skip_self_check)
     draft = await draft_case(inputs, config, backends)
+    if args.split != "holdout" and config.roles.tiebreak is not None:
+        draft = await tiebreak_draft(draft, fixture, cached.full_text, config, backends)
     if args.split != "holdout":
         parts = ["\n".join(part.blocks) for part in extract.parts]
         draft = draft.model_copy(update={"review_links": build_review_links(draft, record, parts)})
@@ -166,8 +170,9 @@ async def run(args: argparse.Namespace, backends: dict[str, LLMBackend] | None =
     print(
         f"judge: agree {s.judge_agree}, disagree {s.judge_disagree}, uncertain "
         f"{s.judge_uncertain}; auto-accepted {s.auto_accepted}, pending {s.pending}, "
-        f"audit sample {s.audited} (seed {draft.provenance.audit.seed}); human decisions "
-        f"needed {s.human_decisions_needed}"
+        f"audit sample {s.audited} (seed {draft.provenance.audit.seed}); tie-break kept "
+        f"{s.llm_kept}, dropped {s.llm_dropped}; human decisions needed "
+        f"{s.human_decisions_needed}"
     )
     return path
 
