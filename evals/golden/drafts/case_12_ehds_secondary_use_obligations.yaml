@@ -1,0 +1,719 @@
+# DRAFT golden case written by scripts/draft_golden_case.py; not scored until published.
+# Reviewer? Start with docs/eval/reviewer-quickstart.md. The helper lists what to decide:
+#   uv run python scripts/review_draft.py <this file>
+# Decide every item whose review.decision is 'pending' and every possibly_missing candidate
+# as verified / edited / rejected / unclear, with your GitHub username in review.reviewer.
+# Other auto-accepted items need no decision. Do not change tool-written fields of an item
+# you keep as auto_accepted or verified (CI checks provenance.item_digests); the drafter
+# (provenance.drafted_by) cannot review. review_links opens the public IA and proposal on
+# EUR-Lex (train/val only); holdout identifiers never appear in a tracked file.
+case_id: case_12_ehds_secondary_use_obligations
+scenario_id: eval_secondary_use_obligations
+fixture: ehds
+split: val
+ia_reference: 'Impact assessment accompanying the European Health Data Space Regulation proposal (identifiers
+  in the local IA index); sections: 6.16.1 Economic impact CLXV; 88 Preferred option'
+notes: ''
+review_links:
+  ia: https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:52022SC0131
+  proposal: https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:52022PC0197
+  ia_parts: 4
+  anchor_parts:
+    c12_e01: 1
+    c12_e02: 1
+    c12_e03: 1
+    c12_e04: 1
+    c12_e05: 1
+    c12_e06: 1
+    c12_e07: 1
+    c12_o01: 1
+    c12_o02: 1
+    c12_o03: 1
+    c12_m01: 1
+    c12_m02: 1
+provenance:
+  tool: scripts/draft_golden_case.py
+  drafted_on: '2026-10-06'
+  drafted_by: Chen Yuxin
+  drafting_model: claude-opus-5-5
+  roles:
+    drafter:
+      backend: claude_code
+      model: claude-opus-5-5
+      prompt: prompts/tools/draft_golden_case.md
+    recall:
+      backend: claude_code
+      model: claude-opus-5-5
+      prompt: prompts/tools/recall_golden_case.md
+    judge_anchor:
+      backend: claude_code
+      model: claude-sonnet-5
+      prompt: prompts/tools/judge_anchor.md
+    judge_derivability:
+      backend: claude_code
+      model: claude-sonnet-5
+      prompt: prompts/tools/judge_derivability.md
+    judge_category:
+      backend: claude_code
+      model: claude-sonnet-5
+      prompt: prompts/tools/judge_category.md
+  prompt_hashes:
+    prompts/tools/draft_golden_case.md: c72bd341e2c3ef75
+    prompts/tools/recall_golden_case.md: 36f0a5dcc15a57c6
+    prompts/tools/judge_anchor.md: 0d81eb4d5d2b43bd
+    prompts/tools/judge_derivability.md: 97471d88c14d32c3
+    prompts/tools/judge_category.md: 8b1885320b65b60f
+  ia_sections:
+  - 6.16.1 Economic impact CLXV
+  - 88 Preferred option
+  rsb_status: opinion none found in Cellar; using the IA's procedural-information annex
+  audit:
+    seed: 513201958
+    rate: 0.2
+    eligible: 6
+    eligible_ids:
+    - c12_e02
+    - c12_e03
+    - c12_e06
+    - c12_e07
+    - c12_o02
+    - c12_o03
+    sampled:
+    - c12_e02
+    - c12_e07
+    non_publishable_test_seed: false
+  item_digests:
+    c12_e01: 1aff4e97fa37fbe21e21ac3145d17c76c8cf1ad1284e0c8edd86a7dc167c9949
+    c12_e02: 8067705fba56b394271ef56f00fdae73579d77038ef67b0760e67a60fee8900c
+    c12_e03: 6b3a8f1c669ad6c6999c14755328f1de2fd2c4182e9b56e254855ab83fd8b4a3
+    c12_e04: f209531589f2846327f937a7427fba1578466116f6324900d8ef04f78ead5316
+    c12_e05: 50debf0eb39a720a281ab9bae8603d15e805fc38e627d57aa97edd55f9562545
+    c12_e06: 720333d994cc84efcd5a5205ff265ccda842ddd3484a58a59530d8040848f4e6
+    c12_e07: 008f914cfdb3293c301bdba5e1a5bba6c67cdd88d666476e46d6ed3c275fa80a
+    c12_o01: 3fe4b4e17872832fddfb88c4ab04a19e399e931071f1cd2bcd927e4bd05549c7
+    c12_o02: 19ad008fb31290a185bd1164975a03bb5a4717d398c2693abb584be69a16e99e
+    c12_o03: 227af54b346bfbcdbfd37ede8cf42a4f193b671f8f8d3479ee19ea949529466d
+    c12_m01: 9dbdd4979f4629b3c70ad81d0a221c1a58cbb7b0c7da9c4067c8b85f67ca9219
+    c12_m02: b2ec08cd822cf311a71582511bc73c786a611b34dde3afac9d7cd5c763d35313
+  tiebreak_audit:
+    seed: 1090618831
+    rate: 0.2
+    eligible: 3
+    eligible_ids:
+    - c12_e01
+    - c12_e04
+    - c12_e05
+    sampled:
+    - c12_e01
+    non_publishable_test_seed: false
+stats:
+  items: 12
+  expected_impacts: 7
+  important_omissions: 3
+  possibly_missing: 2
+  anchors_verified: 12
+  judge_agree: 8
+  judge_disagree: 2
+  judge_uncertain: 2
+  auto_accepted: 6
+  pending: 0
+  audited: 3
+  human_decisions_needed: 0
+  llm_kept: 3
+  llm_dropped: 3
+expected_impacts:
+- expected_id: c12_e01
+  affected_actor: Data reusers (researchers and innovators applying for data permits)
+  mechanism: Mandatory availability of listed data categories (Art 33), defined permitted purposes (Art
+    34) and a permit procedure with fixed deadlines that replaces individual consent gathering (Art 33(5),
+    Art 46) make access to health data cheaper and faster
+  impact: Efficiency gains in data access, valued at EUR 3.4 billion over 10 years in the preferred option,
+    as a fee-based permit replaces costly consent collection
+  provision_keys:
+  - ehds/proposal/art/33
+  - ehds/proposal/art/34
+  - ehds/proposal/art/46
+  ia_section: 6.1.3.2 Impact of actions on secondary uses of health data
+  ia_anchor: stemming from efficiency gains in data access as a results of a less costly access to health
+    data by reusers, be it researchers, innovators, regulators and policy-makers EUR 3.4 billion)
+  anchor:
+    status: verified
+    against: ia
+  category: administrative_burden
+  derivability:
+    verdict: 'yes'
+    reason: The provisions require data holders to make data available and set up a permit procedure with
+      deadlines, and Art 33(5) removes the need for consent, so cheaper access for users follows directly.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor states efficiency gains of EUR 3.4 billion for reusers (researchers, innovators,
+        regulators, policy-makers) from less costly data access, matching actor, mechanism and figure.
+    derivability:
+      verdict: agree
+      reason: Art 33(1) mandates data categories, Art 34 sets permitted purposes, Art 33(5) bypasses national
+        consent requirements, and Art 46 sets a fixed-deadline permit process, together plausibly lowering
+        access costs/time for data reusers.
+    category:
+      verdict: unknown
+      reason: The quantified mechanism is really about procedural/administrative savings from a permit
+        process replacing individual consent gathering, which could fit administrative_burden just as
+        well as the proposed innovation_investment (data value creation).
+    overall: uncertain
+  tiebreak:
+    verdict: keep
+    original_category: innovation_investment
+    reason: Section 6.1.3.2 credits reusers (researchers, innovators, regulators, policy-makers) with
+      EUR 3.4 billion in efficiency gains from cheaper access to data, which follows from Arts 33, 34
+      and 46. The IA describes these gains as simpler procedures and lower burden for requesting data,
+      so administrative_burden fits better than innovation_investment.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_drafted
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_kept
+    audit: true
+    reviewer: null
+    note: null
+- expected_id: c12_e02
+  affected_actor: Member States (health data access bodies)
+  mechanism: Health data access bodies must assess applications, issue or refuse permits within deadlines,
+    request and supply data (Art 46) and monitor, supervise and sanction data users and data holders (Art
+    43), which needs staff and organisation
+  impact: Establishment and operating costs of EUR 3.3-12.4 million per body for a 4- or 15-FTE unit up
+    to EUR 20.6-41.3 million for a 25- or 50-FTE independent entity over 10 years; EUR 39-157 million
+    for all countries
+  provision_keys:
+  - ehds/proposal/art/43
+  - ehds/proposal/art/46
+  ia_section: 6.1.3.2 Impact of actions on secondary uses of health data
+  ia_anchor: The cost of establishment and operation over 10 years can vary significantly depending on
+    national choices, ranging between EUR 3.3-12.4 million for a 4-Fulltime Equivalent (FTE) or 15-FTE
+    unit, respectively, and EUR 20.6-41.3 million for a 25-FTE or 50-FTE independent entity, respectively.
+  anchor:
+    status: verified
+    against: ia
+  category: public_enforcement_cost
+  derivability:
+    verdict: 'yes'
+    reason: Art 43 and Art 46 give health data access bodies explicit permitting and supervisory tasks,
+      which clearly require public resources.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor gives the exact figures (EUR 3.3-12.4m, EUR 20.6-41.3m, EUR 39-157m total) for health
+        data access bodies' establishment/operation costs tied to staffing choices, matching the claim.
+    derivability:
+      verdict: agree
+      reason: Art 43's monitoring/sanctioning duties and Art 46's assessment/issuance/supply duties with
+        strict deadlines clearly require staffed health data access bodies.
+    category:
+      verdict: agree
+      reason: Staffing and organisational costs for a public body to assess applications, supply data
+        and supervise/sanction users and holders are squarely public-authority supervision/enforcement
+        costs.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: true
+    reviewer: null
+    note: null
+- expected_id: c12_e03
+  affected_actor: Health data access bodies (and Member State budgets)
+  mechanism: Art 42 lets health data access bodies charge cost-based fees for handling applications and
+    making data available, which recovers part of their costs
+  impact: Fee revenues of EUR 36-58 million partly offset the costs of setting up and running the bodies
+  provision_keys:
+  - ehds/proposal/art/42
+  ia_section: 6.1.3.2 Impact of actions on secondary uses of health data
+  ia_anchor: The overall costs for this option could range between EUR 39-157 million for all countries,
+    partially recovered through the fees charged to re-users (EUR 36-58 million).
+  anchor:
+    status: verified
+    against: ia
+  category: public_enforcement_cost
+  derivability:
+    verdict: 'yes'
+    reason: Art 42(1) explicitly allows fees derived from the costs of the request procedure.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor explicitly states total costs partially recovered through fees charged to re-users
+        of EUR 36-58 million, matching the claim's actor, mechanism and figures.
+    derivability:
+      verdict: agree
+      reason: Art 42(1) explicitly authorises cost-based fees for the application/permit procedure, directly
+        supporting partial cost recovery for the bodies.
+    category:
+      verdict: agree
+      reason: Fee revenue offsetting the running costs of the public health data access bodies is a public
+        enforcement/administration cost-recovery matter.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c12_e04
+  affected_actor: Data users (researchers, innovators, public bodies requesting data)
+  mechanism: Data users pay fees set out in the data permit (Art 42, Art 46(6)(e)) and bear costs of applying
+    for and processing data under permit conditions
+  impact: Costs for data reusers to access data through the EHDS of EUR 97-204 million over 10 years
+  provision_keys:
+  - ehds/proposal/art/42
+  - ehds/proposal/art/46
+  ia_section: 6.1.3.2 Impact of actions on secondary uses of health data
+  ia_anchor: This action, combined with costs for data reusers to access the data made available through
+    the EHDS (EUR 97-204 million), is expected to carry costs of approximately EUR 122-285 million.
+  anchor:
+    status: verified
+    against: ia
+  category: administrative_burden
+  derivability:
+    verdict: 'yes'
+    reason: The fee provisions and permit conditions directly create costs for data users.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor states costs for data reusers to access data through the EHDS of EUR 97-204 million,
+        matching the claim's actor and figure.
+    derivability:
+      verdict: agree
+      reason: Art 42 and Art 46(6)(e) explicitly impose fees on data users as a condition of the permit,
+        creating a cost for data reusers.
+    category:
+      verdict: disagree
+      reason: Paying fees and bearing the costs of applying for/processing a permit are procedural/information-type
+        costs for data users, better matching administrative_burden than the substantive technical/organisational
+        measures covered by compliance_cost.
+    overall: disagree
+  tiebreak:
+    verdict: keep
+    original_category: compliance_cost
+    reason: The anchor gives a cost of EUR 97-204 million for data reusers to access EHDS data, and Arts
+      42 and 46(6)(e) make users pay fees and go through the permit procedure. These are procedural access
+      costs, so administrative_burden fits better than compliance_cost.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_drafted
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_kept
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c12_e05
+  affected_actor: Regulators, policy-makers, medicines agencies and HTA bodies
+  mechanism: Art 34(1)(a)-(c) and 34(2) reserve purposes such as public health, regulatory tasks and official
+    statistics for public sector bodies, giving them access to real-world data on the effectiveness of
+    medicinal products
+  impact: Savings of EUR 0.8 billion from more transparency and real-world evidence in regulatory processes,
+    procurement and price renegotiation
+  provision_keys:
+  - ehds/proposal/art/34
+  - ehds/proposal/art/33
+  ia_section: 6.1.3.2 Impact of actions on secondary uses of health data
+  ia_anchor: The more intensive use of real-world evidence (RWE) in health policy-making could yield substantial
+    additional savings, estimated at EUR 0.8 billion, thanks to greater transparency of the effectiveness
+    of medicinal products
+  anchor:
+    status: verified
+    against: ia
+  category: public_enforcement_cost
+  derivability:
+    verdict: 'yes'
+    reason: Art 34 lists support to public sector and regulatory bodies as permitted purposes, so better-informed
+      regulatory decisions follow.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor attributes EUR 0.8 billion savings to greater transparency/RWE use by regulators,
+        medicines agencies and HTA bodies in regulatory processes and procurement, matching the claim.
+    derivability:
+      verdict: agree
+      reason: Art 34(1)(a)-(c) and 34(2) reserve regulatory/public-health/statistics purposes to public
+        sector and regulatory bodies, giving them access to the Art 33 data for these tasks.
+    category:
+      verdict: unknown
+      reason: Savings from better regulatory evidence and price renegotiation sit ambiguously between
+        market_competition (prices) and the proposed other, with no clearly better single fit.
+    overall: uncertain
+  tiebreak:
+    verdict: keep
+    original_category: other
+    reason: The IA puts savings from real-world evidence at EUR 0.8 billion, through lower costs in regulatory
+      processes and public procurement for EMA, national agencies and HTA bodies. Arts 34(1)(a)-(c) and
+      34(2) give these bodies the access. The savings fall on public authorities, so public_enforcement_cost
+      fits better than other.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_drafted
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_kept
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c12_e06
+  affected_actor: Innovators, healthcare providers and patients
+  mechanism: Permitted purposes include development and innovation of products and services and training,
+    testing and evaluating algorithms and AI systems (Art 34(1)(f)-(g)) using the mandatory data categories
+    (Art 33)
+  impact: Increased value of EUR 1.2 billion from innovative data-intensive and AI-based health products
+    and services
+  provision_keys:
+  - ehds/proposal/art/34
+  - ehds/proposal/art/33
+  ia_section: 6.1.3.2 Impact of actions on secondary uses of health data
+  ia_anchor: increased value for patients, healthcare providers and innovators thanks to further reuse
+    of health data, through the development of innovative products and services in health thanks to data-intensive
+    technologies, such a AI-based systems (EUR 1.2 billion)
+  anchor:
+    status: verified
+    against: ia
+  category: innovation_investment
+  derivability:
+    verdict: 'yes'
+    reason: Art 34(1)(f) and (g) explicitly allow innovation and AI training uses of the data.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor directly states EUR 1.2 billion increased value for patients, healthcare providers
+        and innovators from AI-based/data-intensive innovative products and services.
+    derivability:
+      verdict: agree
+      reason: Art 34(1)(f)-(g) explicitly list innovation and AI/algorithm training as permitted purposes
+        using the Art 33 data categories.
+    category:
+      verdict: agree
+      reason: Enabling development of new data-intensive and AI-based health products/services is a direct
+        innovation and investment effect.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c12_e07
+  affected_actor: Commission and Member States (infrastructure operators)
+  mechanism: Data users must process data in a secure processing environment provided by health data access
+    bodies, with storage and deletion rules (Art 46(6)(d), 46(9)), which requires secure infrastructure
+  impact: Infrastructure costs of EUR 176-287 million, covering central network services and services
+    run by the health data access bodies
+  provision_keys:
+  - ehds/proposal/art/46
+  ia_section: 6.1.3.2 Impact of actions on secondary uses of health data
+  ia_anchor: Such infrastructure is expected to cost EUR 176-287 million, including the central services
+    to operate the network and the services to be deployed at the level of Health Data Access Bodies.
+  anchor:
+    status: verified
+    against: ia
+  category: public_enforcement_cost
+  derivability:
+    verdict: partly
+    reason: Art 46 refers to a secure processing environment and data storage by health data access bodies,
+      but the cross-border network infrastructure itself is set up in provisions outside the scenario.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor states infrastructure cost of EUR 176-287 million covering central network services
+        and services at health data access bodies, consistent with claimed actors and figure.
+    derivability:
+      verdict: agree
+      reason: Art 46(6)(d) and 46(9) reference a secure processing environment and data storage/deletion
+        duties for health data access bodies, but the broader cross-border infrastructure is not established
+        in the cited text, matching the 'partly' verdict.
+    category:
+      verdict: agree
+      reason: Infrastructure costs borne by the Commission and Member States to run the secure processing
+        environment are costs for public authorities operating the EHDS system.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: true
+    reviewer: null
+    note: null
+important_omissions:
+- omission_id: c12_o01
+  description: Data holders bear the costs of describing, preparing and supplying datasets within 2 months
+    (Art 41(2),(4)). They also face daily fines and possible exclusion if they do not (Art 43(5)). Only
+    micro enterprises are exempt (Art 33(2)), so small and medium-sized data holders that are not micro
+    enterprises carry these costs in full. Fee compensation under Art 42(2) covers only part of them,
+    so the burden may fall unevenly on smaller holders.
+  source: ia
+  provision_keys:
+  - ehds/proposal/art/33
+  - ehds/proposal/art/41
+  - ehds/proposal/art/42
+  - ehds/proposal/art/43
+  ia_section: 6.1.4.2 Impact of actions on secondary uses of health data
+  ia_anchor: possibly have a disproportionally adverse impact on smaller dataset owners
+  anchor:
+    status: verified
+    against: ia
+  category: sme_specific
+  derivability:
+    verdict: 'yes'
+    reason: Art 33(2), 41(4) and 43(5) clearly set out who must supply data, the deadline, the penalties
+      and the narrow micro-enterprise exemption.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: disagree
+      reason: The anchor attributes the disproportionate impact on smaller dataset owners to high certification
+        scheme costs, not to the claim's described mechanism of dataset description/supply duties, daily
+        fines, or partial fee compensation under Art 42(2).
+    derivability:
+      verdict: agree
+      reason: Art 33(2) sets the micro-enterprise exemption, Art 41(2)/(4) impose description and 2-month
+        supply duties, and Art 43(5) creates daily fines and exclusion for non-compliant data holders.
+    category:
+      verdict: agree
+      reason: The claim explicitly concerns uneven cost burden on non-micro SMEs versus exempt micro-enterprises,
+        which is an SME-specific effect.
+    overall: disagree
+  tiebreak:
+    verdict: drop
+    original_category: sme_specific
+    reason: The anchor comes from section 6.1.4.2 on Policy Option 3, not the preferred option. It ties
+      the harm to smaller dataset owners to high mandatory certification costs, not to the duties under
+      Art 41, the fines under Art 43(5) or partial fee compensation.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_drafted
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
+- omission_id: c12_o02
+  description: Where a dataset carries a data quality and utility label, data holders must give documentation
+    so the health data access body can confirm the label is accurate (Art 41(3)). This creates a recurring
+    documentation cost for data holders. The IA puts the cost of obtaining a label at EUR 20,000-50,000
+    and of renewing it at EUR 20,000-35,000 per year.
+  source: ia
+  provision_keys:
+  - ehds/proposal/art/41
+  ia_section: 6.1.3.2 Impact of actions on secondary uses of health data
+  ia_anchor: The one-off cost of a labelling scheme on data quality could amount to EUR 20,000 and EUR
+    50,000 for obtaining the label and EUR 20,000 to EUR 35,000 per year for renewing the label for data
+    holders
+  anchor:
+    status: verified
+    against: ia
+  category: administrative_burden
+  derivability:
+    verdict: partly
+    reason: Art 41(3) creates the documentation duty, but the label itself is set up in Art 56, which
+      is outside the scenario.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor states the exact one-off and renewal label cost figures for data holders, matching
+        the claim's actor, mechanism and numbers.
+    derivability:
+      verdict: agree
+      reason: Art 41(3) creates the documentation duty tied to the quality label, but the label scheme
+        itself is governed by Art 56, outside the cited provisions, supporting only 'partly'.
+    category:
+      verdict: agree
+      reason: The claim frames the cost as a recurring documentation obligation to verify the data quality
+        label, matching administrative_burden.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- omission_id: c12_o03
+  description: Fees must be cost-based and reduced for SMEs, public bodies, researchers, educational institutions
+    and healthcare providers (Art 42(4)), and data funded by donations or public funds is excluded from
+    the fee calculation. Fees can therefore cover only part of what health data access bodies spend. The
+    rest stays with Member State budgets, while users who qualify for reductions benefit.
+  source: ia
+  provision_keys:
+  - ehds/proposal/art/42
+  ia_section: 6.1.2.2 Impact of actions on secondary uses of health data
+  ia_anchor: As in the baseline, part of these costs could be covered by revenues through fees charged
+    by Health Data Access Bodies.
+  anchor:
+    status: verified
+    against: ia
+  category: public_enforcement_cost
+  derivability:
+    verdict: 'yes'
+    reason: Art 42(4) explicitly requires fee reductions and excludes publicly funded support from the
+      cost basis.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor confirms that health data access body costs are only partially covered by fee revenues,
+        consistent with the claim's effect, actor and general mechanism, with no contradiction of the
+        SME/donation fee details.
+    derivability:
+      verdict: agree
+      reason: Art 42(4) explicitly mandates fee reductions for SMEs and similar actors and excludes publicly
+        funded support from the cost basis, directly creating the described cross-subsidy effect.
+    category:
+      verdict: agree
+      reason: The claim centers on how fee reductions affect the health data access bodies' budget and
+        cost recovery, which is a public-authority cost/funding issue.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+possibly_missing:
+- candidate_id: c12_m01
+  affected_actor: Data holders / data owners making datasets available
+  mechanism: Where a data quality and utility label accompanies a dataset, data holders must give the
+    health data access body enough documentation to confirm the label (Art 41(3)). This, together with
+    their duty to describe and supply datasets (Art 41(2), 41(4)), means they pay to obtain and renew
+    data quality labels.
+  impact: The IA estimates label costs for data owners at EUR 25-81 million over 10 years. That is EUR
+    20,000-50,000 to obtain a label and EUR 20,000-35,000 per year to renew it.
+  why_missing: None of the drafted pairs names data holders as an affected actor. The drafted cost pairs
+    cover only health data access bodies, data users and infrastructure operators.
+  provision_keys:
+  - ehds/proposal/art/41
+  ia_section: 6.1.3.2 Impact of actions on secondary uses of health data
+  ia_anchor: The one-off cost of a labelling scheme on data quality could amount to EUR 20,000 and EUR
+    50,000 for obtaining the label and EUR 20,000 to EUR 35,000 per year for renewing the label for data
+    holders
+  anchor:
+    status: verified
+    against: ia
+  category: compliance_cost
+  derivability:
+    verdict: partly
+    reason: Art 41 sets out the data holder's documentation and supply duties. The label scheme itself
+      and how much it costs come from Art 56 and the IA.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor and surrounding context give both the EUR 25-81 million total label cost and the
+        EUR 20,000-50,000/EUR 20,000-35,000 per-label figures for data holders, matching the claim.
+    derivability:
+      verdict: agree
+      reason: Art 41 establishes the data holder's documentation/supply duties relevant to labels, but
+        the label mechanism and its cost structure stem from Art 56, outside scope, so 'partly' fits.
+    category:
+      verdict: agree
+      reason: Here the cost is framed as the substantive expense of obtaining and maintaining a data quality
+        label (technical/organisational effort), fitting compliance_cost.
+    overall: agree
+  tiebreak:
+    verdict: drop
+    original_category: compliance_cost
+    reason: This repeats kept item c12_o02, which already covers the label documentation duty for data
+      holders under Art 41(3) and the same EUR 20,000-50,000 and EUR 20,000-35,000 label costs.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c12_m02
+  affected_actor: Pharmaceutical manufacturers (marketing authorisation holders)
+  mechanism: Real-world data made available under Art 33 to regulators, medicines agencies and HTA bodies
+    for regulatory purposes (Art 34(1)(a)-(b), 34(2)) lets them renegotiate medicine prices after authorisation,
+    based on observed effectiveness.
+  impact: Public payers could renegotiate prices downward. One estimate is a 5% saving on drug costs in
+    a medium-sized country, about EUR 50 million a year. This means less revenue for manufacturers whose
+    products underperform.
+  why_missing: The draft records the regulators' benefit from real-world data but not the matching effect
+    on the pharmaceutical companies whose prices are renegotiated.
+  provision_keys:
+  - ehds/proposal/art/33
+  - ehds/proposal/art/34
+  ia_section: 6.1.3.2 Impact of actions on secondary uses of health data
+  ia_anchor: supporting the EMA, national medicines agencies and HTA bodies in better decision-making
+    and renegotiating the prices of different medicinal products based on the observed real-world effects,
+    post-authorisation
+  anchor:
+    status: verified
+    against: ia
+  category: market_competition
+  derivability:
+    verdict: 'no'
+    reason: The provisions only list the purposes and the public bodies that can use the data. The price
+      renegotiation effect on manufacturers comes from the IA, and the cost to manufacturers is inferred,
+      not stated.
+  flags:
+  - not_derivable_from_provisions
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor describes EMA/agencies/HTA bodies renegotiating medicine prices based on real-world
+        data with an estimated 5% (~EUR50m/year) saving, supporting the claim's described downward price
+        pressure on manufacturers.
+    derivability:
+      verdict: agree
+      reason: Art 33/34 only establish data availability and permitted regulatory purposes; they say nothing
+        about price renegotiation or manufacturer revenue effects, so 'no' is correct.
+    category:
+      verdict: agree
+      reason: Price renegotiation and reduced manufacturer revenue due to real-world evidence is a market/price
+        effect.
+    overall: agree
+  tiebreak:
+    verdict: drop
+    original_category: market_competition
+    reason: The IA describes savings for public payers from renegotiating prices but never mentions lost
+      revenue for manufacturers. Arts 33 and 34 also say nothing about price renegotiation, so the claim
+      is the drafter's inference.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
