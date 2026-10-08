@@ -1,4 +1,6 @@
-from womm.api.db import Database, result_error_kind
+import hashlib
+
+from womm.api.db import MIGRATIONS_DIR, Database, result_error_kind
 from womm.decisions.stub import StubDecisionService
 from womm.graph.build import run_scenario
 from womm.llm.fake import FakeBackend
@@ -11,10 +13,39 @@ async def test_migrate_is_idempotent(database_url):
     database = Database(database_url)
     await database.open()
     try:
-        assert await database.migrate() == ["001_init", "002_run_ownership", "003_decision_usage"]
+        assert await database.migrate() == [
+            "001_init",
+            "002_run_ownership",
+            "003_decision_usage",
+            "004_evolution",
+            "005_promotion_decisions",
+            "006_analyst_feedback",
+        ]
         assert await database.migrate() == []
     finally:
         await database.close()
+
+
+# Applied migrations are never edited: Database.migrate skips one it has applied, so an edit
+# would silently not reach an existing database. A schema change is a new migration (007+).
+FROZEN_MIGRATIONS = {
+    "001_init.sql": "c80129fb50cb58c8016aa493c0707f457907553b13c368deba76fb9b2145ba28",
+    "002_run_ownership.sql": "de28c62563c4477571ce3c9346f4e92fe3020a808afeac6a757ca15f79dfdeab",
+    "003_decision_usage.sql": "96b3e70aa153b00284add9af2179a9844063c03179dd6e3bca86fa16cff7c4d3",
+    "004_evolution.sql": "0ac92a93be6ebc7b34a27007a989f8e385487ee13323d8134c15e2cb42bb069d",
+    "005_promotion_decisions.sql": (
+        "ca7d31fe5e322e2f5881b175bc141e20a9bc8a3db831da20e48ae707b6869068"
+    ),
+    "006_analyst_feedback.sql": (
+        "db8a7d02060ce1b244108ae9e0004a24bc771ba50e95bc16bb65fe9d773df0c7"
+    ),
+}
+
+
+def test_applied_migrations_are_frozen():
+    for name, digest in FROZEN_MIGRATIONS.items():
+        actual = hashlib.sha256((MIGRATIONS_DIR / name).read_bytes()).hexdigest()
+        assert actual == digest, f"{name} changed: add a new migration (007+) instead"
 
 
 async def test_events_roundtrip_in_order(db):

@@ -1,0 +1,14 @@
+# Import settings for 52021PC0731; rerun scripts/import_proposal.py after editing.
+# strip_patterns / redactions / leak_allow / quant_allow are reviewed exceptions to the
+# memorandum leak guards (reasons stay here, never in sources.json).
+# IA identifiers live only in the gitignored evals/private/ia_index.yaml.
+celex: 52021PC0731
+regulation_id: political_ads
+title: Political Advertising Regulation
+document_url: https://publications.europa.eu/resource/cellar/9cec62db-4dcb-11ec-91ac-01aa75ed71a1.0001.03/DOC_1
+date: null
+strip_patterns: {}
+redactions: []
+leak_allow: []
+quant_allow: []
+scenarios: []

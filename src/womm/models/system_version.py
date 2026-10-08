@@ -79,6 +79,11 @@ class ExpertConfig(StrictModel):
     scope: DataScope | None = Field(
         default=None, description="Data scope; None means everything (v0 behaviour)."
     )
+    router_gloss: str | None = Field(
+        default=None,
+        description="What this expert analyses, as the router's relevance question puts it. "
+        "None falls back to the built-in gloss for the domain.",
+    )
 
 
 class RetrievalConfig(StrictModel):
@@ -134,17 +139,19 @@ class SystemVersionSpec(StrictModel):
         return list(dict.fromkeys(paths))
 
     def canonical_dump(self) -> dict:
-        """The spec as hashed into version_id. Fields added after v0 (`scope`, the Planner's
-        `explore_prompt`, `retrieval`) are dropped when None, so versions that do not use them
-        keep their ids. Nothing else is dropped: existing defaults are part of today's hashes."""
+        """The spec as hashed into version_id. Fields added after v0 (`scope`, `router_gloss`,
+        the Planner's `explore_prompt`, `retrieval`) are dropped when None, so versions that do
+        not use them keep their ids. Nothing else is dropped: existing defaults are part of
+        today's hashes."""
         data = self.model_dump(mode="json")
         if data.get("retrieval") is None:
             data.pop("retrieval", None)
         if data["planner"].get("explore_prompt") is None:
             data["planner"].pop("explore_prompt", None)
         for expert in data["experts"]:
-            if expert.get("scope") is None:
-                expert.pop("scope", None)
+            for optional in ("scope", "router_gloss"):
+                if expert.get(optional) is None:
+                    expert.pop(optional, None)
         return data
 
 
@@ -176,16 +183,30 @@ def _sha(data: bytes) -> str:
 def build_system_version(
     spec: SystemVersionSpec, repo_root: Path, source_path: str | None = None
 ) -> SystemVersion:
-    prompt_hashes: dict[str, str] = {}
-    prompts: dict[str, str] = {}
+    texts: dict[str, bytes] = {}
     for rel in spec.prompt_paths():
         path = repo_root / rel
         if not path.is_file():
             raise FileNotFoundError(f"prompt file not found: {rel}")
-        data = path.read_bytes()
-        prompt_hashes[rel] = _sha(data)[:16]
-        prompts[rel] = data.decode("utf-8")
+        texts[rel] = path.read_bytes()
+    return _build(spec, texts, source_path)
 
+
+def build_system_version_from_texts(
+    spec: SystemVersionSpec, prompts: dict[str, str], source_path: str | None = None
+) -> SystemVersion:
+    """A SystemVersion from in-memory prompt texts keyed by (possibly virtual) prompt path. It
+    has the same version_id as loading the spec with those texts written as UTF-8 files."""
+    missing = [rel for rel in spec.prompt_paths() if rel not in prompts]
+    if missing:
+        raise KeyError(f"no prompt text for {missing}")
+    texts = {rel: prompts[rel].encode("utf-8") for rel in spec.prompt_paths()}
+    return _build(spec, texts, source_path)
+
+
+def _build(spec: SystemVersionSpec, texts: dict[str, bytes], source_path: str | None):
+    prompt_hashes = {rel: _sha(data)[:16] for rel, data in texts.items()}
+    prompts = {rel: data.decode("utf-8") for rel, data in texts.items()}
     canonical = json.dumps(
         {"spec": spec.canonical_dump(), "prompts": dict(sorted(prompt_hashes.items()))},
         sort_keys=True,
@@ -240,6 +261,8 @@ def derive_system_version(
     if data == base.spec.model_dump():
         return base
     data["name"] = f"{base.spec.name}+overrides"
-    return build_system_version(
-        SystemVersionSpec.model_validate(data), repo_root, source_path=base.source_path
+    # The base's snapshotted prompt texts, so a candidate whose prompts exist only in memory
+    # (womm.evolve) can be derived too; for a file-backed base they equal the files.
+    return build_system_version_from_texts(
+        SystemVersionSpec.model_validate(data), base.prompts, source_path=base.source_path
     )

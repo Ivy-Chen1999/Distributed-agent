@@ -1,0 +1,42 @@
+# Records the promotion gate requires (self-evolution plan U7). Aggregates only; never a case id.
+#
+# HUMAN STEPS, each appended here by a tool and committed (commands in
+# docs/demo/v1-self-evolution-runbook.md, Path C):
+#
+# - judge_calibrations: the coverage-judge calibration (golden-case plan, Revision 2026-10-04).
+#   Classmates label about 30 (dossier, expected impact) pairs as covered or not; the agreement
+#   of WOMM's judge with them is recorded per judge version (`womm.eval.evaluators.
+#   judge_version` of the incumbent). The statistical and weak modes refuse to run without a
+#   record for the gate's judge, or with agreement below 0.85. Recalibrate when the judge prompt
+#   or model changes. The dev mode does not need it. `womm calibrate sample` draws the blind
+#   pairs; people label them; `womm calibrate score --record` appends the record (optional
+#   evidence fields: agreement_raw, agreement_natural, kappa, inter_annotator_agreement,
+#   excluded).
+#     - judge_version: jv_...
+#       agreement: 0.9           # fraction of pairs where judge and humans agree
+#       pairs: 30
+#       annotators: [name, name]
+#       recorded_on: YYYY-MM-DD
+#
+# - formal_noise_runs: the R34 formal noise run (`womm eval --split val --repetitions 6
+#   --formal` on the api backend). The statistical and weak modes need one for the gate's judge.
+#   `womm noise report --report <formal report> --holdout-cases N --holdout-proposals K
+#   --record` appends it together with the mdd_reports below.
+#     - system_version: sv_...
+#       judge_version: jv_...
+#       split: val
+#       repetitions: 6
+#       experiment: <LangSmith experiment name>
+#       recorded_on: YYYY-MM-DD
+#
+# - mdd_reports: the minimum-detectable-delta report after the noise run (golden-case plan).
+#   Statistical mode needs one whose mdd is at most the policy's expected_gain, computed for
+#   the policy's repetitions (optional design fields: noise_sd, repetitions, holdout_cases,
+#   holdout_proposals, icc, alpha, power).
+#     - metric: coverage
+#       judge_version: jv_...
+#       mdd: 0.07
+#       recorded_on: YYYY-MM-DD
+judge_calibrations: []
+formal_noise_runs: []
+mdd_reports: []

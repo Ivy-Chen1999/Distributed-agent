@@ -3,6 +3,7 @@ deterministic. Infrastructure errors are kept apart from quality failures."""
 
 from __future__ import annotations
 
+import hashlib
 import json
 from typing import Literal
 
@@ -12,9 +13,19 @@ from womm.eval.golden import GoldenCase
 from womm.llm.base import LLMBackend, LLMError
 from womm.models.base import StrictModel
 from womm.models.run import CallUsage, RunResult, RunStatus
-from womm.models.system_version import RoleConfig
+from womm.models.system_version import RoleConfig, SystemVersion
 
 INFRA_ERRORS = {"auth", "rate_limit", "timeout"}
+
+
+def judge_version(sv: SystemVersion) -> str:
+    """The judge's identity: backend, model and prompt hash, nothing else of the version."""
+    judge = sv.spec.judge
+    blob = json.dumps(
+        {"backend": judge.backend, "model": judge.model,
+         "prompt": sv.prompt_hashes[judge.prompt]}, sort_keys=True,
+    )  # fmt: skip
+    return f"jv_{hashlib.sha256(blob.encode()).hexdigest()[:12]}"
 
 
 class ExpectedVerdict(StrictModel):

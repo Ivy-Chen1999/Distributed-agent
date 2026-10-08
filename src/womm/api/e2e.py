@@ -387,6 +387,147 @@ def create_e2e_app() -> FastAPI:
     return create_app(settings, sv=sv, fixture=fixture, backends=backends)
 
 
+# ----------------------------------------------------------------------------- evolution page
+
+EVOLUTION_CYCLE = "cycle_e2e_demo"
+WORKFORCE_PROMPT = (
+    "You are the Workforce expert. For each provision in scope, identify effects on workers and "
+    "employment: skills and training needs created by new obligations, staffing of compliance "
+    "and oversight roles, changes in working conditions for people who operate or are subject "
+    "to AI systems, and labour-market effects on SMEs. Quote the provision text for every "
+    "finding and name the affected group precisely."
+)
+WORKFORCE_GLOSS = "effects on workers, skills, staffing and employment"
+
+
+def _split_rows(case_means: dict[str, list[float]], fixture: str = "ai_act") -> list[dict]:
+    """Archive metric rows (case, proposal, split level) from per-case run values."""
+    from statistics import fmean, stdev
+
+    rows: list[dict] = []
+    for metric, values in case_means.items():
+        sd = stdev(values) if len(values) > 1 else None
+        case = {"level": "case", "subject": "case_02_sme_impacts", "metric": metric,
+                "n": len(values), "mean": fmean(values), "sd": sd}  # fmt: skip
+        rows += [case,
+                 {**case, "level": "proposal", "subject": fixture, "n": 1, "sd": None},
+                 {**case, "level": "split", "subject": "", "n": 1, "sd": None}]  # fmt: skip
+    return rows
+
+
+async def seed_evolution(db: Any) -> dict[str, str]:
+    """A scripted self-evolution story for the evolution page (U9): the v1.0-unscoped seed and
+    its api twin, a prompt-stage child, a topology child adding a Workforce expert (promoted on
+    its api twin, weak mode) and a rejected dev candidate with an R37 regression. Decision
+    summaries are inserted as published (aggregates only). Returns the version ids by role."""
+    from womm.evolve.archive import Archive, archive_child, archive_twin, seed_archive
+    from womm.evolve.edits import build_candidate, render_diff, validate_diff
+
+    archive = Archive(db)
+    seed, seed_api = await seed_archive(archive, REPO_ROOT)
+
+    def fiscal_edit(sv: SystemVersion, extra: str) -> list[dict]:
+        role = next(e for e in sv.spec.experts if e.id == "fiscal").role
+        return [{"op": "edit_prompt", "role": "expert:fiscal",
+                 "new_text": sv.prompt_text(role) + extra}]  # fmt: skip
+
+    prompt_child = await archive_child(
+        archive, seed, validate_diff(seed, fiscal_edit(seed, "\nQuantify every cost you name.")),
+        origin="gepa", cycle_id=EVOLUTION_CYCLE,
+        proposer={"model": "claude-opus-5-5", "prompt_hash": "ph_reflect"},
+    )  # fmt: skip
+    add = [{"op": "add_expert", "id": "workforce", "domain": "workforce",
+            "prompt_text": WORKFORCE_PROMPT, "router_gloss": WORKFORCE_GLOSS}]  # fmt: skip
+    diff = validate_diff(prompt_child, add)
+    topology = build_candidate(prompt_child, diff)
+    target = {"kind": "missed_impact", "category": "social_environmental", "owner": "none"}
+    await archive.archive(
+        topology, origin="topology", parent_id=prompt_child.version_id, cycle_id=EVOLUTION_CYCLE,
+        diff={"ops": diff.ops_json(), "rendered": render_diff(prompt_child, topology),
+              "rationale": "Workforce impacts are missed in 2 proposals and no expert owns them.",
+              "target_pattern": target},
+        proposer={"model": "claude-opus-5-5", "prompt_hash": "ph_expert"},
+    )  # fmt: skip
+    topology_api = await archive_twin(archive, topology, cycle_id=EVOLUTION_CYCLE)
+    rejected = await archive_child(
+        archive, seed, validate_diff(seed, fiscal_edit(seed, "\nIgnore enforcement costs.")),
+        origin="gepa", cycle_id="cycle_e2e_rejected",
+        proposer={"model": "claude-opus-5-5", "prompt_hash": "ph_reflect"},
+    )  # fmt: skip
+
+    metrics = {
+        seed.version_id: ({"coverage": [0.5, 0.6, 0.55], "grounding": [0.9, 0.92, 0.91]},
+                          [0.6, 0.62, 0.58]),
+        prompt_child.version_id: ({"coverage": [0.6, 0.62, 0.64], "grounding": [0.9, 0.9, 0.92]},
+                                  None),
+        topology.version_id: ({"coverage": [0.7, 0.72, 0.68], "grounding": [0.91, 0.9, 0.92]},
+                              [0.61, 0.63, 0.6]),
+        rejected.version_id: ({"coverage": [0.66, 0.64, 0.65], "grounding": [0.8, 0.82, 0.81]},
+                              [0.3, 0.32, 0.31]),
+    }  # fmt: skip
+    for vid, (val, diff_runs) in metrics.items():
+        await archive.record_metrics(
+            vid,
+            "val",
+            _split_rows(val),
+            batch_id=f"rb_val_{vid[-6:]}",
+            judge_version="jv_e2e",
+            git_sha="e2e",
+            full_split=True,
+        )
+        if diff_runs:
+            await archive.record_metrics(
+                vid, "diff_check", [r for r in _split_rows({"coverage": diff_runs})
+                                    if r["level"] == "case"],
+                batch_id=f"rb_diff_{vid[-6:]}", judge_version="jv_e2e", git_sha="e2e",
+                full_split=True,
+            )  # fmt: skip
+
+    def delta(mean, low=None, high=None, sd=0.05):
+        return {"mean_delta": mean, "ci95_low": low, "ci95_high": high, "n_cases": 8,
+                "noise_sd": sd}  # fmt: skip
+
+    decisions = [
+        ("gate_e2e_promoted", EVOLUTION_CYCLE, topology_api.version_id, seed_api.version_id,
+         "weak", True, "promoted", "promoted (weak threshold: directional)", [],
+         ["weak mode: no minimum-detectable-delta report for this judge"],
+         {"coverage": delta(0.06), "grounding": delta(-0.01), "omissions_addressed": delta(0.0)},
+         3, ["insufficient_proposals"]),
+        ("gate_e2e_rejected", "cycle_e2e_rejected", rejected.version_id, seed.version_id, "dev",
+         False, "rejected", "rejected (dev-only, not deployable; weak threshold: directional)",
+         ["grounding_regression"], [],
+         {"coverage": delta(0.1), "grounding": delta(-0.1), "omissions_addressed": delta(0.0)},
+         3, ["insufficient_proposals"]),
+    ]  # fmt: skip
+    async with db.pool.connection() as conn:
+        for row in decisions:
+            (gate, cycle, cand, inc, mode, deployable, decision, label, reasons, notes, deltas,
+             n_proposals, flags) = row  # fmt: skip
+            await conn.execute(
+                "INSERT INTO promotion_decisions (gate_id, cycle_id, candidate_version,"
+                " incumbent_version, mode, deployable, decision, label, reasons, notes, deltas,"
+                " n_proposals, flags, policy_sha256, git_sha) VALUES (%s, %s, %s, %s, %s, %s, %s,"
+                " %s, %s, %s, %s, %s, %s, 'sha_e2e_policy', 'e2e') ON CONFLICT DO NOTHING",
+                (gate, cycle, cand, inc, mode, deployable, decision, label, json.dumps(reasons),
+                 json.dumps(notes), json.dumps(deltas), n_proposals, json.dumps(flags)),
+            )  # fmt: skip
+    return {"seed": seed.version_id, "seed_api": seed_api.version_id,
+            "prompt": prompt_child.version_id, "topology": topology.version_id,
+            "topology_api": topology_api.version_id, "rejected": rejected.version_id}  # fmt: skip
+
+
+async def _seed_evolution_db(database_url: str) -> None:
+    from womm.api.db import Database
+
+    db = Database(database_url)
+    await db.open()
+    try:
+        await db.migrate()
+        await seed_evolution(db)
+    finally:
+        await db.close()
+
+
 def _admin_url(database_url: str) -> tuple[str, str]:
     """(URL of the server's maintenance database, name of the target database)."""
     base, _, name = database_url.rpartition("/")
@@ -415,7 +556,8 @@ def drop_database(database_url: str) -> None:
 
 
 def main(argv: list[str] | None = None) -> None:
-    """`python -m womm.api.e2e create-db|drop-db`: manage the database DATABASE_URL points at.
+    """`python -m womm.api.e2e create-db|drop-db|seed-evolution`: manage the database
+    DATABASE_URL points at (seed-evolution archives the scripted evolution story).
 
     Playwright starts its webServer before globalSetup runs, so the webServer command creates
     the fresh database right before starting uvicorn; globalTeardown drops it.
@@ -423,11 +565,14 @@ def main(argv: list[str] | None = None) -> None:
     import argparse
 
     parser = argparse.ArgumentParser(prog="python -m womm.api.e2e")
-    parser.add_argument("action", choices=["create-db", "drop-db"])
+    parser.add_argument("action", choices=["create-db", "drop-db", "seed-evolution"])
     args = parser.parse_args(argv)
     database_url = os.environ.get("DATABASE_URL", "")
     if not database_url:
         raise SystemExit("DATABASE_URL must be set")
+    if args.action == "seed-evolution":
+        asyncio.run(_seed_evolution_db(database_url))
+        return
     (create_database if args.action == "create-db" else drop_database)(database_url)
 
 

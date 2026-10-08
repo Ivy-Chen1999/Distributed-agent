@@ -51,7 +51,7 @@ QUESTION_VERSION = "gloss-v2"
 
 
 def relevance_question(expert: ExpertConfig) -> str:
-    gloss = DOMAIN_GLOSS.get(expert.domain, f"the {expert.domain} domain")
+    gloss = expert.router_gloss or DOMAIN_GLOSS.get(expert.domain, f"the {expert.domain} domain")
     return (
         f"Does assessing these regulatory changes need the {expert.id} specialist, who analyses "
         f"{gloss}?"

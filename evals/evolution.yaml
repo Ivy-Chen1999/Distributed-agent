@@ -1,0 +1,26 @@
+# The Improvement Planner (self-evolution plan U5): its LLM roles and the cycle budget.
+# These roles are fixed config: they are never part of an evolved SystemVersion (no planner or
+# evaluator self-improvement in v1). claude_code runs the isolated CLI on the local subscription
+# and must pass its isolation self-check first, like the experts.
+roles:
+  reflect:
+    backend: claude_code
+    model: claude-opus-5-5
+    prompt: prompts/evolution/reflect_prompt.md
+    timeout_s: 900
+  propose_expert:
+    backend: claude_code
+    model: claude-opus-5-5
+    prompt: prompts/evolution/propose_expert.md
+    timeout_s: 900
+budget:
+  max_metric_calls: 60      # case runs GEPA may request (cached replays count too)
+  max_usd: 25.0             # replays plus proposer calls; claude_code reports no cost
+  minibatch_size: 2
+  train_repetitions: 2      # minibatch acceptance
+  val_repetitions: 3        # full val, Pareto front, persistence of failure patterns
+  grounding_floor: 0.5      # a case run below this grounding scores 0
+  grounding_tolerance: 0.02 # candidate choice: val grounding may drop this much
+  selection_k: 1.0          # candidate choice: val coverage gain must exceed k x SE of the gain
+  reflective_chars: 12000   # reflective records per component
+  min_pattern_proposals: 2  # a new expert needs an unowned pattern across 2+ proposals

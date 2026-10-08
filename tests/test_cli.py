@@ -99,6 +99,28 @@ def test_eval_unknown_case(fake_version, tmp_path, capsys, use_script):
     assert "unknown golden case" in capsys.readouterr().err
 
 
+def test_eval_empty_split_is_usage_error(fake_version, tmp_path, capsys, use_script):
+    use_script({})
+    assert cli.main(_args(fake_version, tmp_path, "eval", "--split", "val")) == cli.EXIT_USAGE
+    assert "no golden cases selected (split=val" in capsys.readouterr().err
+
+
+def test_eval_holdout_split_not_selectable(fake_version, tmp_path, capsys):
+    with pytest.raises(SystemExit) as exc:
+        cli.main(_args(fake_version, tmp_path, "eval", "--split", "holdout"))
+    assert exc.value.code == cli.EXIT_USAGE
+    assert "invalid choice" in capsys.readouterr().err
+
+
+def test_eval_split_train_selects_cases(fake_version, tmp_path, capsys, use_script):
+    use_script(_script())
+    code = cli.main(_args(fake_version, tmp_path, "eval", "--split", "train",
+                          "--case", "case_02_sme_impacts", "--local", "--json"))  # fmt: skip
+    data = json.loads(capsys.readouterr().out)
+    assert code == cli.EXIT_OK and data["summary"]["scored"] == 1
+    assert data["metadata"]["splits"] == ["train"]
+
+
 def test_eval_local_json_skips_langsmith(fake_version, tmp_path, capsys, use_script, monkeypatch):
     use_script(_script())
 
@@ -122,6 +144,36 @@ def test_eval_baseline_on_dirty_tree_refused(
     code = cli.main(_args(fake_version, tmp_path, "eval", "--case", "case_02_sme_impacts",
                           "--baseline", "--local"))  # fmt: skip
     assert code == cli.EXIT_USAGE and "dirty" in capsys.readouterr().err
+
+
+def test_eval_formal_refuses_non_api_before_any_backend(
+    fake_version, tmp_path, capsys, monkeypatch
+):
+    async def must_not_run(*a, **k):
+        raise AssertionError("no backend or self-check before the formal refusal")
+
+    monkeypatch.setattr(cli, "prepare_backends", must_not_run)
+    code = cli.main(_args(fake_version, tmp_path, "eval", "--split", "train",
+                          "--repetitions", "6", "--formal", "--local"))  # fmt: skip
+    err = capsys.readouterr().err
+    assert code == cli.EXIT_USAGE and "api backend" in err
+
+
+@pytest.mark.parametrize("extra", [[], ["--split", "train", "--case", "case_02_sme_impacts"]])
+def test_eval_formal_needs_a_whole_split(fake_version, tmp_path, capsys, use_script, extra):
+    use_script(_script())
+    code = cli.main(_args(fake_version, tmp_path, "eval", "--formal", "--repetitions", "6",
+                          "--local", *extra))  # fmt: skip
+    assert code == cli.EXIT_USAGE and "--formal runs a whole split" in capsys.readouterr().err
+
+
+def test_eval_json_reports_split(fake_version, tmp_path, capsys, use_script):
+    use_script(_script())
+    code = cli.main(_args(fake_version, tmp_path, "eval", "--case", "case_02_sme_impacts",
+                          "--local", "--json"))  # fmt: skip
+    data = json.loads(capsys.readouterr().out)
+    assert code == cli.EXIT_OK and data["metadata"]["split"] == "train"
+    assert data["summary_by_split"]["train"]["summary"]["scored"] == 1
 
 
 def test_selfcheck_failure_reports_json(tmp_path, capsys, monkeypatch):

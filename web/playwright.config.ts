@@ -53,6 +53,8 @@ export default defineConfig({
         command: [
           'npm --prefix web run build',
           'uv run python -m womm.api.e2e create-db',
+          // The evolution page (R36 page 4) reads a scripted lineage archived up front.
+          'uv run python -m womm.api.e2e seed-evolution',
           `uv run uvicorn --factory womm.api.e2e:create_e2e_app --port ${PORT} --log-level warning`,
         ].join(' && '),
         cwd: '..',
