@@ -17,6 +17,14 @@ origin: docs/plans/2026-10-04-001-feat-golden-case-expansion-plan.md
 > - **Holdout material never reaches Railway.** Refused at load time, by structure and by tests, not by convention.
 > - **Target:** usable by classmates within about 1–2 days of implementation.
 
+> **Revision 2026-10-08 (later): least human work.** The user asked for the least human labour, keeping only the labelling that matters, following Anthropic's eval guidance (automate pipeline steps with LLMs; spend people on checking that the scoring judge agrees with people). This block wins over everything below.
+>
+> - **Golden cases need no human review.** A tie-break judge (`womm.eval.tiebreak`, PR #5) settles every item the three drafting judges left open and every `possibly_missing` candidate; unsure items are dropped. The audit samples are optional spot checks (`AUDIT_BLOCKS` off), still counted towards the per-proposal error rate when someone decides them.
+> - **The one required labelling task is the blind calibration** of the coverage judge (about 30 pairs, two people, about 25 minutes each). U6 is the core of this plan; the calibration screen follows the simplified prototype: one plain question per screen ("Does this report cover this impact?"), the expected impact as one sentence, the dossier passage with the matching text highlighted, three large buttons (Yes / No / Not sure) and an optional one-line note.
+> - **Spot checks are optional and secondary.** U5 shrinks to a read-and-answer card for `audit: true` items ("Does the report say this?": Yes / Almost / No / Not sure, one-line note), no edit forms, no diff, no owner queue. It ships after U6, or not at all for v1.
+> - **Dropped:** review queues for judge disagreements and candidates, in-form edits, the owner-only queue, per-case assignments to classmates.
+> - Unchanged: the PR stays the final gate, holdout material never reaches Railway, deployment is merge to `main`.
+
 ## Overview
 
 A labelling area inside the existing WOMM web console, served by the existing FastAPI app on Railway and stored in its Postgres:

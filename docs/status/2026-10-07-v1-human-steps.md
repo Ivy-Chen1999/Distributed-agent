@@ -4,13 +4,15 @@ Everything else in v1 is automated. This page lists the only steps a person must
 with who, how long, the exact commands, and what "done" looks like. Commands refer to
 `feat/v1-integration` (PR #6).
 
-Total human time: about 9–11 hours, spread over three to four people.
+Total human time: about 6–8 hours, nearly all the project owner's. Classmates have one task:
+the blind judge calibration (step 3), about 25 minutes each. Revised 2026-10-08: golden cases
+need no human review any more (step 1).
 
 | # | Step | Who | Time | Blocks |
 |---|---|---|---|---|
-| 1 | Review 11 train/val golden drafts | 2–3 classmates | 65–90 min in total | evolution on real data |
+| 1 | Merge the 11 tie-broken train/val drafts (no review required) | project owner | 15 min | evolution on real data |
 | 2 | Verify 8 holdout drafts and import them | project owner | 2–2.5 h | every promotion |
-| 3 | Label about 30 pairs for the coverage-judge calibration | 2 classmates | about 30 min each | statistical and weak gates |
+| 3 | Label about 30 pairs for the coverage-judge calibration (the only classmate task) | 2 classmates | about 25 min each | statistical and weak gates |
 | 4 | Sign the promotion policy | project owner | 15 min | every gate, dev included |
 | 5 | Provide an api key, run R34 and the MDD report | project owner | about 1 h plus run time | formal gates |
 | 6 | Write the R37 reference answers | project owner | about 1 h | nothing (monitoring only) |
@@ -23,17 +25,17 @@ before any promotion.
 
 ---
 
-## 1. Review the train/val golden drafts (classmates)
+## 1. Publish the train/val golden drafts (project owner, no review)
 
-- **What:** draft PRs #7–#17, one case each. Every PR body says how many decisions it needs
-  (8–14).
-- **How:** follow `docs/eval/golden-review-guide.md`. For each item whose `review.decision` is
-  `pending`, and for every `possibly_missing` candidate, choose verified / edited / rejected /
-  unclear and set `review.reviewer` to your GitHub username. Do not touch auto-accepted items.
-- **Assignment:** split the 11 PRs so nobody reviews a case they drafted. Give #11 (DGA, the
-  weakest draft) to the most careful reviewer.
-- **Done:** CI on the PR is green with the PR marked ready for review. The owner then publishes
-  the case with `scripts/publish_golden_cases.py` and merges.
+- **What:** draft PRs #7–#17, one case each. A tie-break judge has settled every item the three
+  drafting judges left open (`scripts/tiebreak_golden_case.py`); unsure items were dropped.
+- **Required human decisions: none.** Building the reference answers is pipeline work; people
+  are spent on calibrating the scoring judge (step 3), as Anthropic's eval guidance advises.
+- **Optional spot checks:** items marked `audit: true` (20% of what the judges and the tie-break
+  judge kept). Anyone may check a few with `scripts/review_draft.py`; decisions count towards
+  the per-proposal error rate, and over 10% sends that proposal back to full human review.
+- **Done:** CI green with each PR marked ready; the owner publishes with
+  `scripts/publish_golden_cases.py` and merges.
 
 ## 2. Verify and import the holdout drafts (project owner only)
 
