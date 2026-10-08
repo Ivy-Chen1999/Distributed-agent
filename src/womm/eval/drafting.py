@@ -30,8 +30,10 @@ Pipeline, all through the WOMM backend interface (roles in ``evals/drafting.yaml
 ``.cache/`` (gitignored); it refuses a holdout path anywhere else. Callers run holdout drafting
 inside ``langsmith.tracing_context(enabled=False)`` (``scripts/draft_golden_case.py`` does).
 
-No IA or RSB identifier is written: ``scrub_identifiers`` replaces the case's own identifiers
-(from the local IA index) in every drafted string before the file is written.
+No IA or RSB identifier is drafted: ``scrub_identifiers`` replaces the case's own identifiers
+(from the local IA index) in every drafted string. A train/val draft then gets ``review_links``,
+public EUR-Lex links to its IA and proposal for reviewers (``womm.eval.draft_edits``); they are
+not item content, so they are not digested. A holdout draft never carries them.
 """
 
 from __future__ import annotations
@@ -45,9 +47,10 @@ import random
 import re
 from pathlib import Path
 from typing import Any, Literal
+from urllib.parse import quote
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from womm.citations import match_quote, normalize
 from womm.config import REPO_ROOT
@@ -67,6 +70,9 @@ TOOL = "scripts/draft_golden_case.py"
 # Share of auto-accepted impacts and omissions re-checked by a human. Pinned: not configurable,
 # and the review gate refuses a draft whose recorded rate differs.
 AUDIT_RATE = 0.2
+# Public EUR-Lex page of a document by CELEX number; what reviewers of a train/val draft open.
+EURLEX_URL = "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:"
+EURLEX_LINK = r"^https://eur-lex\.europa\.eu/legal-content/EN/TXT/\?uri=CELEX:[0-9A-Za-z%]+$"
 
 Category = Literal[
     "compliance_cost",
@@ -353,6 +359,17 @@ class DraftStats(StrictModel):
     human_decisions_needed: int
 
 
+class ReviewLinks(StrictModel):
+    """Where a reviewer reads the evidence: the IA and the proposal on EUR-Lex. Train/val only."""
+
+    ia: str = Field(pattern=EURLEX_LINK)
+    proposal: str = Field(pattern=EURLEX_LINK)
+    ia_parts: int = Field(default=1, ge=1, description="The IA's parts (documents) on EUR-Lex.")
+    anchor_parts: dict[str, int] = Field(
+        default_factory=dict, description="item id -> IA part holding its anchor (multi-part IA)."
+    )
+
+
 class GoldenDraft(StrictModel):
     case_id: str = Field(pattern=r"^case_\d{2,}_[a-z0-9_]+$")
     scenario_id: str
@@ -360,11 +377,18 @@ class GoldenDraft(StrictModel):
     split: Split
     ia_reference: str
     notes: str = ""
+    review_links: ReviewLinks | None = None
     provenance: DraftProvenance
     stats: DraftStats
     expected_impacts: list[DraftImpact]
     important_omissions: list[DraftOmission] = Field(default_factory=list)
     possibly_missing: list[DraftCandidate] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _no_links_on_holdout(self) -> GoldenDraft:
+        if self.split == "holdout" and self.review_links is not None:
+            raise ValueError("a holdout draft never carries review_links (IA identifiers)")
+        return self
 
     def items(self) -> list[_DraftItem]:
         return [*self.expected_impacts, *self.important_omissions, *self.possibly_missing]
@@ -382,6 +406,11 @@ def check_anchor(quote: str, text: str, against: Literal["ia", "rsb"]) -> Anchor
     reason = match_quote(quote, text) if text else "not_found"
     status = {"ok": "verified", "not_found": "anchor_not_found"}.get(reason, reason)
     return AnchorCheck(status=status, against=against)  # type: ignore[arg-type]
+
+
+def eurlex_url(celex: str) -> str:
+    """EUR-Lex page of a CELEX number, percent-encoded (``52021SC0396(01)``)."""
+    return EURLEX_URL + quote(celex, safe="")
 
 
 def anchor_context(quote: str, text: str, chars: int) -> str | None:
@@ -818,7 +847,7 @@ async def draft_case(
 # ----------------------------------------------------------------------------- output
 
 
-DRAFT_HEADER = (
+LEGACY_DRAFT_HEADER = (
     "# DRAFT golden case written by scripts/draft_golden_case.py; not scored until published.\n"
     "# Review (docs/eval/golden-review-guide.md): decide every item whose review.decision is\n"
     "# 'pending' (judge disagree/uncertain, a deterministic flag, or audit: true) and every\n"
@@ -827,6 +856,17 @@ DRAFT_HEADER = (
     "# Do not change tool-written fields of an item you keep as auto_accepted or verified (CI\n"
     "# checks provenance.item_digests); the drafter (provenance.drafted_by) cannot review.\n"
     "# IA identifiers are kept in the gitignored evals/private/ia_index.yaml, never here.\n"
+)
+DRAFT_HEADER = (
+    "# DRAFT golden case written by scripts/draft_golden_case.py; not scored until published.\n"
+    "# Reviewer? Start with docs/eval/reviewer-quickstart.md. The helper lists what to decide:\n"
+    "#   uv run python scripts/review_draft.py <this file>\n"
+    "# Decide every item whose review.decision is 'pending' and every possibly_missing candidate\n"
+    "# as verified / edited / rejected / unclear, with your GitHub username in review.reviewer.\n"
+    "# Other auto-accepted items need no decision. Do not change tool-written fields of an item\n"
+    "# you keep as auto_accepted or verified (CI checks provenance.item_digests); the drafter\n"
+    "# (provenance.drafted_by) cannot review. review_links opens the public IA and proposal on\n"
+    "# EUR-Lex (train/val only); holdout identifiers never appear in a tracked file.\n"
 )
 
 
@@ -860,6 +900,8 @@ def write_draft(draft: GoldenDraft, out_dir: Path | None = None) -> Path:
     path = draft_path(draft.case_id, draft.split, out_dir)
     path.parent.mkdir(parents=True, exist_ok=True)
     data = draft.model_dump(mode="json")
+    if data["review_links"] is None:
+        del data["review_links"]
     for section in ("expected_impacts", "important_omissions", "possibly_missing"):
         data[section] = [_reviewer_order(i) for i in data[section]]
     body = yaml.safe_dump(data, sort_keys=False, allow_unicode=True, width=100)

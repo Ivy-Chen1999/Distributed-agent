@@ -24,7 +24,11 @@ pinned 0.2 or that was drafted with a test-only seed; and refuses the drafter as
 
 ``check_draft`` returns the problems that block a draft; ``build_case`` turns a fully decided
 draft into a ``GoldenCase``. The CI test (``tests/eval/test_golden_drafts.py``), the publish
-script and the local holdout verification script all use these functions.
+script and the local holdout verification script all use these functions. ``review_gate`` is
+the CI check of one draft file (also run by ``scripts/review_draft.py --check``): a file that
+does not parse is explained by item id and line rather than by a raw parser error.
+``decide_item`` applies one reviewer decision; both review scripts use it. Every problem names
+the item and says what to do, because the readers are often first-time reviewers.
 """
 
 from __future__ import annotations
@@ -34,17 +38,21 @@ import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import yaml
+from pydantic import ValidationError
 
 from womm.config import REPO_ROOT
 from womm.eval.drafting import (
     AUDIT_RATE,
     DIMENSIONS,
+    DRAFTS_DIR,
     DraftCandidate,
     DraftImpact,
     DraftOmission,
     GoldenDraft,
+    Review,
     _DraftItem,
     analyst_digest,
     audit_eligible,
@@ -52,6 +60,7 @@ from womm.eval.drafting import (
     check_anchor,
     draw_audit,
     item_digest,
+    load_draft,
     overall,
 )
 from womm.eval.golden import GOLDEN_DIR, ExpectedImpact, GoldenCase, Omission
@@ -69,6 +78,22 @@ GITHUB_USERNAME = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38
 AUDIT_TALLY_PATH = GOLDEN_DIR / "audit_tally.yaml"
 # The gitignored local registry of holdout proposals (the same file womm.eval.holdout reads).
 HOLDOUT_REGISTRY = REPO_ROOT / "evals" / "private" / "holdout_scenarios.yaml"
+DECIDE = "set review.decision to verified, edited, rejected or unclear"
+USERNAME_HINT = "use your GitHub username (as in github.com/<username>), not your display name"
+# Fields a reviewer may change with an 'edited' decision, per item kind.
+EDITABLE = {
+    "impact": ("affected_actor", "mechanism", "impact", "provision_keys", "ia_section", "category"),
+    "candidate": (
+        "affected_actor",
+        "mechanism",
+        "impact",
+        "provision_keys",
+        "ia_section",
+        "category",
+    ),
+    "omission": ("description", "provision_keys", "ia_section", "category"),
+}
+DECIDED_STATUS = {"verified": "human_verified", "edited": "human_edited"}
 
 
 class ReviewError(ValueError):
@@ -289,12 +314,17 @@ def integrity_problems(draft: GoldenDraft) -> list[str]:
         elif stored != item_digest(item) and item.review.decision in ("auto_accepted", "verified"):
             problems.append(
                 f"{where}: tool-written fields changed but the decision is "
-                f"{item.review.decision!r}; a changed item must be 'edited' with a reviewer"
+                f"{item.review.decision!r}; a changed item must be 'edited' with a reviewer. "
+                "If the change was a slip, undo it (git diff shows it); if you fixed the item on "
+                "purpose, set review.decision: edited, review.reviewer and a note"
             )
         if item.provenance.origin == "human_added":
             problems.extend(_analyst_digest_problems(draft, item, where))
     for gone in sorted(set(p.item_digests) - set(by_id)):
-        problems.append(f"{cid}/{gone}: item removed from the draft; decide it 'rejected' instead")
+        problems.append(
+            f"{cid}/{gone}: item removed from the draft; put it back and decide it 'rejected' "
+            "with a note instead"
+        )
     drafter = _person(p.drafted_by)
     if drafter:
         for item in draft.items():
@@ -489,18 +519,26 @@ def check_draft(
                 else bool(rev.reviewer.strip())
             )
             if not ok:
-                problems.append(f"{where}: reviewer {rev.reviewer!r} is not a GitHub username")
+                problems.append(
+                    f"{where}: reviewer {rev.reviewer!r} is not a GitHub username; {USERNAME_HINT}"
+                )
         if needs_human and not decided:
             if rev.decision == "auto_accepted" and not allow_pending:
                 problems.append(
-                    f"{where}: needs a human decision ({', '.join(reasons)}), not auto_accepted"
+                    f"{where}: needs a human decision ({', '.join(reasons)}), not auto_accepted; "
+                    f"{DECIDE}"
                 )
             elif rev.decision == "pending" and not allow_pending:
-                problems.append(f"{where}: pending ({', '.join(reasons)})")
+                problems.append(f"{where}: pending ({', '.join(reasons)}); {DECIDE}")
         if decided and not rev.reviewer and not allow_pending:
-            problems.append(f"{where}: decision {rev.decision!r} has no reviewer")
+            problems.append(
+                f"{where}: decision {rev.decision!r} has no reviewer; set review.reviewer to "
+                "your GitHub username"
+            )
         if rev.decision in NOTE_REQUIRED and not (rev.note or "").strip() and not allow_pending:
-            problems.append(f"{where}: decision {rev.decision!r} needs a short note saying why")
+            problems.append(
+                f"{where}: decision {rev.decision!r} needs a short note saying why (review.note)"
+            )
         problems.extend(human_added_problems(item, where, ia_text))
         kept_or_open = rev.decision not in DROPPED_DECISIONS
         if kept_or_open and not (allow_pending and rev.decision == "pending"):
@@ -644,3 +682,146 @@ def scenario_keys_for(draft: GoldenDraft) -> set[str]:
     except (FixtureError, KeyError, ValueError) as exc:
         raise ReviewError(f"{draft.case_id}: {exc}") from None
     return set(scenario.provision_keys)
+
+
+# ----------------------------------------------------------------------------- one decision
+
+
+def decide_item(item: _DraftItem, entry: Mapping[str, Any], reviewer: str) -> _DraftItem:
+    """``item`` decided by ``reviewer`` from a decisions entry ``{decision, note, edit}``; an
+    ``edit`` maps editable fields to new values and needs ``decision: edited``."""
+    where = item.item_id
+    unknown = set(entry) - {"decision", "note", "edit"}
+    if unknown:
+        raise ReviewError(f"{where}: unknown keys {sorted(unknown)}; use decision, note, edit")
+    decision = entry.get("decision")
+    if decision not in HUMAN_DECISIONS:
+        raise ReviewError(
+            f"{where}: decision must be one of {', '.join(HUMAN_DECISIONS)}, got {decision!r}"
+        )
+    raw_note = entry.get("note")
+    note = str(raw_note).strip() if raw_note is not None else ""
+    if decision in NOTE_REQUIRED and not note:
+        raise ReviewError(f"{where}: decision {decision!r} needs a note saying why")
+    edit = entry.get("edit") or {}
+    if not isinstance(edit, Mapping):
+        raise ReviewError(f"{where}: 'edit' must be a mapping of field -> new value")
+    if decision == "edited" and not edit:
+        raise ReviewError(f"{where}: decision 'edited' needs an 'edit' mapping of new values")
+    if edit and decision != "edited":
+        raise ReviewError(f"{where}: an edit needs decision 'edited', not {decision!r}")
+    allowed = EDITABLE[item_kind(item)]
+    bad = sorted(set(edit) - set(allowed))
+    if bad:
+        raise ReviewError(f"{where}: fields {bad} cannot be edited; editable: {list(allowed)}")
+    data = item.model_dump(mode="json") | dict(edit)
+    if isinstance(item, DraftCandidate) and decision in DECIDED_STATUS:
+        status = "human_confirmed_candidate"
+    else:
+        status = DECIDED_STATUS.get(decision, item.provenance.status)
+    data["provenance"] = {**data["provenance"], "status": status}
+    data["review"] = Review(
+        decision=decision, audit=item.review.audit, reviewer=reviewer, note=note or None
+    ).model_dump()
+    try:
+        return type(item).model_validate(data)
+    except ValidationError as exc:
+        raise ReviewError(f"{where}: the edit is not schema-valid: {exc}") from None
+
+
+# ----------------------------------------------------------------------------- the CI gate
+
+_SECTIONS = ("expected_impacts", "important_omissions", "possibly_missing")
+_ID_KEYS = ("expected_id", "omission_id", "candidate_id")
+_REVIEW_FIELDS = "decision, audit, reviewer, note"
+
+
+def _item_label(raw: Any, loc: tuple) -> tuple[str, tuple]:
+    """('c12_e02', rest of the location) for a schema error inside an item."""
+    if len(loc) >= 2 and loc[0] in _SECTIONS and isinstance(loc[1], int):
+        try:
+            item = raw[loc[0]][loc[1]]
+            label = next(str(item[k]) for k in _ID_KEYS if k in item)
+        except (LookupError, TypeError, StopIteration):
+            label = f"{loc[0]}[{loc[1]}]"
+        return label, tuple(loc[2:])
+    return "draft", tuple(loc)
+
+
+def explain_validation_error(raw: Any, exc: ValidationError) -> list[str]:
+    """One plain sentence per schema error, by item id and field."""
+    out = []
+    for err in exc.errors():
+        label, rest = _item_label(raw, tuple(err["loc"]))
+        field = ".".join(str(p) for p in rest) or "(item)"
+        value = err.get("input")
+        if err["type"] == "extra_forbidden":
+            hint = f"unknown field {field!r}; check its spelling and indentation"
+            if len(rest) >= 2 and rest[-2] == "review":
+                hint += f" (review fields: {_REVIEW_FIELDS})"
+            out.append(f"{label}: {hint}")
+        elif rest[-2:] == ("review", "decision"):
+            out.append(
+                f"{label}: review.decision is {value!r}; use one of verified, edited, rejected, "
+                "unclear (or leave it pending)"
+            )
+        elif err["type"] == "missing":
+            out.append(f"{label}: {field} is missing; was a line deleted or mis-indented?")
+        else:
+            out.append(f"{label}: {field}: {err['msg']} (got {value!r})")
+    return out
+
+
+def load_draft_for_review(path: Path) -> GoldenDraft:
+    """``load_draft`` with errors a first-time reviewer can act on (raises ``ReviewError``)."""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise ReviewError(f"{path.name}: cannot read the draft: {exc}") from None
+    try:
+        raw = yaml.safe_load(text)
+    except yaml.YAMLError as exc:
+        mark = getattr(exc, "problem_mark", None)
+        where = f"line {mark.line + 1}" if mark is not None else "an unknown line"
+        problem = getattr(exc, "problem", None) or str(exc).splitlines()[0]
+        raise ReviewError(
+            f"{path.name}: not valid YAML at or just above {where} ({problem}). Usually an "
+            "indentation slip: inside an item, 'review:' is indented 2 spaces and decision, "
+            "audit, reviewer and note 4 spaces. A note containing ': ' or ' #' needs quotes."
+        ) from None
+    try:
+        return GoldenDraft.model_validate(raw)
+    except ValidationError as exc:
+        lines = "\n  ".join(explain_validation_error(raw, exc))
+        raise ReviewError(f"{path.name}: the draft does not match its schema:\n  {lines}") from None
+
+
+def review_gate(path: Path, *, allow_pending: bool, drafts_dir: Path = DRAFTS_DIR) -> list[str]:
+    """The CI check of one draft file: the problems that block it (empty when it passes).
+
+    Escalation counts the open drafts in ``drafts_dir`` that parse, plus the audit tally."""
+    try:
+        draft = load_draft_for_review(path)
+        keys = scenario_keys_for(draft)
+    except ReviewError as exc:
+        return [str(exc)]
+    others = []
+    for other in sorted(drafts_dir.glob("*.yaml")):
+        if other.resolve() == path.resolve():
+            continue
+        try:
+            others.append(load_draft(other))
+        except (OSError, ValidationError, yaml.YAMLError):
+            continue  # its own gate reports it
+    escalated = draft.fixture in escalated_fixtures([draft, *others], load_audit_tally())
+    return check_draft(draft, keys, allow_pending=allow_pending, escalated=escalated)
+
+
+def gate_hint(path: Path | str) -> str:
+    """What a failing CI run tells the reviewer to do next."""
+    return (
+        "How to fix: docs/eval/reviewer-quickstart.md. Check locally with\n"
+        f"  uv run python scripts/review_draft.py {path} --check\n"
+        "A draft PR may leave items undecided; once the PR is marked ready for review, CI "
+        "requires every decision."
+    )

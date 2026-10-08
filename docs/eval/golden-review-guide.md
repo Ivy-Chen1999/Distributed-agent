@@ -1,8 +1,12 @@
 # Golden-case review guide
 
+First review? Read the one-page [reviewer quickstart](reviewer-quickstart.md) first; this guide
+holds the full rules.
+
 You are checking reference answers that an LLM drafted from an official impact assessment (IA).
 WOMM is scored against these answers, so a wrong item teaches the wrong lesson. Plan on about
-5–8 minutes per case. Record your minutes in `evals/annotation-assignments.md`.
+5–8 minutes per case. Post your minutes as a PR comment; the case owner logs them in
+`evals/annotation-assignments.md`, so the review PR keeps only the draft.
 
 ## What you review
 
@@ -33,8 +37,12 @@ proposal is **escalated**, every item needs a decision. A proposal is escalated 
 draft is published, its audit counts go into `evals/golden/audit_tally.yaml` (counts per
 proposal only), and later drafts of the same proposal are judged on the running total.
 
-To check an item, open the IA (the PR description links it) and search for the anchor quote. Read
-the paragraph around it.
+To check an item, open the IA and search for the anchor quote. Read the paragraph around it.
+The PR description and the draft's `review_links` block link the IA and the proposal on EUR-Lex
+(train/val cases only; holdout identifiers never appear in a tracked file). For an IA in several
+parts, `review_links.anchor_parts` names the part that holds each item's anchor.
+`uv run python scripts/review_draft.py` lists every item you must decide with its IA section, the
+words to search for, and the judges' reasons.
 
 ## Decisions
 
@@ -126,6 +134,10 @@ fields (`impact`, `affected_actor`, `mechanism`, `provision_keys`, `category`, t
 but not `raised_by` or `feedback_id`.
 
 ## How to edit in the PR
+
+With a checkout of the branch, `scripts/review_draft.py --interactive` (or `--template` and
+`--apply`) writes your decisions into the draft and `--check` runs the CI check; see the
+[quickstart](reviewer-quickstart.md). In the browser:
 
 1. Open **Files changed**, find the item, and click the `+` next to the `review:` lines.
 2. Use **Add a suggestion** (the ± icon) and change the lines, for example:
