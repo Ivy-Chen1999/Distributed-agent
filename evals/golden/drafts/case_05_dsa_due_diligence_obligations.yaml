@@ -109,19 +109,31 @@ provenance:
     c05_e07: db02f05704a0dfb335c7da6535a0aeba7cfb68dbcdff00482c1b6935cb513531
     c05_e08: a26ba30c24d0c008cdf29556240129b7aeaf6aabf4b6c4583e661dd76fd38010
     c05_e09: e03307dfc3c70bfa143b32efe3fd82b0caf718aaad68aaa067edbad7f8a7bfac
-    c05_e10: 8ddf0543490ee6e479575875ea9dc74b518e981a3533eb24b0670d2e261904b8
+    c05_e10: 27f93d6586deae24e3364b82e7e2f5eb16dffca856affba2b287fc49aad2477f
     c05_o01: 4a6a87f3e9a4136e862085149ec02a8ea306bb9f2bfe5613861b0a441c094ec8
-    c05_o02: 3e437c04f6a36f0438a2140e6280711608a4b61ed365b055b3931159d590e891
+    c05_o02: 0ff4507195a8e8b7e995ee093c5256e1879185ce46369cd915c1656eb7256ae4
     c05_o03: 7cb5e2587545211fdfcd44f8018be0bd4f42578f4bdb4d0ad5fc63c29b9d2e5c
     c05_o04: ca0e5a3a30bf54be661fa5cbea05abb6c89103afdcf752d81165678b83856007
-    c05_m01: 8a664351bfe70b0b93a8975fabd54e17d2574b2e785195372f7dcfb895339c86
-    c05_m02: 2703f60e2eda0fd9a50ed1abade1da3b30ae4177271c9b1f1a7946fde86678ff
-    c05_m03: 1af1a52d6275b5b5e687f53c861a9d76896b1b87493b7e0a90338887d7a41529
-    c05_m04: 0eacd8be03f4a923bdf42d4eb1599fde9701d13c30aabb9772ba1dbb2535db64
-    c05_m05: 0fa181759bb223a54c51d45a8053d528eb13f9f8cd5180a875e53f7f70028f72
-    c05_m06: c576cb1bf8700d5efd886d9bc1f5c1e40fa7740390325b78207cd46e982aa559
-    c05_m07: db978b860a26a450fb8737d9724e4bf36b5572a938fa20e4c1a2216ea68bbd44
-    c05_m08: 1cee9b1e3590e5e3fd5667795e654e221377a56caca9fd436607ce3a4710eea7
+    c05_m01: d2b602f07841c9cfd44652b3e1076d140070d48467c1f8d8e299b2af9a14eaf9
+    c05_m02: 5581cd2dd4983133f10ff44658d0710db97f68c0d3e7c4de8247b6e8321b75f0
+    c05_m03: 7b8d95bd8cbb84721d7dbd26580f046288832b165e0ced9c94a65245f619c9d1
+    c05_m04: fea313cf1f7ea3090564ac6334756cc1538ed5b285fe39c59e2d521b3acb6b29
+    c05_m05: f6c4bbf931c02630b64f24b970a5d9594fed1cf0d166493ddb39282fa543ea98
+    c05_m06: 3161a961bedafb22e8b1870e035bfe3a6ab54394fddd573b40b6ee387463be72
+    c05_m07: 8b811af42e2592b4de01d112dad3d2a43ab5248f2467cc20c95f98826c31f9a3
+    c05_m08: 5f4ac6c59b8051dd1cb605f41ddddbb0a57285098b048203df55831a35409f07
+  tiebreak_audit:
+    seed: 2649501197
+    rate: 0.2
+    eligible: 4
+    eligible_ids:
+    - c05_e10
+    - c05_m01
+    - c05_m05
+    - c05_m08
+    sampled:
+    - c05_m08
+    non_publishable_test_seed: false
 stats:
   items: 22
   expected_impacts: 10
@@ -131,10 +143,12 @@ stats:
   judge_agree: 17
   judge_disagree: 2
   judge_uncertain: 3
-  auto_accepted: 13
-  pending: 9
-  audited: 3
-  human_decisions_needed: 13
+  auto_accepted: 12
+  pending: 0
+  audited: 4
+  human_decisions_needed: 0
+  llm_kept: 4
+  llm_dropped: 6
 expected_impacts:
 - expected_id: c05_e01
   affected_actor: Providers of hosting services
@@ -219,10 +233,10 @@ expected_impacts:
     overall: agree
   provenance:
     origin: llm_drafted
-    status: needs_human
+    status: llm_judged
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: auto_accepted
     audit: true
     reviewer: null
     note: null
@@ -309,10 +323,10 @@ expected_impacts:
     overall: agree
   provenance:
     origin: llm_drafted
-    status: needs_human
+    status: llm_judged
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: auto_accepted
     audit: true
     reviewer: null
     note: null
@@ -433,10 +447,10 @@ expected_impacts:
     overall: agree
   provenance:
     origin: llm_drafted
-    status: needs_human
+    status: llm_judged
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: auto_accepted
     audit: true
     reviewer: null
     note: null
@@ -563,12 +577,19 @@ expected_impacts:
       reason: The impact mixes general user/consumer benefits with explicit mention of fundamental rights,
         so consumers_users and fundamental_rights fit about equally well.
     overall: uncertain
+  tiebreak:
+    verdict: keep
+    original_category: consumers_users
+    reason: Para 181 states the VLOP enhanced obligations lead to a safer environment for users and respect
+      of their fundamental rights, benefiting compliant platforms; Arts 26-27 create the risk management
+      duty.
+    model: claude-opus-5-5
   provenance:
     origin: llm_drafted
-    status: needs_human
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: llm_kept
     audit: false
     reviewer: null
     note: null
@@ -656,12 +677,18 @@ important_omissions:
       reason: Costs scaling with notice/complaint volume and dispute fees are substantive operational
         costs of compliance, fitting compliance_cost.
     overall: uncertain
+  tiebreak:
+    verdict: drop
+    original_category: compliance_cost
+    reason: Para 192 supports volume-dependent costs, but the IA says nothing about platforms reimbursing
+      recipients' fees or not recovering their own; the claim adds unsupported content.
+    model: claude-opus-5-5
   provenance:
     origin: llm_drafted
-    status: needs_human
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: llm_dropped
     audit: false
     reviewer: null
     note: null
@@ -788,12 +815,18 @@ possibly_missing:
       verdict: agree
       reason: Dedicated compliance officer staffing is a substantive organisational cost, matching compliance_cost.
     overall: agree
+  tiebreak:
+    verdict: keep
+    original_category: compliance_cost
+    reason: 'The IA cost table attributes ''Compliance officer: very large platforms estimated between
+      1-5 FTEs'', matching Art 32; c05_o03 only aggregates it, so this is not a duplicate.'
+    model: claude-opus-5-5
   provenance:
     origin: llm_recall
-    status: llm_judged
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: auto_accepted
+    decision: llm_kept
     audit: false
     reviewer: null
     note: null
@@ -838,12 +871,18 @@ possibly_missing:
       reason: This is about the specific burden on micro-enterprises from lack of exemption, matching
         sme_specific.
     overall: disagree
+  tiebreak:
+    verdict: drop
+    original_category: sme_specific
+    reason: Duplicates the already-kept c05_o01 (micro hosting providers not exempt from notice and action,
+      ~EUR 15,000 per annum for 50 notices).
+    model: claude-opus-5-5
   provenance:
     origin: llm_recall
-    status: needs_human
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: llm_dropped
     audit: false
     reviewer: null
     note: null
@@ -885,12 +924,18 @@ possibly_missing:
       reason: Operating complaint handling and reimbursing dispute fees are substantive operational costs,
         fitting compliance_cost.
     overall: uncertain
+  tiebreak:
+    verdict: drop
+    original_category: compliance_cost
+    reason: Para 193 only says ADR availability likely adds negligible costs. It does not discuss binding
+      decisions, fee reimbursement or non-automated complaint handling, so the claim goes beyond the IA.
+    model: claude-opus-5-5
   provenance:
     origin: llm_recall
-    status: needs_human
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: llm_dropped
     audit: false
     reviewer: null
     note: null
@@ -933,12 +978,18 @@ possibly_missing:
       reason: The mechanism is explicitly an SME exemption from heavier obligations, which matches sme_specific
         ('incl. exemptions') more directly than market_competition.
     overall: disagree
+  tiebreak:
+    verdict: drop
+    original_category: market_competition
+    reason: Para 181 ties the benefit to asymmetric VLOP obligations, not to the Art 16 micro/small exemption,
+      and does not mention new services scaling up; the actor and mechanism are reframed.
+    model: claude-opus-5-5
   provenance:
     origin: llm_recall
-    status: needs_human
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: llm_dropped
     audit: false
     reviewer: null
     note: null
@@ -977,12 +1028,19 @@ possibly_missing:
       verdict: agree
       reason: The impact is framed as more choice and agency for users, matching consumers_users.
     overall: agree
+  tiebreak:
+    verdict: keep
+    original_category: consumers_users
+    reason: Para 189 states enhanced transparency on advertising reaching consumers builds resilience
+      and gives more choice and agency to users, in a competitive environment; Arts 24 and 30 provide
+      the transparency.
+    model: claude-opus-5-5
   provenance:
     origin: llm_recall
-    status: llm_judged
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: auto_accepted
+    decision: llm_kept
     audit: false
     reviewer: null
     note: null
@@ -1021,12 +1079,18 @@ possibly_missing:
       verdict: agree
       reason: This is about creating a level playing field between EU and non-EU providers, matching market_competition.
     overall: agree
+  tiebreak:
+    verdict: unsure
+    original_category: market_competition
+    reason: Para 183 attributes the level-playing-field effect specifically to the first option, and the
+      link to Art 11 is inferred, so it is unclear whether this holds for the adopted proposal.
+    model: claude-opus-5-5
   provenance:
     origin: llm_recall
-    status: llm_judged
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: auto_accepted
+    decision: llm_dropped
     audit: false
     reviewer: null
     note: null
@@ -1066,12 +1130,18 @@ possibly_missing:
       verdict: agree
       reason: This concerns effects on third-country platforms entering the EU market, matching international.
     overall: agree
+  tiebreak:
+    verdict: drop
+    original_category: international
+    reason: Duplicates the already-kept c05_o04 (GDPR representatives absorb the cost, trust signal, no
+      significant effect on legitimate third-country platforms).
+    model: claude-opus-5-5
   provenance:
     origin: llm_recall
-    status: needs_human
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: llm_dropped
     audit: false
     reviewer: null
     note: null
@@ -1111,12 +1181,19 @@ possibly_missing:
       reason: Reduced illegal competing offers improving legitimate businesses' competitiveness matches
         market_competition.
     overall: agree
+  tiebreak:
+    verdict: keep
+    original_category: market_competition
+    reason: Para 186 states a positive effect on the competitiveness of legitimate business users, manufacturers
+      and brand owners by reducing illegal offerings; Art 14 notice mechanisms let any entity flag such
+      content.
+    model: claude-opus-5-5
   provenance:
     origin: llm_recall
-    status: llm_judged
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: auto_accepted
-    audit: false
+    decision: llm_kept
+    audit: true
     reviewer: null
     note: null
