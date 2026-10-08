@@ -1,0 +1,1199 @@
+# DRAFT golden case written by scripts/draft_golden_case.py; not scored until published.
+# Reviewer? Start with docs/eval/reviewer-quickstart.md. The helper lists what to decide:
+#   uv run python scripts/review_draft.py <this file>
+# Decide every item whose review.decision is 'pending' and every possibly_missing candidate
+# as verified / edited / rejected / unclear, with your GitHub username in review.reviewer.
+# Other auto-accepted items need no decision. Do not change tool-written fields of an item
+# you keep as auto_accepted or verified (CI checks provenance.item_digests); the drafter
+# (provenance.drafted_by) cannot review. review_links opens the public IA and proposal on
+# EUR-Lex (train/val only); holdout identifiers never appear in a tracked file.
+case_id: case_05_dsa_due_diligence_obligations
+scenario_id: eval_due_diligence_obligations
+fixture: dsa
+split: train
+ia_reference: 'Impact assessment accompanying the Digital Services Act proposal (identifiers in the local
+  IA index); sections: 6.1. Economic impacts; 8. Preferred option'
+notes: ''
+review_links:
+  ia: https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:52020SC0348
+  proposal: https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:52020PC0825
+  ia_parts: 2
+  anchor_parts:
+    c05_e01: 1
+    c05_e02: 1
+    c05_e03: 1
+    c05_e04: 1
+    c05_e05: 1
+    c05_e06: 1
+    c05_e07: 1
+    c05_e08: 1
+    c05_e09: 1
+    c05_e10: 1
+    c05_o01: 1
+    c05_o02: 1
+    c05_o03: 1
+    c05_o04: 1
+    c05_m01: 1
+    c05_m02: 1
+    c05_m03: 1
+    c05_m04: 1
+    c05_m05: 1
+    c05_m06: 1
+    c05_m07: 1
+    c05_m08: 1
+provenance:
+  tool: scripts/draft_golden_case.py
+  drafted_on: '2026-10-06'
+  drafted_by: Chen Yuxin
+  drafting_model: claude-opus-5-5
+  roles:
+    drafter:
+      backend: claude_code
+      model: claude-opus-5-5
+      prompt: prompts/tools/draft_golden_case.md
+    recall:
+      backend: claude_code
+      model: claude-opus-5-5
+      prompt: prompts/tools/recall_golden_case.md
+    judge_anchor:
+      backend: claude_code
+      model: claude-sonnet-5
+      prompt: prompts/tools/judge_anchor.md
+    judge_derivability:
+      backend: claude_code
+      model: claude-sonnet-5
+      prompt: prompts/tools/judge_derivability.md
+    judge_category:
+      backend: claude_code
+      model: claude-sonnet-5
+      prompt: prompts/tools/judge_category.md
+  prompt_hashes:
+    prompts/tools/draft_golden_case.md: c72bd341e2c3ef75
+    prompts/tools/recall_golden_case.md: 36f0a5dcc15a57c6
+    prompts/tools/judge_anchor.md: 0d81eb4d5d2b43bd
+    prompts/tools/judge_derivability.md: 97471d88c14d32c3
+    prompts/tools/judge_category.md: 8b1885320b65b60f
+  ia_sections:
+  - 6.1. Economic impacts
+  - 8. Preferred option
+  rsb_status: opinion none found in Cellar
+  audit:
+    seed: 910200770
+    rate: 0.2
+    eligible: 12
+    eligible_ids:
+    - c05_e01
+    - c05_e02
+    - c05_e03
+    - c05_e04
+    - c05_e05
+    - c05_e06
+    - c05_e07
+    - c05_e08
+    - c05_e09
+    - c05_o01
+    - c05_o03
+    - c05_o04
+    sampled:
+    - c05_e02
+    - c05_e04
+    - c05_e07
+    non_publishable_test_seed: false
+  item_digests:
+    c05_e01: c841747ad819c067b06bcb26ec9f895c235cc2bf6dd4d28a316fa813d1685c20
+    c05_e02: f1af1e9819a23eaf3b466db2d93a115a733538b3bbff351f202cd0b0964a21e9
+    c05_e03: 8e17d91a15f873fc6949a9575520ad91a89f5e0066fa6819f463f258089c8a71
+    c05_e04: a11b7e8bf3138cb40f2b73b140e41ef97203c37ad32cb8a16b0840f52cfa04fe
+    c05_e05: fdb4c92fce95d385756b38c1263a6ab01c32abc5b3064b0446c9fc08d2553fb9
+    c05_e06: a89c079258a83b733bc12dd1dbd65fe69f021c653a49839f9a12048dd63cc6f1
+    c05_e07: db02f05704a0dfb335c7da6535a0aeba7cfb68dbcdff00482c1b6935cb513531
+    c05_e08: a26ba30c24d0c008cdf29556240129b7aeaf6aabf4b6c4583e661dd76fd38010
+    c05_e09: e03307dfc3c70bfa143b32efe3fd82b0caf718aaad68aaa067edbad7f8a7bfac
+    c05_e10: 27f93d6586deae24e3364b82e7e2f5eb16dffca856affba2b287fc49aad2477f
+    c05_o01: 4a6a87f3e9a4136e862085149ec02a8ea306bb9f2bfe5613861b0a441c094ec8
+    c05_o02: 0ff4507195a8e8b7e995ee093c5256e1879185ce46369cd915c1656eb7256ae4
+    c05_o03: 7cb5e2587545211fdfcd44f8018be0bd4f42578f4bdb4d0ad5fc63c29b9d2e5c
+    c05_o04: ca0e5a3a30bf54be661fa5cbea05abb6c89103afdcf752d81165678b83856007
+    c05_m01: d2b602f07841c9cfd44652b3e1076d140070d48467c1f8d8e299b2af9a14eaf9
+    c05_m02: 5581cd2dd4983133f10ff44658d0710db97f68c0d3e7c4de8247b6e8321b75f0
+    c05_m03: 7b8d95bd8cbb84721d7dbd26580f046288832b165e0ced9c94a65245f619c9d1
+    c05_m04: fea313cf1f7ea3090564ac6334756cc1538ed5b285fe39c59e2d521b3acb6b29
+    c05_m05: f6c4bbf931c02630b64f24b970a5d9594fed1cf0d166493ddb39282fa543ea98
+    c05_m06: 3161a961bedafb22e8b1870e035bfe3a6ab54394fddd573b40b6ee387463be72
+    c05_m07: 8b811af42e2592b4de01d112dad3d2a43ab5248f2467cc20c95f98826c31f9a3
+    c05_m08: 5f4ac6c59b8051dd1cb605f41ddddbb0a57285098b048203df55831a35409f07
+  tiebreak_audit:
+    seed: 2649501197
+    rate: 0.2
+    eligible: 4
+    eligible_ids:
+    - c05_e10
+    - c05_m01
+    - c05_m05
+    - c05_m08
+    sampled:
+    - c05_m08
+    non_publishable_test_seed: false
+stats:
+  items: 22
+  expected_impacts: 10
+  important_omissions: 4
+  possibly_missing: 8
+  anchors_verified: 22
+  judge_agree: 17
+  judge_disagree: 2
+  judge_uncertain: 3
+  auto_accepted: 12
+  pending: 0
+  audited: 4
+  human_decisions_needed: 0
+  llm_kept: 4
+  llm_dropped: 6
+expected_impacts:
+- expected_id: c05_e01
+  affected_actor: Providers of hosting services
+  mechanism: Duty to set up easy-to-access electronic notice-and-action mechanisms, process notices in
+    a timely, diligent and objective way, confirm receipt and notify the notifier of decisions and redress
+    options
+  impact: One-off cost of up to EUR 15.000 for a notice-and-action technical system plus light maintenance.
+    Costs rise with notice volume, to about EUR 1 million for 200 notices a day, and personnel is the
+    main expense. For most companies this means adapting existing processes rather than a new cost.
+  provision_keys:
+  - dsa/proposal/art/14
+  ia_section: 6.1. Economic impacts – Costs and administrative burdens on digital services (Table 4)
+  ia_anchor: Estimates range from a one-off maximum cost of EUR 15.000 for establishing a notice-and-action
+    technical system and light maintenance
+  anchor:
+    status: verified
+    against: ia
+  category: compliance_cost
+  derivability:
+    verdict: 'yes'
+    reason: Article 14 directly requires hosting providers to build and run notice mechanisms and to process
+      notices, which clearly creates set-up and staffing costs.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: The anchor and surrounding table text confirm the EUR 15.000 one-off cost, scaling to EUR
+        1 million for 200 notices/day, personnel as main expense, and that most companies just adapt existing
+        processes.
+    derivability:
+      verdict: agree
+      reason: Article 14 directly imposes the notice-and-action mechanism, processing duties, confirmation
+        and decision-notification obligations on hosting providers.
+    category:
+      verdict: agree
+      reason: Building and maintaining the notice-and-action technical system and staffing it is a substantive
+        technical/organisational measure to meet the requirement, matching compliance_cost.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c05_e02
+  affected_actor: Intermediary service providers not established in the EU but offering services in the
+    Union
+  mechanism: Obligation to designate a legal representative in a Member State, give it the powers and
+    resources to cooperate with authorities, and notify its contact details
+  impact: Estimated cost of EUR 50.000 to EUR 550.000 per annum, depending on the FTEs needed. Most companies
+    can partly or fully absorb this cost through representatives they already have under other EU rules.
+  provision_keys:
+  - dsa/proposal/art/11
+  ia_section: 6.1. Economic impacts – Costs and administrative burdens on digital services (Table 4)
+  ia_anchor: Estimated between EUR 50.000 to EUR 550.000 per annum, depending on the FTE necessary to
+    complete the tasks.
+  anchor:
+    status: verified
+    against: ia
+  category: compliance_cost
+  derivability:
+    verdict: 'yes'
+    reason: Article 11 requires non-EU providers to appoint and resource a legal representative, which
+      clearly implies an ongoing cost.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context confirms the EUR 50.000-550.000 per annum range for legal representatives of non-EU
+        providers and that costs can be partly/fully absorbed via existing legal representative requirements.
+    derivability:
+      verdict: agree
+      reason: Article 11 explicitly requires non-EU providers to designate a resourced legal representative
+        and notify contact details.
+    category:
+      verdict: agree
+      reason: Designating a resourced legal representative is a substantive organisational measure, fitting
+        compliance_cost.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: true
+    reviewer: null
+    note: null
+- expected_id: c05_e03
+  affected_actor: Intermediary service providers other than micro and small enterprises
+  mechanism: Annual publication of detailed content moderation reports covering orders, notices, own-initiative
+    moderation and complaints
+  impact: 0.1 to 2 FTEs plus one-off development of data collection, absorbed into system development.
+    Micro and small enterprises are exempt.
+  provision_keys:
+  - dsa/proposal/art/13
+  ia_section: 6.1. Economic impacts – Costs and administrative burdens on digital services (Table 4)
+  ia_anchor: 0.1 and up to 2 FTEs and one-off development data collection, absorbed in the development
+    of systems
+  anchor:
+    status: verified
+    against: ia
+  category: administrative_burden
+  derivability:
+    verdict: 'yes'
+    reason: Article 13 sets a reporting duty with specified data categories and an exemption for micro
+      and small enterprises.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context confirms the 0.1-2 FTE plus one-off development cost absorbed into systems, applicable
+        to all intermediary services excluding small/micro enterprises, matching the claim's actor and
+        impact.
+    derivability:
+      verdict: agree
+      reason: Article 13 sets the annual reporting duty with the listed data categories and exempts micro/small
+        enterprises.
+    category:
+      verdict: agree
+      reason: Publishing periodic content moderation reports is a pure reporting/documentation duty, matching
+        administrative_burden.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c05_e04
+  affected_actor: Online platforms displaying advertising (excluding micro and small enterprises)
+  mechanism: 'Real-time disclosure to users for each ad: that it is an ad, on whose behalf it is shown,
+    and the main targeting parameters'
+  impact: Costs are absorbed in routine system development. Collecting and providing data on targeting
+    criteria is largely covered by existing GDPR compliance, with minor extra costs for publishing information
+    up front.
+  provision_keys:
+  - dsa/proposal/art/24
+  - dsa/proposal/art/16
+  ia_section: 6.1. Economic impacts – Costs and administrative burdens on digital services (Table 4)
+  ia_anchor: Data collection and availability as regards information on the functioning and targeting
+    criteria, when applicable, by and large absorbed into GDPR compliance
+  anchor:
+    status: verified
+    against: ia
+  category: compliance_cost
+  derivability:
+    verdict: 'yes'
+    reason: Article 24 requires interface changes and per-ad disclosure of advertiser and targeting parameters,
+      and Article 16 exempts micro and small platforms.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context confirms costs for online platforms (excluding micro/small) are absorbed in routine
+        development, with targeting-data costs largely absorbed into GDPR compliance and minor additional
+        costs for upfront publication.
+    derivability:
+      verdict: agree
+      reason: Article 24 creates the real-time ad-disclosure duty and Article 16, exempting the online-platforms
+        section (which includes Art. 24) for micro/small enterprises, supports the exemption claim.
+    category:
+      verdict: agree
+      reason: Implementing real-time ad disclosure features requires system development, a technical measure
+        fitting compliance_cost.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: true
+    reviewer: null
+    note: null
+- expected_id: c05_e05
+  affected_actor: Very large online platforms
+  mechanism: Annual identification, analysis and assessment of systemic risks (illegal content, fundamental
+    rights, intentional manipulation), including the role of recommender, moderation and ad systems
+  impact: Risk assessments estimated at EUR 40.000 to EUR 86.000 per annum, as a fixed organisational
+    cost.
+  provision_keys:
+  - dsa/proposal/art/26
+  ia_section: 6.1. Economic impacts – Costs and administrative burdens on digital services (Table 4)
+  ia_anchor: 'Risk assessments: estimated between EUR 40.000 and EUR 86.000 per annum'
+  anchor:
+    status: verified
+    against: ia
+  category: compliance_cost
+  derivability:
+    verdict: 'yes'
+    reason: Article 26 imposes a recurring annual risk assessment duty on very large online platforms.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor explicitly attributes the EUR 40.000-86.000 per annum risk assessment cost to very
+        large platforms, matching the claim exactly.
+    derivability:
+      verdict: agree
+      reason: Article 26 imposes the annual systemic risk assessment duty, specific to VLOPs, covering
+        the listed risk categories.
+    category:
+      verdict: agree
+      reason: The text itself describes this as a 'fixed organisational cost' for conducting risk analysis,
+        matching compliance_cost's organisational-measures wording.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c05_e06
+  affected_actor: Very large online platforms
+  mechanism: Annual independent audits of compliance with Chapter III and with code-of-conduct commitments,
+    carried out at the platform's own expense, plus audit implementation reports
+  impact: Audits estimated at EUR 55.000 to EUR 545.000 per annum.
+  provision_keys:
+  - dsa/proposal/art/28
+  ia_section: 6.1. Economic impacts – Costs and administrative burdens on digital services (Table 4)
+  ia_anchor: 'Audits: between EUR 55.000 and 545.000 EUR per annum'
+  anchor:
+    status: verified
+    against: ia
+  category: compliance_cost
+  derivability:
+    verdict: 'yes'
+    reason: Article 28 explicitly makes very large online platforms pay for annual independent audits.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor explicitly lists audits at EUR 55.000-545.000 per annum under the very large platforms
+        risk management row, matching the claim.
+    derivability:
+      verdict: agree
+      reason: Article 28 explicitly requires annual independent audits at the VLOP's own expense.
+    category:
+      verdict: agree
+      reason: Engaging independent auditors at the platform's own expense is a substantive organisational
+        cost of meeting the audit requirement, fitting compliance_cost.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c05_e07
+  affected_actor: Very large online platforms
+  mechanism: Duty to put in place reasonable, proportionate and effective mitigation measures tailored
+    to the systemic risks identified, such as adapting recommender or moderation systems or limiting ads
+  impact: Variable costs ranging from virtually nothing to significant amounts. Costs are highest where
+    the platform's own systems cause or worsen severe harms, and both duration and spending vary over
+    time.
+  provision_keys:
+  - dsa/proposal/art/27
+  ia_section: 6.1. Economic impacts – Costs and administrative burdens on digital services (Table 4)
+  ia_anchor: Risk mitigation measures are variable costs and can range from virtually no costs, to significant
+    amounts
+  anchor:
+    status: verified
+    against: ia
+  category: compliance_cost
+  derivability:
+    verdict: 'yes'
+    reason: Article 27 requires tailored mitigation measures whose cost depends on the risks found.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context confirms risk mitigation costs are variable, ranging from virtually none to significant,
+        worst when the platform's own systems cause/exacerbate harm, and duration/expenditure vary over
+        time, matching the claim.
+    derivability:
+      verdict: agree
+      reason: Article 27 requires tailored mitigation measures responsive to identified risks, consistent
+        with variable cost claim.
+    category:
+      verdict: agree
+      reason: Adapting recommender/moderation/ad systems to mitigate risks is a substantive technical
+        measure, clearly compliance_cost.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: true
+    reviewer: null
+    note: null
+- expected_id: c05_e08
+  affected_actor: Very large online platforms that display advertising
+  mechanism: Compiling a public, API-accessible ad repository that holds ad content, advertiser, display
+    period, targeting parameters and reach for one year after an ad was last displayed, with no personal
+    data
+  impact: Up to EUR 220.000 to build the APIs and quality controls for data completeness, accuracy, integrity,
+    security and availability.
+  provision_keys:
+  - dsa/proposal/art/30
+  ia_section: 6.1. Economic impacts – Costs and administrative burdens on digital services (Table 4)
+  ia_anchor: Up to 220.000 EUR for building APIs to give access to data and quality controls for data
+    completeness, accuracy and integrity
+  anchor:
+    status: verified
+    against: ia
+  category: compliance_cost
+  derivability:
+    verdict: 'yes'
+    reason: Article 30 explicitly requires a public repository made available through APIs, which implies
+      technical build costs.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor confirms the up to EUR 220.000 cost for very large platforms running ads to build
+        APIs and quality controls for data completeness, accuracy and integrity, matching the claim.
+    derivability:
+      verdict: agree
+      reason: Article 30 mandates the public API-accessible ad repository with the specified content and
+        one-year retention, excluding personal data.
+    category:
+      verdict: agree
+      reason: Building and running the ad repository API with quality controls is a technical/equipment
+        cost, matching compliance_cost.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c05_e09
+  affected_actor: Business users of online platforms (legitimate businesses and entrepreneurs)
+  mechanism: Right to an internal complaint-handling system, with reversal of unjustified decisions, and
+    access to certified out-of-court dispute settlement whose decisions bind the platform
+  impact: Better protection against wrongful removal or account suspension, which limits losses for legitimate
+    businesses and supports their competitiveness.
+  provision_keys:
+  - dsa/proposal/art/17
+  - dsa/proposal/art/18
+  ia_section: 6.1. Economic impacts – Competitiveness, innovation and investment
+  ia_anchor: In addition, the legally guaranteed availability of the internal and external complaint and
+    redress mechanisms would afford other better protections against erroneous removal and limit losses
+    for legitimate businesses and entrepreneurs.
+  anchor:
+    status: verified
+    against: ia
+  category: market_competition
+  derivability:
+    verdict: partly
+    reason: Articles 17–18 give recipients of the service redress rights. The provisions do not name the
+      benefit to business users specifically, but an expert can infer it.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context states that guaranteed internal/external complaint and redress mechanisms afford
+        better protection against erroneous removal and limit losses for legitimate businesses, matching
+        the claim.
+    derivability:
+      verdict: agree
+      reason: Articles 17-18 create the redress rights for 'recipients of the service' generally, so the
+        business-user-specific benefit is a reasonable but not explicit inference.
+    category:
+      verdict: agree
+      reason: The impact is framed around protecting business users' competitiveness, which fits market_competition.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c05_e10
+  affected_actor: Users of very large online platforms
+  mechanism: Systemic risk assessment and mitigation that covers illegal content, fundamental rights and
+    manipulation
+  impact: A safer online environment and better respect for users' fundamental rights, which also benefits
+    compliant platforms.
+  provision_keys:
+  - dsa/proposal/art/26
+  - dsa/proposal/art/27
+  ia_section: 6.1. Economic impacts – Functioning of the internal market and competition
+  ia_anchor: They would also lead to significant improvements of the service itself, not least in enduring
+    a safer environment for their users and the respect of their fundamental rights
+  anchor:
+    status: verified
+    against: ia
+  category: consumers_users
+  derivability:
+    verdict: 'yes'
+    reason: Articles 26–27 explicitly target risks to users' fundamental rights, minors and public health.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context confirms enhanced obligations on very large platforms lead to a safer environment
+        and respect for fundamental rights, which also benefits the compliant platform, matching the claim.
+    derivability:
+      verdict: agree
+      reason: Articles 26-27 explicitly address risks to fundamental rights, minors and public health
+        for users of VLOP services.
+    category:
+      verdict: unknown
+      reason: The impact mixes general user/consumer benefits with explicit mention of fundamental rights,
+        so consumers_users and fundamental_rights fit about equally well.
+    overall: uncertain
+  tiebreak:
+    verdict: keep
+    original_category: consumers_users
+    reason: Para 181 states the VLOP enhanced obligations lead to a safer environment for users and respect
+      of their fundamental rights, benefiting compliant platforms; Arts 26-27 create the risk management
+      duty.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_drafted
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_kept
+    audit: false
+    reviewer: null
+    note: null
+important_omissions:
+- omission_id: c05_o01
+  description: Micro and small hosting providers are not exempt from notice and action. Article 16 exempts
+    only online platforms from the platform section, and Article 14 has no SME carve-out. A micro-enterprise
+    receiving about 50 notices a year would still bear roughly EUR 15 000 per annum, which is large relative
+    to its turnover.
+  source: ia
+  provision_keys:
+  - dsa/proposal/art/14
+  - dsa/proposal/art/16
+  ia_section: 6.1. Economic impacts – SME test
+  ia_anchor: an average micro-enterprise receiving a volume of 50 notices per annum, out of which 5% would
+    make the object of a counter-notice procedure, should sustain a cost of approximately EUR 15 000 per
+    annum
+  anchor:
+    status: verified
+    against: ia
+  category: sme_specific
+  derivability:
+    verdict: 'yes'
+    reason: Article 14 applies to all hosting providers, and Article 16's exemption covers only online
+      platforms.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context confirms SMEs cannot be fully exempted from notice-and-action and that an average
+        micro-enterprise with 50 notices/year bears about EUR 15.000 per annum, matching the claim's core
+        assertion even though the specific article numbers aren't in this excerpt.
+    derivability:
+      verdict: agree
+      reason: Article 14 contains no SME carve-out and Article 16's exemption is limited to the online-platforms
+        section, not Article 14's hosting-services section.
+    category:
+      verdict: agree
+      reason: This is squarely about the disproportionate burden of a non-exempted obligation on micro-enterprises,
+        matching sme_specific.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- omission_id: c05_o02
+  description: Platforms' costs from notice handling, complaints and out-of-court dispute settlement scale
+    with the volume of notices, complaints and escalations. Platforms also pay the recipient's fees when
+    they lose an out-of-court dispute, and they cannot recover their own fees when they win.
+  source: ia
+  provision_keys:
+  - dsa/proposal/art/14
+  - dsa/proposal/art/17
+  - dsa/proposal/art/18
+  ia_section: 6.1. Economic impacts – Costs and administrative burdens on digital services
+  ia_anchor: Direct costs for the main due diligence obligations are common across all three options and
+    depend to a large extent on the number of notices and counter-notices received by a platform and cases
+    escalated to an out of court alternative dispute resolution system.
+  anchor:
+    status: verified
+    against: ia
+  category: compliance_cost
+  derivability:
+    verdict: 'yes'
+    reason: Article 18(3) sets the one-way fee allocation, and Articles 14 and 17 tie workload to notice
+      and complaint volumes.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: unknown
+      reason: The anchor confirms costs scale with notice/complaint/escalation volume, but the context
+        does not mention the specific rule about platforms paying the recipient's fees when losing an
+        ADR case or not recovering their own fees when winning.
+    derivability:
+      verdict: agree
+      reason: Articles 14 and 17 tie workload to notice/complaint volume and Article 18(3) creates the
+        asymmetric fee-reimbursement rule.
+    category:
+      verdict: agree
+      reason: Costs scaling with notice/complaint volume and dispute fees are substantive operational
+        costs of compliance, fitting compliance_cost.
+    overall: uncertain
+  tiebreak:
+    verdict: drop
+    original_category: compliance_cost
+    reason: Para 192 supports volume-dependent costs, but the IA says nothing about platforms reimbursing
+      recipients' fees or not recovering their own; the claim adds unsupported content.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_drafted
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
+- omission_id: c05_o03
+  description: Very large online platforms bear a cumulative recurring cost from the full set of obligations
+    (risk assessment, audits, ad repository, compliance officers of 1–5 FTEs), estimated at EUR 300.000
+    to EUR 3.500.000 per annum before variable mitigation costs. This cost falls on about 20 of the largest
+    platforms.
+  source: ia
+  provision_keys:
+  - dsa/proposal/art/26
+  - dsa/proposal/art/28
+  - dsa/proposal/art/30
+  - dsa/proposal/art/32
+  ia_section: 6.1. Economic impacts – Costs and administrative burdens on digital services
+  ia_anchor: Overall the additional costs for such service providers range from EUR 300.000 to EUR 3.500.000
+    per annum for the additional obligations, excluding potential variable costs for risk mitigation measures.
+  anchor:
+    status: verified
+    against: ia
+  category: compliance_cost
+  derivability:
+    verdict: 'yes'
+    reason: The provisions set out each obligation that applies only to very large online platforms, including
+      the compliance officer duty.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor directly states the EUR 300.000-3.500.000 per annum cumulative cost range for very
+        large platforms excluding variable mitigation costs, matching the claim.
+    derivability:
+      verdict: agree
+      reason: Each cited article imposes a distinct obligation applicable only to very large online platforms,
+        supporting a cumulative cost claim.
+    category:
+      verdict: agree
+      reason: Cumulative staffing, audit and system costs for VLOPs are substantive compliance costs,
+        matching compliance_cost.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- omission_id: c05_o04
+  description: Third-country providers face the legal representative requirement, but much of the cost
+    is absorbed where representatives already exist under other EU law such as the GDPR. Compliance can
+    also act as a commercial trust signal, so legitimate non-EU platforms are not expected to be significantly
+    affected.
+  source: ia
+  provision_keys:
+  - dsa/proposal/art/11
+  ia_section: 6.1. Economic impacts – Trade, third countries and international relations
+  ia_anchor: For most platforms, it is likely that legal representatives are already established as part
+    of other legal requirements under EU legislation
+  anchor:
+    status: verified
+    against: ia
+  category: international
+  derivability:
+    verdict: partly
+    reason: Article 11 clearly targets non-EU providers, but the overlap with GDPR representatives must
+      be inferred from outside the text.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context confirms legal representatives are often already established under other EU law
+        like GDPR, absorbing the cost, and that compliance can be a commercially beneficial trust signal,
+        matching the claim.
+    derivability:
+      verdict: agree
+      reason: Article 11 creates the designation duty for non-EU providers, but any GDPR-representative
+        overlap is not stated in the text and must be inferred.
+    category:
+      verdict: agree
+      reason: This concerns obligations and effects on third-country providers accessing the EU market,
+        matching international.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+possibly_missing:
+- candidate_id: c05_m01
+  affected_actor: Very large online platforms
+  mechanism: Appointment of one or more qualified, independent compliance officers, given resources and
+    reporting to top management, to monitor compliance and organise audits
+  impact: Recurring staffing cost estimated at 1-5 FTEs per very large platform
+  why_missing: None of the drafted pairs covers the compliance-officer obligation of Article 32.
+  provision_keys:
+  - dsa/proposal/art/32
+  ia_section: 6.1. Economic impacts
+  ia_anchor: Compliance officer | \ | \ | Very large platforms Estimated between 1-5FTEs
+  anchor:
+    status: verified
+    against: ia
+  category: compliance_cost
+  derivability:
+    verdict: partly
+    reason: Art. 32 clearly creates the obligation and its cost, but the FTE size comes only from the
+      IA.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor directly attributes the 1-5 FTE compliance officer cost estimate to very large platforms,
+        matching the claim.
+    derivability:
+      verdict: agree
+      reason: Article 32 creates the compliance officer obligation and resourcing duty, but the FTE estimate
+        is not derivable from the text.
+    category:
+      verdict: agree
+      reason: Dedicated compliance officer staffing is a substantive organisational cost, matching compliance_cost.
+    overall: agree
+  tiebreak:
+    verdict: keep
+    original_category: compliance_cost
+    reason: 'The IA cost table attributes ''Compliance officer: very large platforms estimated between
+      1-5 FTEs'', matching Art 32; c05_o03 only aggregates it, so this is not a duplicate.'
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_kept
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c05_m02
+  affected_actor: Micro and small enterprises providing hosting services
+  mechanism: Not exempt from the notice-and-action obligation, so they must set up and run notice processing
+    even though they are exempt from transparency reporting and the online-platform section
+  impact: Proportionate cost of about EUR 15,000 per annum for an average micro-enterprise receiving 50
+    notices a year; the cost could become prohibitive if notice volumes rise sharply
+  why_missing: The drafted notice-and-action pair covers hosting providers in general, not the separate
+    SME burden that the IA assesses.
+  provision_keys:
+  - dsa/proposal/art/14
+  - dsa/proposal/art/16
+  ia_section: 6.1. Economic impacts
+  ia_anchor: an average micro-enterprise receiving a volume of 50 notices per annum, out of which 5% would
+    make the object of a counter-notice procedure, should sustain a cost of approximately EUR 15 000 per
+    annum
+  anchor:
+    status: verified
+    against: ia
+  category: sme_specific
+  derivability:
+    verdict: partly
+    reason: Art. 14 has no SME exemption, unlike Arts. 13 and 16, so the SME burden can be inferred; the
+      amount comes from the IA.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context confirms micro/small hosting providers are not exempt from notice-and-action, bear
+        about EUR 15.000/annum for 50 notices, and costs could become prohibitive if volumes rise sharply,
+        matching the claim.
+    derivability:
+      verdict: disagree
+      reason: The mechanism (no SME exemption under Art. 14, unlike the Art. 16 exemption) is fully derivable
+        from the text alone, and per the stated standard numeric estimates need not be derivable, so this
+        should be 'yes' rather than 'partly', especially since the materially identical claim in c05_o01
+        was rated 'yes'.
+    category:
+      verdict: agree
+      reason: This is about the specific burden on micro-enterprises from lack of exemption, matching
+        sme_specific.
+    overall: disagree
+  tiebreak:
+    verdict: drop
+    original_category: sme_specific
+    reason: Duplicates the already-kept c05_o01 (micro hosting providers not exempt from notice and action,
+      ~EUR 15,000 per annum for 50 notices).
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c05_m03
+  affected_actor: Online platforms (excluding micro and small enterprises)
+  mechanism: Operating internal complaint handling that is not solely automated, engaging in good faith
+    with certified out-of-court bodies, being bound by their decisions and reimbursing fees when the recipient
+    wins
+  impact: Costs depend on complaint and escalation volumes and are uncertain, but are expected to add
+    negligible costs compared to the current system
+  why_missing: The draft covers only the benefit to business users of the complaint and dispute-settlement
+    rights, not the platform-side costs.
+  provision_keys:
+  - dsa/proposal/art/17
+  - dsa/proposal/art/18
+  ia_section: 6.1. Economic impacts
+  ia_anchor: The existence of alternative dispute resolution mechanisms in all Member States would however
+    facilitate access to such mechanisms and likely append negligible costs compared to the current system
+  anchor:
+    status: verified
+    against: ia
+  category: compliance_cost
+  derivability:
+    verdict: 'yes'
+    reason: Arts. 17-18 directly place handling, binding-decision and fee-reimbursement duties on platforms.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: unknown
+      reason: The context supports that ADR-related costs are expected to be negligible, but it does not
+        mention the specific mechanism of platforms being bound by ADR decisions or reimbursing the recipient's
+        fees when losing.
+    derivability:
+      verdict: agree
+      reason: Articles 17(5) and 18 directly impose the non-automated-decision, good-faith engagement,
+        binding-decision and fee-reimbursement duties.
+    category:
+      verdict: agree
+      reason: Operating complaint handling and reimbursing dispute fees are substantive operational costs,
+        fitting compliance_cost.
+    overall: uncertain
+  tiebreak:
+    verdict: drop
+    original_category: compliance_cost
+    reason: Para 193 only says ADR availability likely adds negligible costs. It does not discuss binding
+      decisions, fee reimbursement or non-automated complaint handling, so the claim goes beyond the IA.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c05_m04
+  affected_actor: Smaller and emerging online platforms (micro and small enterprises)
+  mechanism: Exemption from the online-platform section, with the heaviest obligations reserved for very
+    large platforms (asymmetric obligations)
+  impact: Smaller competitors avoid disproportionate obligations; this supports a level playing field
+    and lets new services scale up
+  why_missing: No drafted pair covers the competition effect of the asymmetric obligations or of the Art.
+    16 exemption.
+  provision_keys:
+  - dsa/proposal/art/16
+  - dsa/proposal/art/26
+  - dsa/proposal/art/27
+  - dsa/proposal/art/28
+  - dsa/proposal/art/30
+  ia_section: 6.1. Economic impacts
+  ia_anchor: making sure that smaller, emerging competitors are not affected by disproportionate obligations
+  anchor:
+    status: verified
+    against: ia
+  category: market_competition
+  derivability:
+    verdict: 'yes'
+    reason: The exemption in Art. 16 and the scope of Arts. 26-30, limited to very large platforms, make
+      the asymmetry plain.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context explicitly states asymmetric obligations ensure smaller, emerging competitors are
+        not affected by disproportionate obligations, matching the claim.
+    derivability:
+      verdict: agree
+      reason: Article 16's exemption combined with the VLOP-only scope of Articles 26-30 plainly establishes
+        the asymmetric obligation structure.
+    category:
+      verdict: disagree
+      reason: The mechanism is explicitly an SME exemption from heavier obligations, which matches sme_specific
+        ('incl. exemptions') more directly than market_competition.
+    overall: disagree
+  tiebreak:
+    verdict: drop
+    original_category: market_competition
+    reason: Para 181 ties the benefit to asymmetric VLOP obligations, not to the Art 16 micro/small exemption,
+      and does not mention new services scaling up; the actor and mechanism are reframed.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c05_m05
+  affected_actor: Users and consumers of online platforms
+  mechanism: Ad labelling and targeting-parameter disclosure, plus public ad repositories, increase transparency
+    of how advertising reaches them
+  impact: More choice and agency for users and a more resilient, competitive online environment
+  why_missing: The drafted ad pairs cover only platform compliance; the user-side benefit is drafted only
+    for risk assessment.
+  provision_keys:
+  - dsa/proposal/art/24
+  - dsa/proposal/art/30
+  ia_section: 6.1. Economic impacts
+  ia_anchor: afford enhanced transparency on key processes related to the prioritisation of information
+    which reaches consumers through online advertising and recommender systems
+  anchor:
+    status: verified
+    against: ia
+  category: consumers_users
+  derivability:
+    verdict: partly
+    reason: The benefit to users follows from the disclosure duties; the claimed effects on agency and
+      competition come from the IA.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor directly states that enhanced transparency on advertising/recommender systems builds
+        resilience and gives more choice and agency to users, matching the claim.
+    derivability:
+      verdict: agree
+      reason: Articles 24 and 30 create the underlying transparency mechanisms for users, while the broader
+        'choice and agency' and competitive effects go beyond the text.
+    category:
+      verdict: agree
+      reason: The impact is framed as more choice and agency for users, matching consumers_users.
+    overall: agree
+  tiebreak:
+    verdict: keep
+    original_category: consumers_users
+    reason: Para 189 states enhanced transparency on advertising reaching consumers builds resilience
+      and gives more choice and agency to users, in a competitive environment; Arts 24 and 30 provide
+      the transparency.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_kept
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c05_m06
+  affected_actor: Online intermediaries established in the EU
+  mechanism: Requiring non-EU providers that offer services in the Union to designate a legal representative
+    and fall under the same obligations
+  impact: A true regulatory level playing field between EU-based companies and non-EU companies targeting
+    the single market
+  why_missing: The draft covers only the cost to non-EU providers, not the competitive effect on EU-established
+    firms.
+  provision_keys:
+  - dsa/proposal/art/11
+  ia_section: 6.1. Economic impacts
+  ia_anchor: create a true regulatory level playing field between European Union-based companies and those
+    targeting the single market without being established in the EU
+  anchor:
+    status: verified
+    against: ia
+  category: market_competition
+  derivability:
+    verdict: partly
+    reason: Art. 11 extends enforceability to non-EU providers; the competitive effect on EU firms is
+      an IA inference.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor explicitly states the intervention creates a true regulatory level playing field
+        between EU-based companies and non-EU companies targeting the single market, matching the claim.
+    derivability:
+      verdict: agree
+      reason: Article 11 only directly regulates non-EU providers; the resulting level-playing-field effect
+        on EU-established providers requires an inference beyond the provision text.
+    category:
+      verdict: agree
+      reason: This is about creating a level playing field between EU and non-EU providers, matching market_competition.
+    overall: agree
+  tiebreak:
+    verdict: unsure
+    original_category: market_competition
+    reason: Para 183 attributes the level-playing-field effect specifically to the first option, and the
+      link to Art 11 is inferred, so it is unclear whether this holds for the adopted proposal.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c05_m07
+  affected_actor: Intermediary service providers not established in the EU but offering services in the
+    Union
+  mechanism: Compliance with EU rules via a legal representative, often already designated under GDPR,
+    which absorbs the cost
+  impact: No significant effect on legitimate third-country platforms; compliance could be a commercially
+    beneficial trust signal
+  why_missing: The drafted Art. 11 pair covers the designation cost, not the trade and trust-signal effect
+    on third-country providers.
+  provision_keys:
+  - dsa/proposal/art/11
+  ia_section: 6.1. Economic impacts
+  ia_anchor: compliance with EU rules could be a commercially beneficial trust signal for such providers
+  anchor:
+    status: verified
+    against: ia
+  category: international
+  derivability:
+    verdict: 'no'
+    reason: The trust-signal and GDPR-absorption effects are not in the provision text.
+  flags:
+  - not_derivable_from_provisions
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context confirms legal representative costs for non-EU providers are largely absorbed via
+        existing GDPR representatives and that compliance can be a commercially beneficial trust signal,
+        matching the claim.
+    derivability:
+      verdict: agree
+      reason: Article 11 does not mention GDPR representative overlap or any trust-signal benefit, so
+        this effect is not textually derivable.
+    category:
+      verdict: agree
+      reason: This concerns effects on third-country platforms entering the EU market, matching international.
+    overall: agree
+  tiebreak:
+    verdict: drop
+    original_category: international
+    reason: Duplicates the already-kept c05_o04 (GDPR representatives absorb the cost, trust signal, no
+      significant effect on legitimate third-country platforms).
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c05_m08
+  affected_actor: Legitimate business users, manufacturers and brand owners
+  mechanism: Notice-and-action mechanisms let them flag illegal offerings, reducing the availability of
+    illegal products and services online
+  impact: Improved competitiveness of legitimate businesses through fewer illegal competing offers
+  why_missing: The drafted business-user pair covers redress against wrongful removal, not the benefit
+    to notifiers of fewer illegal offerings.
+  provision_keys:
+  - dsa/proposal/art/14
+  ia_section: 6.1. Economic impacts
+  ia_anchor: positive effect on the competitiveness of legitimate business users of online platforms,
+    manufacturers or brand owners, by reducing the availability of illegal offerings
+  anchor:
+    status: verified
+    against: ia
+  category: market_competition
+  derivability:
+    verdict: partly
+    reason: Art. 14 lets anyone notify illegal content; the competitiveness effect on brand owners is
+      an IA claim.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context confirms a positive effect on the competitiveness of legitimate business users,
+        manufacturers and brand owners by reducing the availability of illegal offerings, consistent with
+        the claim, even though this specific anchor doesn't isolate notice-and-action as the sole mechanism.
+    derivability:
+      verdict: agree
+      reason: Article 14 lets any individual or entity notify illegal content, but the specific competitiveness
+        benefit to brand owners is an inference beyond the text.
+    category:
+      verdict: agree
+      reason: Reduced illegal competing offers improving legitimate businesses' competitiveness matches
+        market_competition.
+    overall: agree
+  tiebreak:
+    verdict: keep
+    original_category: market_competition
+    reason: Para 186 states a positive effect on the competitiveness of legitimate business users, manufacturers
+      and brand owners by reducing illegal offerings; Art 14 notice mechanisms let any entity flag such
+      content.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_kept
+    audit: true
+    reviewer: null
+    note: null
