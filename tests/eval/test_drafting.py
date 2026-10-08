@@ -484,7 +484,10 @@ def test_script_writes_train_draft(local_ia, tmp_path, monkeypatch):
     assert draft.provenance.ia_sections == [
         "6. What are the impacts of the policy options?",
     ]  # the procedural annex is RSB material, not a drafting section
-    assert "52099SC0002" not in (out / f"{CASE}.yaml").read_text()
+    # The IA identifier appears once: in the public review link, never in drafted text.
+    assert (out / f"{CASE}.yaml").read_text().count("52099SC0002") == 1
+    assert draft.review_links.ia.endswith("CELEX:52099SC0002")
+    assert draft.review_links.proposal.endswith("CELEX:52022PC0068")
 
 
 def test_script_refuses_holdout_under_evals_before_any_call(local_ia, monkeypatch):
