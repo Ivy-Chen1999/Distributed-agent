@@ -88,16 +88,26 @@ provenance:
     c11_e06: 8aa2e61f34390d656a105f6792732e97211924b52221afdda61c6bf0416340c7
     c11_e07: b8705f413d73d84a2838a326176d4228bc54b38e5a6fab58cbc3f15110ddc0f1
     c11_e08: 14bdc576537eb40c3a67a32d37b27d853d2ec96e356e47d4a18e1c9fe0101eee
-    c11_e09: 39d5454a184ec3c9339c000d16c60966bf299668f7d4dd39892b4ecf784871a6
+    c11_e09: 87b7e137eca72373968f27c648848751bba93121ba7b2513951628c60896bd4f
     c11_e10: bc0e8735467252e98c2a4d53b4f0f870a654b8cbfc02125b273ac0105157e81e
     c11_o01: 50a38e89a92c49dbdbd1ec06cbebf8cc286ea34aa34aaf5a7a3ed7d3ee534e18
-    c11_o02: be8670f3b8a9602a2baf1cc45e44be31f344566d8eaf2e005d88922b6c0d7151
-    c11_o03: b8f7154d863f08183b9cab9ef17a935198d7aa976eb79f6ce5d3834ba8c44e7e
-    c11_m01: dd15d9918aeb8431e71386a88faa9dbef445c47df8c1af1a3224eecf53415850
-    c11_m02: 8ebde3c2c218d4bf440d5316e4e9333dee8486924b6ab8fe0eaaed417adfad19
-    c11_m03: aba02d5700ad647a1a9a223c5528cea9e437f9b74b2f1678a1ddbf3d82b91331
-    c11_m04: 0201a4f95bb0cf538ac31238f92da9519b5a9b398b5a80ede8e111dac28930cf
-    c11_m05: 13442e7799b9e85aa2851881ee011ee684ce15d9e8ecb70cd036f4263c99e86e
+    c11_o02: 00d0361188c711ba433605192b98c62020fc281f88caa875a9a9b93943b8c5b0
+    c11_o03: 49bb5a6f41e482729169e8ce698493cb15047dbd6b9b6ca3a71f8e852193f147
+    c11_m01: 3d127cbd3321b13623d6c5d467ac692822669a3e75852a8d5d82cdac9e9aae17
+    c11_m02: 3fe48f0674ddce4ecce8420cc7ea685066643cbf4d587c9c0ca162c1f9f8d106
+    c11_m03: 0af9c484068a73a3cc330a6561f6b9e48ae6801c9f057d4b0f3cdd6c870b2438
+    c11_m04: bdff8f42849a151b4f9de627b053060417561ce29db5a0e18fef79226c9bef10
+    c11_m05: eb30650337d962b6225786f2fee57f041686dba6b30c94612edd9e458d4c829c
+  tiebreak_audit:
+    seed: 3296743777
+    rate: 0.2
+    eligible: 2
+    eligible_ids:
+    - c11_e09
+    - c11_m03
+    sampled:
+    - c11_m03
+    non_publishable_test_seed: false
 stats:
   items: 18
   expected_impacts: 10
@@ -107,10 +117,12 @@ stats:
   judge_agree: 14
   judge_disagree: 3
   judge_uncertain: 1
-  auto_accepted: 11
-  pending: 7
-  audited: 2
-  human_decisions_needed: 10
+  auto_accepted: 10
+  pending: 0
+  audited: 3
+  human_decisions_needed: 0
+  llm_kept: 2
+  llm_dropped: 6
 expected_impacts:
 - expected_id: c11_e01
   affected_actor: Software producers (including providers of standalone software and software updates)
@@ -330,10 +342,10 @@ expected_impacts:
     overall: agree
   provenance:
     origin: llm_drafted
-    status: needs_human
+    status: llm_judged
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: auto_accepted
     audit: true
     reviewer: null
     note: null
@@ -466,10 +478,10 @@ expected_impacts:
     overall: agree
   provenance:
     origin: llm_drafted
-    status: needs_human
+    status: llm_judged
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: auto_accepted
     audit: true
     reviewer: null
     note: null
@@ -490,7 +502,7 @@ expected_impacts:
   anchor:
     status: verified
     against: ia
-  category: market_competition
+  category: consumers_users
   derivability:
     verdict: partly
     reason: Harmonisation is implied by the Directive's uniform rules, but the existing national divergence
@@ -510,12 +522,19 @@ expected_impacts:
       reason: The impact described (legal certainty, equal consumer protection, fairer burden-sharing)
         is not about market structure/prices; it fits consumers_users or 'other' better than market_competition.
     overall: disagree
+  tiebreak:
+    verdict: keep
+    original_category: market_competition
+    reason: Section 6.4 states nearly verbatim that explicit disclosure and presumption rules create legal
+      certainty, more equal consumer protection and fairer burden-sharing; the effects concern legal certainty
+      and consumer protection, not market structure or prices.
+    model: claude-opus-5-5
   provenance:
     origin: llm_drafted
-    status: needs_human
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: llm_kept
     audit: false
     reviewer: null
     note: null
@@ -643,12 +662,18 @@ important_omissions:
       verdict: agree
       reason: Uneven cost burden for smaller/uninsured firms is specifically an SME-related effect.
     overall: uncertain
+  tiebreak:
+    verdict: drop
+    original_category: sme_specific
+    reason: The IA only says uninsured producers bear direct compensation and legal costs; it does not
+      link this to small firms or small software developers, so the SME/uneven-burden framing is unsupported.
+    model: claude-opus-5-5
   provenance:
     origin: llm_drafted
-    status: needs_human
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: llm_dropped
     audit: false
     reviewer: null
     note: null
@@ -687,12 +712,18 @@ important_omissions:
       reason: Pass-through of costs via insurance premiums and consumer prices is about pricing effects,
         fitting market_competition better than 'other'.
     overall: disagree
+  tiebreak:
+    verdict: drop
+    original_category: other
+    reason: The IA supports insurers offsetting costs through premiums but says nothing about producers
+      passing costs on to consumers via prices; part of the claim is unsupported.
+    model: claude-opus-5-5
   provenance:
     origin: llm_drafted
-    status: needs_human
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: llm_dropped
     audit: false
     reviewer: null
     note: null
@@ -735,12 +766,18 @@ possibly_missing:
       reason: Protection of trade secrets/IP from disclosure relates to innovation incentives (innovation_investment)
         more than fundamental_rights, which covers privacy/data protection type rights.
     overall: disagree
+  tiebreak:
+    verdict: drop
+    original_category: fundamental_rights
+    reason: Duplicates kept items c11_e03 (industry acceptance conditional on justified requests and IP
+      protection) and c11_o01 (trade-secret safeguards in Art. 8(3)–(4)).
+    model: claude-opus-5-5
   provenance:
     origin: llm_recall
-    status: needs_human
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: llm_dropped
     audit: false
     reviewer: null
     note: null
@@ -779,12 +816,19 @@ possibly_missing:
       verdict: agree
       reason: Premium pass-through by insurers concerns pricing, fitting market_competition.
     overall: agree
+  tiebreak:
+    verdict: drop
+    original_category: market_competition
+    reason: The insurer statement in Section 8 covers the whole preferred option, including threshold
+      and liability-period changes outside these provisions; Arts. 7 and 9 do not lead to insurer premium
+      pass-through.
+    model: claude-opus-5-5
   provenance:
     origin: llm_recall
-    status: needs_human
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: llm_dropped
     audit: false
     reviewer: null
     note: null
@@ -822,13 +866,19 @@ possibly_missing:
       verdict: agree
       reason: Compensation for consumers' data loss directly concerns consumer effects.
     overall: agree
+  tiebreak:
+    verdict: keep
+    original_category: consumers_users
+    reason: Section 8 says PO1a would not deliver legal certainty on compensation for digital property,
+      which the preferred option does; Art. 4(6)(c) includes loss of non-professional data as damage.
+    model: claude-opus-5-5
   provenance:
     origin: llm_recall
-    status: llm_judged
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: auto_accepted
-    audit: false
+    decision: llm_kept
+    audit: true
     reviewer: null
     note: null
 - candidate_id: c11_m04
@@ -867,12 +917,18 @@ possibly_missing:
       verdict: agree
       reason: Avoiding an insurance cost rise for producers is a substantive compliance cost consideration.
     overall: agree
+  tiebreak:
+    verdict: drop
+    original_category: compliance_cost
+    reason: The 2–3% insurance-cost and 16% case-number figures do not appear in the IA context provided,
+      so the numbers cannot be verified.
+    model: claude-opus-5-5
   provenance:
     origin: llm_recall
-    status: llm_judged
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: auto_accepted
+    decision: llm_dropped
     audit: false
     reviewer: null
     note: null
@@ -911,12 +967,18 @@ possibly_missing:
       verdict: agree
       reason: Increased consumer trust and willingness to claim is a consumer-facing effect.
     overall: agree
+  tiebreak:
+    verdict: drop
+    original_category: consumers_users
+    reason: Duplicates kept item c11_e06, which already states that confidence in complex products may
+      improve because of the eased burden of proof.
+    model: claude-opus-5-5
   provenance:
     origin: llm_recall
-    status: llm_judged
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: auto_accepted
+    decision: llm_dropped
     audit: false
     reviewer: null
     note: null
