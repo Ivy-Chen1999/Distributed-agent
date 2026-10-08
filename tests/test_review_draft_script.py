@@ -55,7 +55,8 @@ def test_lists_only_the_items_to_decide_with_links_and_judges(drafts):
     assert "c90_e01  [" not in out
     assert 'search the IA for: "widget providers would face cost number 5' in out
     assert "needs you because: judge disagree" in out and "category disagree: r" in out
-    assert "needs you because: audit sample" in out
+    # A legacy pending audit item (drafted while the audit blocked) is still listed.
+    assert "needs you because: left pending by the drafting tool" in out
     assert "possibly_missing candidate" in out
 
 
@@ -162,7 +163,8 @@ def staged(tmp_path, monkeypatch):
 
 def test_a_human_added_item_is_listed_with_who_raised_it(staged):
     code, out = _run(staged.parent)
-    assert code == 0 and "decisions needed: 6 (5 made, 1 to go)" in out
+    # Decided audit items are optional spot checks now, so they are not counted.
+    assert code == 0 and "decisions needed: 4 (3 made, 1 to go)" in out
     assert "c90_fb01  [candidate]  needs you because:" in out and "human added" in out
     assert "raised by: ana (analyst feedback fb1)" in out and "only as 'edited'" in out
     assert "no anchor yet" in out
