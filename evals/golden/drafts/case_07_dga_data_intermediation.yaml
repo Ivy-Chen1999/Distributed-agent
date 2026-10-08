@@ -69,20 +69,31 @@ provenance:
     non_publishable_test_seed: false
   item_digests:
     c07_e01: 2d8971536fca3cb9fcb0f54a52c06e5f930ed6c722e40c549a6578e75d9f451a
-    c07_e02: 0dfc5d08cc0e1878e4c195767a842988da67aa5ce2372ea5dc1fe7e06c481524
-    c07_e03: 59fb94f05f7ef4d27e49d219d2d3150c4ffc29b5f980009818991990dd17eecb
-    c07_e04: 997ba48ce8dbea78fa76e05b2a7a021ad325fe938c7b35f1f55b3c522c276e53
+    c07_e02: 14acfc2f909e6eccbbf9f51851135435b71ce23161b6b540fcbe89b985adbc16
+    c07_e03: b42105c03713674952773d019f8f92a2fe04ea760353ed4c3c690d4f952c8b9d
+    c07_e04: e38e0e597df52e9563b621822fa274424d888e7229b36b3c86a996b07fd68610
     c07_e05: 1fe05d3caf8b2c46562e67276302ea3a6b8aadc3e1f4f504cdcfb47173adbd4a
     c07_e06: 8b24b16e5eb0f168e1104fc5a9e6bfd80f910d94c285f23be0760abbeffcf07c
     c07_e07: 57fa8996ac79a45d684c442a4f017761b6b019d3321e1270ea421fa7d57901e6
-    c07_o01: d4116f8ef3a57a14297fefe78322f255ef469788574161698fd4b1073410742c
-    c07_o02: e14a343de37d2fb5582e76f7218a6d675e661d883da71f5457a8993042473212
-    c07_o03: 25b88a16789ff989511d4ef7071745c09617165451953487f9c5564611603f33
-    c07_m01: aafe03821aed1af25d836924fd8f1c69544920a70aeb9d762a9986e94540de89
-    c07_m02: ead8f68941141c3e56a86b33aee7ea0c1820b83e821ce01984862ba32a2e8f8e
-    c07_m03: 50248a67c88404f2cb7a86991862ff2f2551c64481601e91041e0621224a0f50
-    c07_m04: 382eb81c9d8cdb7f11d9237a19112a02dffd61cd91c98cdac0cc198b431a1c5b
-    c07_m05: ac658754392fb801ace3563b0e2c2c7076d6133a75be36aa700358ad14abde49
+    c07_o01: 9075f294e4fb04e8335543c31213777d0f65570e0c811e038f983884997b5313
+    c07_o02: 906ed39a12a6aa534e495da6479ee0b40701f90c39d976df217568caa9129a1a
+    c07_o03: 3dcf856ec1be9a2f5a5605deb638ea4ff7130a7023529512d89d74cffd87e5ee
+    c07_m01: c3ee468a195a67dc9060a971141e60e792b8a2547509fbe6fae9790db41dfdc8
+    c07_m02: 2a9c263bd43bc17a341efa9b262445396cb0514d4ef46f1d680d851d14bede1d
+    c07_m03: 9dd380ff411dc8d35116d1c972d84a0832b6f837f869cbda84b9c4e36e18e4dd
+    c07_m04: 76f05483359eb0836884ede5d9d41882c0ecaa47b4864e70f26fefb32cbbb490
+    c07_m05: 873ba6e8053e2ed4c7900a477deed2354ca73dc398d953950f4692bec694ac7f
+  tiebreak_audit:
+    seed: 1765047449
+    rate: 0.2
+    eligible: 3
+    eligible_ids:
+    - c07_e02
+    - c07_e03
+    - c07_m04
+    sampled:
+    - c07_m04
+    non_publishable_test_seed: false
 stats:
   items: 15
   expected_impacts: 7
@@ -93,9 +104,11 @@ stats:
   judge_disagree: 9
   judge_uncertain: 0
   auto_accepted: 4
-  pending: 11
-  audited: 1
-  human_decisions_needed: 12
+  pending: 0
+  audited: 2
+  human_decisions_needed: 0
+  llm_kept: 3
+  llm_dropped: 8
 expected_impacts:
 - expected_id: c07_e01
   affected_actor: Providers of data sharing services (data intermediaries)
@@ -136,10 +149,10 @@ expected_impacts:
     overall: agree
   provenance:
     origin: llm_drafted
-    status: needs_human
+    status: llm_judged
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: auto_accepted
     audit: true
     reviewer: null
     note: null
@@ -159,7 +172,7 @@ expected_impacts:
   anchor:
     status: verified
     against: ia
-  category: market_competition
+  category: innovation_investment
   derivability:
     verdict: partly
     reason: The provisions clearly aim at trustworthy intermediation, but the commercial benefit of more
@@ -181,12 +194,20 @@ expected_impacts:
       reason: The effect is business growth (revenue, client base) from trust and data value creation
         rather than market structure/prices, so innovation_investment fits better.
     overall: disagree
+  tiebreak:
+    verdict: keep
+    original_category: market_competition
+    reason: The anchor says increased trust brings efficiency gains, time savings, more clients and transactions,
+      and higher revenues. The 25-50% gain in client base and revenue appears in the IA's cost-benefit
+      table and its SME section. The effect is business growth rather than market structure, so innovation_investment
+      fits better.
+    model: claude-opus-5-5
   provenance:
     origin: llm_drafted
-    status: needs_human
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: llm_kept
     audit: false
     reviewer: null
     note: null
@@ -204,7 +225,7 @@ expected_impacts:
   anchor:
     status: verified
     against: ia
-  category: consumers_users
+  category: market_competition
   derivability:
     verdict: partly
     reason: Pass-through of compliance costs to users is a standard inference from Article 11, although
@@ -224,12 +245,19 @@ expected_impacts:
       reason: The affected 'data users' are businesses reusing data facing higher pass-through charges,
         which is a pricing effect better captured by market_competition than consumers_users.
     overall: disagree
+  tiebreak:
+    verdict: keep
+    original_category: consumers_users
+    reason: The anchor says almost word for word that data reusers may bear indirect costs because intermediaries
+      raise user charges to cover compliance costs. The affected users are business reusers and the effect
+      is a price pass-through, so market_competition fits better than consumers_users.
+    model: claude-opus-5-5
   provenance:
     origin: llm_drafted
-    status: needs_human
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: llm_kept
     audit: false
     reviewer: null
     note: null
@@ -271,12 +299,18 @@ expected_impacts:
       reason: The claim is directly about increased competition among intermediaries in B2B/C2B markets,
         matching market_competition.
     overall: disagree
+  tiebreak:
+    verdict: drop
+    original_category: market_competition
+    reason: The anchor only says competition among intermediaries rises in B2B and C2B markets, with no
+      number. The claimed 'up to 25% within 2-5 years' does not appear in the evidence provided.
+    model: claude-opus-5-5
   provenance:
     origin: llm_drafted
-    status: needs_human
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: llm_dropped
     audit: false
     reviewer: null
     note: null
@@ -448,12 +482,19 @@ important_omissions:
       verdict: agree
       reason: Costs for national authorities' supervision, notification handling and enforcement are public_enforcement_cost.
     overall: disagree
+  tiebreak:
+    verdict: drop
+    original_category: public_enforcement_cost
+    reason: The anchor ties Member State costs to the measures for reusing protected public-sector data,
+      not to notifying and supervising data intermediaries. The IA text therefore does not support this
+      omission as stated.
+    model: claude-opus-5-5
   provenance:
     origin: llm_drafted
-    status: needs_human
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: llm_dropped
     audit: false
     reviewer: null
     note: null
@@ -492,12 +533,18 @@ important_omissions:
       reason: Structural separation reshaping which firms can operate as intermediaries is a market structure
         effect, matching market_competition.
     overall: disagree
+  tiebreak:
+    verdict: drop
+    original_category: market_competition
+    reason: The anchor describes the platformisation risk in the no-action baseline. It says nothing about
+      the separation rule falling on vertically integrated players or forcing them to restructure.
+    model: claude-opus-5-5
   provenance:
     origin: llm_drafted
-    status: needs_human
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: llm_dropped
     audit: false
     reviewer: null
     note: null
@@ -538,12 +585,18 @@ important_omissions:
       reason: Filing notifications, appointing representatives and information duties are classic administrative_burden
         items.
     overall: disagree
+  tiebreak:
+    verdict: drop
+    original_category: administrative_burden
+    reason: The anchor covers only certification and labelling costs, which the claim itself says are
+      a different cost. The IA text gives no support for a notification administrative burden.
+    model: claude-opus-5-5
   provenance:
     origin: llm_drafted
-    status: needs_human
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: llm_dropped
     audit: false
     reviewer: null
     note: null
@@ -584,12 +637,18 @@ possibly_missing:
       verdict: agree
       reason: Easier access to investment funding due to lower perceived risk fits innovation_investment.
     overall: agree
+  tiebreak:
+    verdict: drop
+    original_category: innovation_investment
+    reason: This repeats kept item c07_e07, which already covers access to investors as a benefit for
+      intermediaries. It is also flagged as not derivable from the provisions.
+    model: claude-opus-5-5
   provenance:
     origin: llm_recall
-    status: needs_human
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: llm_dropped
     audit: false
     reviewer: null
     note: null
@@ -629,12 +688,18 @@ possibly_missing:
       reason: Earning more revenue from data sharing reflects data value creation, which fits innovation_investment
         better than market_competition.
     overall: disagree
+  tiebreak:
+    verdict: drop
+    original_category: market_competition
+    reason: This repeats kept item c07_e05, whose stated impact is already that data holders can earn
+      more from data sharing.
+    model: claude-opus-5-5
   provenance:
     origin: llm_recall
-    status: needs_human
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: llm_dropped
     audit: false
     reviewer: null
     note: null
@@ -676,12 +741,18 @@ possibly_missing:
       reason: Weakening Big Tech dominance and platformisation risk is a market structure concern, matching
         market_competition.
     overall: disagree
+  tiebreak:
+    verdict: drop
+    original_category: market_competition
+    reason: The anchor describes Big Tech strengthening its position in the no-action baseline. It does
+      not state that the Article 11 neutrality conditions reduce that dominance.
+    model: claude-opus-5-5
   provenance:
     origin: llm_recall
-    status: needs_human
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: llm_dropped
     audit: false
     reviewer: null
     note: null
@@ -720,13 +791,20 @@ possibly_missing:
       verdict: agree
       reason: The claim is specifically about SMEs' access to data, matching sme_specific.
     overall: agree
+  tiebreak:
+    verdict: keep
+    original_category: sme_specific
+    reason: The IA's SME section (6.3) says that SMEs as data users would get better access to the value
+      of big data by supporting data marketplaces. Article 9(1)(a) covers platforms for exchanging data,
+      so the claim follows from the provisions.
+    model: claude-opus-5-5
   provenance:
     origin: llm_recall
-    status: llm_judged
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: auto_accepted
-    audit: false
+    decision: llm_kept
+    audit: true
     reviewer: null
     note: null
 - candidate_id: c07_m05
@@ -767,12 +845,18 @@ possibly_missing:
       reason: Growth of the data economy via new data-driven products and services fits innovation_investment
         rather than other.
     overall: disagree
+  tiebreak:
+    verdict: drop
+    original_category: other
+    reason: The anchor states a general economy-wide catalyst effect for the initiative as a whole, which
+      is too vague to check. The claim is also flagged as not derivable from the data sharing provisions.
+    model: claude-opus-5-5
   provenance:
     origin: llm_recall
-    status: needs_human
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: llm_dropped
     audit: false
     reviewer: null
     note: null
