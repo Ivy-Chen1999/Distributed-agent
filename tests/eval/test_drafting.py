@@ -192,7 +192,8 @@ async def test_scripted_draft_writes_a_file_whose_anchors_all_verify(data_act, t
     assert loaded.possibly_missing[0].provenance.origin == "llm_recall"
     assert loaded.possibly_missing[0].provenance.drafting_model == "model-recall"
     assert loaded.provenance.roles["judge_category"]["model"] == "model-judge_category"
-    assert s.judge_agree == 7 and s.auto_accepted + s.audited == 7
+    # The audit sample stays auto-accepted: an optional spot check (AUDIT_BLOCKS off).
+    assert s.judge_agree == 7 and s.auto_accepted == 7 and s.audited == 2
 
 
 async def test_omission_sources_rsb_and_ia_verify_against_their_own_text(data_act):
@@ -324,10 +325,10 @@ async def test_audit_sample_recorded_in_draft_and_reproducible(data_act):
     assert not any(i.startswith("c90_m") for i in audit.sampled)
     sampled = [i for i in a.items() if i.review.audit]
     assert sorted(i.item_id for i in sampled) == audit.sampled
-    assert all(i.review.decision == "pending" for i in sampled)
-    assert a.stats.audited == 2 and a.stats.auto_accepted == 5
+    assert all(i.review.decision == "auto_accepted" for i in sampled)
+    assert a.stats.audited == 2 and a.stats.auto_accepted == 7
     # Two sampled items plus the auto-accepted candidate need a human decision.
-    assert a.stats.pending == 2 and a.stats.human_decisions_needed == 3
+    assert a.stats.pending == 0 and a.stats.human_decisions_needed == 1
     assert a.possibly_missing[0].review.decision == "auto_accepted"  # a human decides it anyway
     assert audit.non_publishable_test_seed, "a test seed marks the draft non-publishable"
     default, _ = await run_draft(data_act, script_for())
@@ -531,7 +532,7 @@ def test_holdout_drafting_posts_zero_langsmith_runs(local_ia, tmp_path, monkeypa
 def test_repo_drafting_config_loads_with_isolated_claude_code_roles():
     cfg = load_drafting_config()
     roles = cfg.roles.as_dict()
-    assert set(roles) == set(ROLE_NAMES)
+    assert set(roles) == {*ROLE_NAMES, "tiebreak"}
     assert all(r.backend == "claude_code" for r in roles.values())
     judge_prompts = {roles[n].prompt for n in ROLE_NAMES if n.startswith("judge_")}
     assert len(judge_prompts) == 3  # one prompt per dimension
