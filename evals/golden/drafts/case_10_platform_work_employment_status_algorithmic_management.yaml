@@ -79,24 +79,39 @@ provenance:
     c10_e02: d26c0bf79c51e8b28c4c90a083e46185e6f663d46e09d2143f70aebaa80a3dc5
     c10_e03: 1e50d8a195a1b61458684e5545ce01ff05a2aa26e34441786f923850e998951b
     c10_e04: 1b3fc6297aed915d56a0d06f81b4550a0046377b4fdf67ac8d2fb7d8df394431
-    c10_e05: 4b02a93b7048e9add4e7852557d444606e988305dda18d170eba3495586c4e05
+    c10_e05: a8df9b4d1071b299b27b12e725f7c2c1e9bb1dd1ad5c4d23e6082aaa4bd8cd99
     c10_e06: 4762d91720cac93e22265ac9aa1857744957c79c30f3ccd83dc3c8e77c2d35d7
     c10_e07: 9aab330b0e1579be3356ef17cd750daadc4d37f1c1142ec698c96f4f1083960e
     c10_e08: e8f209f6ca409fd96fcde0982ea45041f1e410aa6b4ed805989163e24c18cd9c
     c10_e09: f70829d90fb9e965b958358b6ff926085af1b0ae5f77c8102fb5c45962122925
     c10_e10: 4424904a8eefc886aaff4af2398acb4ded3165a7d1a1b783f9e1a21d05beb2a0
-    c10_o01: 96d7667a5f20660ef200ca72c61683f1e6eb0c399cc2740b2d89e7dcbba7b427
-    c10_o02: c2ff26127916e34695ffeb588f5b5b4319bb1b127dc2f61024ad0a7c200517ed
+    c10_o01: 232821b0e89a163cf52c69db74f238cf4f79b736c1acefff0c0bcdbff540e64b
+    c10_o02: a4d8162fcc730ca94a7abe6b444d951885d31f849e318f2b84a4ec14e00a0ea6
     c10_o03: 23945363c0128f502fdaad9c304d97658cd26844ecb7295687ae98c287a75e35
-    c10_o04: 2df42ff8c45f64dc6fd00b6781fcbf7202c87bf6f76d0bedbbe8de8fa0bbcdc9
-    c10_m01: 63299ee6b304edf454eab21e6b1da1d4fdcb948a967f5464a5839c6135b3021b
-    c10_m02: 3dfd73797d88924a8d008cd50a2ff65e0978092f0139b8f703921f3b0d29d9eb
-    c10_m03: 32a41390217e181c8aa4c8df04a756af2af2450c04f677d81c0c6470cabb54ae
-    c10_m04: 5c78094badae2c4066864776b8a6a9722889ff23cc80f94fc10bdd4ae9d428c0
-    c10_m05: 9cb29567aa875e622f825e2738130477a70343a3507309d6ed2638ca891662a1
-    c10_m06: 9055b9384794145e3f24e8194e628dd8483cb7c4b037cf56794853f8ac16826f
-    c10_m07: 264560878d48f9e2816fa7407254b3a40dc6c3e85b6350d6f56cf0a2bf31fc43
-    c10_m08: 44d808a694deaf7f74b83794148db6ce5a99238f2aa9d83a566c1218aae901d3
+    c10_o04: 20211207c985127863136b53a6d82886e53d4b28aa028c5ba58fb06fcc0319cb
+    c10_m01: e4470e9b526f710de9fd6b2ab5379c4aa30daa319d1f3a49a4741524778bb527
+    c10_m02: 83e2252313b08c61c8c3e2227cc0c0ceed50e4cff1b7b247aff21c1c7bfec074
+    c10_m03: b6b25b5e8d316d6101cc8fad22e1b5f08a82c15c2410844e0f286e8c758491cb
+    c10_m04: 1588dc4e793757914c4bdbefef8f6b530f45241ba4a7bcf928ffe1468543346d
+    c10_m05: 625f2ed00fda3ebad5150a3053499a93eef1f010f8931255ebf0b799263acf79
+    c10_m06: 3662cf43f31525bb1150b86d08b36a416d86de07f188b66974dd53854dc47be6
+    c10_m07: 754502d738f87149e30b9d368e5e20bdcf169e3111115733b0f7cd5ea6d7d4d3
+    c10_m08: 3983ecdd0bfd0369c38da96b12c8a46cdc8157b5b02be904e26d920a5018da12
+  tiebreak_audit:
+    seed: 208719516
+    rate: 0.2
+    eligible: 6
+    eligible_ids:
+    - c10_e05
+    - c10_m01
+    - c10_m02
+    - c10_m04
+    - c10_o02
+    - c10_o04
+    sampled:
+    - c10_e05
+    - c10_o02
+    non_publishable_test_seed: false
 stats:
   items: 22
   expected_impacts: 10
@@ -107,9 +122,11 @@ stats:
   judge_disagree: 1
   judge_uncertain: 7
   auto_accepted: 10
-  pending: 12
-  audited: 2
-  human_decisions_needed: 14
+  pending: 0
+  audited: 4
+  human_decisions_needed: 0
+  llm_kept: 6
+  llm_dropped: 6
 expected_impacts:
 - expected_id: c10_e01
   affected_actor: Digital labour platforms that control the performance of work (mainly low-skill on-location
@@ -243,10 +260,10 @@ expected_impacts:
     overall: agree
   provenance:
     origin: llm_drafted
-    status: needs_human
+    status: llm_judged
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: auto_accepted
     audit: true
     reviewer: null
     note: null
@@ -330,13 +347,20 @@ expected_impacts:
       reason: Producing and updating a written document on algorithmic systems is a documentation/reporting
         duty, i.e. administrative_burden.
     overall: uncertain
+  tiebreak:
+    verdict: keep
+    original_category: administrative_burden
+    reason: A3.2 lists 'one-off costs of providing more algorithmic transparency' without a figure, and
+      Annex 3 refers to a 'slightly increased administrative burden' from the transparency obligations.
+      The details of the mechanism come straight from Art 6(2)-(4).
+    model: claude-opus-5-5
   provenance:
     origin: llm_drafted
-    status: needs_human
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
-    audit: false
+    decision: llm_kept
+    audit: true
     reviewer: null
     note: null
 - expected_id: c10_e06
@@ -597,12 +621,19 @@ important_omissions:
       verdict: agree
       reason: The claim is explicitly about the disproportionate burden on SME platforms, fitting sme_specific.
     overall: uncertain
+  tiebreak:
+    verdict: drop
+    original_category: sme_specific
+    reason: The SME test says that Policy Area B weighs more on SME platforms. But the 70-92% share does
+      not appear in the quoted text, and the IA never says the burden is the reason for the two-week deadline
+      in Art 8(2). That causal link is invented.
+    model: claude-opus-5-5
   provenance:
     origin: llm_drafted
-    status: needs_human
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: llm_dropped
     audit: false
     reviewer: null
     note: null
@@ -639,13 +670,20 @@ important_omissions:
       reason: The impact explicitly spans reduced competition and reduced innovation about equally, so
         market_competition and innovation_investment both fit.
     overall: uncertain
+  tiebreak:
+    verdict: keep
+    original_category: market_competition
+    reason: Annex 3 says on-location platforms might quit less profitable local or national markets and
+      online platforms might leave the EU, causing 'reduced competition and innovation'. It also says
+      market exit reduces part-time self-employment opportunities. Market structure is the main effect.
+    model: claude-opus-5-5
   provenance:
     origin: llm_drafted
-    status: needs_human
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
-    audit: false
+    decision: llm_kept
+    audit: true
     reviewer: null
     note: null
 - omission_id: c10_o03
@@ -683,10 +721,10 @@ important_omissions:
     overall: agree
   provenance:
     origin: llm_drafted
-    status: needs_human
+    status: llm_judged
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: auto_accepted
     audit: true
     reviewer: null
     note: null
@@ -722,12 +760,18 @@ important_omissions:
       reason: The effect is framed both as a price/commission (market_competition) issue and as specifically
         hitting SME restaurants (sme_specific), so either fits.
     overall: uncertain
+  tiebreak:
+    verdict: keep
+    original_category: market_competition
+    reason: A3.2 gives the restaurant revenue loss as 0.16%-1.0%, based on Spain. The SME test describes
+      platforms passing higher costs on through commissions, which SME restaurants find harder to absorb.
+    model: claude-opus-5-5
   provenance:
     origin: llm_drafted
-    status: needs_human
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: llm_kept
     audit: false
     reviewer: null
     note: null
@@ -767,12 +811,18 @@ possibly_missing:
       reason: Loss of flexibility/autonomy for reclassified workers is an employment/working-conditions
         effect, fitting social_environmental.
     overall: agree
+  tiebreak:
+    verdict: keep
+    original_category: social_environmental
+    reason: A3.2 states 'some loss of flexibility and autonomy' for the roughly 1.72-4.09 million people
+      reclassified under option A3b. No kept item covers this; e04 covers only the rights workers gain.
+    model: claude-opus-5-5
   provenance:
     origin: llm_recall
-    status: llm_judged
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: auto_accepted
+    decision: llm_kept
     audit: false
     reviewer: null
     note: null
@@ -814,12 +864,19 @@ possibly_missing:
       reason: Reduced work opportunities and income for self-employed/freelancers is an employment effect,
         fitting social_environmental.
     overall: agree
+  tiebreak:
+    verdict: keep
+    original_category: social_environmental
+    reason: Annex 3 and A3.2 state that self-employment opportunities fall, with fewer opportunities for
+      41-80% of delivery and ride-hailing workers according to platforms. They also mention more price
+      competition and lower demand for EU freelancers. No kept item covers people who are not reclassified.
+    model: claude-opus-5-5
   provenance:
     origin: llm_recall
-    status: needs_human
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: llm_kept
     audit: false
     reviewer: null
     note: null
@@ -860,12 +917,18 @@ possibly_missing:
       reason: Workers gaining genuine autonomy and better working conditions is an employment effect,
         fitting social_environmental.
     overall: uncertain
+  tiebreak:
+    verdict: drop
+    original_category: social_environmental
+    reason: The figure of 'up to 3.78 million' does not appear in the quoted IA text, which only says
+      in general terms that working conditions improve for people who become genuinely self-employed.
+    model: claude-opus-5-5
   provenance:
     origin: llm_recall
-    status: needs_human
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: llm_dropped
     audit: false
     reviewer: null
     note: null
@@ -903,12 +966,19 @@ possibly_missing:
       reason: A more level playing field between platforms and traditional competitors is a market structure
         effect, fitting market_competition.
     overall: agree
+  tiebreak:
+    verdict: keep
+    original_category: market_competition
+    reason: A3.1 cites the 'removal of the unfair competitive advantage of platforms relying on false
+      self-employment', which creates a level playing field. The SME test says competing SMEs such as
+      taxis benefit more.
+    model: claude-opus-5-5
   provenance:
     origin: llm_recall
-    status: llm_judged
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: auto_accepted
+    decision: llm_kept
     audit: false
     reviewer: null
     note: null
@@ -947,12 +1017,18 @@ possibly_missing:
       reason: The claim mixes a general commission/revenue (market_competition) effect with an explicit
         SME-specific disadvantage, so sme_specific fits about equally.
     overall: disagree
+  tiebreak:
+    verdict: drop
+    original_category: market_competition
+    reason: This repeats o04 (restaurant revenue loss of 0.16-1.0% through commissions). It also adds
+      an EUR 3.8 billion EU-27 figure that is not in the quoted IA text.
+    model: claude-opus-5-5
   provenance:
     origin: llm_recall
-    status: needs_human
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: llm_dropped
     audit: false
     reviewer: null
     note: null
@@ -993,12 +1069,18 @@ possibly_missing:
       reason: Fewer services, longer waits and quality changes for service users are consumer effects,
         fitting consumers_users.
     overall: agree
+  tiebreak:
+    verdict: drop
+    original_category: consumers_users
+    reason: Kept item e07 already covers lower availability and longer waiting times for consumers of
+      on-location services, so this item is largely a duplicate.
+    model: claude-opus-5-5
   provenance:
     origin: llm_recall
-    status: needs_human
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: llm_dropped
     audit: false
     reviewer: null
     note: null
@@ -1040,12 +1122,18 @@ possibly_missing:
       reason: The impact names both reduced competition and reduced innovation/investment equally, so
         market_competition and innovation_investment both fit.
     overall: uncertain
+  tiebreak:
+    verdict: drop
+    original_category: innovation_investment
+    reason: This repeats o02 (market exit causing reduced competition and innovation). It also adds effects
+      on GDP, investment and net exports that the quoted IA text does not support.
+    model: claude-opus-5-5
   provenance:
     origin: llm_recall
-    status: needs_human
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: llm_dropped
     audit: false
     reviewer: null
     note: null
@@ -1088,12 +1176,18 @@ possibly_missing:
       reason: Disproportionate compliance burden on SME platforms is explicitly an SME-specific effect,
         fitting sme_specific.
     overall: uncertain
+  tiebreak:
+    verdict: unsure
+    original_category: sme_specific
+    reason: The SME test supports a heavier relative burden on SME platforms. But the 70-92% share cannot
+      be checked against the context provided, and the IA does not link the burden to the two-week deadline.
+    model: claude-opus-5-5
   provenance:
     origin: llm_recall
-    status: needs_human
+    status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: pending
+    decision: llm_dropped
     audit: false
     reviewer: null
     note: null
