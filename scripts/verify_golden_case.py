@@ -40,10 +40,8 @@ from womm.data.fixtures import FixtureError, fixture_dir, load_fixture
 from womm.eval import ia_sources
 from womm.eval.drafting import (
     EVALS_DIR,
-    DraftCandidate,
     DraftingError,
     GoldenDraft,
-    Review,
     _DraftItem,
     anchor_context,
     load_draft,
@@ -51,32 +49,20 @@ from womm.eval.drafting import (
 )
 from womm.eval.golden import GoldenCase
 from womm.eval.golden_review import (
-    HUMAN_DECISIONS,
+    EDITABLE,
     NOTE_REQUIRED,
     ReviewError,
     audit_result,
     build_case,
     check_draft,
+    decide_item,
     item_kind,
 )
 from womm.eval.holdout import HANDOFF_FORMAT
 
 HANDOFF_DIR = REPO_ROOT / ".cache" / "holdout_import"
 CLAIM_FIELDS = ("affected_actor", "mechanism", "impact", "description")
-EDITABLE = {
-    "impact": ("affected_actor", "mechanism", "impact", "provision_keys", "ia_section", "category"),
-    "candidate": (
-        "affected_actor",
-        "mechanism",
-        "impact",
-        "provision_keys",
-        "ia_section",
-        "category",
-    ),
-    "omission": ("description", "provision_keys", "ia_section", "category"),
-}
 SHORTCUTS = {"v": "verified", "e": "edited", "r": "rejected", "u": "unclear"}
-STATUS = {"verified": "human_verified", "edited": "human_edited"}
 
 Ask = Callable[[str], str]
 Say = Callable[[str], None]
@@ -125,38 +111,10 @@ def load_decisions(path: Path) -> dict[str, dict[str, Any]]:
 
 
 def _decided_item(item: _DraftItem, entry: dict[str, Any], reviewer: str) -> _DraftItem:
-    where = item.item_id
-    unknown = set(entry) - {"decision", "note", "edit"}
-    if unknown:
-        raise VerifyError(f"{where}: unknown keys {sorted(unknown)}")
-    decision = entry.get("decision")
-    if decision not in HUMAN_DECISIONS:
-        raise VerifyError(f"{where}: decision must be one of {HUMAN_DECISIONS}, got {decision!r}")
-    note = entry.get("note")
-    if decision in NOTE_REQUIRED and not (note or "").strip():
-        raise VerifyError(f"{where}: decision {decision!r} needs a note saying why")
-    edit = entry.get("edit") or {}
-    if decision == "edited" and not edit:
-        raise VerifyError(f"{where}: decision 'edited' needs an 'edit' mapping of new values")
-    if edit and decision != "edited":
-        raise VerifyError(f"{where}: an edit needs decision 'edited', not {decision!r}")
-    allowed = EDITABLE[item_kind(item)]
-    bad = sorted(set(edit) - set(allowed))
-    if bad:
-        raise VerifyError(f"{where}: fields {bad} cannot be edited; editable: {list(allowed)}")
-    data = item.model_dump(mode="json") | edit
-    if isinstance(item, DraftCandidate) and decision in STATUS:
-        status = "human_confirmed_candidate"
-    else:
-        status = STATUS.get(decision, item.provenance.status)
-    data["provenance"] = {**data["provenance"], "status": status}
-    data["review"] = Review(
-        decision=decision, audit=item.review.audit, reviewer=reviewer, note=note
-    ).model_dump()
     try:
-        return type(item).model_validate(data)
-    except ValidationError as exc:
-        raise VerifyError(f"{where}: the edit is not schema-valid: {exc}") from None
+        return decide_item(item, entry, reviewer)
+    except ReviewError as exc:
+        raise VerifyError(str(exc)) from None
 
 
 def apply_decisions(

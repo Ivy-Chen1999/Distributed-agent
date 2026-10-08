@@ -15,7 +15,8 @@ val draft for a proposal registered as holdout in the gitignored local registry
 (evals/private/holdout_scenarios.yaml) is refused.
 
 The audit sample (20%, pinned) is drawn with a seed derived from the case id; it cannot be set
-here. ``--drafted-by`` (default: ``git config github.user``, else ``git config user.name``) is
+here. A train/val draft gets ``review_links``: public EUR-Lex links to its IA and proposal, and
+the IA part holding each anchor (see scripts/add_review_links.py). ``--drafted-by`` (default: ``git config github.user``, else ``git config user.name``) is
 recorded in the draft; the review gate refuses the drafter as a reviewer.
 """
 
@@ -32,6 +33,7 @@ from langsmith import tracing_context
 from womm.data.fixtures import FixtureError, fixture_dir, load_fixture
 from womm.data.ia_index import IA_INDEX_PATH, load_ia_index
 from womm.eval import ia_sources
+from womm.eval.draft_edits import build_review_links
 from womm.eval.drafting import (
     DEFAULT_CONFIG,
     DraftingConfig,
@@ -151,6 +153,9 @@ async def run(args: argparse.Namespace, backends: dict[str, LLMBackend] | None =
     if backends is None:
         backends = await prepare_backends(config, skip_self_check=args.skip_self_check)
     draft = await draft_case(inputs, config, backends)
+    if args.split != "holdout":
+        parts = ["\n".join(part.blocks) for part in extract.parts]
+        draft = draft.model_copy(update={"review_links": build_review_links(draft, record, parts)})
     path = write_draft(draft, args.out_dir)
     s = draft.stats
     print(f"{args.case} ({args.split}) -> {path}")

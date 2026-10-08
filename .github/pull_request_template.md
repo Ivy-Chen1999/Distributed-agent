@@ -9,7 +9,10 @@
 
 ## Golden-case review (only for PRs that add drafts under `evals/golden/drafts/`)
 
-Follow [docs/eval/golden-review-guide.md](../docs/eval/golden-review-guide.md). Drafts come from
+New reviewer? Start with [docs/eval/reviewer-quickstart.md](../docs/eval/reviewer-quickstart.md);
+the full rules are in [docs/eval/golden-review-guide.md](../docs/eval/golden-review-guide.md).
+`uv run python scripts/review_draft.py` lists what to decide and `--check` runs the CI check.
+Drafts come from
 a `review/<case>` branch that contains only the draft; a code PR must never contain one. Keep the
 PR a **draft** while the review is open. CI requires every item that needs a human to be decided
 once the PR is marked ready.
@@ -22,5 +25,7 @@ once the PR is marked ready.
       impact. No number was changed or invented.
 - [ ] No item rests only on annex content of the proposal. The `provision_keys` are inside the
       scenario.
-- [ ] I logged my minutes in `evals/annotation-assignments.md`.
-- [ ] No holdout case, and no IA or RSB identifier, appears anywhere in this PR.
+- [ ] `uv run python scripts/review_draft.py --check` says Ready.
+- [ ] I posted my minutes as a PR comment (the case owner logs them).
+- [ ] No holdout case or holdout identifier appears anywhere in this PR. The only IA identifier
+      is the public EUR-Lex link in `review_links` of this train/val draft.
