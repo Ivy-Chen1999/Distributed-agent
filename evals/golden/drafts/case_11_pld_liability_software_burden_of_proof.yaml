@@ -1,0 +1,984 @@
+# DRAFT golden case written by scripts/draft_golden_case.py; not scored until published.
+# Reviewer? Start with docs/eval/reviewer-quickstart.md. The helper lists what to decide:
+#   uv run python scripts/review_draft.py <this file>
+# Decide every item whose review.decision is 'pending' and every possibly_missing candidate
+# as verified / edited / rejected / unclear, with your GitHub username in review.reviewer.
+# Other auto-accepted items need no decision. Do not change tool-written fields of an item
+# you keep as auto_accepted or verified (CI checks provenance.item_digests); the drafter
+# (provenance.drafted_by) cannot review. review_links opens the public IA and proposal on
+# EUR-Lex (train/val only); holdout identifiers never appear in a tracked file.
+case_id: case_11_pld_liability_software_burden_of_proof
+scenario_id: eval_liability_software_burden_of_proof
+fixture: pld
+split: val
+ia_reference: 'Impact assessment accompanying the Product Liability Directive proposal (identifiers in
+  the local IA index); sections: 6.3. Policy option 1c – Inclusion of software in its own right, new types
+  of damage and adaptations for circular economy; 6.4. Policy option 2.a – Easing the burden of proof
+  and reducing disproportionate restrictions to make claims; 8. Preferred option'
+notes: ''
+review_links:
+  ia: https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:52022SC0316
+  proposal: https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:52022PC0495
+  ia_parts: 1
+  anchor_parts: {}
+provenance:
+  tool: scripts/draft_golden_case.py
+  drafted_on: '2026-10-06'
+  drafted_by: Chen Yuxin
+  drafting_model: claude-opus-5-5
+  roles:
+    drafter:
+      backend: claude_code
+      model: claude-opus-5-5
+      prompt: prompts/tools/draft_golden_case.md
+    recall:
+      backend: claude_code
+      model: claude-opus-5-5
+      prompt: prompts/tools/recall_golden_case.md
+    judge_anchor:
+      backend: claude_code
+      model: claude-sonnet-5
+      prompt: prompts/tools/judge_anchor.md
+    judge_derivability:
+      backend: claude_code
+      model: claude-sonnet-5
+      prompt: prompts/tools/judge_derivability.md
+    judge_category:
+      backend: claude_code
+      model: claude-sonnet-5
+      prompt: prompts/tools/judge_category.md
+  prompt_hashes:
+    prompts/tools/draft_golden_case.md: c72bd341e2c3ef75
+    prompts/tools/recall_golden_case.md: 36f0a5dcc15a57c6
+    prompts/tools/judge_anchor.md: 0d81eb4d5d2b43bd
+    prompts/tools/judge_derivability.md: 97471d88c14d32c3
+    prompts/tools/judge_category.md: 8b1885320b65b60f
+  ia_sections:
+  - 6.3. Policy option 1c – Inclusion of software in its own right, new types of damage and adaptations
+    for circular economy
+  - 6.4. Policy option 2.a – Easing the burden of proof and reducing disproportionate restrictions to
+    make claims
+  - 8. Preferred option
+  rsb_status: opinion none found in Cellar
+  audit:
+    seed: 312258012
+    rate: 0.2
+    eligible: 10
+    eligible_ids:
+    - c11_e01
+    - c11_e02
+    - c11_e03
+    - c11_e04
+    - c11_e05
+    - c11_e06
+    - c11_e07
+    - c11_e08
+    - c11_e10
+    - c11_o01
+    sampled:
+    - c11_e05
+    - c11_e08
+    non_publishable_test_seed: false
+  item_digests:
+    c11_e01: 096dec83c21c4f38fef03d262c5465923c2382e2cc41072bfeca5406bd93ba53
+    c11_e02: ef6fe6d3c05cf4bb276652dd40325ad279abdf92c5c194042d07d0e206fd44e9
+    c11_e03: 83a1302719ee2b696c51c871770703a2681ce5fe3b340f8650eb1e99a19689fc
+    c11_e04: ee20e19b767671ef83f4d773f38979c6ef4391df8555a60f914d0c7069681c9e
+    c11_e05: 227dc08744ccf093308475b060c6fc344e27edd7d9081d20360dd5eb4b93efed
+    c11_e06: 8aa2e61f34390d656a105f6792732e97211924b52221afdda61c6bf0416340c7
+    c11_e07: b8705f413d73d84a2838a326176d4228bc54b38e5a6fab58cbc3f15110ddc0f1
+    c11_e08: 14bdc576537eb40c3a67a32d37b27d853d2ec96e356e47d4a18e1c9fe0101eee
+    c11_e09: 87b7e137eca72373968f27c648848751bba93121ba7b2513951628c60896bd4f
+    c11_e10: bc0e8735467252e98c2a4d53b4f0f870a654b8cbfc02125b273ac0105157e81e
+    c11_o01: 50a38e89a92c49dbdbd1ec06cbebf8cc286ea34aa34aaf5a7a3ed7d3ee534e18
+    c11_o02: 00d0361188c711ba433605192b98c62020fc281f88caa875a9a9b93943b8c5b0
+    c11_o03: 49bb5a6f41e482729169e8ce698493cb15047dbd6b9b6ca3a71f8e852193f147
+    c11_m01: 3d127cbd3321b13623d6c5d467ac692822669a3e75852a8d5d82cdac9e9aae17
+    c11_m02: 3fe48f0674ddce4ecce8420cc7ea685066643cbf4d587c9c0ca162c1f9f8d106
+    c11_m03: 0af9c484068a73a3cc330a6561f6b9e48ae6801c9f057d4b0f3cdd6c870b2438
+    c11_m04: bdff8f42849a151b4f9de627b053060417561ce29db5a0e18fef79226c9bef10
+    c11_m05: eb30650337d962b6225786f2fee57f041686dba6b30c94612edd9e458d4c829c
+  tiebreak_audit:
+    seed: 3296743777
+    rate: 0.2
+    eligible: 2
+    eligible_ids:
+    - c11_e09
+    - c11_m03
+    sampled:
+    - c11_m03
+    non_publishable_test_seed: false
+stats:
+  items: 18
+  expected_impacts: 10
+  important_omissions: 3
+  possibly_missing: 5
+  anchors_verified: 18
+  judge_agree: 14
+  judge_disagree: 3
+  judge_uncertain: 1
+  auto_accepted: 10
+  pending: 0
+  audited: 3
+  human_decisions_needed: 0
+  llm_kept: 2
+  llm_dropped: 6
+expected_impacts:
+- expected_id: c11_e01
+  affected_actor: Software producers (including providers of standalone software and software updates)
+  mechanism: Software is defined as a 'product' (Art. 4(1)), so its manufacturers become subject to no-fault
+    liability under Art. 7, and the later-defect exemption does not apply to software and updates within
+    the manufacturer's control (Art. 10(2))
+  impact: Higher exposure to liability claims raises annual product liability insurance costs for software
+    producers by 15%.
+  provision_keys:
+  - pld/proposal/art/4
+  - pld/proposal/art/7
+  - pld/proposal/art/10
+  ia_section: 6.3. Policy option 1c – Inclusion of software in its own right, new types of damage and
+    adaptations for circular economy
+  ia_anchor: Annual product liability insurance costs are assessed to increase for software producers
+    by 15%.
+  anchor:
+    status: verified
+    against: ia
+  category: compliance_cost
+  derivability:
+    verdict: 'yes'
+    reason: Art. 4(1) explicitly includes software in 'product', and Art. 7 makes manufacturers liable,
+      so new liability exposure and insurance cost for software makers follows directly.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor directly states the 15% insurance cost increase for software producers, matching
+        actor, mechanism context, and number.
+    derivability:
+      verdict: agree
+      reason: Art. 4(1) brings software within 'product' and Art. 7 attaches manufacturer liability, with
+        Art. 10(2) barring the later-defect defence for software/updates within the manufacturer's control,
+        so the mechanism is textually grounded.
+    category:
+      verdict: agree
+      reason: Higher insurance costs from expanded liability exposure are substantive compliance costs,
+        not information obligations.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c11_e02
+  affected_actor: Software producers and people harmed by defective software (litigants)
+  mechanism: Applying no-fault product liability to software (Art. 4(1), Art. 7) replaces fault-based
+    claims, which shortens proceedings and also opens a new route for claims
+  impact: Annual legal costs fall by 6% because proceedings are shorter, while the number of in-court
+    and out-of-court cases rises by about 3.5%.
+  provision_keys:
+  - pld/proposal/art/4
+  - pld/proposal/art/7
+  ia_section: 6.3. Policy option 1c – Inclusion of software in its own right, new types of damage and
+    adaptations for circular economy
+  ia_anchor: For software producers and related victims of harm, PO1c would reduce the annual legal costs
+    by 6% due to the even broader application of no-fault liability
+  anchor:
+    status: verified
+    against: ia
+  category: other
+  derivability:
+    verdict: partly
+    reason: Bringing software under no-fault liability can be read from the text, but its effect on how
+      long proceedings take and how many cases are brought is an empirical inference.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context confirms 6% reduction in legal costs due to no-fault liability/shorter proceedings
+        and a 3.5% rise in case numbers, matching actor and both figures.
+    derivability:
+      verdict: agree
+      reason: The shift of software into no-fault liability is derivable from Arts. 4 and 7, but the specific
+        effects on proceeding length and case volume are empirical inferences not stated in the text.
+    category:
+      verdict: agree
+      reason: Changes in litigation cost and volume don't fit any specific listed category, so 'other'
+        is appropriate.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c11_e03
+  affected_actor: Manufacturers and other defendants in product liability cases
+  mechanism: Courts may order defendants to disclose relevant evidence at their disposal when the claimant
+    has made the claim plausible (Art. 8)
+  impact: Limited extra burden, because nearly all Member States already have disclosure rules. Industry
+    accepts harmonised rules provided requests are justified and intellectual property is protected.
+  provision_keys:
+  - pld/proposal/art/8
+  ia_section: 6.4. Policy option 2.a – Easing the burden of proof and reducing disproportionate restrictions
+    to make claims
+  ia_anchor: The obligation on producers to disclose necessary technical information to injured persons
+    in court will have a limited impact, given that nearly all Member States already have disclosure rules
+  anchor:
+    status: verified
+    against: ia
+  category: administrative_burden
+  derivability:
+    verdict: 'yes'
+    reason: Art. 8 directly creates the court-ordered disclosure duty on defendants.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor text matches verbatim the claim about limited impact of disclosure obligations given
+        existing national rules and industry's conditional acceptance.
+    derivability:
+      verdict: agree
+      reason: Art. 8 expressly creates a court-ordered disclosure obligation on defendants once a claim
+        is plausible.
+    category:
+      verdict: agree
+      reason: Court-ordered disclosure of evidence is an information/documentation obligation, fitting
+        administrative_burden.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c11_e04
+  affected_actor: Producers of complex products (pharmaceuticals, IoT and AI-enabled products)
+  mechanism: Disclosure of evidence (Art. 8) and rebuttable presumptions of defectiveness and causation,
+    including for technical or scientific complexity (Art. 9), make successful claims against them more
+    likely
+  impact: Annual product liability insurance costs rise by 4% for these producers.
+  provision_keys:
+  - pld/proposal/art/8
+  - pld/proposal/art/9
+  ia_section: 6.4. Policy option 2.a – Easing the burden of proof and reducing disproportionate restrictions
+    to make claims
+  ia_anchor: Annual product liability insurance costs are assumed to increase by 4% for producers of more
+    complex products such as pharmaceuticals, IoT and AI-enabled products, due to information requirements
+    and more uniform conditions for easing the burden of proof.
+  anchor:
+    status: verified
+    against: ia
+  category: compliance_cost
+  derivability:
+    verdict: 'yes'
+    reason: Art. 9(4) targets technically or scientifically complex cases, so higher liability exposure
+      for complex-product producers follows from the text.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor states the exact 4% insurance cost increase for producers of complex products (pharmaceuticals,
+        IoT, AI) due to disclosure/burden-of-proof changes.
+    derivability:
+      verdict: agree
+      reason: Art. 9(4) explicitly addresses technical/scientific complexity and Art. 8 disclosure, directly
+        supporting easier claims against complex-product producers.
+    category:
+      verdict: agree
+      reason: Rising insurance costs from greater liability exposure are substantive compliance costs.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c11_e05
+  affected_actor: National courts and parties to litigation
+  mechanism: Presumptions under Art. 9 and disclosure under Art. 8 put more of the onus on the producer,
+    which knows the product best
+  impact: Court cases become shorter. For complex products, legal costs fall by 10% while the number of
+    proceedings rises by 5%. No particular impact on the justice system, as these tools are already familiar.
+  provision_keys:
+  - pld/proposal/art/8
+  - pld/proposal/art/9
+  ia_section: 6.4. Policy option 2.a – Easing the burden of proof and reducing disproportionate restrictions
+    to make claims
+  ia_anchor: 'The use of presumptions is expected to make court cases shorter, as more onus would be placed
+    on the party with greater understanding of the product: the producer.'
+  anchor:
+    status: verified
+    against: ia
+  category: public_enforcement_cost
+  derivability:
+    verdict: partly
+    reason: The shift of onus is clear from Art. 9, but the effect on how long cases take and how many
+      are brought is an inference beyond the text.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context confirms shorter cases via presumptions, the 10% legal cost reduction and 5% rise
+        in proceedings for complex products, and no particular justice-system impact.
+    derivability:
+      verdict: agree
+      reason: The burden-shifting effect of Arts. 8-9 is textual, but the claimed shortening of proceedings
+        and rise in case numbers go beyond what the provisions state.
+    category:
+      verdict: agree
+      reason: The claim centers on effects on courts/the justice system, matching public_enforcement_cost.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: true
+    reviewer: null
+    note: null
+- expected_id: c11_e06
+  affected_actor: Consumers and injured persons harmed by complex products
+  mechanism: Access to the defendant's evidence (Art. 8) and presumptions easing proof of defect and causation
+    (Art. 9) reduce information asymmetry
+  impact: Claims for complex products that end in compensation rise by 7%. Average pay-outs are unchanged.
+    Consumer protection becomes more uniform and confidence in complex products may improve.
+  provision_keys:
+  - pld/proposal/art/8
+  - pld/proposal/art/9
+  ia_section: 6.4. Policy option 2.a – Easing the burden of proof and reducing disproportionate restrictions
+    to make claims
+  ia_anchor: would increase by 7% the number of claims for more complex products, such as pharmaceuticals,
+    IoT and AI-enabled products, that successfully lead to compensation due to information disclosures
+    and the more uniform use of presumptions.
+  anchor:
+    status: verified
+    against: ia
+  category: consumers_users
+  derivability:
+    verdict: 'yes'
+    reason: Arts. 8 and 9 are plainly designed to make it easier for claimants to prove their case.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor matches the 7% rise in successful compensation claims for complex products and the
+        unchanged average payout stated nearby.
+    derivability:
+      verdict: agree
+      reason: Arts. 8 and 9 are designed to reduce claimant information disadvantage, so easier/more successful
+        claims for injured persons is a derivable mechanism even though the specific percentage need not
+        be.
+    category:
+      verdict: agree
+      reason: Effects on consumers' ability to claim compensation and trust fit consumers_users best.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c11_e07
+  affected_actor: Injured persons (holders of the right to an effective remedy)
+  mechanism: Easing the burden of proof through presumptions and disclosure for complex products (Arts.
+    8–9)
+  impact: Strengthens the right to an effective remedy under Article 47 of the EU Charter of Fundamental
+    Rights.
+  provision_keys:
+  - pld/proposal/art/8
+  - pld/proposal/art/9
+  ia_section: 6.4. Policy option 2.a – Easing the burden of proof and reducing disproportionate restrictions
+    to make claims
+  ia_anchor: Reducing restrictions on making claims and easing the burden of proof in the case of complex
+    products would strengthen the right to an effective remedy
+  anchor:
+    status: verified
+    against: ia
+  category: fundamental_rights
+  derivability:
+    verdict: 'yes'
+    reason: Making it easier to prove claims directly bears on claimants' access to a remedy.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor directly states that easing restrictions/burden of proof strengthens the Article
+        47 right to an effective remedy, matching actor and mechanism.
+    derivability:
+      verdict: agree
+      reason: Easing proof obligations under Arts. 8-9 plausibly and directly bears on claimants' practical
+        ability to obtain a remedy.
+    category:
+      verdict: agree
+      reason: Strengthening the right to an effective remedy under the Charter is squarely fundamental_rights.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c11_e08
+  affected_actor: Manufacturers that keep control over products after placing them on the market (e.g.
+    robots, autonomous vehicles, software-updated products)
+  mechanism: The later-defect exemption does not apply to defects from software, updates, missing safety
+    updates or related services within the manufacturer's control (Art. 10(2)). The development-risk defence
+    and the relevant moment for defectiveness extend to the period of control (Art. 10(1)(e), Art. 6(1)(e))
+  impact: These manufacturers stay liable for defects that emerge after the product was put into circulation.
+    The adapted development-risk defence adds no impact beyond this.
+  provision_keys:
+  - pld/proposal/art/10
+  - pld/proposal/art/6
+  ia_section: 6.4. Policy option 2.a – Easing the burden of proof and reducing disproportionate restrictions
+    to make claims
+  ia_anchor: under which producers of products like robots or autonomous vehicles continue to be liable
+    for defects that emerge after the product was put into circulation owing to their ongoing control
+    over the product.
+  anchor:
+    status: verified
+    against: ia
+  category: compliance_cost
+  derivability:
+    verdict: 'yes'
+    reason: Art. 10(2) and the 'manufacturer's control' wording in Arts. 6(1)(e) and 10(1)(e) set out
+      this continued liability explicitly.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor confirms producers like robot/autonomous vehicle makers remain liable for defects
+        arising from ongoing control, and explicitly states no additional impact from the development-risk
+        defence change.
+    derivability:
+      verdict: agree
+      reason: Art. 10(2) exemption carve-out plus the 'manufacturer's control' language in Arts. 6(1)(e)
+        and 10(1)(e) together establish continued liability for post-market control.
+    category:
+      verdict: agree
+      reason: Continued liability exposure for manufacturers is a substantive compliance cost issue.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: true
+    reviewer: null
+    note: null
+- expected_id: c11_e09
+  affected_actor: Economic operators and consumers across the internal market
+  mechanism: Harmonised, explicit rules on disclosure (Art. 8) and on when defectiveness and causation
+    are presumed (Art. 9) replace divergent national practices
+  impact: More legal certainty, a more equal level of consumer protection across the EU, and a fairer
+    sharing of the burden of proof in cases involving complex products.
+  provision_keys:
+  - pld/proposal/art/8
+  - pld/proposal/art/9
+  ia_section: 6.4. Policy option 2.a – Easing the burden of proof and reducing disproportionate restrictions
+    to make claims
+  ia_anchor: Setting out explicitly obligations for producers to disclose information and the conditions
+    for easing the burden of proof through presumptions would create greater legal certainty and achieve
+    a more equal level of consumer protection across the EU.
+  anchor:
+    status: verified
+    against: ia
+  category: consumers_users
+  derivability:
+    verdict: partly
+    reason: Harmonisation is implied by the Directive's uniform rules, but the existing national divergence
+      it removes is not visible in the text.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor is a near-verbatim match stating harmonised disclosure/presumption rules create legal
+        certainty, equal consumer protection, and fairer burden-sharing.
+    derivability:
+      verdict: agree
+      reason: Uniform disclosure/presumption rules imply harmonising effect, but the prior divergence
+        in national practice that is being replaced is not itself stated in the text.
+    category:
+      verdict: disagree
+      reason: The impact described (legal certainty, equal consumer protection, fairer burden-sharing)
+        is not about market structure/prices; it fits consumers_users or 'other' better than market_competition.
+    overall: disagree
+  tiebreak:
+    verdict: keep
+    original_category: market_competition
+    reason: Section 6.4 states nearly verbatim that explicit disclosure and presumption rules create legal
+      certainty, more equal consumer protection and fairer burden-sharing; the effects concern legal certainty
+      and consumer protection, not market structure or prices.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_drafted
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_kept
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c11_e10
+  affected_actor: Importers, authorised representatives and fulfilment service providers of non-EU manufacturers
+  mechanism: Where the manufacturer is established outside the Union, the importer and authorised representative,
+    and failing them the fulfilment service provider, can be held liable (Art. 7(2)–(3); definitions in
+    Art. 4)
+  impact: There is always an EU-based person liable for defective products, in line with market surveillance
+    rules. These operators bear new liability exposure.
+  provision_keys:
+  - pld/proposal/art/7
+  - pld/proposal/art/4
+  ia_section: 8. Preferred option
+  ia_anchor: it would ensure the liability of an EU-based responsible person for defective products, in
+    line with market surveillance rules.
+  anchor:
+    status: verified
+    against: ia
+  category: international
+  derivability:
+    verdict: 'yes'
+    reason: Art. 7(2)–(3) expressly sets out this chain of liability for products from non-EU manufacturers.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context's statement that the option ensures an EU-based responsible person for defective
+        products aligns with the claimed importer/authorised representative/fulfilment provider liability
+        chain.
+    derivability:
+      verdict: agree
+      reason: Art. 7(2)-(3) explicitly creates the liability chain for importers, authorised representatives
+        and fulfilment service providers of non-EU manufacturers.
+    category:
+      verdict: agree
+      reason: Ensuring an EU-based liable party for non-EU manufacturers directly concerns third-country
+        market access, fitting international.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+important_omissions:
+- omission_id: c11_o01
+  description: Court-ordered disclosure under Art. 8 may require producers to reveal confidential technical
+    information and trade secrets. A good assessment should cover the risk to producers' intellectual
+    property and confidentiality, and the role of the proportionality test and confidentiality safeguards
+    in Art. 8(3)–(4) in limiting it.
+  source: ia
+  provision_keys:
+  - pld/proposal/art/8
+  ia_section: 6.4. Policy option 2.a – Easing the burden of proof and reducing disproportionate restrictions
+    to make claims
+  ia_anchor: so long as a claimant’s request was justified and intellectual property rights were adequately
+    protected.
+  anchor:
+    status: verified
+    against: ia
+  category: innovation_investment
+  derivability:
+    verdict: 'yes'
+    reason: Art. 8(3)–(4) explicitly refers to trade secrets and confidentiality in disclosure.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor shows industry's conditional acceptance of disclosure tied to IP protection, consistent
+        with the claim about confidentiality risk and safeguards.
+    derivability:
+      verdict: agree
+      reason: Art. 8(3)-(4) expressly addresses trade secrets, confidentiality and proportionality safeguards
+        in disclosure.
+    category:
+      verdict: agree
+      reason: Risk to trade secrets/IP from disclosure obligations bears on innovation incentives, fitting
+        innovation_investment.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- omission_id: c11_o02
+  description: Producers without liability insurance, often smaller firms including small software developers
+    newly covered by Art. 4(1), would bear compensation and legal costs directly rather than through premiums.
+    This makes the cost of the expanded liability and the eased burden of proof uneven between operators.
+  source: ia
+  provision_keys:
+  - pld/proposal/art/7
+  - pld/proposal/art/4
+  - pld/proposal/art/9
+  ia_section: 8. Preferred option
+  ia_anchor: Producers without a liability insurance would face direct compensation costs to victims (costs
+    not considered in the analysis, see section 6), and legal costs if the case goes to court.
+  anchor:
+    status: verified
+    against: ia
+  category: sme_specific
+  derivability:
+    verdict: partly
+    reason: The liability of manufacturers follows from Art. 7, but whether they are insured is outside
+      the text.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: unknown
+      reason: The anchor supports uninsured producers bearing direct costs, but does not mention small
+        software developers specifically, so that part of the actor description is unverifiable from this
+        context.
+    derivability:
+      verdict: agree
+      reason: Manufacturer liability under Art. 7 (including software makers via Art. 4) is textual, but
+        whether such producers carry insurance, making the burden uneven, is outside the provisions.
+    category:
+      verdict: agree
+      reason: Uneven cost burden for smaller/uninsured firms is specifically an SME-related effect.
+    overall: uncertain
+  tiebreak:
+    verdict: drop
+    original_category: sme_specific
+    reason: The IA only says uninsured producers bear direct compensation and legal costs; it does not
+      link this to small firms or small software developers, so the SME/uneven-burden framing is unsupported.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_drafted
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
+- omission_id: c11_o03
+  description: Insurers absorb the higher compensation pay-outs caused by wider liability and easier proof,
+    then pass them on through higher premiums. In turn, producers may pass these costs on to consumers
+    through prices. A good assessment should say who ultimately bears the cost.
+  source: ia
+  provision_keys:
+  - pld/proposal/art/7
+  - pld/proposal/art/9
+  - pld/proposal/art/10
+  ia_section: 8. Preferred option
+  ia_anchor: Insurance companies may have to bear higher compensation costs, but they would off-set that
+    cost by marginally raising insurance premiums, leading to higher revenues.
+  anchor:
+    status: verified
+    against: ia
+  category: other
+  derivability:
+    verdict: partly
+    reason: Higher liability exposure follows from the provisions, but the pass-through via insurance
+      markets is an economic inference.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: unknown
+      reason: The anchor confirms insurers passing costs to premiums, but says nothing about producers
+        passing costs on to consumers via prices, leaving that part of the claim unsupported.
+    derivability:
+      verdict: agree
+      reason: Broader liability exposure follows from Arts. 7, 9 and 10, but the insurance-market pass-through
+        to premiums and prices is an economic inference not found in the text.
+    category:
+      verdict: disagree
+      reason: Pass-through of costs via insurance premiums and consumer prices is about pricing effects,
+        fitting market_competition better than 'other'.
+    overall: disagree
+  tiebreak:
+    verdict: drop
+    original_category: other
+    reason: The IA supports insurers offsetting costs through premiums but says nothing about producers
+      passing costs on to consumers via prices; part of the claim is unsupported.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_drafted
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
+possibly_missing:
+- candidate_id: c11_m01
+  affected_actor: Producers whose evidence includes trade secrets or intellectual property (especially
+    software, AI and IoT producers)
+  mechanism: Art. 8(2)–(4) limits disclosure to what is necessary and proportionate. Courts must take
+    into account confidentiality and trade secrets, and can order measures to keep disclosed trade secrets
+    confidential during proceedings.
+  impact: Industry accepts harmonised disclosure rules on condition that claimants' requests are justified
+    and IP is adequately protected. The safeguards limit the risk that know-how leaks through litigation.
+  why_missing: The drafted Art. 8 pairs cover the disclosure obligation and the benefit to claimants,
+    not the trade-secret safeguards for defendants.
+  provision_keys:
+  - pld/proposal/art/8
+  ia_section: 6.4. Policy option 2.a – Easing the burden of proof and reducing disproportionate restrictions
+    to make claims
+  ia_anchor: so long as a claimant’s request was justified and intellectual property rights were adequately
+    protected
+  anchor:
+    status: verified
+    against: ia
+  category: fundamental_rights
+  derivability:
+    verdict: 'yes'
+    reason: Art. 8(3)–(4) explicitly refer to trade secrets and confidentiality measures.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Same anchor as o01 confirms industry's conditional support for disclosure rules tied to
+        IP/trade secret protection.
+    derivability:
+      verdict: agree
+      reason: Art. 8(2)-(4) directly limits disclosure and protects trade secrets/confidential information
+        during proceedings.
+    category:
+      verdict: disagree
+      reason: Protection of trade secrets/IP from disclosure relates to innovation incentives (innovation_investment)
+        more than fundamental_rights, which covers privacy/data protection type rights.
+    overall: disagree
+  tiebreak:
+    verdict: drop
+    original_category: fundamental_rights
+    reason: Duplicates kept items c11_e03 (industry acceptance conditional on justified requests and IP
+      protection) and c11_o01 (trade-secret safeguards in Art. 8(3)–(4)).
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c11_m02
+  affected_actor: Liability insurers
+  mechanism: Wider no-fault liability (software as a product, Art. 4(1)/Art. 7) and easier proof (Arts.
+    8–9) raise the compensation insurers must pay. Insurers pass this on through higher premiums.
+  impact: Insurers pay more in compensation but raise premiums slightly to cover it, so their net income
+    is assumed to stay stable.
+  why_missing: No drafted pair names insurers as an affected actor.
+  provision_keys:
+  - pld/proposal/art/7
+  - pld/proposal/art/9
+  ia_section: 8. Preferred option
+  ia_anchor: Insurance companies may have to bear higher compensation costs, but they would off-set that
+    cost by marginally raising insurance premiums
+  anchor:
+    status: verified
+    against: ia
+  category: market_competition
+  derivability:
+    verdict: 'no'
+    reason: The provisions do not mention insurers or how they pass costs on through premiums.
+  flags:
+  - not_derivable_from_provisions
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor directly states insurers offset higher compensation costs via marginally higher premiums
+        with stable net income, matching the claim.
+    derivability:
+      verdict: agree
+      reason: None of the cited provisions mention insurers or premium pass-through, so this mechanism
+        is not derivable from the text.
+    category:
+      verdict: agree
+      reason: Premium pass-through by insurers concerns pricing, fitting market_competition.
+    overall: agree
+  tiebreak:
+    verdict: drop
+    original_category: market_competition
+    reason: The insurer statement in Section 8 covers the whole preferred option, including threshold
+      and liability-period changes outside these provisions; Arts. 7 and 9 do not lead to insurer premium
+      pass-through.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c11_m03
+  affected_actor: Consumers and other natural persons who suffer loss or corruption of non-professional
+    data
+  mechanism: Art. 4(6)(c) includes loss or corruption of data not used exclusively for professional purposes
+    in compensable 'damage'.
+  impact: Gives legal certainty that people can be compensated for damage to digital property under no-fault
+    product liability.
+  why_missing: The drafted pairs cover software as a product, not data loss as a new type of compensable
+    damage.
+  provision_keys:
+  - pld/proposal/art/4
+  ia_section: 8. Preferred option
+  ia_anchor: nor deliver legal certainty with regard to compensation for digital property
+  anchor:
+    status: verified
+    against: ia
+  category: consumers_users
+  derivability:
+    verdict: 'yes'
+    reason: Art. 4(6)(c) explicitly adds data loss as a type of damage.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: The surrounding text explains PO1a's failure to deliver legal certainty on digital property
+        compensation, implying the preferred option (PO1b) remedies this as claimed.
+    derivability:
+      verdict: agree
+      reason: Art. 4(6)(c) explicitly includes non-professional data loss/corruption within compensable
+        damage.
+    category:
+      verdict: agree
+      reason: Compensation for consumers' data loss directly concerns consumer effects.
+    overall: agree
+  tiebreak:
+    verdict: keep
+    original_category: consumers_users
+    reason: Section 8 says PO1a would not deliver legal certainty on compensation for digital property,
+      which the preferred option does; Art. 4(6)(c) includes loss of non-professional data as damage.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_kept
+    audit: true
+    reviewer: null
+    note: null
+- candidate_id: c11_m04
+  affected_actor: Producers of IoT products and providers of AI systems
+  mechanism: Art. 4(6) limits 'damage' to material losses from personal injury, property and data. Non-material
+    harm from privacy breaches, discrimination or emotional harm stays outside no-fault liability (the
+    PO1c variant was rejected).
+  impact: Avoids the 2–3% rise in insurance costs and the 16% rise in cases that wider damage categories
+    would bring. Producers are not over-burdened with liability that is hard to insure.
+  why_missing: No drafted pair covers the limiting effect of the damage definition for IoT and AI producers.
+  provision_keys:
+  - pld/proposal/art/4
+  ia_section: 8. Preferred option
+  ia_anchor: that option does not over-burden producers with liability for privacy infringements, discrimination
+    and non-material harm
+  anchor:
+    status: verified
+    against: ia
+  category: compliance_cost
+  derivability:
+    verdict: partly
+    reason: The material-loss limit is visible in Art. 4(6), but the avoided costs come only from the
+      IA's comparison of options.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor confirms the chosen option does not over-burden IoT/AI producers with liability for
+        privacy, discrimination, and non-material harm, consistent with avoiding the PO1c-specific cost
+        increases.
+    derivability:
+      verdict: agree
+      reason: Art. 4(6)'s limitation to material losses (excluding non-material harms) is textual, but
+        the specific avoided cost figures are drawn only from the IA's option comparison.
+    category:
+      verdict: agree
+      reason: Avoiding an insurance cost rise for producers is a substantive compliance cost consideration.
+    overall: agree
+  tiebreak:
+    verdict: drop
+    original_category: compliance_cost
+    reason: The 2–3% insurance-cost and 16% case-number figures do not appear in the IA context provided,
+      so the numbers cannot be verified.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c11_m05
+  affected_actor: Consumers of complex products (as purchasers and users)
+  mechanism: Making the presumptions in Art. 9 explicit and visible increases consumer confidence and
+    trust in complex products and their willingness to bring claims.
+  impact: Better consumer trust in, and uptake of, complex and digital products, and more confidence to
+    claim compensation in complex cases.
+  why_missing: The drafted consumer pairs cover information asymmetry and easier proof, not trust in products
+    or willingness to buy them.
+  provision_keys:
+  - pld/proposal/art/9
+  ia_section: 6.4. Policy option 2.a – Easing the burden of proof and reducing disproportionate restrictions
+    to make claims
+  ia_anchor: The greater visibility of the possibility to ease the burden of proof could improve consumer
+    confidence and trust in more complex products.
+  anchor:
+    status: verified
+    against: ia
+  category: consumers_users
+  derivability:
+    verdict: partly
+    reason: The presumptions are in the text, but the effect on trust and uptake is the IA's inference.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor directly states that greater visibility of eased burden of proof could improve consumer
+        confidence and trust in complex products.
+    derivability:
+      verdict: agree
+      reason: The presumptions in Art. 9 are textual, but their effect on consumer trust and willingness
+        to claim is an inference beyond the provisions.
+    category:
+      verdict: agree
+      reason: Increased consumer trust and willingness to claim is a consumer-facing effect.
+    overall: agree
+  tiebreak:
+    verdict: drop
+    original_category: consumers_users
+    reason: Duplicates kept item c11_e06, which already states that confidence in complex products may
+      improve because of the eased burden of proof.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
