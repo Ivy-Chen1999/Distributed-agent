@@ -1,0 +1,1052 @@
+# DRAFT golden case written by scripts/draft_golden_case.py; not scored until published.
+# Reviewer? Start with docs/eval/reviewer-quickstart.md. The helper lists what to decide:
+#   uv run python scripts/review_draft.py <this file>
+# Decide every item whose review.decision is 'pending' and every possibly_missing candidate
+# as verified / edited / rejected / unclear, with your GitHub username in review.reviewer.
+# Other auto-accepted items need no decision. Do not change tool-written fields of an item
+# you keep as auto_accepted or verified (CI checks provenance.item_digests); the drafter
+# (provenance.drafted_by) cannot review. review_links opens the public IA and proposal on
+# EUR-Lex (train/val only); holdout identifiers never appear in a tracked file.
+case_id: case_03_data_act_cloud_switching
+scenario_id: eval_cloud_switching
+fixture: data_act
+split: train
+ia_reference: 'Impact assessment accompanying the Data Act proposal (identifiers in the local IA index);
+  sections: 6.2.3. Intervention on cloud and edge services; 6.3.3. Impacts on SMEs of cloud related measures;
+  Annex 3: Who is affected and how?'
+notes: ''
+review_links:
+  ia: https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:52022SC0034
+  proposal: https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:52022PC0068
+  ia_parts: 1
+  anchor_parts: {}
+provenance:
+  tool: scripts/draft_golden_case.py
+  drafted_on: '2026-10-04'
+  drafted_by: null
+  drafting_model: claude-opus-5-5
+  roles:
+    drafter:
+      backend: claude_code
+      model: claude-opus-5-5
+      prompt: prompts/tools/draft_golden_case.md
+    recall:
+      backend: claude_code
+      model: claude-opus-5-5
+      prompt: prompts/tools/recall_golden_case.md
+    judge_anchor:
+      backend: claude_code
+      model: claude-sonnet-5
+      prompt: prompts/tools/judge_anchor.md
+    judge_derivability:
+      backend: claude_code
+      model: claude-sonnet-5
+      prompt: prompts/tools/judge_derivability.md
+    judge_category:
+      backend: claude_code
+      model: claude-sonnet-5
+      prompt: prompts/tools/judge_category.md
+  prompt_hashes:
+    prompts/tools/draft_golden_case.md: 88fd2c24353b549d
+    prompts/tools/recall_golden_case.md: 36f0a5dcc15a57c6
+    prompts/tools/judge_anchor.md: 0d81eb4d5d2b43bd
+    prompts/tools/judge_derivability.md: e4938d4a7f801df5
+    prompts/tools/judge_category.md: 0cc481f442e51882
+  ia_sections:
+  - 6.2.3. Intervention on cloud and edge services
+  - 6.3.3. Impacts on SMEs of cloud related measures
+  - 'Annex 3: Who is affected and how?'
+  rsb_status: opinion none found in Cellar; using the IA's procedural-information annex
+  audit:
+    seed: 628849497
+    rate: 0.2
+    eligible: 10
+    eligible_ids:
+    - c03_e02
+    - c03_e03
+    - c03_e04
+    - c03_e05
+    - c03_e06
+    - c03_e07
+    - c03_e08
+    - c03_e10
+    - c03_o01
+    - c03_o02
+    sampled:
+    - c03_e04
+    - c03_e10
+    non_publishable_test_seed: false
+  item_digests:
+    c03_e01: 2a2a37f2d110b08a98aa1ae6a4140d06e92682898d19b795e26f8d58b6e43679
+    c03_e02: b6ce0d14dcc411a92bfbc104021145de5933a379310b6dd279035d8eb16858e8
+    c03_e03: ba68d0636f04854562523efb564591e9d50f5d7de2bbf63566d4fa8af51504dd
+    c03_e04: 3e5e0538e60592999bb0bdef29acc39c0cbcee2009fef106bdc3265c1a34e080
+    c03_e05: 64da28c39e4bdc1edca6211db39b404d5d43209d93795c9a887e0d667a21c121
+    c03_e06: 9c5d271c82c56d58c9288a6800a4621360b01833c12ab71e9e01606f238946c4
+    c03_e07: 1ce51e7ce6e04b4a0ed8d7f5e468889ecc9c9f012c9cfc915abbfe667263cc67
+    c03_e08: afb5dfdf5c95db6b464ca93ac0d5758d0ebf9a53876d1e59fcc36a5939daa15e
+    c03_e09: 0c37ebe2a9e516f34ca2298acca205d52b19d06c9d82d159d4d5b6e90abb99e0
+    c03_e10: 91eceac0b96a8f9de3eb58f8d887de7141b54d43dd616180d2d0f8a25906aa57
+    c03_o01: ecfca75eac255968de2d7e0bc25e2e6eb30043fad035db0e898706b0dd121cdf
+    c03_o02: f25ffe6fe4f10e7d71432339b0210c06dc2e087a701dc6935d1f70147b2c5645
+    c03_o03: 56b723b05498f5f7da0287e61a6f2b8b590664bb29fa4c2d08de3349fcf45b88
+    c03_m01: e29cfae038728d632b672e3b881b8a2cb2136c55de250877a047cb1b69ab3836
+    c03_m02: 4c88bc383e58ed8f4df7245dd359a52c6da490ca7aa43cc3524ae80add97ed5f
+    c03_m03: 237263d540af5493d9379717e9ce53e3e24ab0e82f21e9ee8d63828ed77d3df9
+    c03_m04: 8aeaffbcd267d8cc9b803d70b057db5044f8aa6439c15686e89c4168ea6a2f29
+    c03_m05: ce48bc485f4982bfe960b5430184be6199758ddc27e3b0fa8e1c8e3b27f6da92
+    c03_m06: 06ff796db64122daad8a0516899c6a9e31917f7d2d0faa3d33df50a93868ea6c
+  tiebreak_audit:
+    seed: 1374466863
+    rate: 0.2
+    eligible: 5
+    eligible_ids:
+    - c03_e01
+    - c03_e09
+    - c03_m01
+    - c03_m03
+    - c03_m05
+    sampled:
+    - c03_e01
+    non_publishable_test_seed: false
+stats:
+  items: 19
+  expected_impacts: 10
+  important_omissions: 3
+  possibly_missing: 6
+  anchors_verified: 19
+  judge_agree: 17
+  judge_disagree: 1
+  judge_uncertain: 1
+  auto_accepted: 10
+  pending: 0
+  audited: 3
+  human_decisions_needed: 0
+  llm_kept: 5
+  llm_dropped: 4
+expected_impacts:
+- expected_id: c03_e01
+  affected_actor: Business customers of cloud and edge services
+  mechanism: 'Providers must remove obstacles to switching: a 30-day maximum notice period, a 30-day transition
+    period, set data retrieval periods, and switching charges reduced to cost and then removed'
+  impact: Customers pay less to switch providers. The IA puts today's switching cost at up to 125% of
+    annual subscription costs.
+  provision_keys:
+  - data_act/proposal/art/23
+  - data_act/proposal/art/24
+  - data_act/proposal/art/25
+  ia_section: 6.2.3. Intervention on cloud and edge services
+  ia_anchor: Furthermore, the intervention under policy option 2 will benefit users of cloud and edge
+    services by reducing the cost of switching providers, which currently goes up to 125% of annual subscription
+    costs.
+  anchor:
+    status: verified
+    against: ia
+  category: market_competition
+  derivability:
+    verdict: 'yes'
+    reason: Articles 23-25 directly set switching rights, timeframes and the phase-out of charges for
+      the customer's benefit.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor directly states the 125% switching cost figure and benefit of reduced switching costs
+        for cloud/edge customers under policy option 2.
+    derivability:
+      verdict: agree
+      reason: Articles 23-25 together explicitly create the obstacle-removal duties, timeframes, and charge
+        rules described.
+    category:
+      verdict: disagree
+      reason: This is about switching costs and lock-in for business customers, which is core 'market_competition'
+        territory, not the 'consumers_users' category meant for end-user/consumer effects.
+    overall: disagree
+  tiebreak:
+    verdict: keep
+    original_category: consumers_users
+    reason: The IA says option 2 benefits users of cloud and edge services by cutting switching costs
+      that reach up to 125% of annual subscription costs, and Articles 23-25 set the switching duties.
+      The affected actors are business customers and the effect is lock-in and switching cost, so market_competition
+      fits better than consumers_users.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_drafted
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_kept
+    audit: true
+    reviewer: null
+    note: null
+- expected_id: c03_e02
+  affected_actor: Cloud service providers whose services use proprietary standards and have no set switching
+    processes
+  mechanism: Binding contract terms, timeframes, functional equivalence and export duties force these
+    providers to redesign their services
+  impact: These providers face higher compliance costs, especially for redesigning services to meet the
+    switching timeframes. Costs stay manageable for providers whose services already include data export
+    features.
+  provision_keys:
+  - data_act/proposal/art/23
+  - data_act/proposal/art/24
+  - data_act/proposal/art/26
+  ia_section: 6.2.3. Intervention on cloud and edge services
+  ia_anchor: Cloud providers with services based on proprietary standards and without clear processes
+    in place for switching would face more costs, in particular for the redesign of services to comply
+    with the mandatory framework conditions for switching (e.g., to respect timeframes).
+  anchor:
+    status: verified
+    against: ia
+  category: compliance_cost
+  derivability:
+    verdict: 'yes'
+    reason: The duties on providers to meet timeframes, export data and ensure functional equivalence
+      are explicit in Articles 23, 24 and 26.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context explicitly says providers with proprietary standards and no clear switching processes
+        face more redesign costs, while costs stay manageable for providers already offering export features.
+    derivability:
+      verdict: agree
+      reason: Articles 23, 24 and 26 impose the cited timeframe, export and functional-equivalence duties
+        on providers, requiring redesign work.
+    category:
+      verdict: agree
+      reason: Providers incurring redesign costs to meet switching requirements is a substantive compliance
+        cost.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c03_e03
+  affected_actor: The cloud services market (providers and the wider EU economy)
+  mechanism: Switching becomes an enforceable legal obligation, backed by a repository of open interoperability
+    standards. This makes switching easier and increases cloud take-up.
+  impact: Cloud demand rises by an extra 10.9% in 2025 (EUR 7.1 billion) compared with no action, which
+    could add 0.05 percentage points to EU GDP.
+  provision_keys:
+  - data_act/proposal/art/23
+  - data_act/proposal/art/25
+  - data_act/proposal/art/29
+  ia_section: 6.2.3. Intervention on cloud and edge services
+  ia_anchor: It would generate an additional 10.9% demand for cloud in 2025 (EUR 7.1 billion) as compared
+    to no action on this.
+  anchor:
+    status: verified
+    against: ia
+  category: market_competition
+  derivability:
+    verdict: partly
+    reason: Lower switching barriers and a standards repository can be read from the text, but the step
+      from there to higher overall demand is an economic inference.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor verbatim states the 10.9% / EUR 7.1 billion demand increase and the 0.05 percentage
+        point GDP impact tied to the enforceable switching obligation and standards repository.
+    derivability:
+      verdict: agree
+      reason: The provisions establish enforceable switching rights and a standards repository, but linking
+        this to aggregate demand growth is indeed an inference beyond the text.
+    category:
+      verdict: agree
+      reason: The claim centers on switching becoming easier reshaping market demand/structure, fitting
+        market_competition best.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c03_e04
+  affected_actor: Smaller, often EU-native cloud and edge providers
+  mechanism: Removing lock-in lets customers held in the integrated ecosystems of large providers move
+    to competitors
+  impact: Smaller providers gain access to a very large pool of potential customers and can compete with
+    hyperscalers on how easy it is to switch.
+  provision_keys:
+  - data_act/proposal/art/23
+  - data_act/proposal/art/24
+  - data_act/proposal/art/25
+  ia_section: 6.3.3. Impacts on SMEs of cloud related measures
+  ia_anchor: Whereas currently their potential customers are locked into the integrated ecosystems of
+    larger providers with proprietary standards, a legislative approach to foster cloud switching will
+    unlock this very large customer potential.
+  anchor:
+    status: verified
+    against: ia
+  category: market_competition
+  derivability:
+    verdict: partly
+    reason: Better customer mobility is clear from the provisions, but the provisions do not say that
+      the gains go mainly to smaller challengers.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context explicitly states smaller/EU-native providers' customers are currently locked in
+        larger providers' ecosystems and that legislation will unlock this large customer potential, matching
+        the claim.
+    derivability:
+      verdict: agree
+      reason: The cited articles show improved customer mobility generally, but nothing in them singles
+        out smaller/EU-native providers as the main beneficiaries.
+    category:
+      verdict: agree
+      reason: Smaller providers gaining ability to compete with hyperscalers via reduced lock-in is a
+        market_competition effect.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: true
+    reviewer: null
+    note: null
+- expected_id: c03_e05
+  affected_actor: SME cloud and edge providers
+  mechanism: Open interfaces must be published free of charge, and open interoperability specifications
+    and standards are referenced in a central Union repository
+  impact: SME providers can build on public open standards and interfaces without paying to develop them,
+    and can be confident their services will connect to customers and other cloud services.
+  provision_keys:
+  - data_act/proposal/art/26
+  - data_act/proposal/art/29
+  ia_section: 6.3.3. Impacts on SMEs of cloud related measures
+  ia_anchor: New open standards presented in a repository will offer SME providers the certainty that
+    their services can connect to customers and other relevant cloud services.
+  anchor:
+    status: verified
+    against: ia
+  category: sme_specific
+  derivability:
+    verdict: partly
+    reason: Article 26(2)-(3) and Article 29(5) create free open interfaces and a standards repository,
+      but the provisions do not single out SMEs as the main beneficiaries.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context states SME providers can build around publicly available open standards without
+        bearing development costs and gain certainty their services connect to customers, matching the
+        claim.
+    derivability:
+      verdict: agree
+      reason: Article 26(2)-(3) and 29(5) create free open interfaces and a standards repository, but
+        do not identify SMEs specifically as the beneficiaries.
+    category:
+      verdict: agree
+      reason: The effect specifically concerns SME providers benefiting from free open standards, matching
+        sme_specific.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c03_e06
+  affected_actor: Cloud service providers (data processing service providers)
+  mechanism: Providers must take reasonable technical, legal and organisational measures to prevent third-country
+    access to or transfer of non-personal data that conflicts with EU law, and must notify data holders
+    of requests
+  impact: Providers pay for more advanced mitigating measures that are not yet common, such as canary
+    clauses, regular reporting to customers, split processing and external logging verification. The IA
+    treats these costs as 'advanced investment' that is hard to separate from what providers would spend
+    anyway.
+  provision_keys:
+  - data_act/proposal/art/27
+  ia_section: 'Annex 3: Who is affected and how?'
+  ia_anchor: More advanced measures, such as ‘canary clauses’ or regular reporting to customers, split
+    processing, or independent verification by external logging service providers, are less common and
+    will incur costs.
+  anchor:
+    status: verified
+    against: ia
+  category: compliance_cost
+  derivability:
+    verdict: 'yes'
+    reason: Article 27(1) and (5) directly require providers to take preventive measures and to notify
+      data holders.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor and context list the same advanced mitigating measures (canary clauses, reporting,
+        split processing, external logging) as less common and cost-incurring for cloud providers, consistent
+        with the claim.
+    derivability:
+      verdict: agree
+      reason: Article 27(1) and (5) directly impose the preventive-measures and notification duties described.
+    category:
+      verdict: agree
+      reason: Technical/organisational measures providers must fund are substantive compliance costs.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c03_e07
+  affected_actor: Users of cloud services concerned about extraterritorial access
+  mechanism: Safeguards against unlawful third-country access, together with conditions for recognising
+    foreign orders, increase trust in cloud services
+  impact: Confidence in cloud services rises (not quantified), reassuring the 76% of users who reported
+    concerns about extraterritorial access. A level playing field also means providers cannot compete
+    on price by cutting mitigating measures.
+  provision_keys:
+  - data_act/proposal/art/27
+  ia_section: 'Annex 3: Who is affected and how?'
+  ia_anchor: To benefit cloud service providers and to reassure 76% of users who registered concerns about
+    extraterritorial access.
+  anchor:
+    status: verified
+    against: ia
+  category: consumers_users
+  derivability:
+    verdict: 'yes'
+    reason: Article 27 plainly aims to protect non-personal data held in the Union from conflicting foreign
+      access, which benefits users.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: 'Anchor matches the claim''s actor and effect: non-quantifiable confidence benefit reassuring
+        the 76% of users concerned about extraterritorial access.'
+    derivability:
+      verdict: agree
+      reason: Article 27's protections against unlawful third-country access plainly serve the interests
+        of users concerned about such access.
+    category:
+      verdict: agree
+      reason: Increased trust/confidence of users is a consumers_users effect.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c03_e08
+  affected_actor: EU cloud providers selling to non-EU clients
+  mechanism: Unilateral EU restrictions on complying with third-country access orders may lead non-EU/EEA
+    authorities to retaliate
+  impact: Some stakeholders warn that EU providers could lose sales of EU services to non-EU clients,
+    and call for a multilateral approach such as the OECD's work on trusted government access.
+  provision_keys:
+  - data_act/proposal/art/27
+  ia_section: 6.2.3. Intervention on cloud and edge services
+  ia_anchor: This may lead to a loss in sales of EU services to non-EU clients.
+  anchor:
+    status: verified
+    against: ia
+  category: international
+  derivability:
+    verdict: partly
+    reason: Article 27 clearly limits compliance with foreign orders, but the risk of retaliation depends
+      on how third countries react, which the text does not address.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: 'Context matches: stakeholders warn of reciprocal action leading to loss of EU sales to
+        non-EU clients and call for a multilateral (OECD) approach.'
+    derivability:
+      verdict: agree
+      reason: Article 27 restricts compliance with foreign orders, but the text says nothing about third-country
+        retaliation, so 'partly' is apt.
+    category:
+      verdict: agree
+      reason: Retaliation by non-EU authorities affecting EU providers' foreign sales is clearly an international
+        effect.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c03_e09
+  affected_actor: European standardisation organisations
+  mechanism: The Commission may ask European standardisation organisations to draft interoperability standards
+    for specific types of data processing service
+  impact: Each standard developed costs approximately EUR 1 million.
+  provision_keys:
+  - data_act/proposal/art/29
+  ia_section: 'Annex 3: Who is affected and how?'
+  ia_anchor: Standardisation bodies tasked with developing interoperability standards are estimated to
+    incur approximately EUR 1 m per standard.
+  anchor:
+    status: verified
+    against: ia
+  category: public_enforcement_cost
+  derivability:
+    verdict: 'yes'
+    reason: Article 29(4) explicitly provides for standardisation requests to European standardisation
+      organisations.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor verbatim gives the EUR 1 million per standard cost estimate for standardisation bodies,
+        matching the claim exactly.
+    derivability:
+      verdict: agree
+      reason: Article 29(4) explicitly provides for Commission requests to European standardisation organisations
+        to draft standards.
+    category:
+      verdict: unknown
+      reason: Costs borne by standardisation organisations could be seen as compliance_cost (cost of meeting
+        the obligation to draft standards) or public_enforcement_cost (quasi-public body cost), so it's
+        hard to pick a single best fit.
+    overall: uncertain
+  tiebreak:
+    verdict: keep
+    original_category: public_enforcement_cost
+    reason: Annex 3 says standardisation bodies developing interoperability standards will incur about
+      EUR 1m per standard, and Art 29(4) lets the Commission request such standards. This is an implementation
+      cost on the public or standardisation side, not a cost of complying with the rules.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_drafted
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_kept
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c03_e10
+  affected_actor: Software developers of cloud applications
+  mechanism: Export and switching duties for data processing services encourage export features to be
+    built in at the design stage
+  impact: Developers are pushed to design data export features into their applications from the start.
+  provision_keys:
+  - data_act/proposal/art/24
+  - data_act/proposal/art/26
+  ia_section: 6.2.3. Intervention on cloud and edge services
+  ia_anchor: This will also incentivize software developers to foresee data export features from the beginning
+    in the design of their applications.
+  anchor:
+    status: verified
+    against: ia
+  category: innovation_investment
+  derivability:
+    verdict: partly
+    reason: The duty to export data (Article 24(1)(b), Article 26(4)) is explicit, but the effect on how
+      applications are designed is an inference.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor verbatim matches the claim that switching/export duties incentivize developers to
+        build in export features from the design stage.
+    derivability:
+      verdict: agree
+      reason: Export duties are explicit in Article 24(1)(b) and 26(4), but the design-stage behavioural
+        effect on developers is an inference.
+    category:
+      verdict: agree
+      reason: Encouraging design-stage investment in export features aligns with innovation_investment
+        (new service design).
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: true
+    reviewer: null
+    note: null
+important_omissions:
+- omission_id: c03_o01
+  description: Provider compliance costs are not quantified (Table 6 shows 'n/a'), and the IA admits that
+    costs from Article 27 safeguards cannot be separated from baseline investment. The net-benefit claim
+    therefore rests on an assumption that initial costs are outweighed by extra demand, which goes mostly
+    to providers, not on a costed comparison.
+  source: ia
+  provision_keys:
+  - data_act/proposal/art/24
+  - data_act/proposal/art/26
+  - data_act/proposal/art/27
+  ia_section: 6.2.3. Intervention on cloud and edge services
+  ia_anchor: This makes it difficult to distinguish the costs of regulatory compliance from the investments
+    of the cloud providers under the baseline scenario.
+  anchor:
+    status: verified
+    against: ia
+  category: compliance_cost
+  derivability:
+    verdict: partly
+    reason: The obligations that create costs are visible, but whether the estimates are reliable cannot
+      be judged from the text.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context supports the claim that compliance costs can't be separated from baseline investment
+        and that the benefit is framed as an assumption that costs are outweighed by additional demand
+        accruing to providers.
+    derivability:
+      verdict: agree
+      reason: The cost-generating obligations are visible in the text, but reliability of cost estimates
+        cannot be assessed from the provisions alone.
+    category:
+      verdict: agree
+      reason: The critique concerns unquantified provider compliance costs, matching compliance_cost.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- omission_id: c03_o02
+  description: The IA's claim of 'manageable' and 'no fixed' costs assumes voluntary, industry-led standardisation.
+    Yet Article 26(1) requires functional equivalence for infrastructure services, and Article 26(3) makes
+    compatibility with identified standards mandatory once they are published under Article 29(5). A good
+    assessment should flag that costs depend on which standards are adopted and when.
+  source: ia
+  provision_keys:
+  - data_act/proposal/art/26
+  - data_act/proposal/art/29
+  ia_section: 6.2.3. Intervention on cloud and edge services
+  ia_anchor: this would present no fixed additional costs for businesses, as the approach would depend
+    on voluntary participation in an industry-led standardisation process.
+  anchor:
+    status: verified
+    against: ia
+  category: compliance_cost
+  derivability:
+    verdict: 'yes'
+    reason: The mandatory wording of Article 26(1) and (3), together with the delegated act in Article
+      29(5), can be read directly from the provisions.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor directly quotes the 'no fixed additional costs' / voluntary industry-led standardisation
+        framing that the claim critiques; context matches this portion of the claim.
+    derivability:
+      verdict: agree
+      reason: Article 26(1) and (3) with the Article 29(5) delegated act mechanism are mandatory as stated,
+        matching the claim directly.
+    category:
+      verdict: agree
+      reason: The critique is about uncertainty in compliance costs tied to mandatory standards, fitting
+        compliance_cost.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- omission_id: c03_o03
+  description: The RSB asked the report to state that switching for hyperscalers, which hold a large share
+    of the market, is already regulated under the Digital Markets Act. A good assessment should identify
+    what these provisions add over the DMA and avoid counting overlapping effects twice.
+  source: rsb
+  provision_keys:
+  - data_act/proposal/art/23
+  - data_act/proposal/art/24
+  - data_act/proposal/art/25
+  ia_section: 3. Consultation of the RSB
+  ia_anchor: In relation to ‘switchability’ between cloud providers, the report should be clear that this
+    aspect is regulated already for the hyperscalers under the Data Market Act, which covers the large
+    share of the market.
+  anchor:
+    status: verified
+    against: rsb
+  category: market_competition
+  derivability:
+    verdict: 'no'
+    reason: The scenario provisions do not mention the DMA, so the overlap is visible only from outside
+      the text.
+  flags:
+  - not_derivable_from_provisions
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor matches the claim that the RSB asked the report to clarify hyperscaler switching
+        is already regulated (text says 'Data Market Act', evidently meaning the Digital Markets Act)
+        and covers a large market share.
+    derivability:
+      verdict: agree
+      reason: None of the cited provisions reference the DMA, so the overlap point cannot be derived from
+        this text.
+    category:
+      verdict: agree
+      reason: The critique concerns overlap with DMA switching/market regulation, fitting market_competition.
+    overall: agree
+  tiebreak:
+    verdict: drop
+    original_category: market_competition
+    reason: The anchor is an RSB request with no surrounding IA text, so we cannot tell whether the final
+      IA dealt with the DMA overlap. The claim also reads 'Data Market Act' as the Digital Markets Act,
+      and the provisions do not refer to the DMA.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_drafted
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
+possibly_missing:
+- candidate_id: c03_m01
+  affected_actor: High-tech SMEs and start-ups using cloud and edge services
+  mechanism: Harmonised switching conditions across the EU ease the technical portability problems and
+    re-architecting costs that SMEs cannot handle as well as larger firms
+  impact: 'SMEs and start-ups are the main demand-side winners: they avoid the costly work of rebuilding
+    digital assets to move them off proprietary platforms'
+  why_missing: The draft covers business customers in general, not the SME-specific mechanism of lacking
+    resources to re-architect and handle missing standards.
+  provision_keys:
+  - data_act/proposal/art/23
+  - data_act/proposal/art/26
+  ia_section: 6.3.3. Impacts on SMEs of cloud related measures
+  ia_anchor: SMEs lack the resources to re-architecture their digital assets in order to move them to
+    new platforms
+  anchor:
+    status: verified
+    against: ia
+  category: sme_specific
+  derivability:
+    verdict: partly
+    reason: The provisions show that switching gets easier for all customers. The extra benefit to SMEs
+      because they lack resources comes only from the IA.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context states SMEs lack resources to re-architect digital assets and are the greatest demand-side
+        beneficiaries due to harmonised conditions, matching the claim.
+    derivability:
+      verdict: agree
+      reason: The provisions show general easing of switching/portability, but do not single out SMEs
+        as the main beneficiaries of avoided re-architecting costs.
+    category:
+      verdict: agree
+      reason: The claim specifically addresses SME/start-up benefits from easier switching, matching sme_specific.
+    overall: agree
+  tiebreak:
+    verdict: keep
+    original_category: sme_specific
+    reason: Section 6.3.3 says high-tech SMEs and start-ups using cloud services gain most from the harmonised
+      switching conditions because they lack the resources to re-architect digital assets built on proprietary
+      standards. This follows from the switching and portability duties in Articles 23 and 26, and no
+      kept item covers SMEs as customers.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_kept
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c03_m02
+  affected_actor: SMEs contracting with cloud providers
+  mechanism: Mandatory written contract terms on switching rights, transition periods, exportable data
+    and retrieval periods, plus capped and then removed switching charges, rebalance contracts that currently
+    favour providers
+  impact: Expected to cut the EUR 653 million gross loss over two years caused by unbalanced cloud contracts,
+    and to even out cloud uptake between large and small companies
+  why_missing: No drafted pair covers contractual imbalance or the EUR 653 million SME loss; the customer
+    pair is only about removing switching obstacles.
+  provision_keys:
+  - data_act/proposal/art/24
+  - data_act/proposal/art/25
+  ia_section: 6.3.3. Impacts on SMEs of cloud related measures
+  ia_anchor: SMEs are also confronted with problems of generally unbalanced contracts with cloud providers
+  anchor:
+    status: verified
+    against: ia
+  category: sme_specific
+  derivability:
+    verdict: partly
+    reason: The contract-content rules point towards fairer contracts. The size of the loss and the focus
+      on SMEs come from the IA.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context explicitly ties unbalanced cloud contracts to the EUR 653 million detriment and
+        states the intervention is expected to reduce losses and rebalance uptake between large and small
+        companies, matching the claim.
+    derivability:
+      verdict: agree
+      reason: Articles 24-25 rebalance contract terms generally, but do not specifically frame SMEs as
+        the focus or quantify losses.
+    category:
+      verdict: agree
+      reason: The claim explicitly targets SME contract imbalances and outcomes, matching sme_specific.
+    overall: agree
+  tiebreak:
+    verdict: drop
+    original_category: sme_specific
+    reason: The IA expects the EUR 653m loss from unbalanced contracts to fall because of 'reducing distrust
+      in cloud and increasing competition'. It does not credit this to the Art 24-25 contract terms, so
+      the claimed mechanism is not what the IA says.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c03_m03
+  affected_actor: European smaller cloud and edge providers in federation partnerships
+  mechanism: Switching and interoperability rules let users combine services from several providers, which
+    supports cloud federation partnerships among smaller European providers
+  impact: Smaller European providers can scale up more easily, and dependence on non-EU/EEA providers
+    falls
+  why_missing: The drafted smaller-provider pairs cover winning locked-in customers and free open interfaces,
+    not support for federation and scaling.
+  provision_keys:
+  - data_act/proposal/art/23
+  - data_act/proposal/art/26
+  - data_act/proposal/art/29
+  ia_section: 6.3.3. Impacts on SMEs of cloud related measures
+  ia_anchor: policy option 2 would support new and existing partnership initiatives of European smaller
+    providers in the area of cloud federation
+  anchor:
+    status: verified
+    against: ia
+  category: sme_specific
+  derivability:
+    verdict: 'no'
+    reason: The provisions do not mention federation partnerships or dependence on non-EU providers.
+  flags:
+  - not_derivable_from_provisions
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor and context match the claim that federation partnerships among smaller EU providers
+        increase scalability and reduce dependency on non-EU/EEA providers.
+    derivability:
+      verdict: agree
+      reason: The cited articles address switching and interoperability generally but say nothing about
+        federation partnerships or non-EU dependence.
+    category:
+      verdict: agree
+      reason: Smaller European providers scaling via federation and competing with non-EU providers is
+        a market_competition effect.
+    overall: agree
+  tiebreak:
+    verdict: keep
+    original_category: market_competition
+    reason: Section 6.3.3 says option 2 supports federation partnerships of smaller European providers,
+      which increases their scalability and reduces dependence on non-EU/EEA providers, because users
+      can combine functions from several providers. That follows from the switching and interoperability
+      rules in Arts 23, 26 and 29. It is categorised under the IA's SME section.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_kept
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c03_m04
+  affected_actor: Cloud service providers already investing in measures against third-country access
+  mechanism: Binding measures against unlawful third-country access create a level playing field, so competitors
+    cannot undercut on price by skipping these measures; compliance spending counts as advanced investment
+  impact: Providers are protected from price competition that would come at the expense of these protective
+    measures, and change happens faster than under voluntary action
+  why_missing: The drafted Art 27 provider pair covers the compliance duty, not the competition effect
+    of a level playing field.
+  provision_keys:
+  - data_act/proposal/art/27
+  ia_section: 6.2.3. Intervention on cloud and edge services
+  ia_anchor: the level-playing field for all cloud providers (price competition will not happen at the
+    expense of mitigating measures)
+  anchor:
+    status: verified
+    against: ia
+  category: market_competition
+  derivability:
+    verdict: partly
+    reason: An obligation that applies to all providers implies a level playing field, but the price-competition
+      reasoning comes from the IA.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: 'Anchor matches claim: level playing field prevents price competition at the expense of
+        mitigating measures, and context also uses the ''advanced investment'' framing for providers''
+        compliance spending.'
+    derivability:
+      verdict: agree
+      reason: Article 27 applies uniformly to providers, implying a level playing field, but the price-competition
+        dynamic is an added inference not in the text.
+    category:
+      verdict: agree
+      reason: Preventing price undercutting and creating a level playing field among providers is a market_competition
+        effect.
+    overall: agree
+  tiebreak:
+    verdict: drop
+    original_category: market_competition
+    reason: 'This repeats kept items: c03_e07 already covers the level playing field where providers cannot
+      compete on price by cutting mitigating measures, and c03_e06 covers the ''advanced investment''
+      framing.'
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c03_m05
+  affected_actor: Businesses (especially SMEs) deploying AI, big data and IoT technologies
+  mechanism: Easier switching and interoperability make a seamless, multi-vendor federated cloud space
+    possible, which advanced technologies need as a base
+  impact: Many new data processing functions become available; businesses become more competitive and
+    scalable and find it easier to deploy new technologies
+  why_missing: The draft's market pair covers higher cloud take-up and GDP, not the innovation route through
+    a federated multi-vendor cloud space.
+  provision_keys:
+  - data_act/proposal/art/23
+  - data_act/proposal/art/26
+  - data_act/proposal/art/29
+  ia_section: 6.2.3. Intervention on cloud and edge services
+  ia_anchor: a seamless, multi-vendor federated cloud space that will lead to a myriad of new data processing
+    functionalities
+  anchor:
+    status: verified
+    against: ia
+  category: innovation_investment
+  derivability:
+    verdict: 'no'
+    reason: The provisions say nothing about federated cloud spaces or deploying AI and IoT.
+  flags:
+  - not_derivable_from_provisions
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor verbatim matches the claim about a federated cloud space enabling new data processing
+        functionalities and supporting SME competitiveness and technology deployment.
+    derivability:
+      verdict: agree
+      reason: The cited articles do not mention federated cloud spaces, AI, big data or IoT deployment.
+    category:
+      verdict: agree
+      reason: Enabling deployment of new technologies (AI, IoT) via multi-vendor cloud fits innovation_investment.
+    overall: agree
+  tiebreak:
+    verdict: keep
+    original_category: innovation_investment
+    reason: Section 6.2.3 says option 2 paves the way to a seamless multi-vendor federated cloud space
+      with many new data processing functions, making it easier for businesses, especially SMEs, to deploy
+      AI, big data and IoT. This is a different route from the take-up and GDP effect in c03_e03, and
+      it rests on the switching and interoperability provisions.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_kept
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c03_m06
+  affected_actor: Cloud providers whose services already include data export features
+  mechanism: Because the rules rely on standards led by industry, not mandatory interoperability requirements,
+    compliance costs stay limited for providers that already support data export
+  impact: Compliance costs are expected to remain manageable and to be outweighed by extra demand for
+    cloud services
+  why_missing: The draft covers only the higher redesign costs for providers using proprietary standards,
+    not the manageable costs for providers already supporting export.
+  provision_keys:
+  - data_act/proposal/art/26
+  - data_act/proposal/art/29
+  ia_section: 6.2.3. Intervention on cloud and edge services
+  ia_anchor: the costs are expected to remain manageable, especially where service offerings of providers
+    already contain software features to facilitate export of data
+  anchor:
+    status: verified
+    against: ia
+  category: compliance_cost
+  derivability:
+    verdict: partly
+    reason: The provisions show that compatibility with standards is not mandated where no standards exist.
+      The cost judgement comes from the IA.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor directly matches the claim that costs remain manageable for providers with existing
+        export features due to the industry-led (non-mandatory) approach.
+    derivability:
+      verdict: agree
+      reason: Article 26(4)/29 show compatibility is only required where standards exist, but the cost-manageability
+        judgment for providers with existing export features is an IA-level inference.
+    category:
+      verdict: agree
+      reason: The claim is about providers' compliance costs remaining limited, matching compliance_cost.
+    overall: agree
+  tiebreak:
+    verdict: drop
+    original_category: compliance_cost
+    reason: This duplicates kept item c03_e02, which already says costs stay manageable for providers
+      whose services already include data export features.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
