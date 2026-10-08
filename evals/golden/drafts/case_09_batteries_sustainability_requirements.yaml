@@ -1,0 +1,1139 @@
+# DRAFT golden case written by scripts/draft_golden_case.py; not scored until published.
+# Reviewer? Start with docs/eval/reviewer-quickstart.md. The helper lists what to decide:
+#   uv run python scripts/review_draft.py <this file>
+# Decide every item whose review.decision is 'pending' and every possibly_missing candidate
+# as verified / edited / rejected / unclear, with your GitHub username in review.reviewer.
+# Other auto-accepted items need no decision. Do not change tool-written fields of an item
+# you keep as auto_accepted or verified (CI checks provenance.item_digests); the drafter
+# (provenance.drafted_by) cannot review. review_links opens the public IA and proposal on
+# EUR-Lex (train/val only); holdout identifiers never appear in a tracked file.
+case_id: case_09_batteries_sustainability_requirements
+scenario_id: eval_sustainability_requirements
+fixture: batteries
+split: train
+ia_reference: 'Impact assessment accompanying the Batteries Regulation proposal (identifiers in the local
+  IA index); sections: Measure 6: Carbon footprint of rechargeable industrial and EV batteries; Measure
+  7: Performance and durability of rechargeable industrial and EV batteries; Measure 8: Non-rechargeable
+  portable batteries; Measure 9: Recycled content; Measure 13: Supply-chain due diligence for raw materials
+  in industrial and EV batteries'
+notes: ''
+review_links:
+  ia: https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:52020SC0335
+  proposal: https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:52020PC0798
+  ia_parts: 3
+  anchor_parts:
+    c09_e01: 1
+    c09_e02: 1
+    c09_e03: 1
+    c09_e04: 1
+    c09_e05: 1
+    c09_e06: 1
+    c09_e07: 1
+    c09_e08: 1
+    c09_e09: 1
+    c09_e10: 1
+    c09_o01: 1
+    c09_o02: 1
+    c09_o03: 1
+    c09_o04: 1
+    c09_m01: 1
+    c09_m02: 1
+    c09_m03: 1
+    c09_m04: 1
+    c09_m05: 1
+    c09_m06: 1
+    c09_m07: 1
+provenance:
+  tool: scripts/draft_golden_case.py
+  drafted_on: '2026-10-06'
+  drafted_by: Chen Yuxin
+  drafting_model: claude-opus-5-5
+  roles:
+    drafter:
+      backend: claude_code
+      model: claude-opus-5-5
+      prompt: prompts/tools/draft_golden_case.md
+    recall:
+      backend: claude_code
+      model: claude-opus-5-5
+      prompt: prompts/tools/recall_golden_case.md
+    judge_anchor:
+      backend: claude_code
+      model: claude-sonnet-5
+      prompt: prompts/tools/judge_anchor.md
+    judge_derivability:
+      backend: claude_code
+      model: claude-sonnet-5
+      prompt: prompts/tools/judge_derivability.md
+    judge_category:
+      backend: claude_code
+      model: claude-sonnet-5
+      prompt: prompts/tools/judge_category.md
+  prompt_hashes:
+    prompts/tools/draft_golden_case.md: c72bd341e2c3ef75
+    prompts/tools/recall_golden_case.md: 36f0a5dcc15a57c6
+    prompts/tools/judge_anchor.md: 0d81eb4d5d2b43bd
+    prompts/tools/judge_derivability.md: 97471d88c14d32c3
+    prompts/tools/judge_category.md: 8b1885320b65b60f
+  ia_sections:
+  - 'Measure 6: Carbon footprint of rechargeable industrial and EV batteries'
+  - 'Measure 7: Performance and durability of rechargeable industrial and EV batteries'
+  - 'Measure 8: Non-rechargeable portable batteries'
+  - 'Measure 9: Recycled content'
+  - 'Measure 13: Supply-chain due diligence for raw materials in industrial and EV batteries'
+  rsb_status: opinion none found in Cellar; using the IA's procedural-information annex
+  audit:
+    seed: 4197411134
+    rate: 0.2
+    eligible: 11
+    eligible_ids:
+    - c09_e01
+    - c09_e02
+    - c09_e04
+    - c09_e05
+    - c09_e06
+    - c09_e07
+    - c09_e08
+    - c09_e09
+    - c09_o01
+    - c09_o02
+    - c09_o04
+    sampled:
+    - c09_e01
+    - c09_e07
+    - c09_o02
+    non_publishable_test_seed: false
+  item_digests:
+    c09_e01: 32564c90161256c32b6fddf03d0e936450aa5142bc69bf4544f48b7a26d46597
+    c09_e02: 134ec179f03d9c43a59a05784153aa6c23595653970ae597c2f7d238b3c4b9e7
+    c09_e03: b0f93d61b3c7ea661df97548f03b273e6b117138def48c1d8220db9d4e69ff75
+    c09_e04: a1ae10252d0b95854474a4ca0125bea8be87ddf9189407ed5e2328ab6984179f
+    c09_e05: eee15c1ba079cca101627e56df91e78a3346c224265c9ae8a857ee17e180cf69
+    c09_e06: cc51c4f1eeb00ceb4f904607531481048242e75acb8d7d7e83fa2b9dc2825672
+    c09_e07: bb460792c86289575db5c36dee1a8835d8aaf8c83a734bedabd73cd13d96eeda
+    c09_e08: 67086de074ee4d945b9dcbd6a2a64da5dc06ef88403e9c1db26c8b1d398a4591
+    c09_e09: c51a36c15f7fa7ce181d39e58d653681f031da0869f84ae0c2f2494b6e38d271
+    c09_e10: dd4a0e00dd40a7b615bb889153980e861da31135432043358a2f72a756aba28f
+    c09_o01: 8a155bda5c23f6586d8283c07a147ea3ceebcf8d48d5272a7ef2949b785ed342
+    c09_o02: 1d69692479593cf9d213a4820734ed6e396302fc076ed1100f70ff0be20e5876
+    c09_o03: d54e196c07fa464af35cfe2fe0cb226df7f0deb388beccc508e2fda074c187e7
+    c09_o04: f0687f7c980efa1899ad561304480778bf2859b1f20ba4fe13d6b5b1223a6944
+    c09_m01: a56b0746b247f855b293e022122a2d74716d3f6438542ea3ef046be85f3f04f3
+    c09_m02: cafbfa61ba4db0d091c3137eba50ab38f9d186ecc054d080e27d47c9c4cb1710
+    c09_m03: 10e74966559d4866db635db24bc94f2400ab0a57a5945d6ffc2e435173a70809
+    c09_m04: c5d0b23785cb2b28eb0cc7c41f6bbf60c1c22fb68551e69e5beb4db749dfd388
+    c09_m05: 41176946e90d1c210e5e3260c244fb2458d442b10b401b150f284cbb7ff46dd3
+    c09_m06: 46ec801b8073e20ffb7c2fea86d90748d5e293870e87bbb787d8422a74de4147
+    c09_m07: 7551d6ccadf4f4d32a987feb860e3513097c6ddee1b3910eb9167fa5877f7627
+  tiebreak_audit:
+    seed: 3929387096
+    rate: 0.2
+    eligible: 2
+    eligible_ids:
+    - c09_e03
+    - c09_e10
+    sampled:
+    - c09_e10
+    non_publishable_test_seed: false
+stats:
+  items: 21
+  expected_impacts: 10
+  important_omissions: 4
+  possibly_missing: 7
+  anchors_verified: 21
+  judge_agree: 14
+  judge_disagree: 5
+  judge_uncertain: 2
+  auto_accepted: 11
+  pending: 0
+  audited: 4
+  human_decisions_needed: 0
+  llm_kept: 2
+  llm_dropped: 8
+expected_impacts:
+- expected_id: c09_e01
+  affected_actor: Producers of EV batteries and rechargeable industrial batteries above 2 kWh
+  mechanism: They must draw up a carbon footprint declaration in the technical documentation for each
+    battery model and batch per plant, and have it verified by an independent third party.
+  impact: One-off calculation costs of €100–5 000 per battery type, plus €2 000–7 000 per battery type
+    for verification, with small follow-up costs. Assuming about 50 producers, the total cost to industry
+    is €500 000–3 000 000.
+  provision_keys:
+  - batteries/proposal/art/7
+  ia_section: 'Measure 6: Carbon footprint of rechargeable industrial and EV batteries'
+  ia_anchor: One-off costs per “battery type” would be in the range of €100–5 000, depending on the availability
+    of the company-specific data needed and consultancy costs.
+  anchor:
+    status: verified
+    against: ia
+  category: administrative_burden
+  derivability:
+    verdict: 'yes'
+    reason: Art 7(1) explicitly requires a per-model, per-batch declaration with third-party verification,
+      so a documentation and verification cost to producers is obvious.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor context gives identical cost figures (€100–5000 calculation, €2000–7000 verification,
+        50 producers, €500k–3M total) matching the claim exactly.
+    derivability:
+      verdict: agree
+      reason: Art 7(1) explicitly requires a per-model/batch/plant carbon footprint declaration with an
+        independent third-party verification statement, directly supporting the claimed documentation
+        and verification cost mechanism.
+    category:
+      verdict: agree
+      reason: This is a documentation and third-party verification obligation, a classic information/record-keeping
+        duty.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: true
+    reviewer: null
+    note: null
+- expected_id: c09_e02
+  affected_actor: Battery manufacturers (cell and battery production) and the electricity sector
+  mechanism: Carbon footprint declarations, performance-class labels and maximum thresholds let the market
+    tell batteries apart by carbon intensity, and push manufacturers to lower their production emissions.
+  impact: Manufacturers are expected to switch to greener electricity providers or contracts, which helps
+    decarbonise electricity generation. The IA expects this benefit to be larger with classes and thresholds,
+    but it was not quantified.
+  provision_keys:
+  - batteries/proposal/art/7
+  ia_section: 'Measure 6: Carbon footprint of rechargeable industrial and EV batteries'
+  ia_anchor: This is expected to prompt manufacturers to choose greener electricity providers/contracts,
+    which will contribute to the process of decarbonising electricity generation.
+  anchor:
+    status: verified
+    against: ia
+  category: social_environmental
+  derivability:
+    verdict: partly
+    reason: Labels and thresholds in Art 7(2)-(3) clearly create an incentive to cut carbon footprint,
+      but the specific route of greener electricity contracts is not in the text.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context states the carbon footprint rules are expected to prompt manufacturers to choose
+        greener electricity providers, matching actor, mechanism and effect of the claim.
+    derivability:
+      verdict: agree
+      reason: Art 7(2)-(3) labels/classes and thresholds clearly incentivize manufacturers to cut their
+        carbon footprint, but the specific route of switching to greener electricity contracts is not
+        stated in the text, so 'partly' is apt.
+    category:
+      verdict: agree
+      reason: The stated impact is decarbonisation of electricity generation, an environmental effect.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c09_e03
+  affected_actor: Producers of industrial, EV and automotive batteries containing cobalt, lead, lithium
+    or nickel
+  mechanism: From 2027 they must document the amount of recycled cobalt, lead, lithium and nickel in active
+    materials for each battery model and batch, and have it calculated and verified.
+  impact: Expected cost per battery type is about €2 100–12 000 (calculation €100–5 000 plus verification
+    €2 000–7 000). For about 250 lithium-ion and 340 lead-acid battery types, the total one-off cost is
+    €1 180 000–7 080 000.
+  provision_keys:
+  - batteries/proposal/art/8
+  ia_section: 'Measure 9: Recycled content'
+  ia_anchor: the total (one-off) cost of this obligation for industry would be in a range of €1 180 000
+    and €7 080 000
+  anchor:
+    status: verified
+    against: ia
+  category: administrative_burden
+  derivability:
+    verdict: 'yes'
+    reason: Art 8(1) imposes a documentation duty on recycled content per model and batch, which clearly
+      creates calculation and verification costs.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: disagree
+      reason: The context says the recycled-content declaration would apply 'by 2025', not 'from 2027'
+        as the claim states, a date/number mismatch, though the cost figures otherwise match.
+    derivability:
+      verdict: agree
+      reason: Art 8(1) imposes exactly this documentation duty on recovered-material content per model
+        and batch, clearly implying calculation and verification costs.
+    category:
+      verdict: agree
+      reason: Calculating and verifying recycled-content shares for documentation purposes is an information
+        obligation.
+    overall: disagree
+  tiebreak:
+    verdict: keep
+    original_category: administrative_burden
+    reason: The IA gives the same per-type costs (€100–5,000 plus €2,000–7,000), the same 250 + 340 battery
+      types and the same €1.18–7.08m one-off total. The 2027 date comes from Art 8(1). The IA's 'by 2025'
+      is only its assumption for counting battery types, so this is not a changed number.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_drafted
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_kept
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c09_e04
+  affected_actor: Battery recyclers and investors in recycling technology
+  mechanism: Mandatory minimum recycled-content shares for 2030 and 2035 create guaranteed future demand
+    for battery-grade secondary cobalt, lithium, nickel and lead.
+  impact: Recyclers get long-term investment certainty, which is a needed incentive to invest in recycling
+    technologies. This helps the circular economy and reduces supply risk for certain materials.
+  provision_keys:
+  - batteries/proposal/art/8
+  ia_section: 'Measure 9: Recycled content'
+  ia_anchor: The main benefit is that they would provide long-term investment certainty to recyclers,
+    which is a necessary incentive to invest in recycling technologies
+  anchor:
+    status: verified
+    against: ia
+  category: innovation_investment
+  derivability:
+    verdict: 'yes'
+    reason: Binding recycled-content targets in Art 8(2)-(3) obviously create demand for secondary materials
+      and so encourage recycling investment.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor directly states recyclers get long-term investment certainty as an incentive to invest
+        in recycling technologies, matching the claim.
+    derivability:
+      verdict: agree
+      reason: The binding minimum recycled-content shares in Art 8(2)-(3) necessarily create guaranteed
+        demand for secondary materials, supporting an incentive for recycling investment.
+    category:
+      verdict: agree
+      reason: Investment certainty driving recycling capacity is an innovation/investment effect.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c09_e05
+  affected_actor: Society and the environment (climate, resources)
+  mechanism: Recycled-content targets replace primary raw materials with secondary ones in battery active
+    materials.
+  impact: A cumulative saving of about 2.3 million tonnes of CO2-eq by 2035 compared with the baseline,
+    with similar gains for resource depletion and human toxicity.
+  provision_keys:
+  - batteries/proposal/art/8
+  ia_section: 'Measure 9: Recycled content'
+  ia_anchor: Adopting this measure could save a cumulated total of about 2.3 million tonnes of CO2-eq
+    by 2035, compared to the baseline situation
+  anchor:
+    status: verified
+    against: ia
+  category: social_environmental
+  derivability:
+    verdict: 'yes'
+    reason: Using recycled instead of virgin material is a direct, foreseeable environmental effect of
+      the Art 8 targets.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor matches the claim verbatim on the 2.3 million tonnes CO2-eq saving by 2035 and similar
+        benefits for resource depletion and human toxicity.
+    derivability:
+      verdict: agree
+      reason: Mandating minimum shares of recovered materials in active materials directly implies substitution
+        of primary with secondary materials and associated environmental benefits.
+    category:
+      verdict: agree
+      reason: CO2 and resource-depletion savings are environmental effects.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c09_e06
+  affected_actor: Manufacturers of rechargeable industrial batteries above 2 kWh
+  mechanism: From 2026 batteries must meet minimum electrochemical performance and durability values to
+    be placed on the market, which takes the worst performers off the market.
+  impact: Manufacturers face some economic costs where they must adapt manufacturing processes and their
+    choice of materials. Administrative costs are similar or slightly higher because compliance must be
+    calculated and verified more strictly.
+  provision_keys:
+  - batteries/proposal/art/10
+  ia_section: 'Measure 7: Performance and durability of rechargeable industrial and EV batteries'
+  ia_anchor: This option would impose some economic costs on battery manufacturers, for example if they
+    need to adapt certain manufacturing processes and choice of materials.
+  anchor:
+    status: verified
+    against: ia
+  category: compliance_cost
+  derivability:
+    verdict: 'yes'
+    reason: Art 10(2) sets minimum performance values as a market-access condition, so manufacturers whose
+      products fall short must change design or production.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context confirms option 3 removes worst-performing batteries and imposes economic costs
+        on manufacturers with similar/slightly higher admin costs, matching the claim's mechanism and
+        impact.
+    derivability:
+      verdict: agree
+      reason: Art 10(2) makes meeting minimum performance/durability values a market-access condition
+        from 2026, clearly implying adaptation costs for manufacturers falling short.
+    category:
+      verdict: agree
+      reason: Adapting manufacturing processes and materials to meet minimum values is a substantive compliance
+        cost.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c09_e07
+  affected_actor: Users and buyers of rechargeable industrial and EV batteries
+  mechanism: Mandatory performance and durability information, and minimum values that take under-performing
+    batteries off the market.
+  impact: Users get economic benefits through better value for money and more informed purchasing decisions,
+    and the market shifts towards better-performing batteries.
+  provision_keys:
+  - batteries/proposal/art/10
+  ia_section: 'Measure 7: Performance and durability of rechargeable industrial and EV batteries'
+  ia_anchor: For battery users, however, it should generate economic benefits (e.g. by providing better
+    value for money).
+  anchor:
+    status: verified
+    against: ia
+  category: consumers_users
+  derivability:
+    verdict: 'yes'
+    reason: Information duties and minimum performance thresholds in Art 10 plainly benefit buyers through
+      better quality and transparency.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context states battery users get economic benefits via better value for money and a market
+        shift toward better-performing batteries, matching the claim exactly.
+    derivability:
+      verdict: agree
+      reason: Art 10(1) information duties and Art 10(2) minimum values plainly benefit buyers through
+        transparency and a market shift to better-performing batteries.
+    category:
+      verdict: agree
+      reason: The impact described is better value for money and informed choice for purchasers, i.e.
+        a consumer/user effect.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: true
+    reviewer: null
+    note: null
+- expected_id: c09_e08
+  affected_actor: Consumers buying portable batteries of general use
+  mechanism: From 2027 portable batteries of general use must meet minimum electrochemical performance
+    and durability values.
+  impact: Consumers can more easily identify the best-value battery, and the long-term economic benefit
+    of rechargeable batteries in high-drain appliances becomes clearer. Producers of better-performing
+    batteries also get a more level playing field.
+  provision_keys:
+  - batteries/proposal/art/9
+  ia_section: 'Measure 8: Non-rechargeable portable batteries'
+  ia_anchor: For consumers, it may bring some economic benefits by enabling consumers to identify the
+    best value for money battery
+  anchor:
+    status: verified
+    against: ia
+  category: consumers_users
+  derivability:
+    verdict: partly
+    reason: Art 9 makes a quality floor for consumer batteries evident, but the benefit through comparing
+      value for money depends on information that is not spelled out in the article.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context confirms consumers get economic benefits by identifying best value-for-money batteries
+        and clearer long-term value of rechargeables, plus a level playing field for producers, matching
+        the claim.
+    derivability:
+      verdict: agree
+      reason: Art 9 establishes a quality floor for portable batteries, but it does not require comparative
+        labelling/information that would let consumers compare value for money, so only partial derivability
+        is correct.
+    category:
+      verdict: agree
+      reason: Benefits accrue to consumers through easier identification of best-value batteries.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c09_e09
+  affected_actor: Economic operators placing rechargeable industrial and EV batteries on the market (around
+    50 battery and vehicle manufacturers)
+  mechanism: 'Mandatory supply-chain due diligence: a supply-chain policy, management systems, traceability,
+    risk assessment and mitigation, third-party verification by notified bodies, and annual public reporting.'
+  impact: €2–15 million in one-off costs and €2–20 million in annual costs. At company level this covers
+    policy changes (€3 150–205 000), IT systems (€36 000–90 000), data collection and verification, audits,
+    and due diligence and reporting. Companies also gain better knowledge of their supply chains and detect
+    risks earlier.
+  provision_keys:
+  - batteries/proposal/art/39
+  ia_section: 'Measure 13: Supply-chain due diligence for raw materials in industrial and EV batteries'
+  ia_anchor: Extrapolating the OECD cost estimates gives a range of between €2-15 million in one-off costs
+    and between €2-20 million in annual costs.
+  anchor:
+    status: verified
+    against: ia
+  category: compliance_cost
+  derivability:
+    verdict: 'yes'
+    reason: Art 39 lists detailed management-system, traceability, audit and reporting obligations, so
+      the costs to the operator are clearly derivable.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor and surrounding table match the claim's actor (~50 manufacturers) and cost figures
+        (€2–15M one-off, €2–20M annual, and the company-level cost breakdown).
+    derivability:
+      verdict: agree
+      reason: Art 39(2)-(6) lists detailed policy, management-system, traceability, verification, and
+        reporting obligations that directly imply the cost mechanism described.
+    category:
+      verdict: agree
+      reason: The quantified costs mainly concern setting up management systems, IT equipment and audits,
+        i.e. substantive organisational/technical measures to meet the due diligence requirement.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c09_e10
+  affected_actor: Workers and local communities in raw-material sourcing regions, including conflict-affected
+    areas
+  mechanism: Due diligence obligations require operators to identify, prevent and mitigate adverse social
+    and environmental impacts in the supply chains of cobalt, lithium, nickel and natural graphite.
+  impact: Political and social stability improves, human and labour rights are better protected, environmental
+    protection is strengthened, and contamination and health problems are reduced. These benefits were
+    not quantified.
+  provision_keys:
+  - batteries/proposal/art/39
+  ia_section: 'Measure 13: Supply-chain due diligence for raw materials in industrial and EV batteries'
+  ia_anchor: They include improving political and social stability for local operators and communities
+    in conflict regions (including protecting human and labour rights)
+  anchor:
+    status: verified
+    against: ia
+  category: social_environmental
+  derivability:
+    verdict: 'yes'
+    reason: Art 39 requires risk mitigation of adverse impacts in the risk categories of Annex X, so benefits
+      to affected communities are the clear intended effect.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor lists the same unquantified social/environmental benefits (political/social stability,
+        human/labour rights, environment, health) attributed to due diligence as in the claim.
+    derivability:
+      verdict: agree
+      reason: Art 39 requires identifying and mitigating adverse impacts in the social/environmental risk
+        categories of Annex X, which plainly benefits affected communities and workers.
+    category:
+      verdict: disagree
+      reason: The described benefits (political/social stability, labour rights, environmental protection,
+        health) are social and environmental effects rather than specifically privacy/fundamental-rights
+        effects; social_environmental fits better.
+    overall: disagree
+  tiebreak:
+    verdict: keep
+    original_category: fundamental_rights
+    reason: 'The anchor lists the same unquantified benefits of due diligence: stability for communities
+      in conflict regions, human and labour rights, environmental protection and health. These are social
+      and environmental effects, not privacy or rights-specific effects.'
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_drafted
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_kept
+    audit: true
+    reviewer: null
+    note: null
+important_omissions:
+- omission_id: c09_o01
+  description: Public authorities bear enforcement costs to check declared performance and durability
+    values, which may require laboratory testing of batteries.
+  source: ia
+  provision_keys:
+  - batteries/proposal/art/10
+  ia_section: 'Measure 7: Performance and durability of rechargeable industrial and EV batteries'
+  ia_anchor: It may, however, give rise to some administrative costs for public authorities related to
+    verification of the information requirements, which may involve testing batteries in laboratories.
+  anchor:
+    status: verified
+    against: ia
+  category: public_enforcement_cost
+  derivability:
+    verdict: 'yes'
+    reason: Declared values and minimum values in Art 10 can only be enforced if authorities verify them,
+      which implies testing costs.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor directly states public authorities may incur administrative costs for verification
+        possibly involving laboratory testing, matching the description.
+    derivability:
+      verdict: agree
+      reason: Declared and minimum values set by Art 10 can only be meaningfully enforced through verification,
+        making testing-related enforcement costs a reasonable derivation.
+    category:
+      verdict: agree
+      reason: Laboratory testing to check compliance is an enforcement cost for public authorities.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- omission_id: c09_o02
+  description: Market surveillance authorities need additional resources to enforce the new recycled-content
+    documentation obligation and targets.
+  source: ia
+  provision_keys:
+  - batteries/proposal/art/8
+  ia_section: 'Measure 9: Recycled content'
+  ia_anchor: For public authorities, this would also require some additional resources for market surveillance
+    authorities to enforce this new obligation.
+  anchor:
+    status: verified
+    against: ia
+  category: public_enforcement_cost
+  derivability:
+    verdict: 'yes'
+    reason: Art 8 creates new documented quantities per model and batch, which authorities must check.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor states public authorities need additional resources for market surveillance to enforce
+        the recycled-content obligation, matching the description exactly.
+    derivability:
+      verdict: agree
+      reason: Art 8 creates new documented recycled-content quantities per model/batch that authorities
+        must check, implying added surveillance burden.
+    category:
+      verdict: agree
+      reason: Extra resources for market surveillance authorities is a public enforcement cost.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: true
+    reviewer: null
+    note: null
+- omission_id: c09_o03
+  description: Recycled-content targets may be hard to meet for large EV battery makers if there are not
+    enough secondary raw materials, given fast-growing demand. This could constrain supply and competition,
+    which the amendment power in Art 8(4) is meant to address.
+  source: ia
+  provision_keys:
+  - batteries/proposal/art/8
+  ia_section: 'Measure 9: Recycled content'
+  ia_anchor: Some manufacturers of large EV batteries are against it because they consider that there
+    will not be enough secondary raw materials to meet the criteria
+  anchor:
+    status: verified
+    against: ia
+  category: market_competition
+  derivability:
+    verdict: 'yes'
+    reason: Art 8(4) itself refers to the availability of recycled material, pointing to this supply risk.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: unknown
+      reason: Context confirms manufacturers' concern about insufficient secondary materials, but does
+        not mention an Art 8(4) amendment power, so that part cannot be verified from this anchor.
+    derivability:
+      verdict: agree
+      reason: Art 8(4) explicitly ties amendment of the targets to the availability of recovered materials,
+        directly supporting this supply-risk concern.
+    category:
+      verdict: agree
+      reason: The claim explicitly frames this as a risk to supply and competition in the raw-materials
+        market.
+    overall: uncertain
+  tiebreak:
+    verdict: drop
+    original_category: market_competition
+    reason: The IA only reports that some large EV battery makers object, and notes that other makers
+      commit to going beyond the targets. It never assesses a constraint on supply or competition, and
+      it does not link this to Art 8(4).
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_drafted
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
+- omission_id: c09_o04
+  description: Maximum life-cycle carbon footprint thresholds work as a market-access restriction. If
+    they are set badly, they could cause unintended supply restrictions for EV and industrial batteries
+    on the EU market.
+  source: ia
+  provision_keys:
+  - batteries/proposal/art/7
+  ia_section: 'Measure 6: Carbon footprint of rechargeable industrial and EV batteries'
+  ia_anchor: This is even more necessary for Option 3, which constitutes a market restrictive measure,
+    so the thresholds would need to be set carefully, to avoid creating unintended supply restrictions.
+  anchor:
+    status: verified
+    against: ia
+  category: market_competition
+  derivability:
+    verdict: 'yes'
+    reason: Art 7(3) makes being below a threshold a condition for placing on the market, so batteries
+      above it would be excluded.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor matches the claim almost verbatim regarding thresholds being a market-restrictive
+        measure needing careful setting to avoid unintended supply restrictions.
+    derivability:
+      verdict: agree
+      reason: Art 7(3) conditions market placement on staying below a carbon footprint threshold, so exclusion
+        risk for non-compliant batteries is a direct implication.
+    category:
+      verdict: agree
+      reason: A market-access restriction causing supply restrictions is a market/competition effect.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+possibly_missing:
+- candidate_id: c09_m01
+  affected_actor: Market surveillance authorities in the Member States
+  mechanism: They have to check the declared performance and durability values and the recycled-content
+    documentation, which may mean testing batteries in laboratories.
+  impact: Extra administrative and enforcement costs for public authorities, and they need more resources
+    for market surveillance.
+  why_missing: All drafted pairs are about operators, users or society. None covers enforcement costs
+    for public authorities.
+  provision_keys:
+  - batteries/proposal/art/10
+  - batteries/proposal/art/8
+  ia_section: 'Measure 7: Performance and durability of rechargeable industrial and EV batteries'
+  ia_anchor: It may, however, give rise to some administrative costs for public authorities related to
+    verification of the information requirements, which may involve testing batteries in laboratories.
+  anchor:
+    status: verified
+    against: ia
+  category: public_enforcement_cost
+  derivability:
+    verdict: partly
+    reason: The provisions create documentation and minimum-value requirements that someone has to enforce,
+      but they do not mention laboratory testing or the resources authorities will need.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: unknown
+      reason: The anchor only discusses verification costs tied to performance/durability information,
+        not recycled-content documentation, so the combined mechanism is only partly supported.
+    derivability:
+      verdict: agree
+      reason: Arts 8 and 10 impose documentation/minimum-value duties that authorities must enforce, but
+        neither mentions laboratory testing or specific resourcing, so partial derivability is reasonable.
+    category:
+      verdict: agree
+      reason: Extra resources and testing needs for market surveillance authorities are public enforcement
+        costs.
+    overall: uncertain
+  tiebreak:
+    verdict: drop
+    original_category: public_enforcement_cost
+    reason: This largely repeats the kept item c09_o01, which already covers authorities checking performance
+      and durability values, including laboratory testing.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c09_m02
+  affected_actor: Producers of portable batteries of general use
+  mechanism: The minimum performance and durability requirements bring administrative costs for developing
+    standards and complying with them, and they put producers of better-performing batteries on a level
+    playing field.
+  impact: Relatively low administrative costs, and a competitive advantage for producers whose batteries
+    perform and last better.
+  why_missing: The Article 9 pair in the draft covers only consumers, not the producers of portable batteries.
+  provision_keys:
+  - batteries/proposal/art/9
+  ia_section: 'Measure 8: Non-rechargeable portable batteries'
+  ia_anchor: As a benefit, this option would also level the playing field for producers of batteries with
+    better performance and durability.
+  anchor:
+    status: verified
+    against: ia
+  category: market_competition
+  derivability:
+    verdict: partly
+    reason: The article sets minimum values for producers and says it should not create excessive administrative
+      burden, but the level-playing-field effect comes only from the IA.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context confirms relatively low administrative costs for producers/public authorities and
+        a leveled playing field for better-performing battery producers, matching the claim.
+    derivability:
+      verdict: agree
+      reason: Art 9 sets minimum values and references avoiding excessive administrative burden, but the
+        level-playing-field competitive effect is not stated in the text itself.
+    category:
+      verdict: agree
+      reason: The described competitive advantage and level playing field for better-performing producers
+        is a market-structure effect.
+    overall: agree
+  tiebreak:
+    verdict: drop
+    original_category: market_competition
+    reason: The level playing field for producers of better-performing batteries is already in the kept
+      item c09_e08. The 'relatively low' administrative costs are attributed jointly to producers and
+      public authorities (standards development and market surveillance), so this candidate adds little
+      that can be checked.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c09_m03
+  affected_actor: Economic operators placing rechargeable industrial and EV batteries on the market
+  mechanism: Running supply-chain due diligence gives companies better knowledge of their supply chains
+    and lets them detect risks early, so they face fewer remediation costs and less damage to their reputation.
+  impact: 'Economic benefits: more transparency, credibility and reputation, and more trust between supply-chain
+    partners.'
+  why_missing: The drafted due-diligence pair for operators covers only the compliance obligations and
+    costs, not the benefits to the companies.
+  provision_keys:
+  - batteries/proposal/art/39
+  ia_section: 'Measure 13: Supply-chain due diligence for raw materials in industrial and EV batteries'
+  ia_anchor: The prevention or/and mitigation of these risks reduces a company’s exposure to potentially
+    high remediation costs that it could incur if the risk were not addressed
+  anchor:
+    status: verified
+    against: ia
+  category: compliance_cost
+  derivability:
+    verdict: 'no'
+    reason: Article 39 sets out only the obligations. The business benefits are stated only in the IA.
+  flags:
+  - not_derivable_from_provisions
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context matches the claim's mechanism (early risk detection, reduced remediation exposure)
+        and impact (transparency, credibility, reputation, trust).
+    derivability:
+      verdict: agree
+      reason: Article 39 only imposes due diligence obligations and says nothing about resulting business
+        benefits like reputation or reduced remediation costs.
+    category:
+      verdict: disagree
+      reason: The claim describes benefits like transparency, reputation and trust rather than substantive
+        costs of compliance, which does not fit compliance_cost; 'other' fits better since no listed category
+        covers reputational trust benefits.
+    overall: disagree
+  tiebreak:
+    verdict: drop
+    original_category: compliance_cost
+    reason: This repeats the kept item c09_e09, which already says companies gain better knowledge of
+      their supply chains and detect risks earlier.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c09_m04
+  affected_actor: Manufacturers of large EV batteries
+  mechanism: With demand for battery materials growing fast, there may not be enough secondary cobalt,
+    lithium and nickel to meet the mandatory minimum recycled-content shares.
+  impact: Risk that manufacturers cannot meet the targets or face sourcing constraints. Article 8(4) allows
+    the targets to be revised depending on supply.
+  why_missing: The draft covers the documentation burden and the benefits to recyclers, but not the risk
+    to manufacturers that there will be too little secondary material to meet the targets.
+  provision_keys:
+  - batteries/proposal/art/8
+  ia_section: 'Measure 9: Recycled content'
+  ia_anchor: Some manufacturers of large EV batteries are against it because they consider that there
+    will not be enough secondary raw materials to meet the criteria
+  anchor:
+    status: verified
+    against: ia
+  category: compliance_cost
+  derivability:
+    verdict: partly
+    reason: Article 8(4) refers to the possible lack of recycled material, but the IA is the source for
+      who is affected and what concerns they raised.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: unknown
+      reason: Context confirms manufacturers fear insufficient secondary materials, but does not mention
+        Article 8(4) or a revision mechanism, so that part is unverifiable from this anchor.
+    derivability:
+      verdict: agree
+      reason: Art 8(4) acknowledges possible lack of recovered materials, supporting the general risk,
+        but it does not identify large EV battery manufacturers specifically as raising this concern.
+    category:
+      verdict: disagree
+      reason: The risk described is about insufficient secondary material supply constraining manufacturers,
+        which is a market/supply issue (market_competition) rather than a cost of compliance.
+    overall: disagree
+  tiebreak:
+    verdict: drop
+    original_category: compliance_cost
+    reason: The anchor records the view of some stakeholders, which other makers in the same sector contradict;
+      it is not an impact the IA itself assesses. The candidate also overlaps with c09_o03.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c09_m05
+  affected_actor: EU economy and industry dependent on critical battery raw materials
+  mechanism: Recycled-content targets lead to investment in recycling, which builds secondary supply and
+    reduces dependence on scarce primary materials.
+  impact: Lower supply risk for certain critical materials and progress towards a circular economy.
+  why_missing: The drafted pairs cover demand for recyclers and environmental benefits, not security of
+    raw-material supply.
+  provision_keys:
+  - batteries/proposal/art/8
+  ia_section: 'Measure 9: Recycled content'
+  ia_anchor: contribute to promoting the circular economy and mitigating the supply risk for certain materials
+  anchor:
+    status: verified
+    against: ia
+  category: international
+  derivability:
+    verdict: partly
+    reason: The supply-security effect can be inferred from the recycled-content targets, but it is stated
+      explicitly only in the IA.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor directly states the measure contributes to the circular economy and mitigating supply
+        risk, matching the claim's impact.
+    derivability:
+      verdict: agree
+      reason: The recycled-content targets in Art 8 can reasonably be read to support secondary supply
+        and reduced primary-material dependence, but the explicit industry-wide supply-security framing
+        comes from the IA.
+    category:
+      verdict: disagree
+      reason: This is about recycling investment building secondary supply and reducing dependence, which
+        fits innovation_investment (similar to the related recycling investment claim) rather than international
+        trade/third-country effects.
+    overall: disagree
+  tiebreak:
+    verdict: drop
+    original_category: international
+    reason: This repeats the kept item c09_e04, which already covers recycling investment that helps the
+      circular economy and reduces supply risk for certain materials.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c09_m06
+  affected_actor: Buyers of EV and rechargeable industrial batteries (EU battery supply)
+  mechanism: Maximum carbon footprint thresholds are a market restriction, so if they are set too strictly
+    they could keep batteries off the EU market.
+  impact: Risk of unintended supply restrictions. Because of this, the thresholds need careful calibration
+    based on market data and their own impact assessment.
+  why_missing: The drafted carbon pairs cover the declaration costs and the push towards lower emissions,
+    not the risk of restricting battery supply.
+  provision_keys:
+  - batteries/proposal/art/7
+  ia_section: 'Measure 6: Carbon footprint of rechargeable industrial and EV batteries'
+  ia_anchor: Option 3, which constitutes a market restrictive measure, so the thresholds would need to
+    be set carefully, to avoid creating unintended supply restrictions
+  anchor:
+    status: verified
+    against: ia
+  category: market_competition
+  derivability:
+    verdict: partly
+    reason: Article 7(3) makes market access depend on staying below the threshold. The risk to supply
+      is stated only in the IA.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor matches the claim's core point that carbon thresholds are a market-restrictive measure
+        needing careful calibration to avoid unintended supply restrictions.
+    derivability:
+      verdict: agree
+      reason: Art 7(3) makes market placement conditional on a threshold, supporting a supply-restriction
+        risk, though the calibration/market-data concern is not spelled out in the article.
+    category:
+      verdict: agree
+      reason: Risk of supply restriction on the EU market due to thresholds is a market/competition effect.
+    overall: agree
+  tiebreak:
+    verdict: drop
+    original_category: market_competition
+    reason: 'This repeats the kept item c09_o04: carbon footprint thresholds as a market-access restriction
+      that could cause unintended supply restrictions.'
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c09_m07
+  affected_actor: European Commission
+  mechanism: The Commission has to support the carbon footprint rules by providing battery databases and
+    battery passports for collecting market data, and by drafting the methodology acts.
+  impact: Some support costs for the Commission.
+  why_missing: No drafted pair covers what the carbon-footprint regime costs the Commission.
+  provision_keys:
+  - batteries/proposal/art/7
+  ia_section: 'Measure 6: Carbon footprint of rechargeable industrial and EV batteries'
+  ia_anchor: the total cost for industry would be in a range of €500 000-3 000 000, with some costs for
+    support in the Commission
+  anchor:
+    status: verified
+    against: ia
+  category: public_enforcement_cost
+  derivability:
+    verdict: partly
+    reason: Article 7 requires the Commission to adopt delegated and implementing acts, but the costs
+      of databases and support are described only in the IA.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor confirms 'some costs for support in the Commission', and surrounding context describes
+        the Commission facilitating battery databases/passports, matching actor, mechanism and impact.
+    derivability:
+      verdict: agree
+      reason: Art 7 supports the Commission's role in adopting methodology/format acts, but says nothing
+        about battery databases or passports, so only partial derivability is correct.
+    category:
+      verdict: agree
+      reason: Costs for the Commission to support implementation (databases, passports, methodology acts)
+        are public authority costs.
+    overall: agree
+  tiebreak:
+    verdict: drop
+    original_category: public_enforcement_cost
+    reason: The IA only mentions unspecified 'some costs for support in the Commission'. The databases
+      and battery passports in the mechanism come under the IA's separate Measure 12, not Art 7, so the
+      claim is vague and attributes the cost to the wrong provision.
+    model: claude-opus-5-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
