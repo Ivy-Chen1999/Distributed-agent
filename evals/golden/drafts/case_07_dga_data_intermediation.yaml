@@ -69,27 +69,25 @@ provenance:
     non_publishable_test_seed: false
   item_digests:
     c07_e01: 2d8971536fca3cb9fcb0f54a52c06e5f930ed6c722e40c549a6578e75d9f451a
-    c07_e02: 14acfc2f909e6eccbbf9f51851135435b71ce23161b6b540fcbe89b985adbc16
-    c07_e03: b42105c03713674952773d019f8f92a2fe04ea760353ed4c3c690d4f952c8b9d
-    c07_e04: e38e0e597df52e9563b621822fa274424d888e7229b36b3c86a996b07fd68610
+    c07_e02: cfc99af1ce8c0d777398448f7eb2715839766b89f39a787a37e830ae9e9d5029
+    c07_e03: 7aaf9f74e5a55b03fbc834fcc9f3035596b1fb5dbac6f50d29e4918f59658866
+    c07_e04: 6b1704c6f95d3df78de42d5634165d78ed5c000963b3c961a32a50d9d73ae78f
     c07_e05: 1fe05d3caf8b2c46562e67276302ea3a6b8aadc3e1f4f504cdcfb47173adbd4a
     c07_e06: 8b24b16e5eb0f168e1104fc5a9e6bfd80f910d94c285f23be0760abbeffcf07c
     c07_e07: 57fa8996ac79a45d684c442a4f017761b6b019d3321e1270ea421fa7d57901e6
-    c07_o01: 9075f294e4fb04e8335543c31213777d0f65570e0c811e038f983884997b5313
-    c07_o02: 906ed39a12a6aa534e495da6479ee0b40701f90c39d976df217568caa9129a1a
-    c07_o03: 3dcf856ec1be9a2f5a5605deb638ea4ff7130a7023529512d89d74cffd87e5ee
-    c07_m01: c3ee468a195a67dc9060a971141e60e792b8a2547509fbe6fae9790db41dfdc8
-    c07_m02: 2a9c263bd43bc17a341efa9b262445396cb0514d4ef46f1d680d851d14bede1d
-    c07_m03: 9dd380ff411dc8d35116d1c972d84a0832b6f837f869cbda84b9c4e36e18e4dd
-    c07_m04: 76f05483359eb0836884ede5d9d41882c0ecaa47b4864e70f26fefb32cbbb490
-    c07_m05: 873ba6e8053e2ed4c7900a477deed2354ca73dc398d953950f4692bec694ac7f
+    c07_o01: 7f2ce84a130a6944a02180a7c488e1b4c4e6d8deec98fc648ed1e8cd68c7141e
+    c07_o02: 64077f6c7679752f82158718cbdc40ff75d82fcec2dc33a15f8ce8e38088baa7
+    c07_o03: a8b21a17e07dfce2309ad7131787b959a1f6ab120b0e1e61b9efb11d4b433f9b
+    c07_m01: 61523be25e9b239b7b3ee757257b377b944e4b764681d12aaa1495df98f59c5b
+    c07_m02: ee1600e4a8ae10c72566c758d18736696017daeaaecfae13e30ce52f410c305a
+    c07_m03: 0f994d2e627e66855d943a7aff7cebd766eaf096180a1ae6d2724e89dc428ef7
+    c07_m04: 238259614cb15bcfa7eef7a2c87c022b90e07244b3f24a5ff489d7fe7e84a0f0
+    c07_m05: 9df47a74744d27f8f297cacf3005139e8e326573eb329b328450f1e3a3d56c15
   tiebreak_audit:
     seed: 1765047449
     rate: 0.2
-    eligible: 3
+    eligible: 1
     eligible_ids:
-    - c07_e02
-    - c07_e03
     - c07_m04
     sampled:
     - c07_m04
@@ -107,8 +105,8 @@ stats:
   pending: 0
   audited: 2
   human_decisions_needed: 0
-  llm_kept: 3
-  llm_dropped: 8
+  llm_kept: 1
+  llm_dropped: 10
 expected_impacts:
 - expected_id: c07_e01
   affected_actor: Providers of data sharing services (data intermediaries)
@@ -172,7 +170,7 @@ expected_impacts:
   anchor:
     status: verified
     against: ia
-  category: innovation_investment
+  category: market_competition
   derivability:
     verdict: partly
     reason: The provisions clearly aim at trustworthy intermediation, but the commercial benefit of more
@@ -195,19 +193,19 @@ expected_impacts:
         rather than market structure/prices, so innovation_investment fits better.
     overall: disagree
   tiebreak:
-    verdict: keep
+    verdict: drop
     original_category: market_competition
-    reason: The anchor says increased trust brings efficiency gains, time savings, more clients and transactions,
-      and higher revenues. The 25-50% gain in client base and revenue appears in the IA's cost-benefit
-      table and its SME section. The effect is business growth rather than market structure, so innovation_investment
-      fits better.
-    model: claude-opus-5-5
+    reason: The anchor's trust/revenue benefits are explicitly described under the 'voluntary certification/labelling
+      scheme' (policy option 2) and the 25-50% client-base/revenue figure comes from that certification
+      cost-benefit table, not from the notification-and-conditions regime actually enacted in Articles
+      9-11, 13.
+    model: claude-sonnet-5
   provenance:
     origin: llm_drafted
     status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: llm_kept
+    decision: llm_dropped
     audit: false
     reviewer: null
     note: null
@@ -225,7 +223,7 @@ expected_impacts:
   anchor:
     status: verified
     against: ia
-  category: market_competition
+  category: consumers_users
   derivability:
     verdict: partly
     reason: Pass-through of compliance costs to users is a standard inference from Article 11, although
@@ -246,18 +244,18 @@ expected_impacts:
         which is a pricing effect better captured by market_competition than consumers_users.
     overall: disagree
   tiebreak:
-    verdict: keep
+    verdict: drop
     original_category: consumers_users
-    reason: The anchor says almost word for word that data reusers may bear indirect costs because intermediaries
-      raise user charges to cover compliance costs. The affected users are business reusers and the effect
-      is a price pass-through, so market_competition fits better than consumers_users.
-    model: claude-opus-5-5
+    reason: The anchor says reusers face cost pass-through because 'certified intermediaries might increase
+      user charges to cover the cost of certification' — a certification mechanism absent from Article
+      11 — not because of generic Article 11 compliance costs as the claim states.
+    model: claude-sonnet-5
   provenance:
     origin: llm_drafted
     status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: llm_kept
+    decision: llm_dropped
     audit: false
     reviewer: null
     note: null
@@ -302,9 +300,11 @@ expected_impacts:
   tiebreak:
     verdict: drop
     original_category: market_competition
-    reason: The anchor only says competition among intermediaries rises in B2B and C2B markets, with no
-      number. The claimed 'up to 25% within 2-5 years' does not appear in the evidence provided.
-    model: claude-opus-5-5
+    reason: The anchor only states a generic, unquantified 'competition increase' tied to discussion of
+      the voluntary certification/labelling scheme; the specific figure 'up to 25% increase within 2-5
+      years' appears nowhere in the text, so the claim both fabricates a number and misattributes the
+      mechanism to a scheme not in Articles 9-11.
+    model: claude-sonnet-5
   provenance:
     origin: llm_drafted
     status: llm_tiebroken
@@ -485,10 +485,10 @@ important_omissions:
   tiebreak:
     verdict: drop
     original_category: public_enforcement_cost
-    reason: The anchor ties Member State costs to the measures for reusing protected public-sector data,
-      not to notifying and supervising data intermediaries. The IA text therefore does not support this
-      omission as stated.
-    model: claude-opus-5-5
+    reason: The anchor sentence explicitly ties Member States' setup costs to 'the measures to facilitate
+      the use of public sector data that cannot be available as open data' (a different chapter), not
+      to the notification/supervision tasks under Articles 10 and 13 for data sharing service providers.
+    model: claude-sonnet-5
   provenance:
     origin: llm_drafted
     status: llm_tiebroken
@@ -536,9 +536,10 @@ important_omissions:
   tiebreak:
     verdict: drop
     original_category: market_competition
-    reason: The anchor describes the platformisation risk in the no-action baseline. It says nothing about
-      the separation rule falling on vertically integrated players or forcing them to restructure.
-    model: claude-opus-5-5
+    reason: The anchor is drawn from the no-EU-action baseline scenario describing a risk of Big Tech
+      platformisation, not a statement about the effect of Article 11's structural-separation/purpose-limitation
+      rule on incumbents under the adopted policy.
+    model: claude-sonnet-5
   provenance:
     origin: llm_drafted
     status: llm_tiebroken
@@ -588,9 +589,10 @@ important_omissions:
   tiebreak:
     verdict: drop
     original_category: administrative_burden
-    reason: The anchor covers only certification and labelling costs, which the claim itself says are
-      a different cost. The IA text gives no support for a notification administrative burden.
-    model: claude-opus-5-5
+    reason: The only anchor supplied is the certification/labelling cost figures, which the claim itself
+      says is a different cost from the notification-related administrative burden it describes; no IA
+      text is given to support the filing/legal-representative/cessation-notice burden claim.
+    model: claude-sonnet-5
   provenance:
     origin: llm_drafted
     status: llm_tiebroken
@@ -640,9 +642,10 @@ possibly_missing:
   tiebreak:
     verdict: drop
     original_category: innovation_investment
-    reason: This repeats kept item c07_e07, which already covers access to investors as a benefit for
-      intermediaries. It is also flagged as not derivable from the provisions.
-    model: claude-opus-5-5
+    reason: The anchor explicitly ties the investor-funding benefit to 'certified companies' under the
+      voluntary certification scheme, a mechanism not present in the adopted Articles 9-11, 13 notification
+      regime.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
@@ -691,9 +694,10 @@ possibly_missing:
   tiebreak:
     verdict: drop
     original_category: market_competition
-    reason: This repeats kept item c07_e05, whose stated impact is already that data holders can earn
-      more from data sharing.
-    model: claude-opus-5-5
+    reason: This duplicates already-kept item c07_e05 (data holders monetising more, individuals more
+      willing to share personal data via intermediaries), and its anchor again ties the effect to 'certified
+      platforms,' a mechanism absent from Articles 9 and 11.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
@@ -744,9 +748,10 @@ possibly_missing:
   tiebreak:
     verdict: drop
     original_category: market_competition
-    reason: The anchor describes Big Tech strengthening its position in the no-action baseline. It does
-      not state that the Article 11 neutrality conditions reduce that dominance.
-    model: claude-opus-5-5
+    reason: The anchor describes the no-EU-intervention baseline in which Big Tech strengthens its position
+      — the opposite framing from the claim that the adopted structural-separation rule in Article 11
+      weakens Big Tech dominance.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
@@ -794,10 +799,11 @@ possibly_missing:
   tiebreak:
     verdict: keep
     original_category: sme_specific
-    reason: The IA's SME section (6.3) says that SMEs as data users would get better access to the value
-      of big data by supporting data marketplaces. Article 9(1)(a) covers platforms for exchanging data,
-      so the claim follows from the provisions.
-    model: claude-opus-5-5
+    reason: The anchor directly states that by supporting data marketplaces (the intermediation services
+      of Article 9, accessed fairly under Article 11) 'smaller companies would have better access to the
+      value of big data,' matching actor, mechanism and effect, and it is distinct from the already-kept
+      SME-as-intermediary item.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
@@ -848,9 +854,10 @@ possibly_missing:
   tiebreak:
     verdict: drop
     original_category: other
-    reason: The anchor states a general economy-wide catalyst effect for the initiative as a whole, which
-      is too vague to check. The claim is also flagged as not derivable from the data sharing provisions.
-    model: claude-opus-5-5
+    reason: The claimed economy-wide catalytic effect is a broad, general framing statement about the
+      Data Governance Act as a whole, far beyond what is derivable from Articles 9-11's notification and
+      conditions, and too diffuse to verify against these specific provisions.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
