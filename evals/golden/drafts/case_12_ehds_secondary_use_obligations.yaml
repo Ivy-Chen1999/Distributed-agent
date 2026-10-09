@@ -83,18 +83,18 @@ provenance:
     - c12_e07
     non_publishable_test_seed: false
   item_digests:
-    c12_e01: 1aff4e97fa37fbe21e21ac3145d17c76c8cf1ad1284e0c8edd86a7dc167c9949
+    c12_e01: b38f815b8899db773df55ee7e6ad291b6128c3dbeb67090205bfc8602c5670d6
     c12_e02: 8067705fba56b394271ef56f00fdae73579d77038ef67b0760e67a60fee8900c
     c12_e03: 6b3a8f1c669ad6c6999c14755328f1de2fd2c4182e9b56e254855ab83fd8b4a3
-    c12_e04: f209531589f2846327f937a7427fba1578466116f6324900d8ef04f78ead5316
-    c12_e05: 50debf0eb39a720a281ab9bae8603d15e805fc38e627d57aa97edd55f9562545
+    c12_e04: 205e3aa171af148d58036240b55576cfeb81149148d814a5b7aa3a0753c7b0f7
+    c12_e05: 87522a9c817a0415a4b62b49a447b6e4cd5730e298719e717cef3ff1c2d5a6c5
     c12_e06: 720333d994cc84efcd5a5205ff265ccda842ddd3484a58a59530d8040848f4e6
     c12_e07: 008f914cfdb3293c301bdba5e1a5bba6c67cdd88d666476e46d6ed3c275fa80a
-    c12_o01: 3fe4b4e17872832fddfb88c4ab04a19e399e931071f1cd2bcd927e4bd05549c7
+    c12_o01: ca279638d5b05de256532426cc8d8594446ddedd32f9f010fa5e0823c70851a1
     c12_o02: 19ad008fb31290a185bd1164975a03bb5a4717d398c2693abb584be69a16e99e
     c12_o03: 227af54b346bfbcdbfd37ede8cf42a4f193b671f8f8d3479ee19ea949529466d
-    c12_m01: 9dbdd4979f4629b3c70ad81d0a221c1a58cbb7b0c7da9c4067c8b85f67ca9219
-    c12_m02: b2ec08cd822cf311a71582511bc73c786a611b34dde3afac9d7cd5c763d35313
+    c12_m01: 9dd77d9308ff94c3ef380df08ecdbf66b9e7e80cbf525c21999232e10e02cf98
+    c12_m02: d0dfc9e9e90292905c99857d2e4b8a39d5c43ea5b25876888e4bb613ffcc3156
   tiebreak_audit:
     seed: 1090618831
     rate: 0.2
@@ -164,11 +164,12 @@ expected_impacts:
   tiebreak:
     verdict: keep
     original_category: innovation_investment
-    reason: Section 6.1.3.2 credits reusers (researchers, innovators, regulators, policy-makers) with
-      EUR 3.4 billion in efficiency gains from cheaper access to data, which follows from Arts 33, 34
-      and 46. The IA describes these gains as simpler procedures and lower burden for requesting data,
-      so administrative_burden fits better than innovation_investment.
-    model: claude-opus-5-5
+    reason: The anchor's EUR 3.4bn figure is explicitly tied to 'less costly access to health data by
+      reusers' via the permit process replacing consent, and the surrounding text frames this as 'simpler
+      procedures/lower burden for stakeholders to request data and process the requests' - matching administrative_burden
+      better than innovation_investment, which is already used for the separate EUR 1.2bn innovation-value
+      figure (c12_e06).
+    model: claude-sonnet-5
   provenance:
     origin: llm_drafted
     status: llm_tiebroken
@@ -304,10 +305,11 @@ expected_impacts:
   tiebreak:
     verdict: keep
     original_category: compliance_cost
-    reason: The anchor gives a cost of EUR 97-204 million for data reusers to access EHDS data, and Arts
-      42 and 46(6)(e) make users pay fees and go through the permit procedure. These are procedural access
-      costs, so administrative_burden fits better than compliance_cost.
-    model: claude-opus-5-5
+    reason: Anchor confirms EUR 97-204 million cost for data reusers to access EHDS data; this reflects
+      the procedural/bureaucratic cost of applying for and processing data permits under Art 42/46(6)(e)
+      rather than substantive technical/organisational compliance measures, so administrative_burden fits
+      better than compliance_cost.
+    model: claude-sonnet-5
   provenance:
     origin: llm_drafted
     status: llm_tiebroken
@@ -334,7 +336,7 @@ expected_impacts:
   anchor:
     status: verified
     against: ia
-  category: public_enforcement_cost
+  category: market_competition
   derivability:
     verdict: 'yes'
     reason: Art 34 lists support to public sector and regulatory bodies as permitted purposes, so better-informed
@@ -357,11 +359,10 @@ expected_impacts:
   tiebreak:
     verdict: keep
     original_category: other
-    reason: The IA puts savings from real-world evidence at EUR 0.8 billion, through lower costs in regulatory
-      processes and public procurement for EMA, national agencies and HTA bodies. Arts 34(1)(a)-(c) and
-      34(2) give these bodies the access. The savings fall on public authorities, so public_enforcement_cost
-      fits better than other.
-    model: claude-opus-5-5
+    reason: Anchor directly ties the EUR 0.8bn savings to regulators/HTA bodies 'renegotiating the prices
+      of different medicinal products' using real-world data enabled by Art 33/34, which is squarely a
+      price/market effect, better captured by market_competition than the catch-all 'other'.
+    model: claude-sonnet-5
   provenance:
     origin: llm_drafted
     status: llm_tiebroken
@@ -502,10 +503,11 @@ important_omissions:
   tiebreak:
     verdict: drop
     original_category: sme_specific
-    reason: The anchor comes from section 6.1.4.2 on Policy Option 3, not the preferred option. It ties
-      the harm to smaller dataset owners to high mandatory certification costs, not to the duties under
-      Art 41, the fines under Art 43(5) or partial fee compensation.
-    model: claude-opus-5-5
+    reason: The anchor quote and surrounding text attribute the 'disproportionately adverse impact on
+      smaller dataset owners' to the costs of the data-quality certification/labelling scheme, not to
+      the dataset description/supply duties and daily fines under Art 41/43 that the claim's mechanism
+      relies on.
+    model: claude-sonnet-5
   provenance:
     origin: llm_drafted
     status: llm_tiebroken
@@ -646,9 +648,10 @@ possibly_missing:
   tiebreak:
     verdict: drop
     original_category: compliance_cost
-    reason: This repeats kept item c12_o02, which already covers the label documentation duty for data
-      holders under Art 41(3) and the same EUR 20,000-50,000 and EUR 20,000-35,000 label costs.
-    model: claude-opus-5-5
+    reason: This candidate restates the already-kept item c12_o02 (same Art 41(3) label-documentation
+      mechanism and the same EUR 20,000-50,000/EUR 20,000-35,000 figures for data holders), so it is a
+      duplicate.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
@@ -704,10 +707,11 @@ possibly_missing:
   tiebreak:
     verdict: drop
     original_category: market_competition
-    reason: The IA describes savings for public payers from renegotiating prices but never mentions lost
-      revenue for manufacturers. Arts 33 and 34 also say nothing about price renegotiation, so the claim
-      is the drafter's inference.
-    model: claude-opus-5-5
+    reason: Although the IA anchor supports regulators renegotiating medicine prices using real-world
+      data, Articles 33 and 34 only establish data availability and permitted purposes for regulators;
+      they say nothing that leads to price renegotiation or manufacturer revenue effects, so the claim
+      is not derivable from the cited provisions.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
