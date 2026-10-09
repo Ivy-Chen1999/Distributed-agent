@@ -33,10 +33,11 @@ from another sample are refused.
 **Gate.** The tool's error rate against the human label, raw and reweighted to the strata's
 shares of the population; the gate uses the higher of the two, and an item still unsettled
 counts as an error. At or below ``MAX_ERROR`` (the same 10% that escalates a proposal to full
-review), with every annotator's answers complete, the reference answers count as robust and later
-spot checks stay optional; above it, fix the prompts, re-draft and check again. With about 20
-items this catches gross failures, not small ones: the one-sided 95% upper bound printed next to
-the rate says how far the true rate could be (no error in 20 items still allows about 12%).
+review), with every item settled and every annotator's answers complete, the reference answers
+count as robust and later spot checks stay optional; above it, fix the prompts, re-draft and
+check again. With about 20 items this catches gross failures, not small ones: the one-sided 95%
+upper bound printed next to the rate says how far the true rate could be (no error in 20 items
+still allows about 12%).
 """
 
 from __future__ import annotations
@@ -346,13 +347,17 @@ def _read_file(
         data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     except yaml.YAMLError as exc:
         raise ReferenceCheckError(f"{path.name}: {exc}") from None
-    if (sample := data.get("sample")) is not None and str(sample) != key["sample"]:
-        raise ReferenceCheckError(f"{path.name} belongs to sample {sample}, not {key['sample']}")
+    rows = data.get("answers") if isinstance(data, dict) else None
+    if not isinstance(rows, list) or not all(isinstance(r, dict) for r in rows):
+        raise ReferenceCheckError(f"{path.name}: not an answer file (no list of answers)")
+    if str(data.get("sample")) != key["sample"]:
+        raise ReferenceCheckError(f"{path.name} belongs to sample {data.get('sample')}, not "
+                                  f"{key['sample']}")  # fmt: skip
     item_ids = set(key["items"])
     name = str(data.get("annotator") or path.stem.removeprefix("answers_"))
     labels: dict[str, str | None] = {}
     notes: dict[str, str] = {}
-    for row in data.get("answers") or []:
+    for row in rows:
         iid = str(row.get("item"))
         label = row.get("label")
         label = label.strip().lower() if isinstance(label, str) and label.strip() else None
@@ -501,7 +506,7 @@ def score(key: dict[str, Any], answers: Labels, reconciled: dict[str, str] | Non
         "error_by_stratum": by_stratum,
         "error": error,
         "upper_bound_95": upper_bound(len(errors), len(items)),
-        "robust": error <= MAX_ERROR and not any(blank.values()),
+        "robust": error <= MAX_ERROR and not unsettled and not any(blank.values()),
         "inter_annotator_agreement": _mean(inter),
         "cohen_kappa": _mean(kappas),
         "wrong": wrong,
