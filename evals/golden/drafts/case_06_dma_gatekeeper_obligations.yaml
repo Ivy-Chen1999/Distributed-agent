@@ -101,7 +101,7 @@ provenance:
     - c06_e07
     non_publishable_test_seed: false
   item_digests:
-    c06_e01: d1c270c1508fa37c9797d13df2cf81414c0a6d976c5f3717bea8990c2cd07fa4
+    c06_e01: c28b7eed65021567516546436e4d27b84619ffce68167d5d0965f2744bb47c97
     c06_e02: 610aa700898df8ec88b4e7de2c1fed336939167d982790427bbd4326e2f88780
     c06_e03: d259c87b4b5056202fd816d1b85d9689b9b808e1f38ece49530ed870b98fffeb
     c06_e04: 6be94b692090db59e381b383330675656342b7e12fed27daa83779135487de38
@@ -115,20 +115,21 @@ provenance:
     c06_o02: f2fb85e63ae97f66d17998f4fc45cf146f3fb5c21baf6398c0ecdedc5e525b9e
     c06_o03: e0823fe09d457408949026b45686835892d763056502d772c43dcd69ac2ab15d
     c06_o04: 96ec4e7ffc34938e77d45538dfae0590aaef87e1e654f6b9546b658d3da3e198
-    c06_m01: 89265c19a64ea0619c394a431a3aa0db9c54847978e35004eb3524a4cfb61d4d
-    c06_m02: 18249d6fc6820f73ca441095bc34736b5b4c46a69841d5cab014f684b0e6b4be
-    c06_m03: 998a65a65d9d5f2e61cbb8fa4f28d010d72cf3b69fb12eb6f213b5f02a1c7e7f
-    c06_m04: fe5b5fde47dd86980ba6fb5364621d7399ea311efa9b013e135e4fb94a971dae
-    c06_m05: 7548c6eb5b73d6a842805592a6afcdc8b274901083e277b4751cb208163a88f3
-    c06_m06: ff84f37cd2d3385e449547cfefa5cf647db7c5b4b33bf1cca34c3616994060d0
-    c06_m07: ab0d34f3f39370249de29f4511e4396094f5fc06eea695e0eafbf9665cb1b334
+    c06_m01: 3946bdc7fbeb4be6b2e0856b8879a008cfe1ea34a97b24d014a9c0d7d5551879
+    c06_m02: e7309de214863ab5c93800c3ebe778b0a55da662b32ed5e0f59350b716f92892
+    c06_m03: 3963b2dc2b5e6c3a5334e4c6cb3aa869bd00bd45e94fb9f5ef57adf9d54f90ec
+    c06_m04: d848a78acd248955811b79ba9ebd5a95c518099ea024b95de1e0aac736cd3867
+    c06_m05: 9f5bc198714157fcde869260c0bdb66f364a66c7a9fcf2d2c051dbae55c62932
+    c06_m06: 5e722c953ab57c785715198a9fd8a07409f5e801c3fa63288995a4115869a280
+    c06_m07: 680638997bded333a148a04f0721006a91182b6eaacda9180062eb4174055569
   tiebreak_audit:
     seed: 3645592030
     rate: 0.2
-    eligible: 4
+    eligible: 5
     eligible_ids:
     - c06_e01
     - c06_m01
+    - c06_m03
     - c06_m04
     - c06_m07
     sampled:
@@ -147,8 +148,8 @@ stats:
   pending: 0
   audited: 4
   human_decisions_needed: 0
-  llm_kept: 4
-  llm_dropped: 4
+  llm_kept: 5
+  llm_dropped: 3
 expected_impacts:
 - expected_id: c06_e01
   affected_actor: Designated gatekeepers
@@ -170,7 +171,7 @@ expected_impacts:
   anchor:
     status: verified
     against: ia
-  category: compliance_cost
+  category: administrative_burden
   derivability:
     verdict: 'yes'
     reason: The provisions place a large set of conduct obligations, plus a duty to ensure effective compliance,
@@ -195,11 +196,12 @@ expected_impacts:
   tiebreak:
     verdict: keep
     original_category: compliance_cost
-    reason: Para 300 states that compliance officers and staff to interface with the regulator are needed
-      and that these costs largely substitute for costs of divergent national measures. The cost table
-      gives 20 FTEs per gatekeeper platform. The IA itself frames these as compliance costs, so compliance_cost
-      stays.
-    model: claude-opus-5-5
+    reason: The anchor text describes compliance officers checking policies against new rules and staff
+      interfacing with the regulator/responding to information requests – these are familiarisation and
+      information/reporting duties, not substantive technical measures, so administrative_burden fits
+      better than compliance_cost; the mechanism and 20-FTE figure are otherwise well supported by Arts
+      5-7/11.
+    model: claude-sonnet-5
   provenance:
     origin: llm_drafted
     status: llm_tiebroken
@@ -831,10 +833,10 @@ possibly_missing:
   tiebreak:
     verdict: keep
     original_category: public_enforcement_cost
-    reason: The cost table attributes further implementation costs to the regulator specifying obligations
-      for a given gatekeeper and gives €16.7m a year (80 FTEs plus about €6.4m) for Option 2. Art 7(2),
-      (4) and (5) set up this specification procedure.
-    model: claude-opus-5-5
+    reason: Anchor text and surrounding cost table directly confirm Commission implementation/specification
+      costs (€16.7m, 80 FTEs) tied to Art 7(2)(4)(5) specification proceedings; this is a public_enforcement_cost
+      not covered by any kept item.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
@@ -880,10 +882,10 @@ possibly_missing:
   tiebreak:
     verdict: drop
     original_category: public_enforcement_cost
-    reason: The €6m and 3.5 FTE figures match the IA, but Art 7 gives national authorities no role in
-      studying or being consulted on draft decisions. So the actor and mechanism do not follow from the
-      listed provisions.
-    model: claude-opus-5-5
+    reason: Art 7 as given makes no mention of national authorities or any consultation role for them;
+      the mechanism (national regulators studying Commission draft decisions) is an IA-only institutional
+      detail not derivable from the cited provision text.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
@@ -928,18 +930,17 @@ possibly_missing:
       reason: A dialogue mechanism reducing the gatekeeper's substantive implementation costs fits compliance_cost.
     overall: agree
   tiebreak:
-    verdict: unsure
+    verdict: keep
     original_category: compliance_cost
-    reason: The IA says the possibility of a dialogue would reduce compliance costs, and the same cell
-      adds that market-investigation information requests would bring extra costs. The claimed lower disruption
-      to commercial relationships with business users is not in the quoted text.
-    model: claude-opus-5-5
+    reason: Anchor text explicitly states the Art 7(7) dialogue possibility would reduce compliance costs,
+      directly matching the claim and the cited provision.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: llm_dropped
+    decision: llm_kept
     audit: false
     reviewer: null
     note: null
@@ -980,10 +981,10 @@ possibly_missing:
   tiebreak:
     verdict: keep
     original_category: market_competition
-    reason: Para 309 states that business users could multi-home and switch, including because of the
-      ban on tying, and would benefit from lower intermediation prices and reduced distribution costs.
-      This follows from Art 5(b), (c), (f) and 6(1)(k), and no kept item covers it.
-    model: claude-opus-5-5
+    reason: Anchor quote states business users would benefit from lower prices for intermediation services
+      and reduced distribution costs, matching the claim and grounded in the anti-steering/anti-tying/fair-access
+      provisions cited.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
@@ -1030,9 +1031,10 @@ possibly_missing:
   tiebreak:
     verdict: drop
     original_category: consumers_users
-    reason: The IA context supports pass-through to lower consumer prices, but the €490m consumer-surplus
-      figure does not appear in the evidence, so a key number cannot be checked.
-    model: claude-opus-5-5
+    reason: The provided anchor context supports general price pass-through to consumers but does not
+      contain or substantiate the specific €490m figure in the claim, so the numbers cannot be verified
+      against this quote.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
@@ -1081,9 +1083,9 @@ possibly_missing:
   tiebreak:
     verdict: drop
     original_category: consumers_users
-    reason: This repeats the already kept item c06_o02 (higher search costs for consumers from offers
-      spread across platforms, with the gatekeeper service still available).
-    model: claude-opus-5-5
+    reason: This duplicates the already-kept item c06_o02, which states the same mechanism (multi-homing/off-platform
+      offers spreading across platforms) and the same higher-search-cost impact for consumers.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
@@ -1133,10 +1135,10 @@ possibly_missing:
   tiebreak:
     verdict: keep
     original_category: innovation_investment
-    reason: Para 303 states that increased market contestability would continue to incentivise gatekeepers
-      to bring innovative products to market and compete for consumers, even where their business models
-      are affected. This effect comes from the Art 5 and 6 obligations.
-    model: claude-opus-5-5
+    reason: Anchor text explicitly states increased market contestability would continue to incentivise
+      gatekeepers to bring innovative products to market even where their business models are impacted,
+      matching the claim.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
