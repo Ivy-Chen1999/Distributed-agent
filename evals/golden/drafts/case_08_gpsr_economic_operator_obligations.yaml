@@ -73,35 +73,36 @@ provenance:
     - c08_e07
     non_publishable_test_seed: false
   item_digests:
-    c08_e01: ab44a7b9c5ae48a3df0dddea9ec01748107aa15d975eaf0498f2831ae5ffa037
-    c08_e02: 795a1d2c341a1c35ca95df4c3b877f10e55799e41d058b2bfdd6fe8a6fb64d8a
+    c08_e01: 5dcbb8de3e98ca12a8c4f09214260e660da5e4f454b0969b26f020480e20a334
+    c08_e02: 7dd540b1dbe04d474dbad3f84e87586a433031ecec3e068e9733ecb2358420ab
     c08_e03: 8487fb13ddd16a39f14de8063caf92965c557d1d21ccb85f3420bbc1a3df8298
-    c08_e04: 38753f339aa350935d7bb475d3470733d4e5bd8e6e579ea2ca41d954f7f10f9b
+    c08_e04: 190efd458475864865c374f83cf44e1a083e43310e320c80de50cc116209b54d
     c08_e05: c9a489c763d026906091e628b7472dc33120922168a9c6101998760afe5b3500
     c08_e06: 8dabc139ffd82c71585d8a292c014a0b70b646f07cabf20eb95f3b908b21965e
     c08_e07: cd4ff3076c2b89551085b13f59dd0ab2ea3682caec2907bb9b4cd6352c5fd198
     c08_e08: f30b1b6c28b78abec39325e1501d2fb1d2fa3d81d2c401f5f799c1772b8cb410
-    c08_e09: 267e034fe15199a45eafef6018d43eaa78742c441f21b0988958761417818ee2
+    c08_e09: ad1cf305c860569f9e45c78174b0017e8919330cc520bffeced0ee9076d1b511
     c08_e10: 5785423bcf1ae4a1cbd012efc679bde96fda79be5a9ec944a70fce1f2137413e
     c08_o01: 2bb17d1f24f2f9700a589817354e46bda40d9c87de675b0664fd50255bafc3f6
-    c08_o02: dc21e2128ef7fcc458f7582364ff01fdcf6d246619a247990df26f97e3c4ce22
+    c08_o02: a4834df9122110e8569f8abf669fcde1cfc2d1ffeefcb535a5e7e97b32eca207
     c08_o03: 483966f1d385094d56a2b323a3e1b1ffdb5f082a3f9deef59afa251abb2404d5
-    c08_m01: 6d0cf4b4f60bc0ea5b1571e66640725c2582950b567d81f694c0a2af671422ec
-    c08_m02: 2dd1bb126f21ccf31af1bbfe47962ede9c6dda09134fa45fea88cb4a80679859
-    c08_m03: fafdc2fee1167b7d78bbefd31bdd8e1210311d4507c40cb8c08e81ab6e6a192e
-    c08_m04: bedde11c2e4a3402525ef9c76297e461449065610c2fdfac6b823fa1a565c5a2
-    c08_m05: 05a0c83b534d668094f1ccc2b36922c121a522de6038eaa35b774050cd6bdb3e
+    c08_m01: b73d5f1af9668df3edb9f62da376b228b748fd99b5518f67c370f10d57f39840
+    c08_m02: c93bec7a8161e1acb4b6bdb102213136e912313c545d8093a2414444cd114d80
+    c08_m03: a1d6e1375ce6cb8ccda54495baed06d509a4e54a0dfb41c98b119c2f894580a9
+    c08_m04: 7a41b27d6435c9e61acea68adb8f6f16e756ec0a865f58f4be99596012ece0aa
+    c08_m05: ce7d638ad7cb0cf478f234d24c8c2af8b430f6e7169399cb0595b6a86552f6b0
   tiebreak_audit:
     seed: 990625835
     rate: 0.2
-    eligible: 6
+    eligible: 7
     eligible_ids:
     - c08_e01
     - c08_e02
     - c08_e04
     - c08_e09
+    - c08_m01
     - c08_m02
-    - c08_o02
+    - c08_m03
     sampled:
     - c08_e02
     - c08_e09
@@ -119,8 +120,8 @@ stats:
   pending: 0
   audited: 4
   human_decisions_needed: 0
-  llm_kept: 6
-  llm_dropped: 4
+  llm_kept: 7
+  llm_dropped: 3
 expected_impacts:
 - expected_id: c08_e01
   affected_actor: Manufacturers, wholesalers/importers and retailers/distributors of non-harmonised consumer
@@ -167,11 +168,11 @@ expected_impacts:
   tiebreak:
     verdict: keep
     original_category: compliance_cost
-    reason: Table 11 and the anchor give EUR 196.6m in the first year and EUR 177.8m after that, driven
-      by staff, due-diligence, IT and external services plus one-off familiarisation costs. These are
-      the substantive duties in Arts 8, 10 and 11, and the IA calls them recurrent regulatory compliance
-      costs.
-    model: claude-opus-5-5
+    reason: The IA table directly supports EUR 196.6m/177.8m business costs tied to due-diligence staff,
+      IT and resources, and Arts 8/10/11 clearly impose the cited documentation, labelling, checks and
+      corrective-action duties; the cost drivers described (staff, IT systems, external services) are
+      substantive measures, fitting compliance_cost.
+    model: claude-sonnet-5
   provenance:
     origin: llm_drafted
     status: llm_tiebroken
@@ -221,11 +222,10 @@ expected_impacts:
   tiebreak:
     verdict: keep
     original_category: compliance_cost
-    reason: The IA says recurrent compliance costs rise 'generally more for manufacturers than wholesalers
-      and retailers' because they must adjust stages of the value-adding process, and Table 11 shows EUR
-      111.7m for manufacturing. The comparison comes from the IA, and the manufacturer duties in Art 8
-      support it.
-    model: claude-opus-5-5
+    reason: The IA explicitly states recurrent costs rise more for manufacturers than wholesalers/retailers,
+      and Article 8's design, documentation and conformity-procedure duties are the substantive basis
+      for that higher cost, matching compliance_cost even though Arts 10/11 aren't separately cited.
+    model: claude-sonnet-5
   provenance:
     origin: llm_drafted
     status: llm_tiebroken
@@ -318,10 +318,10 @@ expected_impacts:
   tiebreak:
     verdict: keep
     original_category: compliance_cost
-    reason: The IA says marketplaces' recurrent costs rise, with limited costs for Pledge signatories
-      and 'additional compliance costs' for non-signatories. The binding duties in Art 20 drive this,
-      and the IA itself calls them compliance costs.
-    model: claude-opus-5-5
+    reason: IA text contrasts limited costs for Pledge signatories with real additional compliance costs
+      for non-signatory platforms, and Article 20's contact-point/order/notice/cooperation duties are
+      the substantive drivers, so compliance_cost fits.
+    model: claude-sonnet-5
   provenance:
     origin: llm_drafted
     status: llm_tiebroken
@@ -547,11 +547,10 @@ expected_impacts:
   tiebreak:
     verdict: keep
     original_category: social_environmental
-    reason: The IA's Social impacts section links traceability and recall requirements to more effective
-      recalls. It cites the EUR 73m (2019) saving from informing consumers directly and says the EUR 6.7bn
-      yearly health-care cost could be reduced further. The IA frames this under public health and health
-      systems.
-    model: claude-opus-5-5
+    reason: The anchor sits squarely in the IA's 'Social impacts' subsection discussing public health/health-care
+      cost savings from better recalls, so social_environmental better matches the IA's own section than
+      consumers_users.
+    model: claude-sonnet-5
   provenance:
     origin: llm_drafted
     status: llm_tiebroken
@@ -692,18 +691,19 @@ important_omissions:
         and fundamental rights (business freedom), so no single category clearly dominates.
     overall: uncertain
   tiebreak:
-    verdict: keep
+    verdict: drop
     original_category: compliance_cost
-    reason: The IA puts EUR 196.6m at 0.02% of turnover. It uses this low relative cost to conclude there
-      is no significant distortion of competition or harm to innovation, and that the burden on the freedom
-      to conduct a business is proportionate. The core of the claim is the size of the compliance costs.
-    model: claude-opus-5-5
+    reason: The claim's substance is that costs are small enough to cause 'no significant distortion of
+      competition, no significant harm to innovation, no undue limit on freedom to conduct business' —
+      an absence-of-effect finding the rules say to exclude even when a cost figure is cited alongside
+      it.
+    model: claude-sonnet-5
   provenance:
     origin: llm_drafted
     status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: llm_kept
+    decision: llm_dropped
     audit: false
     reviewer: null
     note: null
@@ -796,17 +796,17 @@ possibly_missing:
       reason: Price pass-through effects on (low-income) consumers matches consumers_users.
     overall: agree
   tiebreak:
-    verdict: drop
+    verdict: keep
     original_category: consumers_users
-    reason: 'Duplicate: already-kept item c08_o01 covers the price pass-through, the effect on cheap non-EU
-      online products and the reduced purchases by low-income consumers.'
-    model: claude-opus-5-5
+    reason: IA text confirms cost pass-through mainly hits cheap non-EU online products and that price-elastic
+      low-income consumers may buy less, matching the claim and consumers_users.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: llm_dropped
+    decision: llm_kept
     audit: false
     reviewer: null
     note: null
@@ -850,10 +850,9 @@ possibly_missing:
   tiebreak:
     verdict: keep
     original_category: public_enforcement_cost
-    reason: Section 8.1 of the IA says the online listing information 'allows better traceability of products
-      needed for market surveillance', which follows from Art 20(5) and the labelling rules in Arts 8
-      and 15. No kept item covers this enforcement benefit.
-    model: claude-opus-5-5
+    reason: Anchor quote verbatim states the online listing/labelling information 'allows better traceability
+      of products needed for market surveillance', directly supporting the claim for public_enforcement_cost.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
@@ -899,18 +898,17 @@ possibly_missing:
       reason: Development of new traceability/information solutions and innovation effects matches innovation_investment.
     overall: agree
   tiebreak:
-    verdict: drop
+    verdict: keep
     original_category: innovation_investment
-    reason: The IA attributes the positive innovation effect to greater harmonisation and legal certainty,
-      with traceability systems only as an example. The claim instead presents traceability requirements
-      as the driver. Its 'no significant harm to innovation' part also repeats c08_o02.
-    model: claude-opus-5-5
+    reason: IA text explicitly notes positive impacts on competition-driven innovation via 'development
+      of new innovative information and traceability systems,' matching Article 17 and innovation_investment.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: llm_dropped
+    decision: llm_kept
     audit: false
     reviewer: null
     note: null
@@ -953,9 +951,10 @@ possibly_missing:
   tiebreak:
     verdict: drop
     original_category: fundamental_rights
-    reason: 'Duplicate: c08_o02 already states that, given costs of about 0.02% of turnover, the IA finds
-      no undue limit on the freedom to conduct a business.'
-    model: claude-opus-5-5
+    reason: The anchor quote states the obligations 'do not affect the fundamental freedom to conduct
+      a business' — this is an absence-of-effect reassurance that the rules say to exclude even though
+      it is framed via a proportionality finding.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
@@ -1002,10 +1001,10 @@ possibly_missing:
   tiebreak:
     verdict: drop
     original_category: compliance_cost
-    reason: 'Duplicate: c08_e04 already states that the cost increase is limited for Pledge signatories.
-      Also, Art 20 does not mention the Pledge, so the claimed overlap with Pledge commitments cannot
-      be derived from the provisions.'
-    model: claude-opus-5-5
+    reason: Article 20's text never mentions the Product Safety Pledge, so the claimed mechanism (existing
+      Pledge commitments reducing incremental cost for signatories) cannot be derived from the cited provision,
+      only from external stakeholder context.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
