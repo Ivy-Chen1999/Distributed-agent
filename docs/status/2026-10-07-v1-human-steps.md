@@ -49,22 +49,27 @@ measures that once, before the tool-settled drafts are published (publishing del
 
   ```
   uv run python scripts/reference_check.py sample evals/golden/drafts/case_*.yaml \
-      --annotator <name1> --annotator <name2> --out .cache/reference_check/round1/
+      --annotator <name1> --annotator <name2> --send-to "<you> on <channel>" \
+      --out .cache/reference_check/round1/
   ```
 
   About 20 items, a third each kept by the three judges, kept by the tie-break and dropped by
-  it. The sheet shows the claim, the IA quote and the text around it; never the tool's decision
+  it. The page shows the claim, the IA quote and the text around it; never the tool's decision
   (that stays in `key.private.json`).
 - **Label (2 classmates, about 10 minutes each):** each opens their own `label_<name>.html`
   and, for each item, picks `keep`, `drop` or `unsure`: does it belong in the reference answer?
   Work independently, then send back the downloaded `answers_<name>.yaml`.
 - **Score (owner):** `uv run python scripts/reference_check.py score --dir .cache/reference_check/round1/`
-- **Reconcile (both classmates together, about 5 minutes):** if they split on items, `score`
+- **Reconcile (both classmates together, about 5 minutes):** if they split on items (or one
+  said `unsure`), `score`
   writes `reconcile.html` with only those items and each person's label and note (never the
   tool's decision). They agree on one label per item, download `reconciled.yaml` into the same
   directory, and the owner scores again. The result reports agreement before reconciling (raw
-  and Cohen's kappa); at least 90% of the items must end with a human label.
-- **Done:** gate error at most 10% ("ROBUST"): publish, and spot checks stay optional. Above
+  and Cohen's kappa). An item still unsettled counts as an error, and `score` refuses to run
+  until every annotator's file is in.
+- **Done:** gate error at most 10% ("ROBUST"): publish, and spot checks stay optional. With
+  20 items this rules out gross failures only (no error in 20 still allows about 12% at 95%;
+  `score` prints the bound); `--n 30` with no error would show at most 10%. Above
   10%: fix the drafting or tie-break prompt, re-run the tie-break or re-draft, and check again
   with a new sample. Record the result in this file.
 
