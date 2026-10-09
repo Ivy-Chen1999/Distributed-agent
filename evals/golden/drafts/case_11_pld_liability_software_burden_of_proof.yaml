@@ -88,23 +88,25 @@ provenance:
     c11_e06: 8aa2e61f34390d656a105f6792732e97211924b52221afdda61c6bf0416340c7
     c11_e07: b8705f413d73d84a2838a326176d4228bc54b38e5a6fab58cbc3f15110ddc0f1
     c11_e08: 14bdc576537eb40c3a67a32d37b27d853d2ec96e356e47d4a18e1c9fe0101eee
-    c11_e09: 87b7e137eca72373968f27c648848751bba93121ba7b2513951628c60896bd4f
+    c11_e09: 99307e771d5cd7e84381e7d8a54d502a215fb63ca3fcf082a26d13bcbb879084
     c11_e10: bc0e8735467252e98c2a4d53b4f0f870a654b8cbfc02125b273ac0105157e81e
     c11_o01: 50a38e89a92c49dbdbd1ec06cbebf8cc286ea34aa34aaf5a7a3ed7d3ee534e18
-    c11_o02: 00d0361188c711ba433605192b98c62020fc281f88caa875a9a9b93943b8c5b0
-    c11_o03: 49bb5a6f41e482729169e8ce698493cb15047dbd6b9b6ca3a71f8e852193f147
-    c11_m01: 3d127cbd3321b13623d6c5d467ac692822669a3e75852a8d5d82cdac9e9aae17
-    c11_m02: 3fe48f0674ddce4ecce8420cc7ea685066643cbf4d587c9c0ca162c1f9f8d106
-    c11_m03: 0af9c484068a73a3cc330a6561f6b9e48ae6801c9f057d4b0f3cdd6c870b2438
-    c11_m04: bdff8f42849a151b4f9de627b053060417561ce29db5a0e18fef79226c9bef10
-    c11_m05: eb30650337d962b6225786f2fee57f041686dba6b30c94612edd9e458d4c829c
+    c11_o02: fc9d724baa8a5b7149504baf6e7e3d78ed63527883171ea659cc0510681bcb2a
+    c11_o03: e8167a5e1544fecbb5496c97f4f7ad6573c905b61fc2f99fec35aa08fe31a878
+    c11_m01: 2e8a3bff549a08731ca9f5f7af4d3324310cc8fa8fa6ff36b0e970e7cdd5d92f
+    c11_m02: d6ee1a53f81ada5c7a38d83dcd8869f9bfeb0b789afdeecc9aa698c75a97e981
+    c11_m03: 6dd19e31fef618a4df819b305cbe2d4dbb81f3ce2254f6eb66ec52018b14484d
+    c11_m04: 18c48e6c9faafc97d39cff3984089458ad35ae38cecb93c3a328753fcada79b7
+    c11_m05: 0aac82208d162bf1b193d12cfee63a1df41276d9e2e0ff522242bfb11641d481
   tiebreak_audit:
     seed: 3296743777
     rate: 0.2
-    eligible: 2
+    eligible: 4
     eligible_ids:
     - c11_e09
+    - c11_m02
     - c11_m03
+    - c11_m05
     sampled:
     - c11_m03
     non_publishable_test_seed: false
@@ -121,8 +123,8 @@ stats:
   pending: 0
   audited: 3
   human_decisions_needed: 0
-  llm_kept: 2
-  llm_dropped: 6
+  llm_kept: 4
+  llm_dropped: 4
 expected_impacts:
 - expected_id: c11_e01
   affected_actor: Software producers (including providers of standalone software and software updates)
@@ -525,10 +527,10 @@ expected_impacts:
   tiebreak:
     verdict: keep
     original_category: market_competition
-    reason: Section 6.4 states nearly verbatim that explicit disclosure and presumption rules create legal
-      certainty, more equal consumer protection and fairer burden-sharing; the effects concern legal certainty
-      and consumer protection, not market structure or prices.
-    model: claude-opus-5-5
+    reason: Anchor nearly verbatim supports harmonised disclosure/presumption rules creating legal certainty
+      and 'a more equal level of consumer protection' and fairer burden-sharing; the substance is about
+      consumer protection parity, not market structure/prices, so consumers_users fits better than market_competition.
+    model: claude-sonnet-5
   provenance:
     origin: llm_drafted
     status: llm_tiebroken
@@ -665,9 +667,10 @@ important_omissions:
   tiebreak:
     verdict: drop
     original_category: sme_specific
-    reason: The IA only says uninsured producers bear direct compensation and legal costs; it does not
-      link this to small firms or small software developers, so the SME/uneven-burden framing is unsupported.
-    model: claude-opus-5-5
+    reason: The anchor only says uninsured producers bear direct compensation/legal costs; it never ties
+      this to 'small software developers' or SMEs specifically, so the actor framing goes beyond what
+      the IA text states.
+    model: claude-sonnet-5
   provenance:
     origin: llm_drafted
     status: llm_tiebroken
@@ -715,9 +718,10 @@ important_omissions:
   tiebreak:
     verdict: drop
     original_category: other
-    reason: The IA supports insurers offsetting costs through premiums but says nothing about producers
-      passing costs on to consumers via prices; part of the claim is unsupported.
-    model: claude-opus-5-5
+    reason: The anchor supports insurers passing costs into premiums but says nothing about producers
+      passing costs on to consumers via prices, and the insurer-premium part duplicates c11_m02, so this
+      stretched/duplicative claim should be dropped.
+    model: claude-sonnet-5
   provenance:
     origin: llm_drafted
     status: llm_tiebroken
@@ -769,9 +773,9 @@ possibly_missing:
   tiebreak:
     verdict: drop
     original_category: fundamental_rights
-    reason: Duplicates kept items c11_e03 (industry acceptance conditional on justified requests and IP
-      protection) and c11_o01 (trade-secret safeguards in Art. 8(3)–(4)).
-    model: claude-opus-5-5
+    reason: This duplicates the already-kept c11_o01, which covers the same Art. 8 trade-secret/IP disclosure
+      risk and the same confidentiality safeguards for the same producers.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
@@ -817,18 +821,18 @@ possibly_missing:
       reason: Premium pass-through by insurers concerns pricing, fitting market_competition.
     overall: agree
   tiebreak:
-    verdict: drop
+    verdict: keep
     original_category: market_competition
-    reason: The insurer statement in Section 8 covers the whole preferred option, including threshold
-      and liability-period changes outside these provisions; Arts. 7 and 9 do not lead to insurer premium
-      pass-through.
-    model: claude-opus-5-5
+    reason: Anchor directly states insurers absorb higher compensation costs and offset them via marginally
+      higher premiums with stable net income; this is a distinct actor (insurers) and a pricing effect
+      not covered by other kept items.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: llm_dropped
+    decision: llm_kept
     audit: false
     reviewer: null
     note: null
@@ -869,9 +873,10 @@ possibly_missing:
   tiebreak:
     verdict: keep
     original_category: consumers_users
-    reason: Section 8 says PO1a would not deliver legal certainty on compensation for digital property,
-      which the preferred option does; Art. 4(6)(c) includes loss of non-professional data as damage.
-    model: claude-opus-5-5
+    reason: Art. 4(6)(c) textually adds non-professional data loss/corruption as compensable damage, and
+      the surrounding IA text on PO1a's shortfall confirms the preferred option delivers this legal certainty
+      for consumers.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
@@ -920,9 +925,10 @@ possibly_missing:
   tiebreak:
     verdict: drop
     original_category: compliance_cost
-    reason: The 2–3% insurance-cost and 16% case-number figures do not appear in the IA context provided,
-      so the numbers cannot be verified.
-    model: claude-opus-5-5
+    reason: The claim only asserts that producers are spared ('not over-burdened') from certain liability
+      and avoid cost increases that a rejected option would have caused; this is an absent/avoided-effect
+      claim, which the rules say to drop.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
@@ -968,17 +974,17 @@ possibly_missing:
       reason: Increased consumer trust and willingness to claim is a consumer-facing effect.
     overall: agree
   tiebreak:
-    verdict: drop
+    verdict: keep
     original_category: consumers_users
-    reason: Duplicates kept item c11_e06, which already states that confidence in complex products may
-      improve because of the eased burden of proof.
-    model: claude-opus-5-5
+    reason: Anchor directly states that greater visibility of eased burden of proof could improve consumer
+      confidence and trust in more complex products, a distinct consumer-facing effect not covered elsewhere.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: llm_dropped
+    decision: llm_kept
     audit: false
     reviewer: null
     note: null
