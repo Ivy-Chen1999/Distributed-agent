@@ -146,3 +146,35 @@ def test_the_script_samples_then_scores(tmp_path, capsys):
     answers["answers"][0]["label"] = "maybe"
     (out / "answers_ana.yaml").write_text(yaml.safe_dump(answers))
     assert script.main(["score", "--dir", str(out)]) == 2
+
+
+def test_the_html_page_is_blind_and_its_answers_are_scored(tmp_path):
+    import re
+
+    out = tmp_path / "check"
+    drafts = [tiebroken("case_90_a"), tiebroken("case_91_b")]
+    rc.write_sample(out, drafts, n=6, seed=1, annotators=["ana"], ia_root=tmp_path)
+    page = (out / "label_ana.html").read_text()
+    data = json.loads(re.search(r"const DATA = (.*);\n", page).group(1))
+    assert data["annotator"] == "ana" and len(data["items"]) == 6
+    for leak in ("llm_kept", "llm_dropped", "auto_accepted", "repeats e01", "why_missing",
+                 "tiebreak", "judge"):  # fmt: skip
+        assert leak not in json.dumps(data)
+    assert "__DATA__" not in page and "__ANNOTATOR__" not in page
+    # The page's download, in the format its JavaScript writes (JSON-quoted notes).
+    rows = ["annotator: ana", "answers:"]
+    for item in sorted(i["id"] for i in data["items"]):
+        rows += [f"- item: {item}", "  label: keep", '  note: "a \\"quoted\\" note"']
+    (out / "answers_ana.yaml").write_text("\n".join(rows) + "\n")
+    key = json.loads((out / rc.KEY_FILE).read_text())
+    answers = rc.read_answers(out, set(key["items"]))
+    assert set(answers["ana"].values()) == {"keep"}
+    assert rc.score(key, answers)["items_resolved"] == 6
+
+
+def test_the_passage_keeps_the_case_and_marks_the_quote():
+    text = "Intro.  The Widget Providers would face   cost number 5 under the option. Rest."
+    p = rc._passage("widget providers would face cost number 5 under the option", text, 10)
+    assert p["quote"] == "Widget Providers would face cost number 5 under the option"
+    assert p["before"].endswith("The ") and p["after"].startswith(". Rest")
+    assert rc._passage("nowhere to be found in it", text, 10) is None
