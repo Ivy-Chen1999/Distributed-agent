@@ -9,7 +9,9 @@ Run ``sample`` on the tie-broken train/val drafts before they are published
 third each kept by the three judges, kept by the tie-break and dropped by it, and writes one
 blind labeling sheet and answer file per annotator plus ``key.private.json`` (the tool's
 decisions; never send it). ``score`` reads the answer files back and reports the tool's error
-rate against the human majority; at or below 10% the reference answers count as robust.
+rate against the human label; at or below 10% the reference answers count as robust. When the
+annotators split on items, ``score`` writes ``reconcile.html`` for them to settle those items
+together (it downloads ``reconciled.yaml``); score again afterwards.
 Exit codes: 0 done (score: robust), 1 score: not robust, 2 bad input.
 """
 
@@ -65,8 +67,17 @@ def main(argv: list[str] | None = None) -> int:
                       "only", file=sys.stderr)  # fmt: skip
             return 0
         key = json.loads((args.dir / rc.KEY_FILE).read_text(encoding="utf-8"))
-        result = rc.score(key, rc.read_answers(args.dir, set(key["items"])))
+        ids = set(key["items"])
+        notes: dict[str, dict[str, str]] = {}
+        answers = rc.read_answers(args.dir, ids, notes)
+        result = rc.score(key, answers, rc.read_reconciled(args.dir, ids))
         print(json.dumps(result, indent=2) if args.json else rc.format_result(result, key))
+        if result["unsettled"] and not any(result["blank"].values()):
+            page = rc.write_reconcile_page(args.dir, key, answers, notes)
+            print(
+                f"next: open {page} together, decide the {len(result['unsettled'])} split "
+                f"items, save {rc.RECONCILED_FILE} in {args.dir} and score again"
+            )
         return 0 if result["robust"] else 1
     except FileNotFoundError as exc:
         print(f"error: {exc}", file=sys.stderr)

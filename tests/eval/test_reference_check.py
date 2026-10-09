@@ -178,3 +178,51 @@ def test_the_passage_keeps_the_case_and_marks_the_quote():
     assert p["quote"] == "Widget Providers would face cost number 5 under the option"
     assert p["before"].endswith("The ") and p["after"].startswith(". Rest")
     assert rc._passage("nowhere to be found in it", text, 10) is None
+
+
+def test_splits_count_until_reconciled_and_kappa_is_reported():
+    key = _key([("judges_accepted", True)] * 5 + [("tiebreak_dropped", False)] * 5)
+    ana = {f"r{n}": "keep" if n <= 5 else "drop" for n in range(1, 11)}
+    bo = ana | {"r1": "drop", "r6": "keep"}  # two splits
+    res = rc.score(key, {"ana": ana, "bo": bo})
+    assert res["split"] == ["r1", "r6"] and res["unsettled"] == ["r1", "r6"]
+    assert res["error"] == 0 and not res["enough_resolved"] and not res["robust"]  # 8 of 10
+    assert res["inter_annotator_agreement"] == pytest.approx(0.8)
+    assert res["cohen_kappa"] == pytest.approx(0.6)
+    res = rc.score(key, {"ana": ana, "bo": bo}, {"r1": "keep"})
+    assert res["reconciled"] == 1 and res["unsettled"] == ["r6"]
+    assert res["enough_resolved"] and res["robust"]  # 9 of 10 settled, none wrong
+    res = rc.score(key, {"ana": ana, "bo": bo}, {"r1": "drop", "r6": "keep"})
+    assert res["wrong"] == ["r1", "r6"] and not res["robust"]
+
+
+def test_the_script_writes_a_blind_reconcile_page_for_the_splits(tmp_path, capsys):
+    import re
+
+    out = tmp_path / "check"
+    drafts = [tiebroken("case_90_a"), tiebroken("case_91_b")]
+    rc.write_sample(out, drafts, n=6, seed=1, annotators=["ana", "bo"], ia_root=tmp_path)
+    key = json.loads((out / rc.KEY_FILE).read_text())
+    ids = sorted(key["items"])
+    truth = {i: "keep" if key["items"][i]["tool_kept"] else "drop" for i in ids}
+    flip = {"keep": "drop", "drop": "keep"}
+    for name, labels in (("ana", truth), ("bo", truth | {ids[0]: flip[truth[ids[0]]]})):
+        rows = [{"item": i, "label": labels[i], "note": f"{name} on {i}"} for i in ids]
+        (out / f"answers_{name}.yaml").write_text(yaml.safe_dump({"annotator": name,
+                                                                  "answers": rows}))  # fmt: skip
+    argv = ["score", "--dir", str(out)]
+    assert script.main(argv) == 1  # 5 of 6 settled is under 90%
+    assert "split, not yet reconciled: " + ids[0] in capsys.readouterr().out
+    page = (out / rc.RECONCILE_PAGE).read_text()
+    data = json.loads(re.search(r"const DATA = (.*);\n", page).group(1))
+    assert data["mode"] == "reconcile" and data["file"] == rc.RECONCILED_FILE
+    assert [i["id"] for i in data["items"]] == [ids[0]]
+    assert {v["annotator"]: v["note"] for v in data["items"][0]["votes"]} == {
+        "ana": f"ana on {ids[0]}", "bo": f"bo on {ids[0]}"}  # fmt: skip
+    for leak in ("tool_kept", "llm_kept", "llm_dropped", "auto_accepted", "tiebreak"):
+        assert leak not in json.dumps(data)
+    # The page's download, in the format its JavaScript writes.
+    rows = f"annotator: together\nanswers:\n- item: {ids[0]}\n  label: {truth[ids[0]]}\n"
+    (out / rc.RECONCILED_FILE).write_text(rows)
+    assert script.main(argv) == 0
+    assert "1 of them reconciled together" in capsys.readouterr().out
