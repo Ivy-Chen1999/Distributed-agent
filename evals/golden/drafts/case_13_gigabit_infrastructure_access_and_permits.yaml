@@ -97,34 +97,35 @@ provenance:
     - c13_e05
     non_publishable_test_seed: false
   item_digests:
-    c13_e01: 066255ad80c12d34c0bec3851c33bf115d78215c969756682cec48e2cbe1e45f
+    c13_e01: dab7864055d90177356a871011e077d961f92883a6e28607d6caee51f5ad80b5
     c13_e02: 916560c51009169ad7a21492c243ed58e20744ec19e298e0798f268028ead37b
     c13_e03: d62110e98c730295aaffb4d87a099a208f00f85d7d84fdfddfc441444eb65c82
     c13_e04: 5299fe0bb64aa95bc736d1c82be2d2969e3f7a66dfbc8305a661851398ab8753
     c13_e05: 3f2ed6e989d624bcb3f0616c67ef175d9058ce52f82e94d44f88e1df1251719d
-    c13_e06: f35120a818c6686e012695fcd475e1c4a7064a9eca2422346913497bda2ffb14
+    c13_e06: 647898514672ee547b17d90dd48bfb70c2e0615bc912208bca3279ee82691015
     c13_e07: aed5fe06f73839013ede09518433ead703d19d9e7c7aad91c0a5b9bccfc58077
     c13_e08: 0ffe668d44889f720c3ab055b15b25c7b9b084c2da9d2190c5dd5fa807f11181
     c13_e09: c3cc858e819ab84edd6d5797ebb9027a32f8b364ed4707a32dddba78a3cceb75
     c13_e10: a254bf47857031e2ee69af8fe481659a0a13274812df4be47c8b821777236b49
-    c13_o01: ac1b392392f60aa81b724745ed53829315cd530ecf9f186d1111520d47426ad5
+    c13_o01: f4d2581342688dc7fcb0ec38f9af16ec2805d6c10aa9f6becf21535c0774451d
     c13_o02: fa713e96a0a756f450cc0eb67d3e3188e55c5e03405f1cd3587678d6aea4531b
-    c13_o03: 618498e12ba591e1841f36ee90b3d9dd56648efa05d37084e3bf58de834edb2e
-    c13_m01: fdaedeec2685abbb163d7d4d127ae54a95f957c7b94f4cf48451df3e353642f0
-    c13_m02: 870518bdbe9e0993835a3bde9e21c73cec5e3c1d698c160e689ae2552e5c76c7
-    c13_m03: 7e2b6abbc90163da06c0fd8fe9a7ac3c9690b26d21d8b915077441d38e77cc68
-    c13_m04: d3a51d9a9714ce6c4801a7b01d4efd71f9c46965531e1f08035aaac999389d09
-    c13_m05: 1489adceb911fb751544ae89bab3a192984508ded9006f0739203f32972e514c
-    c13_m06: 2cf69d7aaf9feece54a6f53221d27fc3dae12992a4a32576216180e6ccc03628
-    c13_m07: 034283c814eb7f3c98bdc94209aa74554a1e394f5849e8904cb625c68e1db59a
-    c13_m08: d4acebaac369ad9a1fd8796e0e0654cd181374bf2faf0d997ee61253d9a1a1e3
+    c13_o03: 38f99faeac14b779738f2da3f770b9439b7045dfeee9ed2e5aceeaa2aa82bd52
+    c13_m01: 9edf967568ee49bb32781765b3e54d4c7b4f261251e5c6d349e6066dc3a2c053
+    c13_m02: 4e15f97f0fbcb9afb5edcba9362dba29d96dcc0196feef6b63918e66ab4ec780
+    c13_m03: 0b033301f7a97e24d5c3cb9a6c7558b4e05198f3a4a99e644e59eff5a2aee7e5
+    c13_m04: a9254615e9d7a8f619b8e3c647016c2a3f5ec0b4cae159860c12b138410e76b1
+    c13_m05: 9d64829136a5a0eaf6cd81d14ad836a70a52157fc4b9953bb734e9dd5edfc016
+    c13_m06: 2a3811aefce175b6712155a323cbc1752a5aa11f495acf02636ab000568b5f9e
+    c13_m07: 47bcfb232f5ec5f6a22ee58e40db8beca5e24ee9b318d65b6bdbef5c57d882ef
+    c13_m08: 8c69bafbdc789276ad95d35ef72f980b5ee1ece4cd50be8d0d30be42e3d94d3c
   tiebreak_audit:
     seed: 1533973864
     rate: 0.2
-    eligible: 7
+    eligible: 8
     eligible_ids:
     - c13_e01
     - c13_e06
+    - c13_m01
     - c13_m02
     - c13_m03
     - c13_m05
@@ -132,7 +133,7 @@ provenance:
     - c13_m07
     sampled:
     - c13_e01
-    - c13_m05
+    - c13_e06
     non_publishable_test_seed: false
 stats:
   items: 21
@@ -147,8 +148,8 @@ stats:
   pending: 0
   audited: 4
   human_decisions_needed: 0
-  llm_kept: 7
-  llm_dropped: 5
+  llm_kept: 8
+  llm_dropped: 4
 expected_impacts:
 - expected_id: c13_e01
   affected_actor: Electronic communications network (ECN) operators deploying very high capacity networks
@@ -165,7 +166,7 @@ expected_impacts:
   anchor:
     status: verified
     against: ia
-  category: innovation_investment
+  category: compliance_cost
   derivability:
     verdict: 'yes'
     reason: Articles 3 and 5 give operators access and coordination rights whose aim is plainly to cut
@@ -189,11 +190,10 @@ expected_impacts:
   tiebreak:
     verdict: keep
     original_category: market_competition
-    reason: Table 16 attributes ~EUR12bn reduced capex in VHCN deployment to ECN operators from improved
-      access and co-deployment, and section 8.1 gives 470,000 km vs 250,000 km; Arts 3 and 5 grant those
-      rights. This is reduced investment cost for network rollout, not a cost of complying or a change
-      in market structure.
-    model: claude-opus-5-5
+    reason: Anchor directly attributes ~EUR12bn capex savings and the 470,000km vs 250,000km figures to
+      ECN operators via improved infrastructure access and co-deployment under Art 3/5; this is a substantive
+      deployment-cost effect, not a market-structure effect, so compliance_cost fits better than market_competition.
+    model: claude-sonnet-5
   provenance:
     origin: llm_drafted
     status: llm_tiebroken
@@ -420,17 +420,17 @@ expected_impacts:
   tiebreak:
     verdict: keep
     original_category: market_competition
-    reason: Table 15's 'other network operators' column states revenue and cost-saving opportunities and
-      synergies with digitisation (smart energy); Arts 3 and 5 apply to network operators generally, including
-      energy and transport.
-    model: claude-opus-5-5
+    reason: Anchor's 'revenue and cost saving opportunities, synergies with digitisation of core business
+      (e.g. smart energy)' sits in the 'other network operators' column and matches the claim; the synergy/new-business-model
+      nature fits innovation_investment better than market_competition.
+    model: claude-sonnet-5
   provenance:
     origin: llm_drafted
     status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
     decision: llm_kept
-    audit: false
+    audit: true
     reviewer: null
     note: null
 - expected_id: c13_e07
@@ -644,9 +644,10 @@ important_omissions:
   tiebreak:
     verdict: drop
     original_category: compliance_cost
-    reason: The anchor gives EUR200 per premise for in-building infrastructure, not the EUR50 per installation
-      the claim assigns to citizens, so the number is unsupported.
-    model: claude-opus-5-5
+    reason: The anchor table lists the in-building infrastructure cost per premise as EUR200 (greenfield),
+      not the EUR50 figure the claim attributes to citizens/building owners, so the number does not match
+      the IA text.
+    model: claude-sonnet-5
   provenance:
     origin: llm_drafted
     status: llm_tiebroken
@@ -737,9 +738,10 @@ important_omissions:
   tiebreak:
     verdict: drop
     original_category: fundamental_rights
-    reason: The anchor only mentions limits on tacit approval to account for constitutional issues; it
-      does not support the claimed liability shift or the compensation exposure for authorities.
-    model: claude-opus-5-5
+    reason: The anchor only notes that tacit approval was limited 'to take account of constitutional issues'
+      in general terms; it does not state a compensation/liability shift onto authorities or third-party
+      rights effects, so the combined claim is not anchored in the IA text.
+    model: claude-sonnet-5
   provenance:
     origin: llm_drafted
     status: llm_tiebroken
@@ -789,17 +791,18 @@ possibly_missing:
         technical compliance costs.
     overall: agree
   tiebreak:
-    verdict: drop
+    verdict: keep
     original_category: compliance_cost
-    reason: The anchor only says Member States develop in-building standards for construction firms; the
-      EUR1-2m adjustment cost and the property-value gain are not shown in the cited text.
-    model: claude-opus-5-5
+    reason: The anchor references development of in-building infrastructure standards 'for use by construction
+      firms,' matching the duty Art 8 places on builders/owners to fit fibre-ready infrastructure to certified
+      standards, a substantive compliance cost.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: llm_dropped
+    decision: llm_kept
     audit: false
     reviewer: null
     note: null
@@ -843,10 +846,10 @@ possibly_missing:
   tiebreak:
     verdict: keep
     original_category: public_enforcement_cost
-    reason: Table 15's DSB column states 'fewer disputes and less resources needed to resolve disputes
-      if clear guidance available', and section 8.1 confirms the reduced burden on DSBs; this follows
-      from the clearer rules and guidance in Arts 3, 5 and 9.
-    model: claude-opus-5-5
+    reason: Anchor's 'fewer disputes and less resources needed to resolve disputes' sits explicitly in
+      the DSBs/SIP management authorities column, matching the claim that clearer access/coordination
+      rules reduce public dispute-resolution costs.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
@@ -873,7 +876,7 @@ possibly_missing:
   anchor:
     status: verified
     against: ia
-  category: other
+  category: innovation_investment
   derivability:
     verdict: partly
     reason: Access at a price that recovers costs implies revenue. The smart-city synergies are stated
@@ -896,10 +899,10 @@ possibly_missing:
   tiebreak:
     verdict: keep
     original_category: other
-    reason: Table 15's local authorities column states revenue and cost-saving opportunities with smart-city
-      synergies; Art 3 obliges public sector bodies to grant access on terms that include price. This
-      is not a duplicate of o02, which covers administrative costs.
-    model: claude-opus-5-5
+    reason: Anchor's 'revenue and cost saving opportunities, synergies with digitisation of core business
+      (smart cities)' is listed under local authorities, matching Art 3's price-based access obligation
+      on public bodies; the synergy/new-service nature fits innovation_investment.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
@@ -948,9 +951,10 @@ possibly_missing:
   tiebreak:
     verdict: drop
     original_category: administrative_burden
-    reason: The IA makes the benefit conditional on Member States extending digital platforms to all networks,
-      which Art 7 (limited to VHCN permits) does not provide for.
-    model: claude-opus-5-5
+    reason: The benefit is explicitly conditional on Member States choosing to extend digital platforms
+      to cover all networks, which is not established by Art 7's text itself, so it is not derivable from
+      the listed provisions.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
@@ -999,17 +1003,17 @@ possibly_missing:
   tiebreak:
     verdict: keep
     original_category: sme_specific
-    reason: Table 15's SME column states that SME ECN operators without their own physical infrastructure
-      reap most benefits and face reduced burdens; the access rights in Arts 3 and 9 are what benefit
-      operators without their own infrastructure.
-    model: claude-opus-5-5
+    reason: Anchor states 'SME ECN Operators without own physical infrastructure reap most benefits from
+      BCRD cost reductions,' directly matching the claimed actor and effect, and is derivable from the
+      Art 3/9 access rights that benefit operators lacking own infrastructure.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
     decision: llm_kept
-    audit: true
+    audit: false
     reviewer: null
     note: null
 - candidate_id: c13_m06
@@ -1051,10 +1055,10 @@ possibly_missing:
   tiebreak:
     verdict: keep
     original_category: market_competition
-    reason: Table 15 lists 'reduced FTTH connection costs, increased infrastructure competition' for consumers
-      under the mandated in-building FTTH row; Arts 8 and 9 create open access points. This is distinct
-      from e10's price and coverage effect.
-    model: claude-opus-5-5
+    reason: Anchor's 'reduced FTTH connection costs, increased infrastructure competition' for consumers
+      matches the claim, and Art 8's access point plus Art 9's open non-discriminatory access directly
+      enable competing providers at building level.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
@@ -1102,9 +1106,10 @@ possibly_missing:
   tiebreak:
     verdict: keep
     original_category: social_environmental
-    reason: Section 8.1 states 0.7 Mt of GHG avoided to 2030 and around 1% reduction vs status quo, resulting
-      from greater infrastructure sharing and civil-works coordination, which Arts 3 and 5 enable.
-    model: claude-opus-5-5
+    reason: The anchor explicitly ties the 0.7Mt GHG reduction (~1%) to increased infrastructure sharing/co-deployment
+      relative to a lower-sharing baseline, which is the mechanism in Art 3 and 5, matching actor, mechanism
+      and figures.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
@@ -1155,9 +1160,10 @@ possibly_missing:
   tiebreak:
     verdict: drop
     original_category: other
-    reason: The digitisation spillover to local government is an IA speculation not grounded in Art 7's
-      text, and the EUR3-4m medium-term savings already appear in kept item c13_e04.
-    model: claude-opus-5-5
+    reason: The EUR3-4m medium-term savings duplicate the already-kept c13_e04, and the 'catalyst for
+      digitisation' and 'smart city' benefit is framed hedged as a mere 'prospect,' too speculative and
+      not tied to specific Art 7 text to count as a distinct claim.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
