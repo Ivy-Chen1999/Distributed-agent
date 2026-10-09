@@ -4,15 +4,18 @@ Everything else in v1 is automated. This page lists the only steps a person must
 with who, how long, the exact commands, and what "done" looks like. Commands refer to
 `feat/v1-integration` (PR #6).
 
-Total human time: about 6–8 hours, nearly all the project owner's. Classmates have one task:
-the blind judge calibration (step 3), about 25 minutes each. Revised 2026-10-08: golden cases
-need no human review any more (step 1).
+Total human time: about 6–8 hours, nearly all the project owner's. Classmates have one sitting:
+the blind reference check and judge calibration (step 3), about 35 minutes each. Revised
+2026-10-08: golden cases need no human review (step 1). Revised 2026-10-09 after checking
+Anthropic's eval guidance: the tie-break no longer runs on the drafter's model, and robustness
+is measured once with a blind reference check before the drafts are published (step 1a).
 
 | # | Step | Who | Time | Blocks |
 |---|---|---|---|---|
 | 1 | Merge the 11 tie-broken train/val drafts (no review required) | project owner | 15 min | evolution on real data |
+| 1a | One-time blind reference check of about 20 golden items, before publishing | 2 classmates (same sitting as step 3), owner scores | about 10 min each | publishing the golden cases |
 | 2 | Verify 8 holdout drafts and import them | project owner | 2–2.5 h | every promotion |
-| 3 | Label about 30 pairs for the coverage-judge calibration (the only classmate task) | 2 classmates | about 25 min each | statistical and weak gates |
+| 3 | Label about 30 pairs for the coverage-judge calibration (with step 1a, the only classmate task) | 2 classmates | about 25 min each | statistical and weak gates |
 | 4 | Sign the promotion policy | project owner | 15 min | every gate, dev included |
 | 5 | Provide an api key, run R34 and the MDD report | project owner | about 1 h plus run time | formal gates |
 | 6 | Write the R37 reference answers | project owner | about 1 h | nothing (monitoring only) |
@@ -20,7 +23,7 @@ need no human review any more (step 1).
 | 8 | 2026-11-20 route decision | project owner | 15 min | the demo |
 | 9 | Cost estimation: confirm defaults, check the IA cost reference, commit the cost versions | project owner (check: anyone careful) | about 1.5 h | scored cost sweeps (R6) |
 
-Steps 1, 3 and 7 can start today. Step 4 should come before any holdout comparison, and step 2
+Steps 1, 1a and 7 can start today; step 3 needs the published cases and a first eval run. Step 4 should come before any holdout comparison, and step 2
 before any promotion.
 
 ---
@@ -34,8 +37,30 @@ before any promotion.
 - **Optional spot checks:** items marked `audit: true` (20% of what the judges and the tie-break
   judge kept). Anyone may check a few with `scripts/review_draft.py`; decisions count towards
   the per-proposal error rate, and over 10% sends that proposal back to full human review.
-- **Done:** CI green with each PR marked ready; the owner publishes with
+- **Done:** CI green with each PR marked ready; after step 1a passes, the owner publishes with
   `scripts/publish_golden_cases.py` and merges.
+
+## 1a. One-time reference check (2 classmates label blind, owner scores)
+
+Anthropic's guidance allows human review to become occasional *once the system is robust*. This
+measures that once, before the tool-settled drafts are published (publishing deletes the drafts).
+
+- **Prepare (owner),** on the merged drafts:
+
+  ```
+  uv run python scripts/reference_check.py sample evals/golden/drafts/case_*.yaml \
+      --annotator <name1> --annotator <name2> --out .cache/reference_check/round1/
+  ```
+
+  About 20 items, a third each kept by the three judges, kept by the tie-break and dropped by
+  it. The sheet shows the claim, the IA quote and the text around it; never the tool's decision
+  (that stays in `key.private.json`).
+- **Label (2 classmates, about 10 minutes each):** for each item, `keep`, `drop` or `unsure`:
+  does it belong in the reference answer? Work independently.
+- **Score (owner):** `uv run python scripts/reference_check.py score --dir .cache/reference_check/round1/`
+- **Done:** gate error at most 10% ("ROBUST"): publish, and spot checks stay optional. Above
+  10%: fix the drafting or tie-break prompt, re-run the tie-break or re-draft, and check again
+  with a new sample. Record the result in this file.
 
 ## 2. Verify and import the holdout drafts (project owner only)
 
@@ -84,6 +109,9 @@ eval guidance, it is trusted only after it agrees with people on a labelled samp
   natural-rate figure, so the stratified sample never flatters the judge.
 - **Done:** a `judge_calibrations` record with agreement of at least 0.85 for the incumbent's
   judge version. If agreement is lower, fix the judge prompt and repeat with fresh pairs.
+- **Then (owner, about 30 minutes):** read the full transcripts of three or four eval runs
+  (dossier, judge verdicts and justifications) and check that the scores measure what matters.
+  Anthropic: "Read the transcripts!"
 
 ## 4. Sign the promotion policy (project owner)
 

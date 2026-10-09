@@ -24,6 +24,8 @@ origin: docs/plans/2026-10-04-001-feat-golden-case-expansion-plan.md
 > - **Spot checks are optional and secondary.** U5 shrinks to a read-and-answer card for `audit: true` items ("Does the report say this?": Yes / Almost / No / Not sure, one-line note), no edit forms, no diff, no owner queue. It ships after U6, or not at all for v1.
 > - **Dropped:** review queues for judge disagreements and candidates, in-form edits, the owner-only queue, per-case assignments to classmates.
 > - Unchanged: the PR stays the final gate, holdout material never reaches Railway, deployment is merge to `main`.
+>
+> **Revision 2026-10-09: checked against Anthropic's guidance.** Two corrections. (1) A grader must not share the generator's model ("use a different model to evaluate than the model used to generate", Claude docs, *Develop your tests*): the tie-break now runs on `claude-sonnet-5`, and the drafting config refuses a judge or tie-break on the drafter's or recall's model. (2) Human review may become occasional only "once the system is robust" (*Demystifying evals for AI agents*), so robustness is measured once: a **blind reference check** (`scripts/reference_check.py`, PR #5) of about 20 tool-decided items, a third each kept by the judges, kept by the tie-break and dropped by it, labelled by the same two people in the same sitting as the calibration (one question: "Does this item belong in the reference answer?" Keep / Drop / Not sure). At most 10% tool error: spot checks stay optional. Above: fix the prompts, re-draft, check again. The calibration screen of U6 serves both sets; the reference check is about 10 extra minutes per person. The owner also reads a handful of eval transcripts after the first full eval run ("Read the transcripts!").
 
 ## Overview
 
