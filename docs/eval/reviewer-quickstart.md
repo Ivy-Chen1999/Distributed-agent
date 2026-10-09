@@ -14,8 +14,11 @@ settled every item they left open (`womm.eval.tiebreak`; unsure items are droppe
 without a person deciding anything. The items marked `audit: true` (a random 20% of what the
 judges and the tie-break judge kept) are **optional spot checks**: if you have time, check them as
 below; a decision you make there counts towards the measured error rate, and a proposal whose
-error rate passes 10% goes back to full human review. The task people are needed for is the
-judge calibration (`womm calibrate`), not this one.
+error rate passes 10% goes back to full human review. People are needed for two blind labeling
+tasks instead, done once in the same sitting: the reference check (`scripts/reference_check.py`,
+about 20 items labeled alone, then a few minutes together on the items you split on: does each
+belong in the reference answer?) and the judge calibration
+(`womm calibrate`).
 
 Each review PR holds one file, `evals/golden/drafts/<case>.yaml`. The PR description says how
 many decisions you need to make and links the IA and the proposal on EUR-Lex. The same links are
