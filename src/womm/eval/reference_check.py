@@ -20,13 +20,20 @@ round-robin over cases within a stratum so no case dominates.
 the case's other kept items (for duplicates); never the tool's decision, the judges' verdicts or
 the tie-break's reason. Those are kept in ``key.private.json`` next to the sheets.
 
-**Labels.** ``keep``, ``drop`` or ``unsure``. ``unsure`` votes are left out of the majority; an
-item with no majority (all unsure, or a tie) is excluded and counted.
+**Labels.** ``keep``, ``drop`` or ``unsure``. ``unsure`` votes are left out of the majority.
 
-**Gate.** The tool's error rate against the human majority, raw and reweighted to the strata's
+**Several annotators.** Each labels every item alone. An item with no majority (a tie, or only
+``unsure`` votes) is *split*: once every sheet is complete, ``score`` writes ``reconcile.html``,
+which shows only the split items with each person's label and note (still never the tool's
+decision), and the annotators decide them together in a few minutes; the page downloads
+``reconciled.yaml``, whose labels settle those items. Agreement before reconciling is reported
+as raw agreement and Cohen's kappa (mean over pairs).
+
+**Gate.** The tool's error rate against the human label, raw and reweighted to the strata's
 shares of the population; the gate uses the higher of the two. At or below ``MAX_ERROR`` (the
-same 10% that escalates a proposal to full review) the reference answers count as robust and
-later spot checks stay optional; above it, fix the prompts, re-draft and check again.
+same 10% that escalates a proposal to full review), with every sheet complete and at least
+``MIN_RESOLVED`` of the items settled, the reference answers count as robust and later spot
+checks stay optional; above it, fix the prompts, re-draft and check again.
 """
 
 from __future__ import annotations
@@ -54,7 +61,12 @@ STRATA = ("judges_accepted", "tiebreak_kept", "tiebreak_dropped")
 MAX_ERROR = ESCALATION_RATE
 PAGE_TEMPLATE = Path(__file__).with_name("reference_check_page.html")
 KEY_FILE = "key.private.json"
+CARDS_FILE = "cards.json"
 README_FILE = "README.md"
+RECONCILE_PAGE = "reconcile.html"
+RECONCILED_FILE = "reconciled.yaml"
+# Share of the sampled items that must end with a human label (majority or reconciled).
+MIN_RESOLVED = 0.9
 CONTEXT_CHARS = 600
 # ``why_missing`` is the recall step's own argument for a candidate: not shown, to stay blind.
 CLAIM_KEYS = ("affected_actor", "mechanism", "impact", "description")
@@ -246,10 +258,13 @@ def card(
     }
 
 
-def render_page(annotator: str, cards: list[dict[str, Any]]) -> str:
+def render_page(annotator: str, cards: list[dict[str, Any]], *, reconcile: bool = False) -> str:
     """A self-contained HTML labeling page: one item per screen, answers kept in the browser and
-    downloaded as ``answers_<annotator>.yaml``."""
-    data = json.dumps({"annotator": annotator, "items": cards}, ensure_ascii=False)
+    downloaded as ``answers_<annotator>.yaml`` (``reconciled.yaml`` for the reconcile page, whose
+    cards carry each annotator's ``votes``)."""
+    file = RECONCILED_FILE if reconcile else f"answers_{annotator}.yaml"
+    meta = {"annotator": annotator, "mode": "reconcile" if reconcile else "label", "file": file}
+    data = json.dumps(meta | {"items": cards}, ensure_ascii=False)
     data = data.replace("</", "<\\/")
     page = PAGE_TEMPLATE.read_text(encoding="utf-8")
     return page.replace("__ANNOTATOR__", html.escape(annotator)).replace("__DATA__", data)
@@ -301,6 +316,7 @@ def write_sample(
         cached = ia_sources.load_cached_ia(fixture, ia_root)
         ia_texts[fixture] = cached.full_text if cached else None
     out_dir.mkdir(parents=True, exist_ok=True)
+    cards = {i: card(i, keyed[i], by_case, ia_texts) for i in ids}
     for name in annotators:
         order = list(ids)
         random.Random(f"{seed}:{name}").shuffle(order)
@@ -309,8 +325,8 @@ def write_sample(
             encoding="utf-8",
         )
         (out_dir / f"answers_{name}.yaml").write_text(render_answers(name, ids), encoding="utf-8")
-        cards = [card(i, keyed[i], by_case, ia_texts) for i in order]
-        (out_dir / f"label_{name}.html").write_text(render_page(name, cards), encoding="utf-8")
+        page = render_page(name, [cards[i] for i in order])
+        (out_dir / f"label_{name}.html").write_text(page, encoding="utf-8")
     shares = {s: sum(i.stratum == s for i in pop) / len(pop) for s in STRATA}
     key = {
         "seed": seed,
@@ -322,6 +338,9 @@ def write_sample(
         "items": {iid: asdict(it) for iid, it in keyed.items()},
     }
     (out_dir / KEY_FILE).write_text(json.dumps(key, indent=2), encoding="utf-8")
+    # Blind, like the sheets; kept so ``score`` can build the reconcile page after the drafts
+    # are published (publishing deletes them).
+    (out_dir / CARDS_FILE).write_text(json.dumps(cards, ensure_ascii=False), encoding="utf-8")
     (out_dir / README_FILE).write_text(_readme(annotators), encoding="utf-8")
     return {
         "out": str(out_dir),
@@ -339,67 +358,148 @@ def _readme(annotators: list[str]) -> str:
     )
     return f"""# Reference-answer check sample
 
-Send each annotator their files, and nothing else. `label_<name>.html` is the easy way: open it
-in a browser, answer one item per screen, then download `answers_<name>.yaml` and send it back.
-The Markdown sheet and the empty answer file are the fallback.
+1. **Label alone.** Send each annotator their own file, and nothing else.
+   `label_<name>.html` is the easy way: open it in a browser, answer one item per screen
+   (about 10 minutes), then download `answers_<name>.yaml` and send it back. The Markdown sheet
+   and the empty answer file are the fallback. No talking about items until everyone is done.
 
 {files}
 
+2. **Score.** Put the answer files in this directory and run
+   `uv run python scripts/reference_check.py score --dir <this dir>`.
+3. **Reconcile the splits.** If the annotators split on some items, `score` writes
+   `{RECONCILE_PAGE}`: open it together (one screen), discuss each split item, pick one label,
+   download `{RECONCILED_FILE}` into this directory and run `score` again.
+
 `{KEY_FILE}` holds the tool's decisions: keep it here and never send it to an annotator.
-When the answer files are back in this directory, run
-`uv run python scripts/reference_check.py score --dir <this dir>`.
+`{CARDS_FILE}` is what the pages show (blind); `score` builds the reconcile page from it.
 """
 
 
 # ----------------------------------------------------------------------------- scoring
 
 
-def read_answers(directory: Path, item_ids: set[str]) -> dict[str, dict[str, str | None]]:
-    """Annotator -> item id -> label (None when left blank) from every ``answers_*.yaml``."""
+def _read_file(
+    path: Path, item_ids: set[str], *, complete: bool
+) -> tuple[str, dict[str, str | None], dict[str, str]]:
+    """(annotator, item id -> label or None when blank, item id -> note) from one answer file."""
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except yaml.YAMLError as exc:
+        raise ReferenceCheckError(f"{path.name}: {exc}") from None
+    name = str(data.get("annotator") or path.stem.removeprefix("answers_"))
+    labels: dict[str, str | None] = {}
+    notes: dict[str, str] = {}
+    for row in data.get("answers") or []:
+        iid = str(row.get("item"))
+        label = row.get("label")
+        label = label.strip().lower() if isinstance(label, str) and label.strip() else None
+        if iid not in item_ids:
+            raise ReferenceCheckError(f"{path.name}: unknown item {iid}")
+        if iid in labels:
+            raise ReferenceCheckError(f"{path.name}: item {iid} is answered twice")
+        if label is not None and label not in LABELS:
+            raise ReferenceCheckError(f"{path.name}: {iid} has label {label!r}; use one of "
+                                      f"{', '.join(LABELS)}")  # fmt: skip
+        labels[iid] = label
+        if note := str(row.get("note") or "").strip():
+            notes[iid] = note
+    if complete and (missing := sorted(item_ids - labels.keys())):
+        raise ReferenceCheckError(f"{path.name}: rows removed for {', '.join(missing)}")
+    return name, labels, notes
+
+
+def read_answers(
+    directory: Path, item_ids: set[str], notes: dict[str, dict[str, str]] | None = None
+) -> dict[str, dict[str, str | None]]:
+    """Annotator -> item id -> label (None when left blank) from every ``answers_*.yaml``; fills
+    ``notes`` (annotator -> item id -> note) when given."""
     out: dict[str, dict[str, str | None]] = {}
     for path in sorted(directory.glob("answers_*.yaml")):
-        try:
-            data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-        except yaml.YAMLError as exc:
-            raise ReferenceCheckError(f"{path.name}: {exc}") from None
-        name = data.get("annotator") or path.stem.removeprefix("answers_")
-        labels: dict[str, str | None] = {}
-        for row in data.get("answers") or []:
-            iid = str(row.get("item"))
-            label = row.get("label")
-            label = label.strip().lower() if isinstance(label, str) and label.strip() else None
-            if iid not in item_ids:
-                raise ReferenceCheckError(f"{path.name}: unknown item {iid}")
-            if iid in labels:
-                raise ReferenceCheckError(f"{path.name}: item {iid} is answered twice")
-            if label is not None and label not in LABELS:
-                raise ReferenceCheckError(f"{path.name}: {iid} has label {label!r}; use one of "
-                                          f"{', '.join(LABELS)}")  # fmt: skip
-            labels[iid] = label
-        if missing := sorted(item_ids - labels.keys()):
-            raise ReferenceCheckError(f"{path.name}: rows removed for {', '.join(missing)}")
+        name, labels, file_notes = _read_file(path, item_ids, complete=True)
         if name in out:
             raise ReferenceCheckError(f"two answer files for annotator {name}")
         out[name] = labels
+        if notes is not None:
+            notes[name] = file_notes
     if not out:
         raise ReferenceCheckError(f"no answers_*.yaml in {directory}")
     return out
+
+
+def read_reconciled(directory: Path, item_ids: set[str]) -> dict[str, str]:
+    """Item id -> the label the annotators agreed on together (``reconciled.yaml``; may list
+    only the split items, and blank rows are skipped)."""
+    path = directory / RECONCILED_FILE
+    if not path.exists():
+        return {}
+    _, labels, _ = _read_file(path, item_ids, complete=False)
+    return {iid: label for iid, label in labels.items() if label}
+
+
+def _majority(votes: list[str | None]) -> bool | None:
+    keep, drop = votes.count("keep"), votes.count("drop")
+    return None if keep == drop else keep > drop
+
+
+def split_items(key: dict[str, Any], answers: dict[str, dict[str, str | None]]) -> list[str]:
+    """Items with no human majority (a tie, or only ``unsure`` votes), in id order."""
+    return sorted(i for i in key["items"] if _majority([answers[a][i] for a in answers]) is None)
+
+
+def write_reconcile_page(
+    directory: Path,
+    key: dict[str, Any],
+    answers: dict[str, dict[str, str | None]],
+    notes: dict[str, dict[str, str]],
+) -> Path:
+    """``reconcile.html``: the split items with each annotator's label and note, never the
+    tool's decision."""
+    path = directory / CARDS_FILE
+    if not path.exists():
+        raise ReferenceCheckError(f"no {CARDS_FILE} in {directory}: draw the sample again")
+    cards = json.loads(path.read_text(encoding="utf-8"))
+    out = []
+    for iid in split_items(key, answers):
+        votes = [{"annotator": a, "label": answers[a][iid] or "", "note": notes[a].get(iid, "")}
+                 for a in sorted(answers)]  # fmt: skip
+        out.append(cards[iid] | {"votes": votes})
+    page = directory / RECONCILE_PAGE
+    page.write_text(render_page("together", out, reconcile=True), encoding="utf-8")
+    return page
 
 
 def _mean(values: list[float]) -> float | None:
     return sum(values) / len(values) if values else None
 
 
-def score(key: dict[str, Any], answers: dict[str, dict[str, str | None]]) -> dict[str, Any]:
-    """The tool's error rate against the human majority (see the module docstring)."""
+def _kappa(a: list[str], b: list[str]) -> float | None:
+    """Cohen's kappa of two keep/drop label lists; None when chance agreement is total."""
+    n = len(a)
+    observed = sum(x == y for x, y in zip(a, b, strict=True)) / n
+    chance = sum((a.count(lab) / n) * (b.count(lab) / n) for lab in ("keep", "drop"))
+    return None if chance == 1 else (observed - chance) / (1 - chance)
+
+
+def score(
+    key: dict[str, Any],
+    answers: dict[str, dict[str, str | None]],
+    reconciled: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    """The tool's error rate against the human label (see the module docstring)."""
     items = key["items"]
+    reconciled = reconciled or {}
     tool = {iid: bool(it["tool_kept"]) for iid, it in items.items()}
     majority: dict[str, bool] = {}
+    split, settled = [], 0
     for iid in items:
-        votes = [answers[a][iid] for a in answers]
-        keep, drop = votes.count("keep"), votes.count("drop")
-        if keep != drop:
-            majority[iid] = keep > drop
+        vote = _majority([answers[a][iid] for a in answers])
+        if vote is None:
+            split.append(iid)
+            if reconciled.get(iid) in ("keep", "drop"):
+                vote, settled = reconciled[iid] == "keep", settled + 1
+        if vote is not None:
+            majority[iid] = vote
     wrong = {iid: majority[iid] != tool[iid] for iid in majority}
     raw = _mean([float(v) for v in wrong.values()])
     by_stratum = {
@@ -410,26 +510,35 @@ def score(key: dict[str, Any], answers: dict[str, dict[str, str | None]]) -> dic
     if raw is not None and all(by_stratum[s] is not None or not shares[s] for s in STRATA):
         natural = sum(shares[s] * (by_stratum[s] or 0.0) for s in STRATA)
     names = sorted(answers)
-    inter = []
+    inter, kappas = [], []
     for i, a in enumerate(names):
         for b in names[i + 1 :]:
             both = [iid for iid in items if answers[a][iid] in ("keep", "drop")
                     and answers[b][iid] in ("keep", "drop")]  # fmt: skip
             if both:
-                inter.append(sum(answers[a][x] == answers[b][x] for x in both) / len(both))
+                la, lb = [answers[a][x] for x in both], [answers[b][x] for x in both]
+                inter.append(sum(x == y for x, y in zip(la, lb, strict=True)) / len(both))
+                if (k := _kappa(la, lb)) is not None:
+                    kappas.append(k)
     error = max((v for v in (raw, natural) if v is not None), default=None)
     blank = {a: sum(v is None for v in answers[a].values()) for a in names}
+    enough = len(majority) >= MIN_RESOLVED * len(items)
     return {
         "items_sampled": len(items),
         "items_resolved": len(majority),
         "excluded": len(items) - len(majority),
+        "split": split,
+        "reconciled": settled,
+        "unsettled": sorted(i for i in split if i not in majority),
+        "enough_resolved": enough,
         "blank": blank,
         "error_raw": raw,
         "error_natural": natural,
         "error_by_stratum": by_stratum,
         "error": error,
-        "robust": error is not None and error <= MAX_ERROR and not any(blank.values()),
+        "robust": error is not None and error <= MAX_ERROR and enough and not any(blank.values()),
         "inter_annotator_agreement": _mean(inter),
+        "cohen_kappa": _mean(kappas),
         "wrong": sorted(i for i, w in wrong.items() if w),
     }
 
@@ -441,21 +550,33 @@ def format_result(result: dict[str, Any], key: dict[str, Any]) -> str:
     s = result["error_by_stratum"]
     lines = [
         f"reference-answer check: {result['items_sampled']} items sampled, "
-        f"{result['items_resolved']} with a majority label, {result['excluded']} excluded",
-        "tool error vs majority: raw " + pct(result["error_raw"]) + "; "
+        f"{result['items_resolved']} with a human label ({result['reconciled']} of them "
+        f"reconciled together), {result['excluded']} excluded",
+        "tool error vs the human label: raw " + pct(result["error_raw"]) + "; "
         + ", ".join(f"{k} {pct(v)}" for k, v in s.items()),
         f"natural-rate error {pct(result['error_natural'])}; gate error (the higher) "
         f"{pct(result['error'])} against a {MAX_ERROR:.0%} limit",
-        f"inter-annotator agreement {pct(result['inter_annotator_agreement'])}",
+        f"inter-annotator agreement before reconciling {pct(result['inter_annotator_agreement'])}"
+        + ("" if (k := result["cohen_kappa"]) is None else f" (Cohen's kappa {k:.2f})"),
     ]  # fmt: skip
     for iid in result["wrong"]:
         it = key["items"][iid]
         lines.append(f"  wrong: {iid} = {it['case_id']} {it['item_id']} ({it['stratum']})")
     if blanks := {a: n for a, n in result["blank"].items() if n}:
         lines.append(f"blank labels: {blanks}; finish the sheets before trusting the result")
-    lines.append(
-        "ROBUST: spot checks stay optional"
-        if result["robust"]
-        else "NOT ROBUST: fix the drafting or tie-break prompts, re-draft, then check again"
-    )
+    if result["unsettled"]:
+        lines.append(f"split, not yet reconciled: {', '.join(result['unsettled'])}")
+    if not result["enough_resolved"]:
+        lines.append(f"fewer than {MIN_RESOLVED:.0%} of the items have a human label")
+    if result["robust"]:
+        lines.append("ROBUST: spot checks stay optional")
+    elif any(result["blank"].values()):
+        lines.append("INCOMPLETE: finish the sheets, then score again")
+    elif not result["enough_resolved"] and result["unsettled"]:
+        lines.append(f"NOT SETTLED YET: reconcile the split items ({RECONCILE_PAGE}), then score "
+                     "again")  # fmt: skip
+    else:
+        lines.append(
+            "NOT ROBUST: fix the drafting or tie-break prompts, re-draft, then check again"
+        )
     return "\n".join(lines)
