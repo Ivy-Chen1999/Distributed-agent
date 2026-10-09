@@ -109,29 +109,32 @@ provenance:
     c05_e07: db02f05704a0dfb335c7da6535a0aeba7cfb68dbcdff00482c1b6935cb513531
     c05_e08: a26ba30c24d0c008cdf29556240129b7aeaf6aabf4b6c4583e661dd76fd38010
     c05_e09: e03307dfc3c70bfa143b32efe3fd82b0caf718aaad68aaa067edbad7f8a7bfac
-    c05_e10: 27f93d6586deae24e3364b82e7e2f5eb16dffca856affba2b287fc49aad2477f
+    c05_e10: 1754e39bbca243b850cfe9f64208d4941185ab5981538c8ae0813a6bc9f297f9
     c05_o01: 4a6a87f3e9a4136e862085149ec02a8ea306bb9f2bfe5613861b0a441c094ec8
-    c05_o02: 0ff4507195a8e8b7e995ee093c5256e1879185ce46369cd915c1656eb7256ae4
+    c05_o02: 05c9a4b194893e331ab95fea957daac5087e9102a88105dedeaf9b93af0ae358
     c05_o03: 7cb5e2587545211fdfcd44f8018be0bd4f42578f4bdb4d0ad5fc63c29b9d2e5c
     c05_o04: ca0e5a3a30bf54be661fa5cbea05abb6c89103afdcf752d81165678b83856007
-    c05_m01: d2b602f07841c9cfd44652b3e1076d140070d48467c1f8d8e299b2af9a14eaf9
-    c05_m02: 5581cd2dd4983133f10ff44658d0710db97f68c0d3e7c4de8247b6e8321b75f0
-    c05_m03: 7b8d95bd8cbb84721d7dbd26580f046288832b165e0ced9c94a65245f619c9d1
-    c05_m04: fea313cf1f7ea3090564ac6334756cc1538ed5b285fe39c59e2d521b3acb6b29
-    c05_m05: f6c4bbf931c02630b64f24b970a5d9594fed1cf0d166493ddb39282fa543ea98
-    c05_m06: 3161a961bedafb22e8b1870e035bfe3a6ab54394fddd573b40b6ee387463be72
-    c05_m07: 8b811af42e2592b4de01d112dad3d2a43ab5248f2467cc20c95f98826c31f9a3
-    c05_m08: 5f4ac6c59b8051dd1cb605f41ddddbb0a57285098b048203df55831a35409f07
+    c05_m01: e9905adf075805e8543d0764c8775b5463145461e401b1c2f53716043809b650
+    c05_m02: 407b54ad76549d11ffd50af54c3f130cae3ec9f21cfc8a5c2b73659a05dac65c
+    c05_m03: 1b0794d1cd285f5816369a32fc7b164b6c890574a9c3a1aaad1799704acf7c87
+    c05_m04: 0f9f97845838997e7cded83918d11314521f72e382f72d7b0f404cdc88755f5f
+    c05_m05: 2db8ef231bc9f23a54a6b7967c84bb1599a0e5776217c96b417d829e220d2ea3
+    c05_m06: e19295e8f0a5a6b0b3d16ccb6452a7c63536733ddf67e3f6bb9e8106bc129453
+    c05_m07: 90a6f09b002463f23d187464913047a2fc081c1ec0d71c63132d1ed0292ff906
+    c05_m08: 8824c18bc3ffba66f88b813105d2fc4ba5065857e9ced6550cd8bbfd0339a542
   tiebreak_audit:
     seed: 2649501197
     rate: 0.2
-    eligible: 4
+    eligible: 6
     eligible_ids:
     - c05_e10
     - c05_m01
+    - c05_m04
     - c05_m05
+    - c05_m06
     - c05_m08
     sampled:
+    - c05_m05
     - c05_m08
     non_publishable_test_seed: false
 stats:
@@ -145,10 +148,10 @@ stats:
   judge_uncertain: 3
   auto_accepted: 12
   pending: 0
-  audited: 4
+  audited: 5
   human_decisions_needed: 0
-  llm_kept: 4
-  llm_dropped: 6
+  llm_kept: 6
+  llm_dropped: 4
 expected_impacts:
 - expected_id: c05_e01
   affected_actor: Providers of hosting services
@@ -580,10 +583,10 @@ expected_impacts:
   tiebreak:
     verdict: keep
     original_category: consumers_users
-    reason: Para 181 states the VLOP enhanced obligations lead to a safer environment for users and respect
-      of their fundamental rights, benefiting compliant platforms; Arts 26-27 create the risk management
-      duty.
-    model: claude-opus-5-5
+    reason: The anchor explicitly states the enhanced VLOP obligations lead to a safer environment and
+      respect for users' fundamental rights, which in turn benefits the compliant platform; this is framed
+      in the competition/benefits discussion focused on users, so consumers_users fits.
+    model: claude-sonnet-5
   provenance:
     origin: llm_drafted
     status: llm_tiebroken
@@ -680,9 +683,10 @@ important_omissions:
   tiebreak:
     verdict: drop
     original_category: compliance_cost
-    reason: Para 192 supports volume-dependent costs, but the IA says nothing about platforms reimbursing
-      recipients' fees or not recovering their own; the claim adds unsupported content.
-    model: claude-opus-5-5
+    reason: The IA anchor only supports that costs scale with notice/complaint/escalation volume; it says
+      nothing about the specific fee-reimbursement asymmetry (platform pays winner's fees but can't recover
+      its own), so that part of the claim is not anchored in the IA text, only in the provision.
+    model: claude-sonnet-5
   provenance:
     origin: llm_drafted
     status: llm_tiebroken
@@ -818,9 +822,9 @@ possibly_missing:
   tiebreak:
     verdict: keep
     original_category: compliance_cost
-    reason: 'The IA cost table attributes ''Compliance officer: very large platforms estimated between
-      1-5 FTEs'', matching Art 32; c05_o03 only aggregates it, so this is not a duplicate.'
-    model: claude-opus-5-5
+    reason: The anchor directly attributes a 1-5 FTE compliance-officer cost estimate to very large platforms,
+      matching Article 32's staffing obligation.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
@@ -874,9 +878,9 @@ possibly_missing:
   tiebreak:
     verdict: drop
     original_category: sme_specific
-    reason: Duplicates the already-kept c05_o01 (micro hosting providers not exempt from notice and action,
-      ~EUR 15,000 per annum for 50 notices).
-    model: claude-opus-5-5
+    reason: This duplicates the already-kept c05_o01, which states the same point (micro/small hosting
+      providers not exempt from notice-and-action, ~EUR 15,000/year for 50 notices).
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
@@ -927,9 +931,9 @@ possibly_missing:
   tiebreak:
     verdict: drop
     original_category: compliance_cost
-    reason: Para 193 only says ADR availability likely adds negligible costs. It does not discuss binding
-      decisions, fee reimbursement or non-automated complaint handling, so the claim goes beyond the IA.
-    model: claude-opus-5-5
+    reason: The anchor's own characterization is that ADR-related costs 'append negligible costs compared
+      to the current system,' which falls under the rule to drop claims that only state an effect is negligible.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
@@ -979,17 +983,18 @@ possibly_missing:
         ('incl. exemptions') more directly than market_competition.
     overall: disagree
   tiebreak:
-    verdict: drop
+    verdict: keep
     original_category: market_competition
-    reason: Para 181 ties the benefit to asymmetric VLOP obligations, not to the Art 16 micro/small exemption,
-      and does not mention new services scaling up; the actor and mechanism are reframed.
-    model: claude-opus-5-5
+    reason: The anchor sits within the IA's 'effects on competition' discussion, stating asymmetric obligations
+      ensure smaller, emerging competitors are not burdened disproportionately, supporting a level playing
+      field, which matches market_competition as the section's own framing.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: llm_dropped
+    decision: llm_kept
     audit: false
     reviewer: null
     note: null
@@ -1031,17 +1036,16 @@ possibly_missing:
   tiebreak:
     verdict: keep
     original_category: consumers_users
-    reason: Para 189 states enhanced transparency on advertising reaching consumers builds resilience
-      and gives more choice and agency to users, in a competitive environment; Arts 24 and 30 provide
-      the transparency.
-    model: claude-opus-5-5
+    reason: The anchor explicitly ties ad/recommender transparency to giving 'more choice and agency to
+      users,' directly supporting the consumers_users framing.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
     decision: llm_kept
-    audit: false
+    audit: true
     reviewer: null
     note: null
 - candidate_id: c05_m06
@@ -1080,17 +1084,18 @@ possibly_missing:
       reason: This is about creating a level playing field between EU and non-EU providers, matching market_competition.
     overall: agree
   tiebreak:
-    verdict: unsure
+    verdict: keep
     original_category: market_competition
-    reason: Para 183 attributes the level-playing-field effect specifically to the first option, and the
-      link to Art 11 is inferred, so it is unclear whether this holds for the adopted proposal.
-    model: claude-opus-5-5
+    reason: The anchor explicitly states the legal representative requirement creates 'a true regulatory
+      level playing field between EU-based companies and those targeting the single market without being
+      established in the EU,' matching market_competition.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: llm_dropped
+    decision: llm_kept
     audit: false
     reviewer: null
     note: null
@@ -1133,9 +1138,9 @@ possibly_missing:
   tiebreak:
     verdict: drop
     original_category: international
-    reason: Duplicates the already-kept c05_o04 (GDPR representatives absorb the cost, trust signal, no
-      significant effect on legitimate third-country platforms).
-    model: claude-opus-5-5
+    reason: This duplicates the already-kept c05_o04, which covers the same GDPR-overlap cost absorption
+      and trust-signal benefit for third-country providers.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
@@ -1184,10 +1189,10 @@ possibly_missing:
   tiebreak:
     verdict: keep
     original_category: market_competition
-    reason: Para 186 states a positive effect on the competitiveness of legitimate business users, manufacturers
-      and brand owners by reducing illegal offerings; Art 14 notice mechanisms let any entity flag such
-      content.
-    model: claude-opus-5-5
+    reason: The anchor explicitly states a positive effect on the competitiveness of legitimate business
+      users, manufacturers and brand owners from reduced availability of illegal offerings, a distinct
+      benefit from the already-kept complaint/redress item (c05_e09).
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
