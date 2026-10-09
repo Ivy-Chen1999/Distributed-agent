@@ -22,7 +22,11 @@ Rule on every item:
   section is about).
 - `drop`: the IA text does not support the claim, attributes it to another actor or another
   policy option, changes a number, the provisions do not lead to it, or (for a
-  `possibly_missing candidate`) it repeats an item already kept or is too vague to check.
+  `possibly_missing candidate`) it repeats an item already kept or is too vague to check. Also
+  drop a claim that only says an effect is absent, negligible, limited or not significant ("costs
+  would be negligible", "does not affect the freedom to conduct a business"): the reference
+  answers list effects the provisions have, and a system should not be scored on restating the
+  IA's reassurances.
 - `unsure`: you cannot tell from what you have. Unsure items are left out.
 
 Read the judges' reasons, but check the evidence yourself; a judge can be wrong in either
