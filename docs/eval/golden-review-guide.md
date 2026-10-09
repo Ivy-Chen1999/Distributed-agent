@@ -10,6 +10,14 @@ holds the full rules.
 > of the tie-break-kept items) are optional spot checks (`AUDIT_BLOCKS` off). The rules below
 > apply to the items a person does decide: spot checks, `human_added` items, any item of an
 > escalated proposal, and drafts made before the tie-break existed.
+>
+> The judges and the tie-break use a different model from the drafter (a config that does not is
+> refused). Before the first tie-broken drafts are published, a **one-time reference check**
+> (`scripts/reference_check.py`, `womm.eval.reference_check`) has two people label about 20
+> items blind: kept by the judges, kept by the tie-break, dropped by it. Each labels alone; the
+> items they split on are then settled together on a reconcile page that shows each person's
+> label and note, never the tool's. The spot checks stay optional only if the tool's error rate
+> against the people is at most 10%; otherwise the prompts are fixed and the drafts redone.
 
 You are checking reference answers that an LLM drafted from an official impact assessment (IA).
 WOMM is scored against these answers, so a wrong item teaches the wrong lesson. Plan on about

@@ -5,7 +5,7 @@
 For the case owner, who has the IA cache (.cache/ia/<fixture>/). One LLM call per draft (role
 ``tiebreak`` in evals/drafting.yaml) rules keep / drop / unsure on every item the three judges
 left open and on every ``possibly_missing`` candidate; the draft is rewritten with the rulings and
-a 20% audit sample of the kept items, which a person then checks. New drafts get this from
+a 20% audit sample of the kept items (optional spot checks). New drafts get this from
 scripts/draft_golden_case.py. A draft already tie-broken, a holdout draft and a draft of a
 proposal registered as holdout are refused.
 """
