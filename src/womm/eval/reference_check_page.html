@@ -11,16 +11,11 @@
   --keep-bg: #e6f4ec; --drop-bg: #fbe9e5; --unsure-bg: #f8f0d8;
 }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
+  :root {
     --bg: #161614; --card: #21211e; --ink: #ecebe6; --muted: #a3a29b; --line: #34332f;
     --accent: #7c9cff; --mark: #5b4d12; --keep: #4cc283; --drop: #f07a63; --unsure: #e0b84a;
     --keep-bg: #183426; --drop-bg: #3a1d17; --unsure-bg: #352d14;
   }
-}
-:root[data-theme="dark"] {
-  --bg: #161614; --card: #21211e; --ink: #ecebe6; --muted: #a3a29b; --line: #34332f;
-  --accent: #7c9cff; --mark: #5b4d12; --keep: #4cc283; --drop: #f07a63; --unsure: #e0b84a;
-  --keep-bg: #183426; --drop-bg: #3a1d17; --unsure-bg: #352d14;
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--ink);
@@ -82,6 +77,8 @@ input.note { width: 100%; margin-top: 10px; font: inherit; padding: 8px 10px;
 .rubric li { margin-bottom: 8px; }
 .primary { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
 .muted { color: var(--muted); font-size: 14px; }
+.note.need { border-color: var(--unsure); }
+.note.need::placeholder { color: var(--unsure); }
 .votes { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
 .votes li { border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; }
 .votes .who { font-weight: 600; margin-right: 8px; }
@@ -94,7 +91,8 @@ pre { white-space: pre-wrap; font-size: 12px; background: var(--bg); padding: 12
   border-radius: 8px; border: 1px solid var(--line); max-height: 240px; overflow: auto; }
 .hidden { display: none !important; }
 @media (max-width: 600px) {
-  .dots, .lab kbd, .q { display: none; }
+  .dots, .lab kbd { display: none; }
+  .q { font-size: 14px; margin-bottom: 6px; }
   .lab { min-width: 0; flex: 1; padding: 9px 8px; }
   .nav { margin-left: 0; width: 100%; } .nav button { flex: 1; }
   main { padding-bottom: 200px; }
@@ -112,42 +110,34 @@ pre { white-space: pre-wrap; font-size: 12px; background: var(--bg); padding: 12
 
 <main>
   <section id="introRec" class="card hidden">
-    <h2>Reconcile together</h2>
-    <p>You each labeled the sample alone. These are the items where you <b>split</b> (or were all
-      unsure). Each screen shows everyone's label and note. Talk it through, then pick <b>one</b>
-      label together with the same rule as before; still nobody knows what the pipeline decided.</p>
-    <ul class="rubric">
-      <li><b>Keep</b>: the IA text supports the claim, it is an effect of these provisions on this
-        actor through this mechanism, and it does not repeat one of the case's other items.</li>
-      <li><b>Drop</b>: not supported; not an effect of these provisions (background, an option
-        that was not chosen, a general statement, or only a statement that an effect is absent or
-        negligible); or a repeat.</li>
-      <li><b>Not sure</b>: still undecided after discussing. The item is then left out.</li>
-    </ul>
-    <p class="muted">About a minute per item. At the end, download <b>reconciled.yaml</b> and
-      give it to the project owner.</p>
+    <h2>Decide together</h2>
+    <p>You disagreed on these items (or were all unsure). Each screen shows what each of you said.
+      Read both notes, talk briefly, and pick <b>one</b> label with the same rule as before.
+      You still don't see what the AI tool decided.</p>
+    <div id="rubricRec"></div>
+    <p class="muted">"Not sure" leaves the item out of the count. About a minute per item; at the
+      end, download <b>reconciled.yaml</b>.</p>
     <button class="primary" id="startRec">Start</button>
   </section>
 
   <section id="intro" class="card">
     <h2>What you are doing</h2>
-    <p>WOMM reads an EU legislative proposal and predicts who is affected and how. It is scored
-      against <b>reference answers</b> taken from the Commission's own impact assessment (IA).
-      An AI pipeline built those reference answers. You check a small random sample of its items,
-      without seeing what the pipeline decided, so we can measure how often it is wrong.</p>
+    <p>For each new EU law, the Commission publishes an official report, the <b>impact
+      assessment</b>, saying who the law affects and how. An AI tool turned those reports into an
+      answer key. You check about 20 of its items against the quoted report text, without seeing
+      what the tool decided, so we can measure how often it is wrong.</p>
     <h2>The one question</h2>
-    <p><b>Should this item be part of the reference answer?</b></p>
-    <ul class="rubric">
-      <li><b>Keep</b>: the IA text supports the claim, it is an effect of these provisions on this
-        actor through this mechanism, and it does not repeat one of the case's other items.</li>
-      <li><b>Drop</b>: the IA text does not support it; it is not an effect of these provisions
-        (background, an option that was not chosen, a general statement, or only a statement that
-        an effect is absent or negligible); or it repeats another item.</li>
-      <li><b>Not sure</b>: you cannot decide after reading carefully. Add a short note why.</li>
+    <p><b>Does this item belong in the answer key?</b></p>
+    <ul class="rubric" id="rubric">
+      <li><b>Keep</b>: the highlighted text backs the claim: this law affects this group in this
+        way. It is not a repeat of another item of the case.</li>
+      <li><b>Drop</b>: the text doesn't back it; it's background, an option that was not chosen,
+        a general remark, or says there is no real effect; or it repeats another item.</li>
+      <li><b>Not sure</b>: you can't decide after reading carefully. Write a short note why.</li>
     </ul>
-    <p class="muted">Ignore wording and category. Work alone, about 30 seconds per item. Keys:
-      <b>K</b> keep, <b>D</b> drop, <b>U</b> not sure, <b>N</b> note, ← → move. Your answers are
-      saved in this browser as you go.</p>
+    <p class="muted">Judge the substance, not the wording. Work alone: about 10 minutes in all.
+      Keys: <b>K</b> keep, <b>D</b> drop, <b>U</b> not sure, <b>N</b> note, ← → move. Answers are
+      saved in this browser as you go, so don't use a private window.</p>
     <button class="primary" id="start">Start</button>
   </section>
 
@@ -162,7 +152,7 @@ pre { white-space: pre-wrap; font-size: 12px; background: var(--bg); padding: 12
       <ul class="votes" id="votes"></ul>
     </div>
     <div class="card">
-      <h2 id="srcTitle">What the IA says</h2>
+      <h2 id="srcTitle">What the report says</h2>
       <div class="section" id="section"></div>
       <div class="passage" id="passage"></div>
     </div>
@@ -183,15 +173,15 @@ pre { white-space: pre-wrap; font-size: 12px; background: var(--bg); padding: 12
       <button id="copy">Copy to clipboard</button>
       <button id="back">Back to the items</button>
     </div>
-    <p class="muted" id="doneHint">Send the downloaded file to the project owner. Please do not
-      discuss items with the other annotators until all of you have sent your answers.</p>
+    <p class="muted" id="doneHint">The file is in your Downloads folder. Send it to
+      <b>__SEND_TO__</b>. Please don't discuss items until everyone has sent theirs.</p>
     <pre id="yaml"></pre>
   </section>
 </main>
 
 <div class="decide hidden" id="decide">
   <div class="in">
-    <div class="q">Should this item be part of the reference answer?</div>
+    <div class="q">Does this item belong in the answer key?</div>
     <div class="btns">
       <button class="lab keep" data-l="keep">Keep<kbd>K</kbd></button>
       <button class="lab drop" data-l="drop">Drop<kbd>D</kbd></button>
@@ -202,7 +192,7 @@ pre { white-space: pre-wrap; font-size: 12px; background: var(--bg); padding: 12
         <button id="finish">Finish</button>
       </div>
     </div>
-    <input class="note" id="note" placeholder="Optional note (say why for Not sure or Drop; Enter to continue)">
+    <input class="note" id="note" placeholder="Note (needed for Not sure). Press Enter to continue.">
     <div class="dots" id="dots"></div>
   </div>
 </div>
@@ -211,7 +201,7 @@ pre { white-space: pre-wrap; font-size: 12px; background: var(--bg); padding: 12
 const DATA = __DATA__;
 const items = DATA.items;
 const REC = DATA.mode === "reconcile";
-const KEY = "womm-refcheck:" + DATA.mode + ":" + DATA.annotator + ":" + items.map(i => i.id).join(",");
+const KEY = "womm-refcheck:" + DATA.sample + ":" + DATA.mode + ":" + DATA.annotator;
 let state = { i: 0, answers: {} };
 try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.answers) state = s; } catch (e) {}
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
@@ -249,7 +239,7 @@ function renderItem() {
   const it = items[state.i];
   const meta = $("meta"); meta.replaceChildren();
   const c = el("span", "chip"); c.append("Case ", el("b", null, it.case.replace(/^case_\d+_/, "").replace(/_/g, " ")));
-  meta.append(c, el("span", "chip", "Provisions: " + it.provisions.map(p => p.split("/").slice(-2).join(" ")).join(", ")));
+  meta.append(c, el("span", "chip", "Articles: " + it.provisions.map(p => p.split("/").slice(-2).join(" ")).join(", ")));
   const claim = $("claim"); claim.replaceChildren();
   for (const [k, v] of Object.entries(it.claim)) { claim.append(el("dt", null, NAMES[k] || k), el("dd", null, v)); }
   $("srcTitle").textContent = "What the " + it.source + " says";
@@ -273,6 +263,7 @@ function renderItem() {
   const a = state.answers[it.id] || {};
   document.querySelectorAll(".lab").forEach(b => b.classList.toggle("on", b.dataset.l === a.label));
   $("note").value = a.note || "";
+  $("note").classList.toggle("need", a.label === "unsure" && !(a.note || "").trim());
   $("prev").disabled = state.i === 0;
   const dots = $("dots"); dots.replaceChildren();
   items.forEach((x, j) => {
@@ -302,7 +293,7 @@ function go(d) {
 function yaml() {
   const rows = [REC ? "# Labels agreed together on the split items of the reference-answer check."
     : `# Answers of ${DATA.annotator} for the reference-answer check (label_${DATA.annotator}.html).`,
-    `annotator: ${DATA.annotator}`, "answers:"];
+    `sample: ${DATA.sample}`, `annotator: ${DATA.annotator}`, "answers:"];
   for (const it of [...items].sort((a, b) => a.id.localeCompare(b.id))) {
     const a = state.answers[it.id] || {};
     rows.push(`- item: ${it.id}`, `  label: ${a.label || ""}`, `  note: ${JSON.stringify(a.note || "")}`);
@@ -323,7 +314,8 @@ $("start").onclick = $("startRec").onclick = () => show("item");
 $("fileName").textContent = DATA.file;
 if (REC) {
   document.title = "Reference check: reconcile";
-  $("doneHint").textContent = "Give the downloaded file to the project owner; it goes next to the answer files.";
+  $("rubricRec").append($("rubric").cloneNode(true));
+  $("doneHint").replaceChildren("The file is in your Downloads folder. Send it to ", el("b", null, DATA.sendTo), ".");
 }
 document.querySelectorAll(".lab").forEach(b => b.onclick = () => label(b.dataset.l));
 $("prev").onclick = () => go(-1);
@@ -333,6 +325,7 @@ $("back").onclick = () => show("item");
 $("note").oninput = () => {
   const it = items[state.i];
   state.answers[it.id] = { ...(state.answers[it.id] || {}), note: $("note").value }; save();
+  $("note").classList.remove("need");
 };
 $("download").onclick = () => {
   const a = el("a"); a.href = URL.createObjectURL(new Blob([yaml()], { type: "text/yaml" }));
