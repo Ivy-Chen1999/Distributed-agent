@@ -32,8 +32,11 @@ later spot checks stay optional; above it, fix the prompts, re-draft and check a
 from __future__ import annotations
 
 import datetime as dt
+import html
 import json
 import random
+import re
+import unicodedata
 from collections import defaultdict
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -41,6 +44,7 @@ from typing import Any
 
 import yaml
 
+from womm.citations import normalize
 from womm.eval import ia_sources
 from womm.eval.drafting import DraftCandidate, GoldenDraft, _DraftItem, anchor_context
 from womm.eval.golden_review import ESCALATION_RATE, KEPT_DECISIONS
@@ -48,10 +52,12 @@ from womm.eval.golden_review import ESCALATION_RATE, KEPT_DECISIONS
 LABELS = ("keep", "drop", "unsure")
 STRATA = ("judges_accepted", "tiebreak_kept", "tiebreak_dropped")
 MAX_ERROR = ESCALATION_RATE
+PAGE_TEMPLATE = Path(__file__).with_name("reference_check_page.html")
 KEY_FILE = "key.private.json"
 README_FILE = "README.md"
 CONTEXT_CHARS = 600
-CLAIM_KEYS = ("affected_actor", "mechanism", "impact", "description", "why_missing")
+# ``why_missing`` is the recall step's own argument for a candidate: not shown, to stay blind.
+CLAIM_KEYS = ("affected_actor", "mechanism", "impact", "description")
 
 RUBRIC = """\
 **The question.** Should this item be part of the reference answer for this case? The reference
@@ -195,6 +201,60 @@ def render_sheet(
     return "\n".join(lines)
 
 
+def _passage(quote: str, text: str, chars: int) -> dict[str, str] | None:
+    """The IA text around the quote's first segment, case kept, split into before / quote /
+    after so the page can highlight the quote; None when the quote is not found."""
+    cased = re.sub(r"\s+", " ", unicodedata.normalize("NFKC", text))
+    low = cased.casefold()
+    if len(low) != len(cased):
+        cased = low
+    first = re.split(r"\[?\s*\.{3,}\s*\]?", normalize(quote))[0].strip(" .,;:")
+    pos = low.find(first) if first else -1
+    if pos < 0:  # quotes or hyphenation differ: fall back to the normalised (lower-case) text
+        cased = low = normalize(text)
+        pos = low.find(first) if first else -1
+    if pos < 0:
+        return None
+    start, end = max(0, pos - chars), min(len(cased), pos + len(first) + chars)
+    return {
+        "before": ("..." if start else "") + cased[start:pos],
+        "quote": cased[pos : pos + len(first)],
+        "after": cased[pos + len(first) : end] + ("..." if end < len(cased) else ""),
+    }
+
+
+def card(
+    item_id: str, it: Item, drafts: dict[str, GoldenDraft], ia_texts: dict[str, str | None]
+) -> dict[str, Any]:
+    """What the labeling page shows for one item: never the tool's decision or reasons."""
+    draft = drafts[it.case_id]
+    item = next(i for i in draft.items() if i.item_id == it.item_id)
+    text = ia_texts.get(draft.fixture)
+    return {
+        "id": item_id,
+        "case": draft.case_id,
+        "fixture": draft.fixture,
+        "provisions": item.provision_keys,
+        "claim": {k: getattr(item, k) for k in CLAIM_KEYS if hasattr(item, k)},
+        "source": "IA" if item.anchor.against == "ia" else "Scrutiny board opinion",
+        "section": item.ia_section,
+        "quote": item.ia_anchor,
+        "passage": _passage(item.ia_anchor, text, CONTEXT_CHARS)
+        if text and item.anchor.against == "ia"
+        else None,
+        "others": [o.removeprefix("- ") for o in _others(draft, it.item_id) if o != "_none_"],
+    }
+
+
+def render_page(annotator: str, cards: list[dict[str, Any]]) -> str:
+    """A self-contained HTML labeling page: one item per screen, answers kept in the browser and
+    downloaded as ``answers_<annotator>.yaml``."""
+    data = json.dumps({"annotator": annotator, "items": cards}, ensure_ascii=False)
+    data = data.replace("</", "<\\/")
+    page = PAGE_TEMPLATE.read_text(encoding="utf-8")
+    return page.replace("__ANNOTATOR__", html.escape(annotator)).replace("__DATA__", data)
+
+
 def render_answers(annotator: str, item_ids: list[str]) -> str:
     rows = [
         f"# Answers of {annotator} for the reference-answer check (sheet_{annotator}.md).",
@@ -249,6 +309,8 @@ def write_sample(
             encoding="utf-8",
         )
         (out_dir / f"answers_{name}.yaml").write_text(render_answers(name, ids), encoding="utf-8")
+        cards = [card(i, keyed[i], by_case, ia_texts) for i in order]
+        (out_dir / f"label_{name}.html").write_text(render_page(name, cards), encoding="utf-8")
     shares = {s: sum(i.stratum == s for i in pop) / len(pop) for s in STRATA}
     key = {
         "seed": seed,
@@ -272,10 +334,14 @@ def write_sample(
 
 
 def _readme(annotators: list[str]) -> str:
-    files = "\n".join(f"- {a}: `sheet_{a}.md` and `answers_{a}.yaml`" for a in annotators)
+    files = "\n".join(
+        f"- {a}: `label_{a}.html` (or `sheet_{a}.md` and `answers_{a}.yaml`)" for a in annotators
+    )
     return f"""# Reference-answer check sample
 
-Send each annotator their two files, and nothing else:
+Send each annotator their files, and nothing else. `label_<name>.html` is the easy way: open it
+in a browser, answer one item per screen, then download `answers_<name>.yaml` and send it back.
+The Markdown sheet and the empty answer file are the fallback.
 
 {files}
 
