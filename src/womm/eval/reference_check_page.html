@@ -115,8 +115,8 @@ pre { white-space: pre-wrap; font-size: 12px; background: var(--bg); padding: 12
       Read both notes, talk briefly, and pick <b>one</b> label with the same rule as before.
       You still don't see what the AI tool decided.</p>
     <div id="rubricRec"></div>
-    <p class="muted">"Not sure" leaves the item out of the count. About a minute per item; at the
-      end, download <b>reconciled.yaml</b>.</p>
+    <p class="muted">Try to settle each one: an item left "Not sure" counts against the AI tool.
+      About a minute per item; at the end, download <b>reconciled.yaml</b>.</p>
     <button class="primary" id="startRec">Start</button>
   </section>
 
@@ -124,7 +124,7 @@ pre { white-space: pre-wrap; font-size: 12px; background: var(--bg); padding: 12
     <h2>What you are doing</h2>
     <p>For each new EU law, the Commission publishes an official report, the <b>impact
       assessment</b>, saying who the law affects and how. An AI tool turned those reports into an
-      answer key. You check about 20 of its items against the quoted report text, without seeing
+      answer key. You check <span id="nItems">these</span> items against the quoted report text, without seeing
       what the tool decided, so we can measure how often it is wrong.</p>
     <h2>The one question</h2>
     <p><b>Does this item belong in the answer key?</b></p>
@@ -135,7 +135,7 @@ pre { white-space: pre-wrap; font-size: 12px; background: var(--bg); padding: 12
         a general remark, or says there is no real effect; or it repeats another item.</li>
       <li><b>Not sure</b>: you can't decide after reading carefully. Write a short note why.</li>
     </ul>
-    <p class="muted">Judge the substance, not the wording. Work alone: about 10 minutes in all.
+    <p class="muted">Judge the substance, not the wording. Work alone: about <span id="nMinutes">10</span> minutes in all.
       Keys: <b>K</b> keep, <b>D</b> drop, <b>U</b> not sure, <b>N</b> note, ← → move. Answers are
       saved in this browser as you go, so don't use a private window.</p>
     <button class="primary" id="start">Start</button>
@@ -212,6 +212,7 @@ const LABELS = { keep: "Keep", drop: "Drop", unsure: "Not sure" };
 const NAMES = { affected_actor: "Affected actor", mechanism: "Mechanism", impact: "Impact",
   description: "Description" };
 let view = "intro";
+let advance;
 
 function show(v) {
   view = v;
@@ -279,7 +280,10 @@ function label(l) {
   state.answers[it.id] = { ...(state.answers[it.id] || {}), label: l, note: $("note").value };
   save();
   if (l === "unsure" && !$("note").value.trim()) { renderItem(); $("note").focus(); return; }
-  setTimeout(() => go(1), 180);
+  // Advance from the item just labeled only: a second key press must not skip the next item.
+  clearTimeout(advance);
+  const from = state.i;
+  advance = setTimeout(() => { if (state.i === from) go(1); }, 180);
   renderItem();
 }
 
@@ -293,7 +297,7 @@ function go(d) {
 function yaml() {
   const rows = [REC ? "# Labels agreed together on the split items of the reference-answer check."
     : `# Answers of ${DATA.annotator} for the reference-answer check (label_${DATA.annotator}.html).`,
-    `sample: ${DATA.sample}`, `annotator: ${DATA.annotator}`, "answers:"];
+    `sample: ${JSON.stringify(DATA.sample)}`, `annotator: ${JSON.stringify(DATA.annotator)}`, "answers:"];
   for (const it of [...items].sort((a, b) => a.id.localeCompare(b.id))) {
     const a = state.answers[it.id] || {};
     rows.push(`- item: ${it.id}`, `  label: ${a.label || ""}`, `  note: ${JSON.stringify(a.note || "")}`);
@@ -312,6 +316,8 @@ function renderDone() {
 
 $("start").onclick = $("startRec").onclick = () => show("item");
 $("fileName").textContent = DATA.file;
+$("nItems").textContent = items.length;
+$("nMinutes").textContent = Math.max(1, Math.round(items.length / 2));
 if (REC) {
   document.title = "Reference check: reconcile";
   $("rubricRec").append($("rubric").cloneNode(true));
