@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference Check</title>
+<style>
+:root {
+  --bg: #f6f5f1; --card: #ffffff; --ink: #1d1d1b; --muted: #6b6a65; --line: #e3e1da;
+  --accent: #2f5bd3; --mark: #fff0a8; --keep: #1f8a4c; --drop: #c2412d; --unsure: #a07a12;
+  --keep-bg: #e6f4ec; --drop-bg: #fbe9e5; --unsure-bg: #f8f0d8;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161614; --card: #21211e; --ink: #ecebe6; --muted: #a3a29b; --line: #34332f;
+    --accent: #7c9cff; --mark: #5b4d12; --keep: #4cc283; --drop: #f07a63; --unsure: #e0b84a;
+    --keep-bg: #183426; --drop-bg: #3a1d17; --unsure-bg: #352d14;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+  font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+header { position: sticky; top: 0; z-index: 2; background: var(--bg);
+  border-bottom: 1px solid var(--line); }
+.bar { max-width: 860px; margin: 0 auto; padding: 12px 16px; display: flex; gap: 12px;
+  align-items: center; flex-wrap: wrap; }
+.bar h1 { font-size: 16px; margin: 0; font-weight: 650; }
+.bar .who { color: var(--muted); font-size: 14px; }
+.bar .count { margin-left: auto; font-size: 14px; color: var(--muted); }
+.progress { height: 3px; background: var(--line); }
+.progress > div { height: 100%; background: var(--accent); transition: width .2s; }
+main { max-width: 860px; margin: 0 auto; padding: 20px 16px 240px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+  padding: 20px; margin-bottom: 16px; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; font-size: 13px; }
+.chip { border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px;
+  color: var(--muted); overflow-wrap: anywhere; }
+.chip b { color: var(--ink); font-weight: 600; }
+h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
+  margin: 0 0 8px; font-weight: 600; }
+dl.claim { margin: 0; display: grid; grid-template-columns: 130px 1fr; gap: 8px 14px; }
+dl.claim dt { color: var(--muted); font-size: 14px; }
+dl.claim dd { margin: 0; }
+@media (max-width: 600px) { dl.claim { grid-template-columns: 1fr; gap: 2px; }
+  dl.claim dd { margin-bottom: 8px; } }
+.passage { font-family: Georgia, "Times New Roman", serif; font-size: 16px; line-height: 1.65;
+  overflow-wrap: anywhere; }
+.passage mark { background: var(--mark); color: inherit; padding: 1px 2px; border-radius: 3px; }
+.section { font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
+details ul { margin: 10px 0 0; padding-left: 20px; font-size: 14px; }
+details li { margin-bottom: 6px; }
+.decide { position: fixed; left: 0; right: 0; bottom: 0; background: var(--card);
+  border-top: 1px solid var(--line); z-index: 3; }
+.decide .in { max-width: 860px; margin: 0 auto; padding: 12px 16px; }
+.q { font-weight: 650; margin-bottom: 10px; }
+.btns { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+button { font: inherit; cursor: pointer; border-radius: 10px; border: 1px solid var(--line);
+  background: var(--card); color: var(--ink); padding: 9px 16px; }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.lab { font-weight: 600; min-width: 112px; }
+.lab kbd { font-size: 11px; color: var(--muted); margin-left: 6px; border: 1px solid var(--line);
+  border-radius: 4px; padding: 0 4px; }
+.lab.keep.on { background: var(--keep-bg); border-color: var(--keep); color: var(--keep); }
+.lab.drop.on { background: var(--drop-bg); border-color: var(--drop); color: var(--drop); }
+.lab.unsure.on { background: var(--unsure-bg); border-color: var(--unsure); color: var(--unsure); }
+.nav { margin-left: auto; display: flex; gap: 8px; }
+input.note { width: 100%; margin-top: 10px; font: inherit; padding: 8px 10px;
+  border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+.dots { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+.dot { width: 22px; height: 22px; border-radius: 6px; border: 1px solid var(--line); padding: 0;
+  font-size: 10px; color: var(--muted); }
+.dot.keep { background: var(--keep-bg); border-color: var(--keep); }
+.dot.drop { background: var(--drop-bg); border-color: var(--drop); }
+.dot.unsure { background: var(--unsure-bg); border-color: var(--unsure); }
+.dot.cur { outline: 2px solid var(--accent); outline-offset: 1px; }
+.rubric li { margin-bottom: 8px; }
+.primary { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
+.muted { color: var(--muted); font-size: 14px; }
+.note.need { border-color: var(--unsure); }
+.note.need::placeholder { color: var(--unsure); }
+.votes { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.votes li { border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; }
+.votes .who { font-weight: 600; margin-right: 8px; }
+.votes .v { font-weight: 600; border-radius: 6px; padding: 1px 8px; }
+.votes .v.keep { background: var(--keep-bg); color: var(--keep); }
+.votes .v.drop { background: var(--drop-bg); color: var(--drop); }
+.votes .v.unsure, .votes .v.none { background: var(--unsure-bg); color: var(--unsure); }
+.votes .n { display: block; margin-top: 4px; color: var(--muted); font-size: 14px; }
+pre { white-space: pre-wrap; font-size: 12px; background: var(--bg); padding: 12px;
+  border-radius: 8px; border: 1px solid var(--line); max-height: 240px; overflow: auto; }
+.hidden { display: none !important; }
+@media (max-width: 600px) {
+  .dots, .lab kbd { display: none; }
+  .q { font-size: 14px; margin-bottom: 6px; }
+  .lab { min-width: 0; flex: 1; padding: 9px 8px; }
+  .nav { margin-left: 0; width: 100%; } .nav button { flex: 1; }
+  main { padding-bottom: 200px; }
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <h1>Reference check</h1><span class="who">__ANNOTATOR__</span>
+    <span class="count" id="count"></span>
+  </div>
+  <div class="progress"><div id="prog" style="width:0"></div></div>
+</header>
+
+<main>
+  <section id="introRec" class="card hidden">
+    <h2>Decide together</h2>
+    <p>You disagreed on these items (or were all unsure). Each screen shows what each of you said.
+      Read both notes, talk briefly, and pick <b>one</b> label with the same rule as before.
+      You still don't see what the AI tool decided.</p>
+    <div id="rubricRec"></div>
+    <p class="muted">"Not sure" leaves the item out of the count. About a minute per item; at the
+      end, download <b>reconciled.yaml</b>.</p>
+    <button class="primary" id="startRec">Start</button>
+  </section>
+
+  <section id="intro" class="card">
+    <h2>What you are doing</h2>
+    <p>For each new EU law, the Commission publishes an official report, the <b>impact
+      assessment</b>, saying who the law affects and how. An AI tool turned those reports into an
+      answer key. You check about 20 of its items against the quoted report text, without seeing
+      what the tool decided, so we can measure how often it is wrong.</p>
+    <h2>The one question</h2>
+    <p><b>Does this item belong in the answer key?</b></p>
+    <ul class="rubric" id="rubric">
+      <li><b>Keep</b>: the highlighted text backs the claim: this law affects this group in this
+        way. It is not a repeat of another item of the case.</li>
+      <li><b>Drop</b>: the text doesn't back it; it's background, an option that was not chosen,
+        a general remark, or says there is no real effect; or it repeats another item.</li>
+      <li><b>Not sure</b>: you can't decide after reading carefully. Write a short note why.</li>
+    </ul>
+    <p class="muted">Judge the substance, not the wording. Work alone: about 10 minutes in all.
+      Keys: <b>K</b> keep, <b>D</b> drop, <b>U</b> not sure, <b>N</b> note, ← → move. Answers are
+      saved in this browser as you go, so don't use a private window.</p>
+    <button class="primary" id="start">Start</button>
+  </section>
+
+  <section id="item" class="hidden">
+    <div class="card">
+      <div class="meta" id="meta"></div>
+      <h2>Claim</h2>
+      <dl class="claim" id="claim"></dl>
+    </div>
+    <div class="card hidden" id="votesBox">
+      <h2>What each of you said</h2>
+      <ul class="votes" id="votes"></ul>
+    </div>
+    <div class="card">
+      <h2 id="srcTitle">What the report says</h2>
+      <div class="section" id="section"></div>
+      <div class="passage" id="passage"></div>
+    </div>
+    <div class="card">
+      <details id="othersBox">
+        <summary id="othersSum"></summary>
+        <ul id="others"></ul>
+      </details>
+    </div>
+  </section>
+
+  <section id="done" class="card hidden">
+    <h2>Finished</h2>
+    <p id="summary"></p>
+    <p id="missing" class="muted"></p>
+    <div class="btns">
+      <button class="primary" id="download">Download <span id="fileName"></span></button>
+      <button id="copy">Copy to clipboard</button>
+      <button id="back">Back to the items</button>
+    </div>
+    <p class="muted" id="doneHint">The file is in your Downloads folder. Send it to
+      <b>__SEND_TO__</b>. Please don't discuss items until everyone has sent theirs.</p>
+    <pre id="yaml"></pre>
+  </section>
+</main>
+
+<div class="decide hidden" id="decide">
+  <div class="in">
+    <div class="q">Does this item belong in the answer key?</div>
+    <div class="btns">
+      <button class="lab keep" data-l="keep">Keep<kbd>K</kbd></button>
+      <button class="lab drop" data-l="drop">Drop<kbd>D</kbd></button>
+      <button class="lab unsure" data-l="unsure">Not sure<kbd>U</kbd></button>
+      <div class="nav">
+        <button id="prev" aria-label="Previous item">←</button>
+        <button id="next" aria-label="Next item">→</button>
+        <button id="finish">Finish</button>
+      </div>
+    </div>
+    <input class="note" id="note" placeholder="Note (needed for Not sure). Press Enter to continue.">
+    <div class="dots" id="dots"></div>
+  </div>
+</div>
+
+<script>
+const DATA = __DATA__;
+const items = DATA.items;
+const REC = DATA.mode === "reconcile";
+const KEY = "womm-refcheck:" + DATA.sample + ":" + DATA.mode + ":" + DATA.annotator;
+let state = { i: 0, answers: {} };
+try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.answers) state = s; } catch (e) {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
+const $ = id => document.getElementById(id);
+const el = (tag, cls, text) => { const e = document.createElement(tag);
+  if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const LABELS = { keep: "Keep", drop: "Drop", unsure: "Not sure" };
+const NAMES = { affected_actor: "Affected actor", mechanism: "Mechanism", impact: "Impact",
+  description: "Description" };
+let view = "intro";
+
+function show(v) {
+  view = v;
+  $("intro").classList.toggle("hidden", v !== "intro" || REC);
+  $("introRec").classList.toggle("hidden", v !== "intro" || !REC);
+  $("item").classList.toggle("hidden", v !== "item");
+  $("decide").classList.toggle("hidden", v !== "item");
+  $("done").classList.toggle("hidden", v !== "done");
+  if (v === "item") renderItem();
+  if (v === "done") renderDone();
+  renderTop();
+  window.scrollTo(0, 0);
+}
+
+function answered() { return items.filter(i => state.answers[i.id]?.label).length; }
+
+function renderTop() {
+  const n = answered();
+  $("count").textContent = view === "item"
+    ? `Item ${state.i + 1} of ${items.length} · ${n} answered` : `${n} of ${items.length} answered`;
+  $("prog").style.width = (100 * n / items.length) + "%";
+}
+
+function renderItem() {
+  const it = items[state.i];
+  const meta = $("meta"); meta.replaceChildren();
+  const c = el("span", "chip"); c.append("Case ", el("b", null, it.case.replace(/^case_\d+_/, "").replace(/_/g, " ")));
+  meta.append(c, el("span", "chip", "Articles: " + it.provisions.map(p => p.split("/").slice(-2).join(" ")).join(", ")));
+  const claim = $("claim"); claim.replaceChildren();
+  for (const [k, v] of Object.entries(it.claim)) { claim.append(el("dt", null, NAMES[k] || k), el("dd", null, v)); }
+  $("srcTitle").textContent = "What the " + it.source + " says";
+  $("section").textContent = "Section: " + it.section;
+  const p = $("passage"); p.replaceChildren();
+  if (it.passage) {
+    p.append(it.passage.before, el("mark", null, it.passage.quote), it.passage.after);
+  } else {
+    p.append(el("mark", null, it.quote));
+  }
+  $("votesBox").classList.toggle("hidden", !it.votes);
+  $("votes").replaceChildren(...(it.votes || []).map(v => {
+    const li = el("li"); li.append(el("span", "who", v.annotator),
+      el("span", "v " + (v.label || "none"), LABELS[v.label] || "No label"));
+    if (v.note) li.append(el("span", "n", v.note));
+    return li;
+  }));
+  $("othersSum").textContent = `The case's other ${it.others.length} reference items (check for repeats)`;
+  const ul = $("others"); ul.replaceChildren(...it.others.map(o => el("li", null, o)));
+  $("othersBox").open = false;
+  const a = state.answers[it.id] || {};
+  document.querySelectorAll(".lab").forEach(b => b.classList.toggle("on", b.dataset.l === a.label));
+  $("note").value = a.note || "";
+  $("note").classList.toggle("need", a.label === "unsure" && !(a.note || "").trim());
+  $("prev").disabled = state.i === 0;
+  const dots = $("dots"); dots.replaceChildren();
+  items.forEach((x, j) => {
+    const d = el("button", "dot " + (state.answers[x.id]?.label || "") + (j === state.i ? " cur" : ""), String(j + 1));
+    d.title = x.id; d.onclick = () => { state.i = j; save(); show("item"); };
+    dots.append(d);
+  });
+  renderTop();
+}
+
+function label(l) {
+  const it = items[state.i];
+  state.answers[it.id] = { ...(state.answers[it.id] || {}), label: l, note: $("note").value };
+  save();
+  if (l === "unsure" && !$("note").value.trim()) { renderItem(); $("note").focus(); return; }
+  setTimeout(() => go(1), 180);
+  renderItem();
+}
+
+function go(d) {
+  const j = state.i + d;
+  if (j >= items.length) { show("done"); return; }
+  if (j < 0) return;
+  state.i = j; save(); renderItem(); window.scrollTo(0, 0);
+}
+
+function yaml() {
+  const rows = [REC ? "# Labels agreed together on the split items of the reference-answer check."
+    : `# Answers of ${DATA.annotator} for the reference-answer check (label_${DATA.annotator}.html).`,
+    `sample: ${DATA.sample}`, `annotator: ${DATA.annotator}`, "answers:"];
+  for (const it of [...items].sort((a, b) => a.id.localeCompare(b.id))) {
+    const a = state.answers[it.id] || {};
+    rows.push(`- item: ${it.id}`, `  label: ${a.label || ""}`, `  note: ${JSON.stringify(a.note || "")}`);
+  }
+  return rows.join("\n") + "\n";
+}
+
+function renderDone() {
+  const c = { keep: 0, drop: 0, unsure: 0 };
+  items.forEach(i => { const l = state.answers[i.id]?.label; if (l) c[l]++; });
+  $("summary").textContent = `${answered()} of ${items.length} answered: ${c.keep} keep, ${c.drop} drop, ${c.unsure} not sure.`;
+  const miss = items.map((x, j) => state.answers[x.id]?.label ? null : j + 1).filter(Boolean);
+  $("missing").textContent = miss.length ? `Still open: items ${miss.join(", ")}. You can download now and finish later.` : "";
+  $("yaml").textContent = yaml();
+}
+
+$("start").onclick = $("startRec").onclick = () => show("item");
+$("fileName").textContent = DATA.file;
+if (REC) {
+  document.title = "Reference check: reconcile";
+  $("rubricRec").append($("rubric").cloneNode(true));
+  $("doneHint").replaceChildren("The file is in your Downloads folder. Send it to ", el("b", null, DATA.sendTo), ".");
+}
+document.querySelectorAll(".lab").forEach(b => b.onclick = () => label(b.dataset.l));
+$("prev").onclick = () => go(-1);
+$("next").onclick = () => go(1);
+$("finish").onclick = () => show("done");
+$("back").onclick = () => show("item");
+$("note").oninput = () => {
+  const it = items[state.i];
+  state.answers[it.id] = { ...(state.answers[it.id] || {}), note: $("note").value }; save();
+  $("note").classList.remove("need");
+};
+$("download").onclick = () => {
+  const a = el("a"); a.href = URL.createObjectURL(new Blob([yaml()], { type: "text/yaml" }));
+  a.download = DATA.file; a.click();
+};
+$("copy").onclick = () => { navigator.clipboard?.writeText(yaml()).then(() => { $("copy").textContent = "Copied"; }); };
+document.addEventListener("keydown", e => {
+  if (view !== "item") { if (view === "intro" && e.key === "Enter") show("item"); return; }
+  if (e.target === $("note")) {
+    if (e.key === "Escape") $("note").blur();
+    if (e.key === "Enter") { $("note").blur(); if (state.answers[items[state.i].id]?.label) go(1); }
+    return;
+  }
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = e.key.toLowerCase();
+  if (["k", "d", "u"].includes(k)) e.preventDefault();
+  if (k === "k") label("keep"); else if (k === "d") label("drop"); else if (k === "u") label("unsure");
+  else if (k === "n") { e.preventDefault(); $("note").focus(); }
+  else if (e.key === "ArrowRight") go(1); else if (e.key === "ArrowLeft") go(-1);
+});
+if (answered() > 0) show("item"); else show("intro");
+</script>
+</body>
+</html>
