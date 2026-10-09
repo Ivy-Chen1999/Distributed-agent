@@ -109,27 +109,30 @@ provenance:
     c04_e08: 54dc86a425297a28f96270d4e32c8fe2c088c36091a288417061a7478ce5d5ce
     c04_e09: 7c5f97ddf7d3f1ccbde0b02ea5c1f609b6c7b381d191a11007a57b2949d600ed
     c04_e10: 0951dd9dd9229d395f764308b68711df2db079bd779dfc41541285d182104ded
-    c04_o01: c9748f8244eb74b5d1e6e834a83075637219186806b6d42f2cbd03547fe9a6b3
+    c04_o01: c0ba6c7edfce4f56aef21947c2305f51fe01d59d0d7434aa96b03244db9b4fb2
     c04_o02: 2447415a190071d13f89c41a5e23e958455988dee76597c1c74c717d573245b4
-    c04_o03: 49a005c883a7e5a90bd3a3e42772a4d7baeb293afc6a4a06d2d4fced90b57d4f
-    c04_m01: e76b0a11b515e9bd0134850879b80764e8ac8cc5f44f6dd8f83aa5c4bc90138f
-    c04_m02: eb40d722394fd219c633c5e9776a020fe1c7c140790bfd3aef6a5d7989b6aa54
-    c04_m03: 7ab492eb3931fa2ca0a41c7d43fe37dc52831a3fafbae64ae403b613951d8399
-    c04_m04: b5e88675d9902e19ca6e61993466b05449d59f62ee7031c0b16e8cc87e7e9807
-    c04_m05: 4cf598d645cad69187ebf9e2873441cda28287bc4923a9e46a68cc604e134dee
-    c04_m06: 1505c0ccb786c7660f41e6d045a07085e7837604b25601baac54f0c0ac334bef
-    c04_m07: 8c9efc16b451a8e59bfe12f9a6201f63fd4d45401a66f75e9184057b433b9d43
+    c04_o03: 6ae482982d77028cbc057f924995069d250414ba1fd83c83f6e9cd2e8ab635fb
+    c04_m01: 2ceb673775b83d7ec8b504e35510948657943095786c35f878a1164e1a8c6ec3
+    c04_m02: 7a41194c8f31c09c344d1bac0f5abe6daba2ad1eef1292512132b26f56af04ec
+    c04_m03: 5e2003c52d114e51297fcf5a7557573794c05aade889994b4102119bd2aa4526
+    c04_m04: ab5b0f5c881e4cf78f2b7628eb469a7427fb19c39a6460b0bb36b7c0e1127ac2
+    c04_m05: 4eb698cef851748e53c25d2a6267d361d3717a282a343682f8914cad58e990ed
+    c04_m06: 84f54ad708df67b4306b0e03ee7e95eab0a76e2450f9e7961b2298f17bdb51c5
+    c04_m07: 610dd404bd9171aa56c2f74528cdefda22a605f8b708bbc7ab52a907432075b4
   tiebreak_audit:
     seed: 2692949171
     rate: 0.2
-    eligible: 4
+    eligible: 6
     eligible_ids:
+    - c04_m01
+    - c04_m02
     - c04_m04
     - c04_m05
+    - c04_m07
     - c04_o01
-    - c04_o03
     sampled:
-    - c04_o01
+    - c04_m04
+    - c04_m05
     non_publishable_test_seed: false
 stats:
   items: 20
@@ -142,10 +145,10 @@ stats:
   judge_uncertain: 1
   auto_accepted: 11
   pending: 0
-  audited: 4
+  audited: 5
   human_decisions_needed: 0
-  llm_kept: 4
-  llm_dropped: 5
+  llm_kept: 6
+  llm_dropped: 3
 expected_impacts:
 - expected_id: c04_e01
   affected_actor: Manufacturers of hardware and software products with digital elements
@@ -627,17 +630,18 @@ important_omissions:
   tiebreak:
     verdict: keep
     original_category: consumers_users
-    reason: IA 6.3.1 states compliance costs 'can be off-set by transferring costs to the end-user', and
-      6.3.2 confirms end-users may face higher initial prices; the costs passed on are those created by
-      Art. 10 and 24.
-    model: claude-opus-5-5
+    reason: The IA explicitly states compliance costs can be offset by transferring costs to end-users
+      (anchor quote), and this follows from the compliance-cost-generating duties in Art. 10/24, similar
+      to other accepted downstream-effect items (e.g. c04_e10); kept over the near-identical c04_m03 to
+      avoid duplication.
+    model: claude-sonnet-5
   provenance:
     origin: llm_drafted
     status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
     decision: llm_kept
-    audit: true
+    audit: false
     reviewer: null
     note: null
 - omission_id: c04_o02
@@ -696,7 +700,7 @@ important_omissions:
   anchor:
     status: verified
     against: ia
-  category: sme_specific
+  category: market_competition
   derivability:
     verdict: partly
     reason: Art. 6 lets the Commission widen the critical-product list, and Art. 24 ties notified-body
@@ -718,18 +722,18 @@ important_omissions:
         on scope of critical-product categories, so sme_specific fits better than market_competition.
     overall: disagree
   tiebreak:
-    verdict: keep
+    verdict: drop
     original_category: market_competition
-    reason: IA 6.3.2 reports that a too extensive scope of third-party assessment could make specialised
-      SMEs cease activities; the scope follows from Art. 6 (Annex III, delegated acts) and Art. 24(2)-(3).
-      The claim is about SMEs and sits in the SME section, so sme_specific fits.
-    model: claude-opus-5-5
+    reason: This is the same claim, same anchor quote and same mechanism as c04_m02 (broad Annex III scope
+      risking specialised SME market exit); keeping both would duplicate, and c04_m02 states the actor
+      and impact more precisely.
+    model: claude-sonnet-5
   provenance:
     origin: llm_drafted
     status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: llm_kept
+    decision: llm_dropped
     audit: false
     reviewer: null
     note: null
@@ -774,18 +778,18 @@ possibly_missing:
         an SME-specific effect.
     overall: agree
   tiebreak:
-    verdict: drop
+    verdict: keep
     original_category: sme_specific
-    reason: The IA supports SMEs being more affected (economies of scale, expertise, external labs), but
-      the claim adds a competitive disadvantage against non-EU firms that the quoted IA text does not
-      state.
-    model: claude-opus-5-5
+    reason: Anchor text directly explains why SMEs are more affected (smaller customer base, limited expertise,
+      reliance on external labs/consultants), a distinct SME-specific compliance cost claim tied to Art.
+      5/10 duties.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: llm_dropped
+    decision: llm_kept
     audit: false
     reviewer: null
     note: null
@@ -826,17 +830,18 @@ possibly_missing:
       reason: Effect of third-party assessment specifically on specialised SMEs is an SME-specific effect.
     overall: agree
   tiebreak:
-    verdict: drop
+    verdict: keep
     original_category: sme_specific
-    reason: It repeats the same anchor and claim (specialised SMEs could exit if the third-party assessment
-      scope is too broad) kept under c04_o03.
-    model: claude-opus-5-5
+    reason: Anchor quote verbatim supports that an overly broad Annex III scope for mandatory third-party
+      assessment (Art. 6(4), 24(2)-(3)) risks pushing specialised SMEs out of the market; this is clearly
+      an SME-specific effect per the IA's own SME-impact section.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: llm_dropped
+    decision: llm_kept
     audit: false
     reviewer: null
     note: null
@@ -880,9 +885,9 @@ possibly_missing:
   tiebreak:
     verdict: drop
     original_category: consumers_users
-    reason: It duplicates the cost pass-through-to-end-users claim kept under c04_o01, using the same
-      anchor.
-    model: claude-opus-5-5
+    reason: Duplicate of c04_o01 (same anchor quote, same cost pass-through claim to end-users); keeping
+      both would be redundant.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
@@ -931,17 +936,17 @@ possibly_missing:
   tiebreak:
     verdict: keep
     original_category: consumers_users
-    reason: IA 6.3.2 states SME end-users 'would significantly benefit from enhanced transparency of security
-      properties', which follows from the Art. 10(10) Annex II user information duty. The IA frames it
-      in the SME section.
-    model: claude-opus-5-5
+    reason: Anchor quote states SME end-users specifically benefit from enhanced transparency of security
+      properties (Art. 10(10) Annex II information), and the IA frames this within its SME-impact section,
+      so sme_specific is the better fit than the generic consumers_users category.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
     decision: llm_kept
-    audit: false
+    audit: true
     reviewer: null
     note: null
 - candidate_id: c04_m05
@@ -988,17 +993,17 @@ possibly_missing:
   tiebreak:
     verdict: keep
     original_category: sme_specific
-    reason: IA 6.3.2 states SMEs as manufacturers, importers and distributors can gain trust and new customers,
-      and that harmonised requirements are even more beneficial for SMEs. This SME-specific benefit is
-      distinct from kept item e10.
-    model: claude-opus-5-5
+    reason: Anchor quote directly states SMEs as manufacturers/importers/distributors gain trust and new
+      customers from the harmonised CE-marking framework (Art. 5/10/13/14), an SME-magnified benefit analogous
+      to the already-kept general trust effect (c04_e10).
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
     decision: llm_kept
-    audit: false
+    audit: true
     reviewer: null
     note: null
 - candidate_id: c04_m06
@@ -1042,9 +1047,10 @@ possibly_missing:
   tiebreak:
     verdict: drop
     original_category: sme_specific
-    reason: It duplicates kept item c04_e07, which already records familiarisation costs and a burden
-      not expected to be significant because security must already be ensured by the manufacturer.
-    model: claude-opus-5-5
+    reason: The anchor itself states the burden on SME importers/distributors 'is not expected to be significant,
+      on the contrary', which is exactly the kind of negligible/limited-effect statement the rules say
+      to exclude.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
@@ -1096,17 +1102,18 @@ possibly_missing:
         compliance cost comparison.
     overall: uncertain
   tiebreak:
-    verdict: drop
+    verdict: keep
     original_category: compliance_cost
-    reason: The 40% vs 25% BaU figures are supported, but the claim that software firms rated their costs
-      'high to very high' is not in the IA text provided, so the item cannot be fully checked.
-    model: claude-opus-5-5
+    reason: Anchor directly supports the differing BaU baseline (25% software vs 40% hardware) under Art.
+      10/24, giving software manufacturers proportionally higher additional compliance costs, a distinct
+      cost-comparison not covered by the already-kept generic manufacturer cost items.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: llm_dropped
+    decision: llm_kept
     audit: false
     reviewer: null
     note: null
