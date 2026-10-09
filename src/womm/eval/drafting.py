@@ -145,6 +145,21 @@ class DraftingRoles(StrictModel):
     # Settles what the three judges left open (womm.eval.tiebreak); None turns it off.
     tiebreak: RoleConfig | None = None
 
+    @model_validator(mode="after")
+    def _graders_differ_from_authors(self) -> DraftingRoles:
+        # A grader must not grade its own output: the judges and the tie-break use a different
+        # model from the drafter and recall (Anthropic, "Develop your tests").
+        authors = {self.drafter.model, self.recall.model}
+        graders = ("judge_anchor", "judge_derivability", "judge_category", "tiebreak")
+        for name in graders:
+            role = getattr(self, name)
+            if role is not None and role.model in authors:
+                raise ValueError(
+                    f"{name} uses {role.model}, the drafter's or recall's model; a grader must "
+                    "use a different model"
+                )
+        return self
+
     def as_dict(self) -> dict[str, RoleConfig]:
         roles = {name: getattr(self, name) for name in type(self).model_fields}
         return {name: role for name, role in roles.items() if role is not None}
