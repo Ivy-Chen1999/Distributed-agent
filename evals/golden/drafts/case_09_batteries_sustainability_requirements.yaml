@@ -106,34 +106,36 @@ provenance:
   item_digests:
     c09_e01: 32564c90161256c32b6fddf03d0e936450aa5142bc69bf4544f48b7a26d46597
     c09_e02: 134ec179f03d9c43a59a05784153aa6c23595653970ae597c2f7d238b3c4b9e7
-    c09_e03: b0f93d61b3c7ea661df97548f03b273e6b117138def48c1d8220db9d4e69ff75
+    c09_e03: dd37735e38751fdeaf8dc4993c01176a4ca69656b6e145c5aed9ae3423b828b3
     c09_e04: a1ae10252d0b95854474a4ca0125bea8be87ddf9189407ed5e2328ab6984179f
     c09_e05: eee15c1ba079cca101627e56df91e78a3346c224265c9ae8a857ee17e180cf69
     c09_e06: cc51c4f1eeb00ceb4f904607531481048242e75acb8d7d7e83fa2b9dc2825672
     c09_e07: bb460792c86289575db5c36dee1a8835d8aaf8c83a734bedabd73cd13d96eeda
     c09_e08: 67086de074ee4d945b9dcbd6a2a64da5dc06ef88403e9c1db26c8b1d398a4591
     c09_e09: c51a36c15f7fa7ce181d39e58d653681f031da0869f84ae0c2f2494b6e38d271
-    c09_e10: dd4a0e00dd40a7b615bb889153980e861da31135432043358a2f72a756aba28f
+    c09_e10: fa24f105a23f2a85588bb727c046f10dd6b52f4f9c2deff043a4c9b0e79b4825
     c09_o01: 8a155bda5c23f6586d8283c07a147ea3ceebcf8d48d5272a7ef2949b785ed342
     c09_o02: 1d69692479593cf9d213a4820734ed6e396302fc076ed1100f70ff0be20e5876
-    c09_o03: d54e196c07fa464af35cfe2fe0cb226df7f0deb388beccc508e2fda074c187e7
+    c09_o03: b1198de897d79324b85304892cc3d6824315108635f16b8495595efa04136c22
     c09_o04: f0687f7c980efa1899ad561304480778bf2859b1f20ba4fe13d6b5b1223a6944
-    c09_m01: a56b0746b247f855b293e022122a2d74716d3f6438542ea3ef046be85f3f04f3
-    c09_m02: cafbfa61ba4db0d091c3137eba50ab38f9d186ecc054d080e27d47c9c4cb1710
-    c09_m03: 10e74966559d4866db635db24bc94f2400ab0a57a5945d6ffc2e435173a70809
-    c09_m04: c5d0b23785cb2b28eb0cc7c41f6bbf60c1c22fb68551e69e5beb4db749dfd388
-    c09_m05: 41176946e90d1c210e5e3260c244fb2458d442b10b401b150f284cbb7ff46dd3
-    c09_m06: 46ec801b8073e20ffb7c2fea86d90748d5e293870e87bbb787d8422a74de4147
-    c09_m07: 7551d6ccadf4f4d32a987feb860e3513097c6ddee1b3910eb9167fa5877f7627
+    c09_m01: c6c3e86a948ed7e7a931d86ba8cd8c93478dd8c87621a941f23bba6fdfc84860
+    c09_m02: 44602c8fc2cd0a1ba5665888a5c2912b7ddd73aedd7d2e0bf556ce5f1883cf6b
+    c09_m03: aa71de14fffa9bd8387470c3247764d43519bf6d0fe1e05c7dcb36d376d8d367
+    c09_m04: cd68a382018b3b334939338ebfbc277b688d7a47104ca3eb7caac73ba8a45b30
+    c09_m05: 8b990f60ef78781852fa028b1c709d36a54c794dfb36307f28ddda04317dbe51
+    c09_m06: 5844ab7a729348a047efb0e87599ce1f077341cc56dac63897d408937608401b
+    c09_m07: e4cab4c4975460a2a396768b0be7b313614abf01ab2542f2e54e0510f5cc234d
   tiebreak_audit:
     seed: 3929387096
     rate: 0.2
-    eligible: 2
+    eligible: 4
     eligible_ids:
     - c09_e03
     - c09_e10
+    - c09_m07
+    - c09_o03
     sampled:
-    - c09_e10
+    - c09_m07
     non_publishable_test_seed: false
 stats:
   items: 21
@@ -148,8 +150,8 @@ stats:
   pending: 0
   audited: 4
   human_decisions_needed: 0
-  llm_kept: 2
-  llm_dropped: 8
+  llm_kept: 4
+  llm_dropped: 6
 expected_impacts:
 - expected_id: c09_e01
   affected_actor: Producers of EV batteries and rechargeable industrial batteries above 2 kWh
@@ -279,10 +281,11 @@ expected_impacts:
   tiebreak:
     verdict: keep
     original_category: administrative_burden
-    reason: The IA gives the same per-type costs (€100–5,000 plus €2,000–7,000), the same 250 + 340 battery
-      types and the same €1.18–7.08m one-off total. The 2027 date comes from Art 8(1). The IA's 'by 2025'
-      is only its assumption for counting battery types, so this is not a changed number.
-    model: claude-opus-5-5
+    reason: The cost figures (€2,100-12,000 per type; €1,180,000-7,080,000 total; 250 lithium-ion/340
+      lead-acid types) match the IA quote exactly, and Article 8(1) itself sets the documentation duty
+      'From 1 January 2027' as the claim states; the IA's 'by 2025' is only its cost-modelling assumption,
+      not a contradiction of the provision's date.
+    model: claude-sonnet-5
   provenance:
     origin: llm_drafted
     status: llm_tiebroken
@@ -595,17 +598,17 @@ expected_impacts:
   tiebreak:
     verdict: keep
     original_category: fundamental_rights
-    reason: 'The anchor lists the same unquantified benefits of due diligence: stability for communities
-      in conflict regions, human and labour rights, environmental protection and health. These are social
-      and environmental effects, not privacy or rights-specific effects.'
-    model: claude-opus-5-5
+    reason: The anchor explicitly lists the same unquantified benefits (political/social stability, human/labour
+      rights, environment, health) under Art 39 due diligence; the IA frames these as 'social and environmental
+      benefits', so social_environmental is the better fit than fundamental_rights.
+    model: claude-sonnet-5
   provenance:
     origin: llm_drafted
     status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
     decision: llm_kept
-    audit: true
+    audit: false
     reviewer: null
     note: null
 important_omissions:
@@ -721,18 +724,18 @@ important_omissions:
         market.
     overall: uncertain
   tiebreak:
-    verdict: drop
+    verdict: keep
     original_category: market_competition
-    reason: The IA only reports that some large EV battery makers object, and notes that other makers
-      commit to going beyond the targets. It never assesses a constraint on supply or competition, and
-      it does not link this to Art 8(4).
-    model: claude-opus-5-5
+    reason: Anchor confirms large EV battery manufacturers' concern that secondary raw materials will
+      be insufficient to meet targets, and Art 8(4)'s amendment power directly addresses availability
+      of recovered materials, supporting a market/supply-competition framing.
+    model: claude-sonnet-5
   provenance:
     origin: llm_drafted
     status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: llm_dropped
+    decision: llm_kept
     audit: false
     reviewer: null
     note: null
@@ -818,9 +821,10 @@ possibly_missing:
   tiebreak:
     verdict: drop
     original_category: public_enforcement_cost
-    reason: This largely repeats the kept item c09_o01, which already covers authorities checking performance
-      and durability values, including laboratory testing.
-    model: claude-opus-5-5
+    reason: Duplicates the already-kept c09_o01, which covers the same actor, mechanism (verifying performance/durability,
+      possible lab testing) and impact (public enforcement costs); the added recycled-content angle is
+      not supported by the anchor, which only discusses performance/durability verification.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
@@ -869,11 +873,9 @@ possibly_missing:
   tiebreak:
     verdict: drop
     original_category: market_competition
-    reason: The level playing field for producers of better-performing batteries is already in the kept
-      item c09_e08. The 'relatively low' administrative costs are attributed jointly to producers and
-      public authorities (standards development and market surveillance), so this candidate adds little
-      that can be checked.
-    model: claude-opus-5-5
+    reason: Duplicates the already-kept c09_e08, whose impact already states 'Producers of better-performing
+      batteries also get a more level playing field' under the same Art 9 mechanism.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
@@ -923,9 +925,9 @@ possibly_missing:
   tiebreak:
     verdict: drop
     original_category: compliance_cost
-    reason: This repeats the kept item c09_e09, which already says companies gain better knowledge of
-      their supply chains and detect risks earlier.
-    model: claude-opus-5-5
+    reason: Duplicates the already-kept c09_e09, which already states companies 'gain better knowledge
+      of their supply chains and detect risks earlier' as a benefit of the same Art 39 due diligence obligations.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
@@ -974,9 +976,9 @@ possibly_missing:
   tiebreak:
     verdict: drop
     original_category: compliance_cost
-    reason: The anchor records the view of some stakeholders, which other makers in the same sector contradict;
-      it is not an impact the IA itself assesses. The candidate also overlaps with c09_o03.
-    model: claude-opus-5-5
+    reason: Substantively duplicates c09_o03 (same actor, same anchor quote about insufficient secondary
+      materials, same Art 8(4) revision mechanism); keeping both would double-count one IA point.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
@@ -1025,9 +1027,10 @@ possibly_missing:
   tiebreak:
     verdict: drop
     original_category: international
-    reason: This repeats the kept item c09_e04, which already covers recycling investment that helps the
-      circular economy and reduces supply risk for certain materials.
-    model: claude-opus-5-5
+    reason: Duplicates the already-kept c09_e04, which attributes the same reduced-supply-risk and circular-economy
+      benefit to recycling investment driven by the recycled-content targets, just under a different actor
+      label.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
@@ -1075,9 +1078,9 @@ possibly_missing:
   tiebreak:
     verdict: drop
     original_category: market_competition
-    reason: 'This repeats the kept item c09_o04: carbon footprint thresholds as a market-access restriction
-      that could cause unintended supply restrictions.'
-    model: claude-opus-5-5
+    reason: Nearly word-for-word duplicates the already-kept c09_o04 ('Maximum life-cycle carbon footprint
+      thresholds work as a market-access restriction... could cause unintended supply restrictions').
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
@@ -1122,18 +1125,18 @@ possibly_missing:
         are public authority costs.
     overall: agree
   tiebreak:
-    verdict: drop
+    verdict: keep
     original_category: public_enforcement_cost
-    reason: The IA only mentions unspecified 'some costs for support in the Commission'. The databases
-      and battery passports in the mechanism come under the IA's separate Measure 12, not Art 7, so the
-      claim is vague and attributes the cost to the wrong provision.
-    model: claude-opus-5-5
+    reason: Anchor explicitly notes 'some costs for support in the Commission' alongside the Commission's
+      role in facilitating battery databases/passports for carbon footprint data, a distinct actor and
+      cost not covered by any already-kept item.
+    model: claude-sonnet-5
   provenance:
     origin: llm_recall
     status: llm_tiebroken
     drafting_model: claude-opus-5-5
   review:
-    decision: llm_dropped
-    audit: false
+    decision: llm_kept
+    audit: true
     reviewer: null
     note: null
