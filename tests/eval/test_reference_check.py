@@ -81,7 +81,7 @@ def page_data(path) -> dict:
 
 def answer_file(path, key: dict, name: str, labels: dict, notes: dict | None = None) -> None:
     """An answer file in the format the page's JavaScript writes (JSON-quoted notes)."""
-    rows = [f"sample: {key['sample']}", f"annotator: {name}", "answers:"]
+    rows = [f"sample: {json.dumps(key['sample'])}", f"annotator: {json.dumps(name)}", "answers:"]
     for iid, label in sorted(labels.items()):
         rows += [f"- item: {iid}", f"  label: {label or ''}",
                  f"  note: {json.dumps((notes or {}).get(iid, ''))}"]  # fmt: skip
@@ -250,3 +250,26 @@ def test_the_passage_keeps_the_case_and_marks_the_quote():
     assert p["quote"] == "Widget Providers would face cost number 5 under the option"
     assert p["before"].endswith("The ") and p["after"].startswith(". Rest")
     assert rc._passage("nowhere to be found in it", text, 10) is None
+
+
+def test_one_unsettled_item_blocks_the_verdict_even_under_the_limit():
+    key = _key([("judges_accepted", True)] * 20)
+    labels = {f"r{n}": "keep" for n in range(1, 21)}
+    res = rc.score(key, {"ana": labels, "bo": labels | {"r1": "unsure"}})
+    assert res["error"] == pytest.approx(0.05) and res["unsettled"] == ["r1"]
+    assert not res["robust"]
+
+
+def test_answer_files_need_the_sample_id_and_quoted_names_survive(tmp_path):
+    key = _key([("tiebreak_kept", True)] * 2, annotators=("yes", "007"))
+    labels = {"r1": "keep", "r2": "keep"}
+    for name in ("yes", "007"):
+        answer_file(tmp_path / f"answers_{name}.yaml", key, name, labels)
+    answers, _ = rc.read_answers(tmp_path, key)
+    assert set(answers) == {"yes", "007"}  # not True and 7
+    (tmp_path / "answers_007.yaml").write_text("annotator: '007'\nanswers: []\n")
+    with pytest.raises(rc.ReferenceCheckError, match="belongs to sample None"):
+        rc.read_answers(tmp_path, key)
+    (tmp_path / "answers_007.yaml").write_text("- just a list\n")
+    with pytest.raises(rc.ReferenceCheckError, match="not an answer file"):
+        rc.read_answers(tmp_path, key)
