@@ -155,3 +155,11 @@ def test_an_escalated_proposal_sends_tiebreak_items_back_to_people():
     draft, _ = run(to_draft(draft_dict()), [verdict("c90_e05"), verdict("c90_m01")])
     problems = check_draft(draft, set(KEYS), escalated=True)
     assert any("c90_e05" in p and "not llm_kept" in p for p in problems)
+
+
+@pytest.mark.parametrize("grader", ["tiebreak", "judge_category"])
+def test_a_grader_sharing_the_drafters_model_is_refused(grader):
+    roles = {n: RoleConfig(backend="fake", model=f"model-{n}", prompt=f"p/{n}.md") for n in ROLES}
+    roles[grader] = roles[grader].model_copy(update={"model": "model-drafter"})
+    with pytest.raises(ValueError, match=f"{grader} uses model-drafter"):
+        DraftingConfig(roles=roles)
