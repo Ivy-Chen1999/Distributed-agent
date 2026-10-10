@@ -128,6 +128,11 @@ judges. Humans review only the items an LLM cannot be trusted with:
   the draft.
 - Holdout drafts stay in `.cache/drafts/`. They are verified locally with
   `scripts/verify_golden_case.py` and handed to the holdout importer. They never go to `evals/`.
+  Once a reference check scores ROBUST, a holdout draft may instead be settled by the tie-break
+  (`scripts/tiebreak_golden_case.py .cache/drafts/<case>.yaml`) and spot-checked
+  (`scripts/verify_golden_case.py --draft ... --spot-check --reference-check <round dir>`): the
+  owner decides a seeded sample of 10 items, and more than one disagreement with the tool sends
+  the draft back to full verification.
 - `scripts/import_holdout_case.py .cache/holdout_import/<case>.yaml` seals a verified holdout
   case in its own database (`HOLDOUT_DATABASE_URL`, never given to the deployed API; its
   migrations in `src/womm/eval/holdout_migrations/` are run only by the holdout scripts). The

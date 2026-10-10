@@ -543,6 +543,7 @@ def check_draft(
     allow_pending: bool = False,
     escalated: bool = False,
     everything: bool = False,
+    holdout_spot_check: bool = False,
     reviewer_pattern: re.Pattern[str] | None = GITHUB_USERNAME,
     ia_text: str | None = None,
 ) -> list[str]:
@@ -552,10 +553,12 @@ def check_draft(
     ``allow_pending`` is the draft-PR exemption: undecided items and missing reviewers are
     tolerated, malformed decisions are not. ``reviewer_pattern`` None accepts any non-empty
     reviewer name (local holdout verification). ``ia_text`` is the cached IA, when available,
-    against which ``human_added`` anchors are checked (``human_added_problems``)."""
+    against which ``human_added`` anchors are checked (``human_added_problems``).
+    ``holdout_spot_check`` is the local holdout spot check (scripts/verify_golden_case.py
+    --spot-check): the tool's decisions stand, as for train/val, beside the owner's sample."""
     cid = draft.case_id
     problems: list[str] = []
-    if draft.split == "holdout" and not everything:
+    if draft.split == "holdout" and not (everything or holdout_spot_check):
         problems.append(f"{cid}: split 'holdout' never goes through a PR; use verify_golden_case")
     ids = [i.item_id for i in draft.items()]
     for dup in sorted({i for i in ids if ids.count(i) > 1}):
