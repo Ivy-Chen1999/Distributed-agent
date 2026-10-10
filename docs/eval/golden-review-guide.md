@@ -13,7 +13,7 @@ holds the full rules.
 >
 > The judges and the tie-break use a different model from the drafter (a config that does not is
 > refused). Before the first tie-broken drafts are published, a **one-time reference check**
-> (`scripts/reference_check.py`, `womm.eval.reference_check`) has two people label about 20
+> (`scripts/reference_check.py`, `womm.eval.reference_check`) has two people label 30
 > items blind: kept by the judges, kept by the tie-break, dropped by it. Each labels alone; the
 > items they split on are then settled together on a reconcile page that shows each person's
 > label and note, never the tool's. The spot checks stay optional only if the tool's error rate

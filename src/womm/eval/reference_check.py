@@ -35,9 +35,9 @@ shares of the population; the gate uses the higher of the two, and an item still
 counts as an error. At or below ``MAX_ERROR`` (the same 10% that escalates a proposal to full
 review), with every item settled and every annotator's answers complete, the reference answers
 count as robust and later spot checks stay optional; above it, fix the prompts, re-draft and
-check again. With about 20 items this catches gross failures, not small ones: the one-sided 95%
-upper bound printed next to the rate says how far the true rate could be (no error in 20 items
-still allows about 12%).
+check again. The one-sided 95% upper bound printed next to the rate says how far the true rate
+could be: no error in 30 items (the default) keeps it below 10%; no error in 20 still allows about
+12%, so 20 items catch gross failures only.
 """
 
 from __future__ import annotations
@@ -318,7 +318,7 @@ def _readme(annotators: list[str]) -> str:
     files = "\n".join(f"   - {a}: `label_{a}.html`" for a in annotators)
     return f"""# Reference-answer check sample
 
-1. **Label alone (about 10 minutes each).** Send each annotator their own page, and nothing
+1. **Label alone (about half a minute per item).** Send each annotator their own page, and nothing
    else. They open it in a browser (not a private window), answer one item per screen and send
    back the downloaded `answers_<name>.yaml`. No talking about items until everyone is done.
 {files}
