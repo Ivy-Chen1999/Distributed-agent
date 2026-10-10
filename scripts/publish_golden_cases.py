@@ -1,13 +1,15 @@
-"""Publish fully reviewed golden-case drafts as scored cases (U5).
+"""Publish settled golden-case drafts as scored cases (U5).
 
     uv run python scripts/publish_golden_cases.py                 # every ready draft
     uv run python scripts/publish_golden_cases.py --case case_03_x --dry-run
 
-Run after the review PR is merged. For each draft in evals/golden/drafts/ the script runs the
-same strict check as CI (tests/eval/test_golden_drafts.py), then writes
-evals/golden/<case_id>.yaml: rejected and unclear items are dropped, edited items are taken as
-written, accepted possibly_missing candidates become expected impacts with provenance
-``human_confirmed_candidate``, and the notes record the reviewers and dates. A case keeping
+Run after the draft's review PR is merged and, for tie-broken drafts, after the one-time
+reference check (scripts/reference_check.py), which needs the drafts this script deletes. For
+each draft in evals/golden/drafts/ the script runs the same strict check as CI
+(tests/eval/test_golden_drafts.py), then writes evals/golden/<case_id>.yaml: items dropped by
+the tie-break, rejected and unclear items are left out, edited items are taken as written,
+accepted possibly_missing candidates become expected impacts, and the notes record how the
+items were settled (the tie-break, or the reviewers and dates). A case keeping
 fewer than 3 expected impacts is refused. The published case must pass
 ``check_against_fixture``; then the draft is deleted and its audit counts are added to
 evals/golden/audit_tally.yaml (counts per fixture only), so a proposal's escalation spans PRs.
