@@ -88,28 +88,33 @@ def answer_file(path, key: dict, name: str, labels: dict, notes: dict | None = N
     path.write_text("\n".join(rows) + "\n")
 
 
-def test_the_pages_are_blind_and_the_key_is_private(tmp_path):
+def test_the_pages_are_blind_and_each_annotator_gets_their_own_items(tmp_path):
     out = tmp_path / "check"
     drafts = [tiebroken("case_90_a"), tiebroken("case_91_b")]
-    res = rc.write_sample(out, drafts, n=6, seed=1, annotators=["ana", "bo"], ia_root=tmp_path,
+    res = rc.write_sample(out, drafts, n=3, seed=1, annotators=["ana", "bo"], ia_root=tmp_path,
                           send_to="Yuxin on Slack")  # fmt: skip
-    assert res["items"] == 6 and res["missing_ia"] == ["data_act"]
+    assert res["items"] == 6 and res["per_annotator"] == {"ana": 3, "bo": 3}
+    assert res["missing_ia"] == ["data_act"]
     page = (out / "label_ana.html").read_text()
     assert not re.search(r"__[A-Z_]+__", page) and "Yuxin on Slack" in page
-    data = page_data(out / "label_ana.html")
-    assert data["annotator"] == "ana" and len(data["items"]) == 6
-    for leak in LEAKS:
-        assert leak not in json.dumps(data)
     key = json.loads((out / rc.KEY_FILE).read_text())
-    assert data["sample"] == key["sample"] and set(key["items"]) == {f"r{i}" for i in range(1, 7)}
-    assert abs(sum(key["population"]["shares"].values()) - 1) < 1e-9
-    assert [i["id"] for i in data["items"]] != [
-        i["id"] for i in page_data(out / "label_bo.html")["items"]
-    ]  # each annotator has their own order
+    pages = {a: page_data(out / f"label_{a}.html") for a in ("ana", "bo")}
+    for name, data in pages.items():
+        assert data["annotator"] == name and data["sample"] == key["sample"]
+        assert {i["id"] for i in data["items"]} == {
+            iid for iid, it in key["items"].items() if it["annotator"] == name
+        }
+        for leak in LEAKS:
+            assert leak not in json.dumps(data)
+    ana, bo = ({i["id"] for i in pages[a]["items"]} for a in ("ana", "bo"))
+    assert not ana & bo and ana | bo == set(key["items"])
+    for name in ("ana", "bo"):  # about a third of each stratum per person
+        mine = [it["stratum"] for it in key["items"].values() if it["annotator"] == name]
+        assert len(set(mine)) == 3
     with pytest.raises(rc.ReferenceCheckError, match="exists"):
-        rc.write_sample(out, drafts, n=6, seed=1, annotators=["ana"])
+        rc.write_sample(out, drafts, n=3, seed=1, annotators=["ana"])
     with pytest.raises(rc.ReferenceCheckError, match="distinct"):
-        rc.write_sample(tmp_path / "x", drafts, n=6, seed=1, annotators=["ana", "ana"])
+        rc.write_sample(tmp_path / "x", drafts, n=3, seed=1, annotators=["ana", "ana"])
 
 
 def test_a_sampled_item_never_shows_among_the_others():
@@ -123,124 +128,111 @@ def test_a_sampled_item_never_shows_among_the_others():
 
 def _key(rows: list[tuple[str, bool]], annotators=("ana", "bo")) -> dict:
     items = {f"r{n}": {"case_id": "c", "fixture": "f", "item_id": f"i{n}", "stratum": s,
-                       "tool_kept": k} for n, (s, k) in enumerate(rows, 1)}  # fmt: skip
-    shares = {s: sum(r[0] == s for r in rows) / len(rows) for s in rc.STRATA}
-    return {"sample": "2026-10-09-test", "annotators": list(annotators), "items": items,
-            "population": {"items": len(rows), "shares": shares}}  # fmt: skip
+                       "tool_kept": k, "tool_reason": "",
+                       "annotator": annotators[n % len(annotators)]}
+             for n, (s, k) in enumerate(rows, 1)}  # fmt: skip
+    return {"sample": "2026-10-10-test", "annotators": list(annotators), "items": items}
 
 
-def test_score_counts_the_tool_wrong_where_the_humans_disagree_with_it():
+def test_score_counts_wrong_and_not_sure_items_as_errors():
     key = _key([("judges_accepted", True)] * 10 + [("tiebreak_dropped", False)] * 10)
-    yes = {f"r{n}": "keep" if n <= 10 else "drop" for n in range(1, 21)}
-    one_wrong = yes | {"r11": "keep"}
-    res = rc.score(key, {"ana": one_wrong, "bo": one_wrong})
-    assert res["error_raw"] == pytest.approx(0.05) and res["robust"]
-    assert res["wrong"] == ["r11"] and res["error_by_stratum"]["tiebreak_dropped"] == 0.1
-    assert 0.05 < res["upper_bound_95"] < 0.25
-    three_wrong = yes | {"r11": "keep", "r12": "keep", "r1": "drop"}
-    res = rc.score(key, {"ana": three_wrong, "bo": three_wrong})
-    assert res["error"] == pytest.approx(0.15) and not res["robust"]
+    truth = {f"r{n}": "keep" if n <= 10 else "drop" for n in range(1, 21)}
+    res = rc.score(key, truth | {"r11": "keep"})
+    assert res["wrong"] == ["r11"] and res["error"] == pytest.approx(0.05) and res["robust"]
+    assert res["error_by_stratum"]["tiebreak_dropped"] == pytest.approx(0.1)
+    res = rc.score(key, truth | {"r11": "keep", "r1": "unsure", "r2": "drop"})
+    assert res["unsure"] == ["r1"] and res["error"] == pytest.approx(0.15) and not res["robust"]
 
 
-def test_no_error_in_20_items_still_allows_about_12_percent():
+def test_a_blank_blocks_the_verdict():
+    key = _key([("judges_accepted", True)] * 4)
+    res = rc.score(key, {"r1": "keep", "r2": "keep", "r3": "keep", "r4": None})
+    assert res["blank"] == ["r4"] and res["error"] == 0 and not res["robust"]
+    assert "INCOMPLETE" in rc.format_result(res, key)
+
+
+def test_the_upper_bound_shrinks_with_the_sample():
     assert rc.upper_bound(0, 20) == pytest.approx(0.119, abs=0.002)
     assert rc.upper_bound(0, 30) < 0.1 < rc.upper_bound(0, 20)
+    assert rc.upper_bound(0, 60) < 0.05
 
 
-def test_a_split_or_an_unsure_leaves_the_item_unsettled_and_counted_as_an_error():
-    key = _key([("judges_accepted", True)] * 5 + [("tiebreak_dropped", False)] * 5)
-    ana = {f"r{n}": "keep" if n <= 5 else "drop" for n in range(1, 11)}
-    bo = ana | {"r1": "drop", "r6": "unsure"}  # a split, and drop + unsure
-    res = rc.score(key, {"ana": ana, "bo": bo})
-    assert res["split"] == ["r1", "r6"] and res["unsettled"] == ["r1", "r6"]
-    assert res["wrong"] == [] and res["error_raw"] == pytest.approx(0.2) and not res["robust"]
-    assert res["inter_annotator_agreement"] == pytest.approx(8 / 9)
-    res = rc.score(key, {"ana": ana, "bo": bo}, {"r1": "keep", "r6": "drop"})
-    assert res["reconciled"] == 2 and res["unsettled"] == [] and res["robust"]
-    res = rc.score(key, {"ana": ana, "bo": bo}, {"r1": "drop", "r6": "keep"})
-    assert res["wrong"] == ["r1", "r6"] and not res["robust"]
+def test_the_result_shows_the_tools_reason_and_the_persons_note():
+    key = _key([("judges_accepted", True)] * 9 + [("tiebreak_kept", True)])
+    key["items"]["r10"]["tool_reason"] = "tie-break: the IA states it"
+    labels = {f"r{n}": "keep" for n in range(1, 10)} | {"r10": "drop", "r1": "unsure"}
+    out = rc.format_result(rc.score(key, labels), key, {"r10": "another option", "r1": "vague"})
+    assert "wrong: r10 = c i10 (tiebreak_kept, kept by the tool)" in out
+    assert "tool: tie-break: the IA states it" in out and "person: another option" in out
+    assert "not sure: r1 = c i1" in out and "person: vague" in out
+    assert "NOT ROBUST" in out
 
 
-def test_kappa_corrects_for_chance_and_blanks_block_the_verdict():
-    key = _key([("judges_accepted", True)] * 5 + [("tiebreak_dropped", False)] * 5)
-    ana = {f"r{n}": "keep" if n <= 5 else "drop" for n in range(1, 11)}
-    bo = ana | {"r1": "drop", "r6": "keep"}
-    res = rc.score(key, {"ana": ana, "bo": bo})
-    assert res["inter_annotator_agreement"] == pytest.approx(0.8)
-    assert res["cohen_kappa"] == pytest.approx(0.6)
-    res = rc.score(key, {"ana": ana, "bo": ana | {"r2": None}}, {"r2": "keep"})
-    assert res["blank"] == {"ana": 0, "bo": 1} and not res["robust"]
-
-
-def test_three_annotators_need_two_matching_votes():
-    key = _key([("tiebreak_kept", True)] * 3, annotators=("a", "b", "c"))
-    votes = {"a": {"r1": "keep", "r2": "keep", "r3": "keep"},
-             "b": {"r1": "keep", "r2": "unsure", "r3": "drop"},
-             "c": {"r1": "drop", "r2": "unsure", "r3": "unsure"}}  # fmt: skip
-    res = rc.score(key, votes)
-    assert res["unsettled"] == ["r2", "r3"] and res["settled"] == 1
-
-
-def test_the_natural_rate_weights_the_strata_by_population():
-    key = _key([("judges_accepted", True)] * 2 + [("tiebreak_kept", True)] * 2)
-    key["population"]["shares"] = {"judges_accepted": 0.9, "tiebreak_kept": 0.1,
-                                   "tiebreak_dropped": 0.0}  # fmt: skip
-    labels = {"r1": "keep", "r2": "keep", "r3": "drop", "r4": "keep"}
-    res = rc.score(key, {"ana": labels})
-    assert res["error_raw"] == 0.25 and res["error_natural"] == pytest.approx(0.05)
-    assert res["error"] == 0.25  # the higher of the two
-
-
-def test_answers_must_come_from_the_samples_annotators_and_the_same_sample(tmp_path):
-    key = _key([("tiebreak_kept", True)] * 2)
-    labels = {"r1": "keep", "r2": "keep"}
-    answer_file(tmp_path / "answers_ana.yaml", key, "ana", labels)
+def test_answer_files_are_checked_against_the_sample(tmp_path):
+    key = _key([("tiebreak_kept", True)] * 4)  # r1, r3 -> bo; r2, r4 -> ana
+    answer_file(tmp_path / "answers_ana.yaml", key, "ana", {"r2": "keep", "r4": "drop"})
     with pytest.raises(rc.ReferenceCheckError, match="no answers yet from bo"):
         rc.read_answers(tmp_path, key)
-    answer_file(tmp_path / "answers_bo.yaml", key, "bo", {"r1": "keep"})
-    answers, _ = rc.read_answers(tmp_path, key)
-    assert answers["bo"] == {"r1": "keep", "r2": None}  # a missing row is a blank
-    answer_file(tmp_path / "answers_test.yaml", key, "test", labels)
-    with pytest.raises(rc.ReferenceCheckError, match="test, who is not an annotator"):
+    answer_file(tmp_path / "answers_bo.yaml", key, "bo", {"r1": "keep"}, {"r1": "fine"})
+    labels, notes = rc.read_answers(tmp_path, key)
+    assert labels == {"r1": "keep", "r2": "keep", "r3": None, "r4": "drop"}  # missing = blank
+    assert notes == {"r1": "fine"}
+    answer_file(tmp_path / "answers_bo.yaml", key, "bo", {"r2": "keep"})
+    with pytest.raises(rc.ReferenceCheckError, match="r2 is not on bo's page"):
         rc.read_answers(tmp_path, key)
-    (tmp_path / "answers_test.yaml").unlink()
-    answer_file(tmp_path / rc.RECONCILED_FILE, key | {"sample": "other"}, "together", labels)
+    answer_file(tmp_path / "answers_bo.yaml", key, "bo", {"r1": "maybe"})
+    with pytest.raises(rc.ReferenceCheckError, match="use one of"):
+        rc.read_answers(tmp_path, key)
+    (tmp_path / "answers_bo.yaml").unlink()
+    answer_file(tmp_path / "answers_test.yaml", key, "test", {"r1": "keep"})
+    with pytest.raises(rc.ReferenceCheckError, match="test is not an annotator"):
+        rc.read_answers(tmp_path, key)
+    answer_file(tmp_path / "answers_test.yaml", key | {"sample": "other"}, "bo", {"r1": "keep"})
     with pytest.raises(rc.ReferenceCheckError, match="belongs to sample other"):
-        rc.read_reconciled(tmp_path, key)
+        rc.read_answers(tmp_path, key)
 
 
-def test_the_script_samples_scores_and_writes_a_blind_reconcile_page(tmp_path, capsys):
+def test_quoted_names_survive_and_malformed_files_are_refused(tmp_path):
+    key = _key([("tiebreak_kept", True)] * 2, annotators=("yes", "007"))
+    answer_file(tmp_path / "answers_yes.yaml", key, "yes", {"r2": "keep"})
+    answer_file(tmp_path / "answers_007.yaml", key, "007", {"r1": "keep"})
+    labels, _ = rc.read_answers(tmp_path, key)
+    assert labels == {"r1": "keep", "r2": "keep"}  # not True and 7
+    (tmp_path / "answers_007.yaml").write_text("annotator: '007'\nanswers: []\n")
+    with pytest.raises(rc.ReferenceCheckError, match="belongs to sample None"):
+        rc.read_answers(tmp_path, key)
+    (tmp_path / "answers_007.yaml").write_text("- just a list\n")
+    with pytest.raises(rc.ReferenceCheckError, match="not an answer file"):
+        rc.read_answers(tmp_path, key)
+
+
+def test_the_script_samples_and_scores(tmp_path, capsys):
     drafts_dir = tmp_path / "drafts"
     paths = [write_draft(tiebroken(c), drafts_dir) for c in ("case_90_a", "case_91_b")]
     out = tmp_path / "check"
     argv = ["sample", *map(str, paths), "--annotator", "ana", "--annotator", "bo", "--out",
-            str(out), "--n", "6", "--ia-root", str(tmp_path), "--holdout-registry",
+            str(out), "--n", "3", "--ia-root", str(tmp_path), "--holdout-registry",
             str(tmp_path / "x.yaml")]  # fmt: skip
     assert script.main(argv) == 0
     capsys.readouterr()
     key = json.loads((out / rc.KEY_FILE).read_text())
-    ids = sorted(key["items"])
-    truth = {i: "keep" if key["items"][i]["tool_kept"] else "drop" for i in ids}
-    flip = {"keep": "drop", "drop": "keep"}
-    answer_file(out / "answers_ana.yaml", key, "ana", truth, {i: f"ana on {i}" for i in ids})
-    answer_file(out / "answers_bo.yaml", key, "bo", truth | {ids[0]: flip[truth[ids[0]]]},
-                {i: f"bo on {i}" for i in ids})  # fmt: skip
+    truth = {i: "keep" if it["tool_kept"] else "drop" for i, it in key["items"].items()}
+    for name in ("ana", "bo"):
+        mine = {i: truth[i] for i, it in key["items"].items() if it["annotator"] == name}
+        answer_file(out / f"answers_{name}.yaml", key, name, mine)
     score = ["score", "--dir", str(out)]
+    assert script.main(score) == 0
+    assert "tool error 0.0%" in capsys.readouterr().out
+    first = min(i for i, it in key["items"].items() if it["annotator"] == "ana")
+    flip = {"keep": "drop", "drop": "keep"}
+    mine = {i: truth[i] for i, it in key["items"].items() if it["annotator"] == "ana"}
+    answer_file(out / "answers_ana.yaml", key, "ana", mine | {first: flip[truth[first]]},
+                {first: "the quote is about another option"})  # fmt: skip
     assert script.main(score) == 1
     printed = capsys.readouterr().out
-    assert f"not settled yet: {ids[0]}" in printed and "NOT SETTLED YET" in printed
-    assert "wrong:" not in printed
-    data = page_data(out / rc.RECONCILE_PAGE)
-    assert data["mode"] == "reconcile" and data["file"] == rc.RECONCILED_FILE
-    assert [i["id"] for i in data["items"]] == [ids[0]]
-    assert {v["annotator"]: v["note"] for v in data["items"][0]["votes"]} == {
-        "ana": f"ana on {ids[0]}", "bo": f"bo on {ids[0]}"}  # fmt: skip
-    for leak in LEAKS:
-        assert leak not in json.dumps(data)
-    answer_file(out / rc.RECONCILED_FILE, key, "together", {ids[0]: truth[ids[0]]})
-    assert script.main(score) == 0
-    assert "1 of them together" in capsys.readouterr().out
-    answer_file(out / "answers_bo.yaml", key, "bo", truth | {ids[1]: "maybe"})
+    assert f"wrong: {first}" in printed and "    tool: " in printed
+    assert "person: the quote is about another option" in printed and "NOT ROBUST" in printed
+    (out / "answers_bo.yaml").unlink()
     assert script.main(score) == 2
 
 
@@ -250,49 +242,6 @@ def test_the_passage_keeps_the_case_and_marks_the_quote():
     assert p["quote"] == "Widget Providers would face cost number 5 under the option"
     assert p["before"].endswith("The ") and p["after"].startswith(". Rest")
     assert rc._passage("nowhere to be found in it", text, 10) is None
-
-
-def test_one_unsettled_item_blocks_the_verdict_even_under_the_limit():
-    key = _key([("judges_accepted", True)] * 20)
-    labels = {f"r{n}": "keep" for n in range(1, 21)}
-    res = rc.score(key, {"ana": labels, "bo": labels | {"r1": "unsure"}})
-    assert res["error"] == pytest.approx(0.05) and res["unsettled"] == ["r1"]
-    assert not res["robust"]
-
-
-def test_answer_files_need_the_sample_id_and_quoted_names_survive(tmp_path):
-    key = _key([("tiebreak_kept", True)] * 2, annotators=("yes", "007"))
-    labels = {"r1": "keep", "r2": "keep"}
-    for name in ("yes", "007"):
-        answer_file(tmp_path / f"answers_{name}.yaml", key, name, labels)
-    answers, _ = rc.read_answers(tmp_path, key)
-    assert set(answers) == {"yes", "007"}  # not True and 7
-    (tmp_path / "answers_007.yaml").write_text("annotator: '007'\nanswers: []\n")
-    with pytest.raises(rc.ReferenceCheckError, match="belongs to sample None"):
-        rc.read_answers(tmp_path, key)
-    (tmp_path / "answers_007.yaml").write_text("- just a list\n")
-    with pytest.raises(rc.ReferenceCheckError, match="not an answer file"):
-        rc.read_answers(tmp_path, key)
-
-
-def test_low_agreement_before_reconciling_makes_the_result_unreliable():
-    key = _key([("judges_accepted", True)] * 5 + [("tiebreak_dropped", False)] * 5)
-    truth = {f"r{n}": "keep" if n <= 5 else "drop" for n in range(1, 11)}
-    flips = {"r1": "drop", "r2": "drop", "r6": "keep", "r7": "keep"}
-    res = rc.score(key, {"ana": truth, "bo": truth | flips}, {i: truth[i] for i in flips})
-    assert res["inter_annotator_agreement"] == pytest.approx(0.6) and res["error"] == 0
-    assert not res["robust"]
-    assert "NOT RELIABLE" in rc.format_result(res, key)
-
-
-def test_wrong_items_show_the_tools_reason_and_split_items_are_ambiguous():
-    key = _key([("judges_accepted", True)] * 9 + [("tiebreak_kept", True)])
-    key["items"]["r10"]["tool_reason"] = "tie-break: the IA states it"
-    labels = {f"r{n}": "keep" for n in range(1, 10)} | {"r10": "drop"}
-    res = rc.score(key, {"ana": labels, "bo": labels | {"r1": "drop"}}, {"r1": "keep"})
-    out = rc.format_result(res, key)
-    assert "wrong: r10" in out and "tie-break: the IA states it" in out
-    assert "ambiguous (annotators split): r1 = c i1, kept by the tool" in out
 
 
 def test_the_key_keeps_the_tools_reason():
