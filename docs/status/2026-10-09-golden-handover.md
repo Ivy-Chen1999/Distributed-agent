@@ -27,14 +27,15 @@ report is `docs/status/2026-10-06-v1-progress.md`; the human steps are in
 The 11 train/val drafts (cases 03–13) are settled by tools alone, so nobody has to review a draft.
 Before the drafts are published, two classmates do a **one-time blind reference check**: 30
 items each, about 15 minutes, each on their own items. It measures whether the tool chain is
-robust. The check is built and tested; it has not been run with real annotators yet.
+robust. It runs on the deployed app: one link, sign-in by name, answers saved as people label.
+The check is built and tested end to end; it has not been run with real annotators yet.
 
 ## Branches and PRs
 
 | Branch | PR | Contents |
 |---|---|---|
 | `feat/golden-import` | #5 | Golden import, drafting, tie-break, the grader-model rule and the reference check |
-| `feat/v1-integration` | #6 | Integration branch; `feat/golden-import` merged in; has `womm calibrate` |
+| `feat/v1-integration` | #6 | Integration branch; `feat/golden-import` merged in; has `womm calibrate` and the hosted labelling pages (`womm.api.labels`) |
 | `feat/eu-cost` | #18 | EU cost work; `feat/golden-import` merged in |
 | `feat/provision-comparison` | #3 | Plans and status docs, including this file |
 | `review/case-03-…` … `review/case-13-…` | #7–#17 | One draft each, re-settled by the Sonnet tie-break (below) |
@@ -50,7 +51,10 @@ merged; `evals/golden/drafts/` on `feat/golden-import` is empty.
 2. Replace the descriptions of #7–#17 with the ones generated from the current drafts. They are
    on the owner's machine in `.cache/handover/pr_bodies/pr_<N>_body.md` (gitignored); the
    descriptions on GitHub still show the earlier Opus counts.
-3. Draw the reference-check sample yourself (step 2 below) or hand over the IA cache: the
+3. Deploy the labelling pages: merge `feat/v1-integration` into `main` (Railway deploys
+   `main`) and set `WOMM_LABEL_ADMIN_TOKEN` (at least 16 random characters) in the Railway
+   variables and in the local `.env`. Without it the `/label` pages do not exist.
+4. Draw the reference-check sample yourself (step 2 below) or hand over the IA cache: the
    labelling pages show the text around each IA quote only when `.cache/ia/<fixture>/` exists.
    It is filled by `scripts/draft_golden_case.py` and is not in git; without it the pages show
    the quote alone.
@@ -85,33 +89,40 @@ merged; `evals/golden/drafts/` on `feat/golden-import` is empty.
 ## The reference check in brief
 
 Code: `src/womm/eval/reference_check.py` (the module docstring is the spec),
-`src/womm/eval/reference_check_page.html` and `scripts/reference_check.py`. Tests:
-`tests/eval/test_reference_check.py`.
+`src/womm/eval/labelling_page.html` (shared with the calibration), `scripts/reference_check.py`,
+and the hosting in `src/womm/api/labels.py` and `src/womm/eval/hosted_labels.py`. Tests:
+`tests/eval/test_reference_check.py`, `tests/api/test_labels.py` and
+`tests/api/test_labels_pipeline.py` (the whole path against Postgres). Edit this code on
+`feat/v1-integration`: the hosting exists only there.
 
-1. **Sample** 30 items per annotator, a third from each stratum, each annotator their own items.
-   Each gets one self-contained `label_<name>.html`. Nothing on the page reveals the tool's
-   decision. A sampled item is never listed among its case's other items, because that would
-   reveal whether it was kept.
-2. Each annotator **labels** (keep, drop or not sure, with an optional note) and sends back the
-   downloaded `answers_<name>.yaml`.
+1. **Sample** 30 items per annotator, a third from each stratum, each annotator their own items,
+   and **upload** them to the app. Nothing on the page reveals the tool's decision. A sampled item
+   is never listed among its case's other items, because that would reveal whether it was kept.
+2. Each annotator opens the link, signs in with their name and **labels** (keep, drop or can't
+   tell, with an optional note); every answer is saved on the app. The owner **fetches** them
+   back as `answers_<name>.yaml`. (A self-contained `label_<name>.html` per annotator is still
+   written, as a fallback without the app; it downloads the answer file instead.)
 3. **Score.** The tool's error rate is the share of items where the person's keep/drop differs
    from the tool; "not sure" counts as an error. ROBUST at 10% or less, with every item
    answered. The output shows the rate per stratum and a one-sided 95% upper bound, and for each
    wrong item the tool's own reason and the person's note.
 
 Every file carries the sample id; files from another sample are refused. `key.private.json`
-holds the tool's decisions and is never sent to an annotator.
+holds the tool's decisions and is never sent to an annotator or uploaded; the app refuses cards
+that carry a decision.
 
-**To practise,** draw a sample with made-up names into a scratch directory (any
-`--annotator demo1 --annotator demo2 --out .cache/reference_check/practice/`), open a page,
-label a few items and run `score`.
+**To practise,** run the app locally (`README.md`, with `WOMM_LABEL_ADMIN_TOKEN` set), draw a
+sample with made-up names into a scratch directory (`--annotator demo1 --annotator demo2 --out
+.cache/reference_check/practice/`), `upload` it to `http://localhost:8000`, label a few items as
+each name, then `fetch` and `score`.
 
 ## Next steps, in order
 
 1. Mark the review PRs #7–#17 ready (the strict gate passes on each) and merge them into
    `feat/golden-import`. The drafts are then in `evals/golden/drafts/`.
-2. On `feat/golden-import`, draw the real sample with the classmates' names (letters, digits,
-   `-` and `_` only; they become file names):
+2. Merge `feat/golden-import` into `feat/v1-integration` (the `upload` and `fetch` commands
+   exist only there) and, on `feat/v1-integration`, draw the real sample with the classmates'
+   names (letters, digits, `-` and `_` only; they type it to sign in):
 
    ```
    uv run python scripts/reference_check.py sample evals/golden/drafts/case_*.yaml \
@@ -120,10 +131,11 @@ label a few items and run `score`.
    ```
 
    Draw the sample **before** publishing: `scripts/publish_golden_cases.py` deletes each draft
-   it publishes. Send each classmate their own `label_<name>.html` and nothing else.
-3. Put the answer files in `round1/`, run
-   `uv run python scripts/reference_check.py score --dir .cache/reference_check/round1/`,
-   and record the result in the table in step 1a of the
+   it publishes. Then `uv run python scripts/reference_check.py upload --dir
+   .cache/reference_check/round1/ --url https://<app>` and send the printed link to both.
+3. When `https://<app>/label/<sample>/admin` shows both as sent, run `fetch` (same arguments as
+   `upload`), then `uv run python scripts/reference_check.py score --dir
+   .cache/reference_check/round1/`, and record the result in the table in step 1a of the
    human-steps file.
 4. Run the full-score check on the drafts (no people; one coverage-judge call per case):
    `uv run python scripts/oracle_check.py evals/golden/drafts/case_*.yaml`. It scores each
@@ -139,9 +151,9 @@ label a few items and run `score`.
    again with a new `--out` and a new `--seed`.
 6. Then continue with the human-steps file on `feat/v1-integration` (merge `feat/golden-import`
    into it first; `womm calibrate` exists only there): the train/val eval run, the judge
-   calibration (step 3: `womm calibrate sample`, blind `sheet_<name>.md` files; a labelling web
-   page is planned in `docs/plans/2026-10-08-001-feat-labelling-web-ui-plan.md`), and the owner
-   reading 3–4 eval transcripts.
+   calibration (step 3: `womm calibrate sample`, then `upload`, `fetch` and `score --record`, on
+   the same labelling pages), and the owner reading 3–4 eval transcripts. Ask the classmates for
+   both tasks in one sitting.
 
 ## Open decisions
 

@@ -5,7 +5,10 @@ with who, how long, the exact commands, and what "done" looks like. Commands ref
 `feat/v1-integration` (PR #6).
 
 Total human time: about 6–8 hours, nearly all the project owner's. Classmates have one sitting:
-the blind reference check and judge calibration (step 3), about 45 minutes each. Revised
+the blind reference check and judge calibration (step 3), about 45 minutes each. Both run on
+the deployed app (revised 2026-10-10): each classmate gets a link, signs in with their name and
+labels in the browser; every answer is saved on the app as they go, so nothing is downloaded
+or sent back. Revised
 2026-10-08: golden cases need no human review (step 1). Revised 2026-10-09 after checking
 Anthropic's eval guidance: the tie-break no longer runs on the drafter's model, and robustness
 is measured once with a blind reference check before the drafts are published (step 1a).
@@ -22,6 +25,11 @@ is measured once with a blind reference check before the drafts are published (s
 | 7 | Branch protection on `main` | repo owner | 2 min | review gate enforcement |
 | 8 | 2026-11-20 route decision | project owner | 15 min | the demo |
 | 9 | Cost estimation: confirm defaults, check the IA cost reference, commit the cost versions | project owner (check: anyone careful) | about 1.5 h | scored cost sweeps (R6) |
+
+**Before any classmate step:** the app must run the labelling pages. Merge
+`feat/v1-integration` into `main` (Railway deploys `main`) and set `WOMM_LABEL_ADMIN_TOKEN` (a
+random value of at least 16 characters) in the Railway service's variables and in your local
+`.env`. Check that `https://<app>/label/x` answers 404 rather than the console.
 
 Steps 1, 1a and 7 can start today; step 3 needs the published cases and a first eval run. Step 4 should come before any holdout comparison, and step 2
 before any promotion.
@@ -54,14 +62,21 @@ measures that once, before the tool-settled drafts are published (publishing del
   ```
 
   30 items per annotator (the default `--n`), each their own, a third each kept by the three
-  judges, kept by the tie-break and dropped by it. Annotator names may use letters, digits, `-` and `_` only; they become
-  file names. The page shows the claim, the IA quote and the text around it; never the tool's decision
-  (that stays in `key.private.json`).
-- **Label (2 classmates, about 15 minutes each):** each opens their own `label_<name>.html`
-  and, for each item, picks `keep`, `drop` or `unsure`: does it belong in the reference answer?
-  Then send back the downloaded `answers_<name>.yaml`.
-- **Score (owner):** `uv run python scripts/reference_check.py score --dir .cache/reference_check/round1/`
-  `score` refuses to run until every annotator's file is in; `unsure` counts as an error.
+  judges, kept by the tie-break and dropped by it. Annotator names may use letters, digits, `-`
+  and `_` only; they are what each classmate types to sign in. The pages show the claim, the IA
+  quote and the text around it; never the tool's decision (that stays in `key.private.json`,
+  which is never uploaded).
+- **Host (owner):**
+  `uv run python scripts/reference_check.py upload --dir .cache/reference_check/round1/ --url https://<app>`
+  prints the one link to send to both classmates. Watch progress at `https://<app>/label/<sample>/admin`
+  (it asks for the admin token).
+- **Label (2 classmates, about 15 minutes each):** open the link, sign in with their name, read
+  the welcome card and the short guide on the first item, then answer each item: does the report
+  back this point up? (`Yes, keep` / `No, drop` / `Can't tell`). Press "Finish & send" at the end.
+- **Score (owner):** when the admin page shows both as sent,
+  `uv run python scripts/reference_check.py fetch --dir .cache/reference_check/round1/ --url https://<app>`
+  then `uv run python scripts/reference_check.py score --dir .cache/reference_check/round1/`.
+  `score` refuses to give a verdict while an item is blank; `unsure` counts as an error.
 - **Done:** error at most 10% ("ROBUST"): publish, and spot checks stay optional. With no error
   in the 60 items, `score` also shows the true rate is below 5% at 95%. Above 10%: fix the drafting or tie-break prompt, re-run the tie-break
   or re-draft, and check again with a new sample. Record the result here:
@@ -98,16 +113,18 @@ eval guidance, it is trusted only after it agrees with people on a labelled samp
       --out .cache/calibration/round1/
   ```
 
-  This writes one blind labelling sheet per annotator (`sheet_<name>.md`, with an
-  `answers_<name>.yaml` to fill in). Pairs are half judge-covered and half judge-missed, and the
-  order is shuffled per annotator. The judge's verdicts stay in `key.private.json`; never send
-  that file to annotators.
-- **Label (2 classmates, about 30 minutes each):** for each pair, decide whether the dossier
-  covers the expected impact: `covered`, `not_covered` or `unsure`, with an optional note.
-  Annotators work independently and do not discuss pairs until both are done.
-- **Score and record (owner):**
+  Pairs are half judge-covered and half judge-missed; both classmates label the same pairs, in
+  their own order. The judge's verdicts stay in `key.private.json`, which is never uploaded.
+  Then host it: `uv run womm calibrate upload --dir .cache/calibration/round1/ --url https://<app>`
+  prints the link. (Without the app, `sheet_<name>.md` and `answers_<name>.yaml` still work.)
+- **Label (2 classmates, about 30 minutes each):** same link pattern and sign-in as step 1a. For
+  each pair: does the system's dossier (left) cover the expected impact (right)?
+  `Yes, covered` / `No, not covered` / `Can't tell`. Work alone; don't discuss pairs until both
+  have sent.
+- **Score and record (owner):** when both have sent,
 
   ```
+  uv run womm calibrate fetch --dir .cache/calibration/round1/ --url https://<app>
   uv run womm calibrate score --dir .cache/calibration/round1/ --record
   git commit evals/promotion_records.yaml
   ```
