@@ -31,6 +31,16 @@ passed reference check; 6 before any holdout comparison; 7 and 8 any time after 
 
 ## 0. One-off setup (owner)
 
+**Done 2026-10-10:** `feat/v1-integration` (ae1c7f3) is deployed to the Railway service
+`womm-api` with `railway up` from a clean `git archive` (no git push, `main` unchanged), and
+`WOMM_LABEL_ADMIN_TOKEN` is set on Railway and in the local `.env`. A production smoke run
+(sample, upload, sign-in, label, submit, fetch, score) passed. Two practice samples are up
+(annotator names `classmate1`, `classmate2`): reference check `/label/2026-10-10-2ecc6be6`,
+calibration `/label/2026-10-10-50346b5f`; admin pages at `/label/<sample>/admin`. **Caveat:** a
+push to `main` redeploys `main`, which has no labelling pages yet: merge `feat/v1-integration`
+into `main` first (the pages and saved answers then stay). Still to do below: push, API key,
+branch protection.
+
 - Push every branch (normal push). Merge `feat/v1-integration` into `main`; Railway deploys
   `main`.
 - Railway service variables: `WOMM_LABEL_ADMIN_TOKEN`, at least 16 random characters. Put the
