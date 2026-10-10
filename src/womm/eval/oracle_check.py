@@ -53,15 +53,15 @@ class OracleResult:
         )
 
 
-def _finding(n: int, item: ExpectedImpact) -> ImpactFinding:
-    """The reference answer as one finding. No evidence: grounding is not what is checked."""
+def _finding(n: int, provision_key: str, actor: str, mechanism: str, impact: str) -> ImpactFinding:
+    """One reference item as a finding. No evidence: grounding is not what is checked."""
     return ImpactFinding(
         finding_id=f"oracle_f{n}",
         agent=ORACLE,
-        provision_key=item.provision_keys[0],
-        affected_actor=item.affected_actor,
-        mechanism=item.mechanism,
-        impact=item.impact,
+        provision_key=provision_key,
+        affected_actor=actor,
+        mechanism=mechanism,
+        impact=impact,
         evidence=[],
         confidence=1.0,
         provenance=Provenance(
@@ -76,12 +76,23 @@ def oracle_run(case: GoldenCase) -> RunResult:
     Impact ids are neutral (I1, I2, ...), never the expected or omission ids, so the judge has
     to match on content."""
     impacts = [
-        DossierImpact(impact_id=f"I{n}", summary=e.impact, findings=[_finding(n, e)], merged=True)
+        DossierImpact(
+            impact_id=f"I{n}",
+            summary=e.impact,
+            findings=[_finding(n, e.provision_keys[0], e.affected_actor, e.mechanism, e.impact)],
+            merged=True,
+        )
         for n, e in enumerate(case.expected_impacts, start=1)
     ]
     start = len(impacts) + 1
     impacts += [
-        DossierImpact(impact_id=f"I{n}", summary=o.description, findings=[], merged=True)
+        # A finding too: the judge discounts an impact with a summary and no findings.
+        DossierImpact(
+            impact_id=f"I{n}",
+            summary=o.description,
+            findings=[_finding(n, o.provision_keys[0], "", o.description, o.description)],
+            merged=True,
+        )
         for n, o in enumerate(case.important_omissions, start=start)
     ]
     run_id = f"{ORACLE}_{case.case_id}"

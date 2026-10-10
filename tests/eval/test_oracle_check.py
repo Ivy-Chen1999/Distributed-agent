@@ -55,7 +55,9 @@ def test_oracle_dossier_holds_every_expected_impact_and_omission():
     run = oracle_run(CASE)
     findings = [f for i in run.dossier.impacts for f in i.findings]
     got = {(f.affected_actor, f.mechanism, f.impact) for f in findings}
-    assert got == {(e.affected_actor, e.mechanism, e.impact) for e in CASE.expected_impacts}
+    assert got == {(e.affected_actor, e.mechanism, e.impact) for e in CASE.expected_impacts} | {
+        ("", o.description, o.description) for o in CASE.important_omissions
+    }  # an omission is a finding too: the judge discounts an impact without findings
     summaries = {i.summary for i in run.dossier.impacts}
     assert {o.description for o in CASE.important_omissions} <= summaries
     # Neutral impact ids: the judge must match on content, not on ids.
