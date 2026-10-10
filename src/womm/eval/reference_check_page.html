@@ -124,8 +124,10 @@ pre { white-space: pre-wrap; font-size: 12px; background: var(--bg); padding: 12
     <h2>What you are doing</h2>
     <p>For each new EU law, the Commission publishes an official report, the <b>impact
       assessment</b>, saying who the law affects and how. An AI tool turned those reports into an
-      answer key. You check <span id="nItems">these</span> items against the quoted report text, without seeing
-      what the tool decided, so we can measure how often it is wrong.</p>
+      answer key, and our system is scored against it. No person has checked that key.</p>
+    <p>You check <span id="nItems">these</span> items against the quoted report text, without
+      seeing what the tool decided. If the tool agrees with you at least 9 times in 10, the key is
+      trusted as it is; if not, the tool gets fixed before anything is scored with it.</p>
     <h2>The one question</h2>
     <p><b>Does this item belong in the answer key?</b></p>
     <ul class="rubric" id="rubric">
