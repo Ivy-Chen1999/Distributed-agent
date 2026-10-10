@@ -16,8 +16,8 @@ judges and the tie-break judge kept) are **optional spot checks**: if you have t
 below; a decision you make there counts towards the measured error rate, and a proposal whose
 error rate passes 10% goes back to full human review. People are needed for two blind labeling
 tasks instead, done once in the same sitting: the reference check (`scripts/reference_check.py`,
-30 items labeled alone (about 15 minutes), then a few minutes together on the items you split on: does each
-belong in the reference answer?) and the judge calibration
+30 items each, about 15 minutes: does each belong in the reference answer?) and the judge
+calibration
 (`womm calibrate`).
 
 Each review PR holds one file, `evals/golden/drafts/<case>.yaml`. The PR description says how

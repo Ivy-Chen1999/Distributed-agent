@@ -79,14 +79,6 @@ input.note { width: 100%; margin-top: 10px; font: inherit; padding: 8px 10px;
 .muted { color: var(--muted); font-size: 14px; }
 .note.need { border-color: var(--unsure); }
 .note.need::placeholder { color: var(--unsure); }
-.votes { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
-.votes li { border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; }
-.votes .who { font-weight: 600; margin-right: 8px; }
-.votes .v { font-weight: 600; border-radius: 6px; padding: 1px 8px; }
-.votes .v.keep { background: var(--keep-bg); color: var(--keep); }
-.votes .v.drop { background: var(--drop-bg); color: var(--drop); }
-.votes .v.unsure, .votes .v.none { background: var(--unsure-bg); color: var(--unsure); }
-.votes .n { display: block; margin-top: 4px; color: var(--muted); font-size: 14px; }
 pre { white-space: pre-wrap; font-size: 12px; background: var(--bg); padding: 12px;
   border-radius: 8px; border: 1px solid var(--line); max-height: 240px; overflow: auto; }
 .hidden { display: none !important; }
@@ -109,17 +101,6 @@ pre { white-space: pre-wrap; font-size: 12px; background: var(--bg); padding: 12
 </header>
 
 <main>
-  <section id="introRec" class="card hidden">
-    <h2>Decide together</h2>
-    <p>You disagreed on these items (or were all unsure). Each screen shows what each of you said.
-      Read both notes, talk briefly, and pick <b>one</b> label with the same rule as before.
-      You still don't see what the AI tool decided.</p>
-    <div id="rubricRec"></div>
-    <p class="muted">Try to settle each one: an item left "Not sure" counts against the AI tool.
-      About a minute per item; at the end, download <b>reconciled.yaml</b>.</p>
-    <button class="primary" id="startRec">Start</button>
-  </section>
-
   <section id="intro" class="card">
     <h2>What you are doing</h2>
     <p>For each new EU law, the Commission publishes an official report, the <b>impact
@@ -149,10 +130,6 @@ pre { white-space: pre-wrap; font-size: 12px; background: var(--bg); padding: 12
       <h2>Claim</h2>
       <dl class="claim" id="claim"></dl>
     </div>
-    <div class="card hidden" id="votesBox">
-      <h2>What each of you said</h2>
-      <ul class="votes" id="votes"></ul>
-    </div>
     <div class="card">
       <h2 id="srcTitle">What the report says</h2>
       <div class="section" id="section"></div>
@@ -176,7 +153,7 @@ pre { white-space: pre-wrap; font-size: 12px; background: var(--bg); padding: 12
       <button id="back">Back to the items</button>
     </div>
     <p class="muted" id="doneHint">The file is in your Downloads folder. Send it to
-      <b>__SEND_TO__</b>. Please don't discuss items until everyone has sent theirs.</p>
+      <b>__SEND_TO__</b>.</p>
     <pre id="yaml"></pre>
   </section>
 </main>
@@ -202,8 +179,7 @@ pre { white-space: pre-wrap; font-size: 12px; background: var(--bg); padding: 12
 <script>
 const DATA = __DATA__;
 const items = DATA.items;
-const REC = DATA.mode === "reconcile";
-const KEY = "womm-refcheck:" + DATA.sample + ":" + DATA.mode + ":" + DATA.annotator;
+const KEY = "womm-refcheck:" + DATA.sample + ":" + DATA.annotator;
 let state = { i: 0, answers: {} };
 try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.answers) state = s; } catch (e) {}
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
@@ -218,8 +194,7 @@ let advance;
 
 function show(v) {
   view = v;
-  $("intro").classList.toggle("hidden", v !== "intro" || REC);
-  $("introRec").classList.toggle("hidden", v !== "intro" || !REC);
+  $("intro").classList.toggle("hidden", v !== "intro");
   $("item").classList.toggle("hidden", v !== "item");
   $("decide").classList.toggle("hidden", v !== "item");
   $("done").classList.toggle("hidden", v !== "done");
@@ -253,13 +228,6 @@ function renderItem() {
   } else {
     p.append(el("mark", null, it.quote));
   }
-  $("votesBox").classList.toggle("hidden", !it.votes);
-  $("votes").replaceChildren(...(it.votes || []).map(v => {
-    const li = el("li"); li.append(el("span", "who", v.annotator),
-      el("span", "v " + (v.label || "none"), LABELS[v.label] || "No label"));
-    if (v.note) li.append(el("span", "n", v.note));
-    return li;
-  }));
   $("othersSum").textContent = `The case's other ${it.others.length} reference items (check for repeats)`;
   const ul = $("others"); ul.replaceChildren(...it.others.map(o => el("li", null, o)));
   $("othersBox").open = false;
@@ -297,8 +265,7 @@ function go(d) {
 }
 
 function yaml() {
-  const rows = [REC ? "# Labels agreed together on the split items of the reference-answer check."
-    : `# Answers of ${DATA.annotator} for the reference-answer check (label_${DATA.annotator}.html).`,
+  const rows = [`# Answers of ${DATA.annotator} for the reference-answer check (label_${DATA.annotator}.html).`,
     `sample: ${JSON.stringify(DATA.sample)}`, `annotator: ${JSON.stringify(DATA.annotator)}`, "answers:"];
   for (const it of [...items].sort((a, b) => a.id.localeCompare(b.id))) {
     const a = state.answers[it.id] || {};
@@ -316,15 +283,10 @@ function renderDone() {
   $("yaml").textContent = yaml();
 }
 
-$("start").onclick = $("startRec").onclick = () => show("item");
+$("start").onclick = () => show("item");
 $("fileName").textContent = DATA.file;
 $("nItems").textContent = items.length;
 $("nMinutes").textContent = Math.max(1, Math.round(items.length / 2));
-if (REC) {
-  document.title = "Reference check: reconcile";
-  $("rubricRec").append($("rubric").cloneNode(true));
-  $("doneHint").replaceChildren("The file is in your Downloads folder. Send it to ", el("b", null, DATA.sendTo), ".");
-}
 document.querySelectorAll(".lab").forEach(b => b.onclick = () => label(b.dataset.l));
 $("prev").onclick = () => go(-1);
 $("next").onclick = () => go(1);

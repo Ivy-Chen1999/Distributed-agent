@@ -5,13 +5,12 @@
     uv run python scripts/reference_check.py score --dir .cache/reference_check/round1
 
 Run ``sample`` on the tie-broken train/val drafts before they are published
-(scripts/publish_golden_cases.py deletes each draft it publishes). It draws 30 items by default, a
-third each kept by the three judges, kept by the tie-break and dropped by it, and writes one
-blind labeling page per annotator plus ``key.private.json`` (the tool's decisions; never send
-it). ``score`` reads the answer files back and reports the tool's error rate against the human
-label; at or below 10% the reference answers count as robust. When items are not settled,
-``score`` writes ``reconcile.html`` for the annotators to decide them together (it downloads
-``reconciled.yaml``); score again afterwards.
+(scripts/publish_golden_cases.py deletes each draft it publishes). It draws ``--n`` items per
+annotator (30 by default; each annotator gets different items), a third each kept by the three
+judges, kept by the tie-break and dropped by it, and writes one blind labeling page per
+annotator plus ``key.private.json`` (the tool's decisions; never send it). ``score`` reads the
+answer files back and reports the tool's error rate against the people's labels; at or below
+10% the reference answers count as robust.
 Exit codes: 0 done (score: robust), 1 score: not robust, 2 bad input.
 """
 
@@ -38,7 +37,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     sample.add_argument("drafts", nargs="+", type=Path, help="tie-broken train/val draft files")
     sample.add_argument("--annotator", action="append", required=True, dest="annotators")
     sample.add_argument("--out", type=Path, required=True, help="a new directory under .cache/")
-    sample.add_argument("--n", type=int, default=30)
+    sample.add_argument("--n", type=int, default=30, help="items per annotator")
     sample.add_argument("--seed", type=int, default=1)
     sample.add_argument(
         "--send-to",
@@ -73,15 +72,9 @@ def main(argv: list[str] | None = None) -> int:
                       "only", file=sys.stderr)  # fmt: skip
             return 0
         key = json.loads((args.dir / rc.KEY_FILE).read_text(encoding="utf-8"))
-        answers, notes = rc.read_answers(args.dir, key)
-        result = rc.score(key, answers, rc.read_reconciled(args.dir, key))
-        print(json.dumps(result, indent=2) if args.json else rc.format_result(result, key))
-        if result["unsettled"] and not any(result["blank"].values()):
-            page = rc.write_reconcile_page(args.dir, key, result["split"], answers, notes)
-            print(
-                f"next: open {page} together, decide the {len(result['unsettled'])} split "
-                f"items, save {rc.RECONCILED_FILE} in {args.dir} and score again"
-            )
+        labels, notes = rc.read_answers(args.dir, key)
+        result = rc.score(key, labels)
+        print(json.dumps(result, indent=2) if args.json else rc.format_result(result, key, notes))
         return 0 if result["robust"] else 1
     except (FileNotFoundError, rc.ReferenceCheckError, ReviewError) as exc:
         print(f"error: {exc}", file=sys.stderr)
