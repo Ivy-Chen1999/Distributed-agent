@@ -306,7 +306,7 @@ body[data-kind="reference_check"] [data-kind="calibration"] { display: none !imp
     </ul>
     <h3>What you do</h3>
     <ol class="steps">
-      <li><span class="step-n">1</span><span><b><span class="nItems">30</span> points, one per screen.</b>
+      <li><span class="step-n">1</span><span><b><span class="nItems">20</span> points, one per screen.</b>
         Most say "this group is affected by the law in this way"; some name one thing a good
         assessment of the law has to cover.</span></li>
       <li><span class="step-n">2</span><span><b>Read the highlighted report text</b> the point is
@@ -510,7 +510,7 @@ function load(p) {
 }
 
 function counts() {
-  const n = items.length || 30;
+  const n = items.length || (KIND === "calibration" ? 30 : 20);  // before sign-in: the defaults
   document.querySelectorAll(".nItems").forEach(e => { e.textContent = n; });
   // About half a minute per point; a pair means reading a whole report, about a minute.
   $("nMinutes").textContent = Math.max(5, Math.round(KIND === "calibration" ? n : n / 2));
