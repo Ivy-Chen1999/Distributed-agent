@@ -3,257 +3,491 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Reference Check</title>
+<title>Answer Key Check</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
+/* Layout and palette follow the scorecard labelling app: dark top bar, document on the left,
+   decision panel on the right, a first-visit welcome card and a spotlight guide. */
 :root {
-  --bg: #f6f5f1; --card: #ffffff; --ink: #1d1d1b; --muted: #6b6a65; --line: #e3e1da;
-  --accent: #2f5bd3; --mark: #fff0a8; --keep: #1f8a4c; --drop: #c2412d; --unsure: #a07a12;
-  --keep-bg: #e6f4ec; --drop-bg: #fbe9e5; --unsure-bg: #f8f0d8;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #161614; --card: #21211e; --ink: #ecebe6; --muted: #a3a29b; --line: #34332f;
-    --accent: #7c9cff; --mark: #5b4d12; --keep: #4cc283; --drop: #f07a63; --unsure: #e0b84a;
-    --keep-bg: #183426; --drop-bg: #3a1d17; --unsure-bg: #352d14;
-  }
+  --ink: #0F0F0F; --bg: #FDFCFD; --paper: #ffffff; --bark: #C4B8AB; --bark-lt: #E1DCD7;
+  --green: #007A5E; --green-lt: #e3f3ee; --amber: #FFB000; --amber-lt: #fff3d1;
+  --red: #A01414; --red-lt: #f8e3e3; --grey: #505A5F; --muted: #6b6b6b; --mark: #ffe08a;
 }
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--bg); color: var(--ink);
-  font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-header { position: sticky; top: 0; z-index: 2; background: var(--bg);
-  border-bottom: 1px solid var(--line); }
-.bar { max-width: 860px; margin: 0 auto; padding: 12px 16px; display: flex; gap: 12px;
-  align-items: center; flex-wrap: wrap; }
-.bar h1 { font-size: 16px; margin: 0; font-weight: 650; }
-.bar .who { color: var(--muted); font-size: 14px; }
-.bar .count { margin-left: auto; font-size: 14px; color: var(--muted); }
-.progress { height: 3px; background: var(--line); }
-.progress > div { height: 100%; background: var(--accent); transition: width .2s; }
-main { max-width: 860px; margin: 0 auto; padding: 20px 16px 240px; }
-.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px;
-  padding: 20px; margin-bottom: 16px; }
-.meta { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; font-size: 13px; }
-.chip { border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px;
-  color: var(--muted); overflow-wrap: anywhere; }
-.chip b { color: var(--ink); font-weight: 600; }
-h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
-  margin: 0 0 8px; font-weight: 600; }
-dl.claim { margin: 0; display: grid; grid-template-columns: 130px 1fr; gap: 8px 14px; }
-dl.claim dt { color: var(--muted); font-size: 14px; }
-dl.claim dd { margin: 0; }
-@media (max-width: 600px) { dl.claim { grid-template-columns: 1fr; gap: 2px; }
-  dl.claim dd { margin-bottom: 8px; } }
-.passage { font-family: Georgia, "Times New Roman", serif; font-size: 16px; line-height: 1.65;
-  overflow-wrap: anywhere; }
-.passage mark { background: var(--mark); color: inherit; padding: 1px 2px; border-radius: 3px; }
-.section { font-size: 13px; color: var(--muted); margin-bottom: 8px; }
-details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
-details ul { margin: 10px 0 0; padding-left: 20px; font-size: 14px; }
-details li { margin-bottom: 6px; }
-.decide { position: fixed; left: 0; right: 0; bottom: 0; background: var(--card);
-  border-top: 1px solid var(--line); z-index: 3; }
-.decide .in { max-width: 860px; margin: 0 auto; padding: 12px 16px; }
-.q { font-weight: 650; margin-bottom: 10px; }
-.btns { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-button { font: inherit; cursor: pointer; border-radius: 10px; border: 1px solid var(--line);
-  background: var(--card); color: var(--ink); padding: 9px 16px; }
-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.lab { font-weight: 600; min-width: 112px; }
-.lab kbd { font-size: 11px; color: var(--muted); margin-left: 6px; border: 1px solid var(--line);
-  border-radius: 4px; padding: 0 4px; }
-.lab.keep.on { background: var(--keep-bg); border-color: var(--keep); color: var(--keep); }
-.lab.drop.on { background: var(--drop-bg); border-color: var(--drop); color: var(--drop); }
-.lab.unsure.on { background: var(--unsure-bg); border-color: var(--unsure); color: var(--unsure); }
-.nav { margin-left: auto; display: flex; gap: 8px; }
-input.note { width: 100%; margin-top: 10px; font: inherit; padding: 8px 10px;
-  border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
-.dots { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
-.dot { width: 22px; height: 22px; border-radius: 6px; border: 1px solid var(--line); padding: 0;
-  font-size: 10px; color: var(--muted); }
-.dot.keep { background: var(--keep-bg); border-color: var(--keep); }
-.dot.drop { background: var(--drop-bg); border-color: var(--drop); }
-.dot.unsure { background: var(--unsure-bg); border-color: var(--unsure); }
-.dot.cur { outline: 2px solid var(--accent); outline-offset: 1px; }
-.rubric li { margin-bottom: 8px; }
-.primary { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
-.muted { color: var(--muted); font-size: 14px; }
-.note.need { border-color: var(--unsure); }
-.note.need::placeholder { color: var(--unsure); }
-pre { white-space: pre-wrap; font-size: 12px; background: var(--bg); padding: 12px;
-  border-radius: 8px; border: 1px solid var(--line); max-height: 240px; overflow: auto; }
-.hidden { display: none !important; }
-@media (max-width: 600px) {
-  .dots, .lab kbd { display: none; }
-  .q { font-size: 14px; margin-bottom: 6px; }
-  .lab { min-width: 0; flex: 1; padding: 9px 8px; }
-  .nav { margin-left: 0; width: 100%; } .nav button { flex: 1; }
-  main { padding-bottom: 200px; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink);
+  font-family: "Manrope", -apple-system, "Segoe UI", Roboto, sans-serif; }
+body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+[hidden] { display: none !important; }
+.spacer { flex: 1; }
+.muted { color: var(--muted); font-weight: 400; }
+button { font-family: inherit; cursor: pointer; }
+button:disabled { cursor: default; opacity: .45; }
+button:focus-visible, input:focus, textarea:focus { outline: 2px solid var(--ink); outline-offset: 1px; }
+::selection { background: rgba(255,176,0,0.35); }
+
+/* top bar */
+.topbar { flex-shrink: 0; height: 60px; display: flex; align-items: center; gap: 16px;
+  padding: 0 32px; background: var(--ink); color: var(--bg); }
+.topbar .title { font-weight: 700; font-size: 16px; }
+.topbar .divider { width: 1px; height: 22px; background: var(--grey); }
+.topbar .who { font-size: 14px; color: var(--bark); }
+.howto { height: 32px; padding: 0 14px; border: 1px solid var(--grey); border-radius: 4px;
+  background: transparent; color: var(--bg); font-weight: 700; font-size: 13px; }
+.howto:hover { background: var(--bg); color: var(--ink); }
+
+/* main split */
+.main { flex: 1; min-height: 0; display: flex; }
+.doc-pane { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.doc-toolbar { flex-shrink: 0; min-height: 48px; display: flex; align-items: center; gap: 10px;
+  flex-wrap: wrap; padding: 8px 24px; border-bottom: 1px solid var(--bark); }
+.tag { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  border: 1px solid var(--ink); border-radius: 4px; padding: 3px 8px; }
+.tag.soft { border-color: var(--bark); color: var(--grey); font-weight: 600; text-transform: none;
+  letter-spacing: 0; font-size: 13px; }
+.doc-scroll { flex: 1; overflow-y: auto; padding: 28px 24px; background: var(--bark-lt); }
+.page { max-width: 760px; margin: 0 auto; background: var(--paper); border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12); padding: 36px 44px; }
+.page-head { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--green); margin-bottom: 4px; }
+.page-sub { font-size: 13px; color: var(--muted); margin-bottom: 18px; }
+.passage { font-family: Georgia, "Times New Roman", serif; font-size: 17px; line-height: 1.7;
+  overflow-wrap: anywhere; color: #2a2a2a; }
+.passage mark { background: var(--mark); color: var(--ink); padding: 2px 3px; border-radius: 3px;
+  box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+.legend { margin-top: 18px; font-size: 13px; color: var(--muted); display: flex; gap: 8px;
+  align-items: center; }
+.legend i { width: 18px; height: 12px; background: var(--mark); border-radius: 2px; display: inline-block; }
+
+/* side pane */
+.side-pane { width: 430px; flex-shrink: 0; border-left: 1px solid var(--bark); overflow-y: auto;
+  background: var(--bg); padding: 24px; display: flex; flex-direction: column; gap: 26px; }
+.block { display: flex; flex-direction: column; gap: 10px; }
+.block-head { font-weight: 700; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; }
+.block-head .muted { text-transform: none; letter-spacing: 0; }
+dl.claim { margin: 0; display: flex; flex-direction: column; gap: 10px; }
+dl.claim div { border-left: 3px solid var(--ink); padding: 2px 0 2px 12px; }
+dl.claim dt { font-size: 12px; font-weight: 700; color: var(--grey); text-transform: uppercase;
+  letter-spacing: .05em; }
+dl.claim dd { margin: 2px 0 0; font-size: 15px; line-height: 1.55; }
+.question { font-size: 17px; font-weight: 700; line-height: 1.35; }
+.tiles { display: flex; flex-direction: column; gap: 8px; }
+.tile { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 8px 14px;
+  border: 1px solid var(--ink); border-radius: 4px; background: var(--bg); color: var(--ink);
+  text-align: left; font-size: 15px; }
+.tile b { font-size: 15px; min-width: 92px; }
+.tile span { font-size: 13px; color: var(--grey); line-height: 1.4; flex: 1; }
+.tile kbd { font-family: inherit; font-size: 11px; font-weight: 700; color: var(--grey);
+  border: 1px solid var(--bark); border-radius: 3px; padding: 0 5px; }
+.tile:hover { border-width: 2px; padding: 7px 13px; }
+.tile.keep.on { background: var(--green); border-color: var(--green); color: #fff; }
+.tile.drop.on { background: var(--red); border-color: var(--red); color: #fff; }
+.tile.unsure.on { background: var(--amber); border-color: var(--amber); color: var(--ink); }
+.tile.on span, .tile.on kbd { color: inherit; border-color: currentColor; }
+textarea.note { border: 1px solid var(--ink); border-radius: 4px; padding: 10px 14px;
+  font-family: inherit; font-size: 15px; line-height: 1.5; resize: vertical; background: var(--bg); }
+textarea.note.need { border: 2px solid var(--amber); background: var(--amber-lt); }
+.hint { font-size: 13px; color: var(--grey); line-height: 1.5; }
+details.others summary { cursor: pointer; list-style: none; display: flex; align-items: center; }
+details.others summary::-webkit-details-marker { display: none; }
+details.others summary::after { content: "▸"; color: var(--muted); margin-left: 8px; }
+details.others[open] summary::after { content: "▾"; }
+details.others ul { margin: 10px 0 0; padding: 0; list-style: none; display: flex;
+  flex-direction: column; gap: 8px; }
+details.others li { border-left: 3px solid var(--bark); padding: 2px 0 2px 10px; font-size: 13px;
+  line-height: 1.45; color: var(--grey); }
+
+/* bottom bar */
+.bottombar { flex-shrink: 0; min-height: 72px; display: flex; align-items: center; gap: 14px;
+  padding: 10px 32px; border-top: 1px solid var(--bark); background: var(--bg); }
+.progress { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.progress-text { font-size: 14px; color: var(--grey); }
+.progress-text b { color: var(--ink); }
+.dots { display: flex; flex-wrap: wrap; gap: 4px; }
+.dot { width: 20px; height: 20px; border-radius: 3px; border: 1px solid var(--bark); padding: 0;
+  font-size: 10px; font-weight: 700; color: var(--grey); background: var(--bg); }
+.dot.keep { background: var(--green); border-color: var(--green); color: #fff; }
+.dot.drop { background: var(--red); border-color: var(--red); color: #fff; }
+.dot.unsure { background: var(--amber); border-color: var(--amber); color: var(--ink); }
+.dot.cur { outline: 2px solid var(--ink); outline-offset: 1px; }
+.saved { font-size: 13px; color: var(--green); font-weight: 700; white-space: nowrap; }
+.saved.bad { color: var(--red); }
+
+/* buttons */
+.primary { height: 48px; padding: 0 28px; border: none; border-radius: 4px; background: var(--ink);
+  color: var(--bg); font-weight: 700; font-size: 16px; }
+.primary:hover:not(:disabled) { background: var(--green); }
+.primary.sm { height: 36px; padding: 0 16px; font-size: 14px; }
+.ghost { height: 44px; min-width: 44px; padding: 0 14px; border: 1px solid var(--ink); border-radius: 4px;
+  background: transparent; color: var(--ink); font-weight: 700; font-size: 15px; }
+.ghost.sm { height: 32px; min-width: 0; font-size: 14px; }
+.linkbtn { border: none; background: none; padding: 0; font-weight: 700; font-size: 13px;
+  color: var(--grey); text-decoration: underline; text-underline-offset: 3px; }
+
+/* overlays: welcome, done */
+.overlay { position: fixed; inset: 0; background: rgba(15,15,15,0.55); display: flex;
+  align-items: center; justify-content: center; z-index: 60; padding: 24px; }
+.card { background: var(--bg); border-radius: 12px; padding: 32px 36px; width: 640px; max-width: 100%;
+  max-height: calc(100vh - 48px); overflow: auto; box-shadow: 0 8px 28px rgba(0,0,0,0.32);
+  display: flex; flex-direction: column; gap: 14px; }
+.eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--green); }
+.card h2 { margin: 0; font-size: 24px; line-height: 1.25; }
+.card h3 { margin: 8px 0 0; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; }
+.lead { color: var(--grey); font-size: 15px; line-height: 1.6; margin: 0; }
+.reasons { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.reasons li { border-left: 3px solid var(--green); padding: 2px 0 2px 12px; font-size: 14px;
+  line-height: 1.55; color: var(--grey); }
+.reasons li b { color: var(--ink); }
+.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.steps li { display: flex; gap: 12px; align-items: flex-start; font-size: 14px; line-height: 1.55;
+  color: var(--grey); }
+.steps li b { color: var(--ink); }
+.step-n { flex-shrink: 0; width: 28px; height: 28px; border-radius: 6px; background: var(--ink);
+  color: var(--bg); font-weight: 700; font-size: 14px; display: flex; align-items: center;
+  justify-content: center; }
+.rules { display: grid; grid-template-columns: auto 1fr; gap: 8px 12px; font-size: 14px;
+  line-height: 1.5; color: var(--grey); }
+.pill { font-size: 12px; font-weight: 700; border-radius: 4px; padding: 3px 8px; white-space: nowrap;
+  align-self: start; }
+.pill.keep { background: var(--green); color: #fff; } .pill.drop { background: var(--red); color: #fff; }
+.pill.unsure { background: var(--amber); color: var(--ink); }
+details.examples summary { cursor: pointer; font-weight: 700; font-size: 14px; }
+.example { border: 1px solid var(--bark); border-radius: 6px; padding: 10px 14px; margin-top: 10px;
+  font-size: 14px; line-height: 1.5; }
+.example p { margin: 3px 0; }
+.example mark { background: var(--mark); }
+.example .ans { font-weight: 700; } .example .ans.keep { color: var(--green); }
+.example .ans.drop { color: var(--red); }
+.signin { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
+.signin label { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 200px;
+  font-weight: 700; font-size: 13px; letter-spacing: .04em; }
+.signin input { height: 48px; border: 1px solid var(--ink); border-radius: 4px; padding: 0 12px;
+  font-family: inherit; font-size: 15px; background: var(--bg); }
+.err { font-size: 14px; font-weight: 700; color: var(--red); min-height: 1.2em; margin: 0; }
+.fineprint { font-size: 13px; color: var(--muted); line-height: 1.5; margin: 0; }
+.done-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+pre { white-space: pre-wrap; font-size: 12px; background: var(--bark-lt); padding: 12px;
+  border-radius: 6px; max-height: 200px; overflow: auto; margin: 0; }
+
+/* spotlight guide */
+#tour { position: fixed; inset: 0; z-index: 90; }
+.tour-spot { position: fixed; border-radius: 8px; box-shadow: 0 0 0 9999px rgba(15,15,15,0.62);
+  transition: all 0.2s ease; pointer-events: none; }
+.tour-pop { position: fixed; max-width: 360px; background: var(--bg); border-radius: 10px;
+  padding: 18px 20px; box-shadow: 0 8px 28px rgba(0,0,0,0.32); display: flex; flex-direction: column; gap: 8px; }
+.tour-step { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--green); }
+.tour-title { font-size: 17px; }
+.tour-text { font-size: 14px; color: var(--grey); line-height: 1.55; }
+.tour-text b { color: var(--ink); }
+.tour-actions { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+
+/* narrow screens: stack the decision panel under the report */
+@media (max-width: 960px) {
+  body { height: auto; min-height: 100dvh; overflow-y: auto; }
+  .main { flex-direction: column; }
+  .doc-scroll { padding: 16px; }
+  .page { padding: 22px 20px; }
+  .side-pane { width: 100%; border-left: none; border-top: 1px solid var(--bark); padding: 20px 16px; }
+  .topbar, .bottombar, .doc-toolbar { padding-left: 16px; padding-right: 16px; }
+  .bottombar { position: sticky; bottom: 0; gap: 8px; min-height: 60px; padding-top: 8px; padding-bottom: 8px; }
+  .bottombar .primary { height: 40px; padding: 0 14px; font-size: 14px; }
+  .bottombar .ghost { height: 40px; min-width: 40px; padding: 0 10px; }
+  .bottombar .spacer { display: none; }
+  .progress-text { font-size: 13px; }
+  .dots, .tile kbd { display: none; }
+  .card { padding: 24px 20px; }
 }
+@media (max-width: 560px) { .topbar .divider, .topbar .who { display: none; } }
 </style>
 </head>
 <body>
-<header>
-  <div class="bar">
-    <h1>Reference check</h1><span class="who">__ANNOTATOR__</span>
-    <span class="count" id="count"></span>
-  </div>
-  <div class="progress"><div id="prog" style="width:0"></div></div>
+<header class="topbar">
+  <span class="title">Answer key check</span>
+  <span class="divider"></span>
+  <span class="who" id="who">__ANNOTATOR__</span>
+  <span class="spacer"></span>
+  <button class="howto" id="helpBtn">How it works</button>
 </header>
 
-<main>
-  <section id="intro" class="card">
-    <h2>What you are doing</h2>
-    <p>For each new EU law, the Commission publishes an official report, the <b>impact
-      assessment</b>, saying who the law affects and how. An AI tool turned those reports into an
-      answer key, and our system is scored against it. No person has checked that key.</p>
-    <p>You check <span id="nItems">these</span> items against the quoted report text, without
-      seeing what the tool decided. If the tool agrees with you at least 9 times in 10, the key is
-      trusted as it is; if not, the tool gets fixed before anything is scored with it.</p>
-    <h2>The one question</h2>
-    <p><b>Does this item belong in the answer key?</b></p>
-    <ul class="rubric" id="rubric">
-      <li><b>Keep</b>: the highlighted text backs the claim: this law affects this group in this
-        way. It is not a repeat of another item of the case.</li>
-      <li><b>Drop</b>: the text doesn't back it; it's background, an option that was not chosen,
-        a general remark, or says there is no real effect; or it repeats another item.</li>
-      <li><b>Not sure</b>: you can't decide after reading carefully. Write a short note why.</li>
-    </ul>
-    <p class="muted">Judge the substance, not the wording. Work alone: about <span id="nMinutes">10</span> minutes in all.
-      Keys: <b>K</b> keep, <b>D</b> drop, <b>U</b> not sure, <b>N</b> note, ← → move. Answers are
-      saved in this browser as you go, so don't use a private window.</p>
-    <button class="primary" id="start">Start</button>
-  </section>
-
-  <section id="item" class="hidden">
-    <div class="card">
-      <div class="meta" id="meta"></div>
-      <h2>Claim</h2>
-      <dl class="claim" id="claim"></dl>
+<div class="main" id="mainView" hidden>
+  <section class="doc-pane">
+    <div class="doc-toolbar" id="docBar">
+      <span class="tag" id="lawTag"></span>
+      <span class="tag soft" id="articles"></span>
     </div>
-    <div class="card">
-      <h2 id="srcTitle">What the report says</h2>
-      <div class="section" id="section"></div>
-      <div class="passage" id="passage"></div>
-    </div>
-    <div class="card">
-      <details id="othersBox">
-        <summary id="othersSum"></summary>
-        <ul id="others"></ul>
-      </details>
-    </div>
-  </section>
-
-  <section id="done" class="card hidden">
-    <h2>Finished</h2>
-    <p id="summary"></p>
-    <p id="missing" class="muted"></p>
-    <div class="btns">
-      <button class="primary" id="download">Download <span id="fileName"></span></button>
-      <button id="copy">Copy to clipboard</button>
-      <button id="back">Back to the items</button>
-    </div>
-    <p class="muted" id="doneHint">The file is in your Downloads folder. Send it to
-      <b>__SEND_TO__</b>.</p>
-    <pre id="yaml"></pre>
-  </section>
-</main>
-
-<div class="decide hidden" id="decide">
-  <div class="in">
-    <div class="q">Does this item belong in the answer key?</div>
-    <div class="btns">
-      <button class="lab keep" data-l="keep">Keep<kbd>K</kbd></button>
-      <button class="lab drop" data-l="drop">Drop<kbd>D</kbd></button>
-      <button class="lab unsure" data-l="unsure">Not sure<kbd>U</kbd></button>
-      <div class="nav">
-        <button id="prev" aria-label="Previous item">←</button>
-        <button id="next" aria-label="Next item">→</button>
-        <button id="finish">Finish</button>
+    <div class="doc-scroll" id="docPane">
+      <div class="page">
+        <div class="page-head" id="srcTitle">The official report</div>
+        <div class="page-sub" id="section"></div>
+        <div class="passage" id="passage"></div>
+        <div class="legend"><i></i> highlighted: the sentence the point is based on</div>
       </div>
     </div>
-    <input class="note" id="note" placeholder="Note (needed for Not sure). Press Enter to continue.">
+  </section>
+
+  <aside class="side-pane">
+    <div class="block" id="pointBlock">
+      <span class="block-head">The point to check</span>
+      <dl class="claim" id="claim"></dl>
+    </div>
+    <div class="block" id="answerBlock">
+      <span class="question">Does the report back this point up?</span>
+      <div class="tiles">
+        <button class="tile keep" data-l="keep"><b>Yes, keep</b><span>The report text supports the point.</span><kbd>Y</kbd></button>
+        <button class="tile drop" data-l="drop"><b>No, drop</b><span>Background, an option not chosen, a vague remark, a wrong number, or a repeat.</span><kbd>N</kbd></button>
+        <button class="tile unsure" data-l="unsure"><b>Can't tell</b><span>Still unsure after reading carefully: add a note why.</span><kbd>C</kbd></button>
+      </div>
+    </div>
+    <div class="block" id="noteBlock">
+      <span class="block-head">Note <span class="muted">(needed for Can't tell, otherwise optional)</span></span>
+      <textarea class="note" id="note" rows="2" placeholder="One line is enough, e.g. &quot;the text is about option 2&quot;"></textarea>
+    </div>
+    <details class="block others" id="othersBlock">
+      <summary class="block-head">Already in the key <span class="muted" id="othersCount"></span></summary>
+      <span class="hint">The other points the key has for this law. If the point above says the same thing as one of these, answer <b>No</b>.</span>
+      <ul id="others"></ul>
+    </details>
+  </aside>
+</div>
+
+<footer class="bottombar" id="bottomBar" hidden>
+  <button class="ghost" id="prev" aria-label="Previous point">←</button>
+  <div class="progress" id="progressBlock">
+    <span class="progress-text" id="count"></span>
     <div class="dots" id="dots"></div>
+  </div>
+  <span class="saved" id="saved"></span>
+  <span class="spacer"></span>
+  <button class="ghost" id="next" aria-label="Next point">→</button>
+  <button class="primary" id="finish">Finish</button>
+</footer>
+
+<!-- welcome: what this is, why a person is needed, how to answer; sign-in when hosted -->
+<div class="overlay" id="welcome">
+  <div class="card">
+    <span class="eyebrow">About <span id="nMinutes">15</span> minutes · no legal knowledge needed</span>
+    <h2>Help us check an AI-written answer key</h2>
+    <p class="lead">When the EU proposes a law, it publishes an official report, the <b>impact
+      assessment</b>, on <b>who the law affects and how</b>: companies, authorities, consumers,
+      and what it costs or saves them. We are building an AI that produces that kind of list for
+      a new law. To grade it we need an <b>answer key</b>, and another AI wrote that key from the
+      official reports. Before we grade anything with it, a person checks a sample. That is you.</p>
+    <h3>Why a person has to look</h3>
+    <ul class="reasons">
+      <li><b>Every grade depends on the key.</b> A wrong key rewards our AI for copying its
+        mistakes, and we could not tell whether it really improved.</li>
+      <li><b>The AI is not consistent on hard cases.</b> On 105 borderline points, running the
+        same AI twice changed the answer on 15 (about 1 in 7); two different AIs disagreed on 24.</li>
+      <li><b>An AI checking an AI is not enough.</b> The standard advice is to compare AI graders
+        with people at least once. Some points you see were kept by the AI and some were thrown
+        out; you are not told which. If your answers match the AI's on at least 9 in 10, the key
+        is used as it is; otherwise we fix how it is made first.</li>
+    </ul>
+    <h3>What you do</h3>
+    <ol class="steps">
+      <li><span class="step-n">1</span><span><b><span id="nItems">30</span> points, one per screen.</b>
+        Most say "this group is affected by the law in this way"; some name one thing a good
+        assessment of the law has to cover.</span></li>
+      <li><span class="step-n">2</span><span><b>Read the highlighted report text</b> the point is
+        based on, on the left.</span></li>
+      <li><span class="step-n">3</span><span><b>Answer one question:</b> does the report back this
+        point up?</span></li>
+    </ol>
+    <div class="rules">
+      <span class="pill keep">Yes, keep</span><span>The report text really supports the point: this
+        group is affected in this way, or this is a real effect the assessment has to cover.</span>
+      <span class="pill drop">No, drop</span><span>The report doesn't really say it: the text is only
+        background, describes an option the EU did <i>not</i> choose, is a vague remark, says there
+        is no real effect, or a <b>number</b> in the point is not what the report says. Also "no" if
+        the point repeats one already in the key.</span>
+      <span class="pill unsure">Can't tell</span><span>You really can't decide. Add a few words why.</span>
+    </div>
+    <details class="examples">
+      <summary>See two short examples</summary>
+      <div class="example">
+        <p><b>Point:</b> Online shops must label AI-made product photos and pay for tools to do it.</p>
+        <p><b>Report:</b> "... <mark>online retailers will incur one-off costs to adapt their systems
+          to the labelling obligation</mark> ..."</p>
+        <p class="ans keep">Yes, keep: the report says these shops pay to comply.</p>
+      </div>
+      <div class="example">
+        <p><b>Point:</b> Banks must hire more compliance staff.</p>
+        <p><b>Report:</b> "... <mark>Option 3, which was not retained, would have required banks
+          to</mark> appoint additional officers ..."</p>
+        <p class="ans drop">No, drop: that option was not chosen, so it is not an effect of the law.</p>
+      </div>
+    </details>
+    <p class="fineprint" id="saveNote">Your answers are saved as you go, straight to us: nothing to
+      download or send. You can stop and come back with the same link.</p>
+    <div class="signin" id="signinBox" hidden>
+      <label for="name">Your name <span class="muted">(the one you were given)</span>
+        <input id="name" autocomplete="username" autocapitalize="off" spellcheck="false"></label>
+      <button class="primary" id="signin">Start</button>
+    </div>
+    <p class="err" id="signinErr"></p>
+    <button class="primary" id="start" style="align-self:flex-start">Start</button>
+  </div>
+</div>
+
+<div class="overlay" id="done" hidden>
+  <div class="card">
+    <span class="eyebrow" id="doneEyebrow">Almost done</span>
+    <h2 id="doneTitle">Check and send</h2>
+    <p class="lead" id="summary"></p>
+    <p class="lead" id="missing"></p>
+    <div class="done-actions">
+      <button class="primary" id="submit">Send my answers</button>
+      <button class="primary" id="download">Download <span id="fileName"></span></button>
+      <button class="ghost" id="copy">Copy</button>
+      <button class="ghost" id="back">Back to the points</button>
+    </div>
+    <p class="err" id="submitErr"></p>
+    <p class="fineprint" id="doneHint">The file is in your Downloads folder. Send it to
+      <b>__SEND_TO__</b>.</p>
+    <pre id="yaml"></pre>
+  </div>
+</div>
+
+<!-- spotlight guide: dims the page and explains one part at a time -->
+<div id="tour" hidden>
+  <div id="tourSpot" class="tour-spot"></div>
+  <div id="tourPop" class="tour-pop" role="dialog" aria-live="polite">
+    <span id="tourStep" class="tour-step"></span>
+    <b id="tourTitle" class="tour-title"></b>
+    <span id="tourText" class="tour-text"></span>
+    <div class="tour-actions">
+      <button id="tourSkip" class="linkbtn">Skip</button>
+      <span class="spacer"></span>
+      <button id="tourBack" class="ghost sm">Back</button>
+      <button id="tourNext" class="primary sm">Next</button>
+    </div>
   </div>
 </div>
 
 <script>
 const DATA = __DATA__;
-const items = DATA.items;
-const KEY = "womm-refcheck:" + DATA.sample + ":" + DATA.annotator;
+const HOSTED = !!DATA.api;
+let items = DATA.items;
+let KEY = "womm-refcheck:" + DATA.sample + ":" + DATA.annotator;
+const TOUR_KEY = "womm-refcheck-tour";
 let state = { i: 0, answers: {} };
-try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.answers) state = s; } catch (e) {}
-const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
+let submitted = false;
+const restore = () => {
+  try { const s = JSON.parse(localStorage.getItem(KEY));
+    if (s && Number.isInteger(s.i) && s.i < items.length) state.i = s.i;
+    if (!HOSTED && s && s.answers) state.answers = s.answers; } catch (e) {}
+};
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(HOSTED ? { i: state.i } : state)); } catch (e) {} };
+if (!HOSTED) restore();
 const $ = id => document.getElementById(id);
 const el = (tag, cls, text) => { const e = document.createElement(tag);
   if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
-const LABELS = { keep: "Keep", drop: "Drop", unsure: "Not sure" };
-const NAMES = { affected_actor: "Affected actor", mechanism: "Mechanism", impact: "Impact",
-  description: "Description" };
-let view = "intro";
+const NAMES = { affected_actor: "Who is affected", mechanism: "What the law makes them do",
+  impact: "What it means for them", description: "The point" };
+let view = "welcome";
 let advance;
+
+async function api(method, path, body) {
+  const r = await fetch(DATA.api + path, { method, credentials: "same-origin",
+    headers: body ? { "Content-Type": "application/json" } : {},
+    body: body ? JSON.stringify(body) : undefined });
+  let data = null; try { data = await r.json(); } catch (e) {}
+  if (!r.ok) { const e = new Error((data && data.detail) || ("error " + r.status)); e.status = r.status; throw e; }
+  return data;
+}
+
+// Hosted: every answer goes to the server; a failed save is shown and retried with the next one.
+const unsaved = new Set();
+let noteTimer;
+async function persist(id) {
+  save();
+  if (!HOSTED) { $("saved").textContent = "Kept in this browser"; return; }
+  const a = state.answers[id];
+  if (!a || !a.label) return;
+  unsaved.add(id);
+  $("saved").textContent = "Saving..."; $("saved").classList.remove("bad");
+  for (const x of [...unsaved]) {
+    const ax = state.answers[x];
+    try { await api("PUT", "/answers/" + encodeURIComponent(x), { label: ax.label, note: ax.note || "" }); unsaved.delete(x); }
+    catch (e) {
+      $("saved").textContent = e.status === 401 ? "Signed out: reload the page" : "Not saved: check your connection";
+      $("saved").classList.add("bad"); return;
+    }
+  }
+  $("saved").textContent = "✓ Saved";
+}
+
+function load(p) {
+  items = p.items; state.answers = p.answers || {}; submitted = !!p.submitted;
+  DATA.annotator = p.annotator; $("who").textContent = p.annotator;
+  KEY = "womm-refcheck:" + DATA.sample + ":" + p.annotator; restore();
+  counts();
+}
+
+function counts() {
+  const n = items.length || 30;
+  $("nItems").textContent = n;
+  $("nMinutes").textContent = Math.max(5, Math.round(n / 2));
+}
 
 function show(v) {
   view = v;
-  $("intro").classList.toggle("hidden", v !== "intro");
-  $("item").classList.toggle("hidden", v !== "item");
-  $("decide").classList.toggle("hidden", v !== "item");
-  $("done").classList.toggle("hidden", v !== "done");
-  if (v === "item") renderItem();
+  $("welcome").hidden = v !== "welcome";
+  $("mainView").hidden = $("bottomBar").hidden = v === "welcome";
+  $("done").hidden = v !== "done";
+  if (v !== "welcome") renderItem();
   if (v === "done") renderDone();
-  renderTop();
-  window.scrollTo(0, 0);
+  if (v === "item") { try { if (!localStorage.getItem(TOUR_KEY)) setTimeout(startTour, 250); } catch (e) {} }
 }
 
 function answered() { return items.filter(i => state.answers[i.id]?.label).length; }
 
-function renderTop() {
-  const n = answered();
-  $("count").textContent = view === "item"
-    ? `Item ${state.i + 1} of ${items.length} · ${n} answered` : `${n} of ${items.length} answered`;
-  $("prog").style.width = (100 * n / items.length) + "%";
-}
-
 function renderItem() {
   const it = items[state.i];
-  const meta = $("meta"); meta.replaceChildren();
-  const c = el("span", "chip"); c.append("Case ", el("b", null, it.case.replace(/^case_\d+_/, "").replace(/_/g, " ")));
-  meta.append(c, el("span", "chip", "Articles: " + it.provisions.map(p => p.split("/").slice(-2).join(" ")).join(", ")));
+  $("lawTag").textContent = "Law: " + it.case.replace(/^case_\d+_/, "").replace(/_/g, " ");
+  $("articles").textContent = "Articles " + it.provisions.map(p => p.split("/").pop()).join(", ");
   const claim = $("claim"); claim.replaceChildren();
-  for (const [k, v] of Object.entries(it.claim)) { claim.append(el("dt", null, NAMES[k] || k), el("dd", null, v)); }
-  $("srcTitle").textContent = "What the " + it.source + " says";
+  // A fixed order: the server's JSON storage does not keep key order.
+  const keys = Object.keys(NAMES).filter(k => k in it.claim).concat(Object.keys(it.claim).filter(k => !(k in NAMES)));
+  for (const k of keys) { const d = el("div"); d.append(el("dt", null, NAMES[k] || k), el("dd", null, it.claim[k])); claim.append(d); }
+  $("srcTitle").textContent = it.source === "report" ? "The official report"
+    : "The EU review board's opinion on the report";
   $("section").textContent = "Section: " + it.section;
   const p = $("passage"); p.replaceChildren();
-  if (it.passage) {
-    p.append(it.passage.before, el("mark", null, it.passage.quote), it.passage.after);
-  } else {
-    p.append(el("mark", null, it.quote));
+  if (it.passage) p.append(it.passage.before, el("mark", null, it.passage.quote), it.passage.after);
+  else p.append(el("mark", null, it.quote));
+  if (renderItem.last !== it.id) {  // a new point starts at the top of both panes
+    $("docPane").scrollTop = 0; document.querySelector(".side-pane").scrollTop = 0; window.scrollTo(0, 0);
+    renderItem.last = it.id;
   }
-  $("othersSum").textContent = `The case's other ${it.others.length} reference items (check for repeats)`;
-  const ul = $("others"); ul.replaceChildren(...it.others.map(o => el("li", null, o)));
-  $("othersBox").open = false;
+  $("othersCount").textContent = `(${it.others.length})`;
+  $("others").replaceChildren(...it.others.map(o => el("li", null, o)));
+  $("othersBlock").open = false;
   const a = state.answers[it.id] || {};
-  document.querySelectorAll(".lab").forEach(b => b.classList.toggle("on", b.dataset.l === a.label));
+  document.querySelectorAll(".tile").forEach(b => b.classList.toggle("on", b.dataset.l === a.label));
   $("note").value = a.note || "";
   $("note").classList.toggle("need", a.label === "unsure" && !(a.note || "").trim());
   $("prev").disabled = state.i === 0;
   const dots = $("dots"); dots.replaceChildren();
   items.forEach((x, j) => {
     const d = el("button", "dot " + (state.answers[x.id]?.label || "") + (j === state.i ? " cur" : ""), String(j + 1));
-    d.title = x.id; d.onclick = () => { state.i = j; save(); show("item"); };
+    d.title = "Point " + (j + 1); d.onclick = () => { state.i = j; save(); show("item"); };
     dots.append(d);
   });
-  renderTop();
+  $("count").innerHTML = `Point <b>${state.i + 1}</b> of ${items.length} · ${answered()} answered`;
+  $("finish").textContent = HOSTED ? (submitted ? "Sent ✓" : "Finish & send") : "Finish";
 }
 
 function label(l) {
   const it = items[state.i];
   state.answers[it.id] = { ...(state.answers[it.id] || {}), label: l, note: $("note").value };
-  save();
+  persist(it.id);
   if (l === "unsure" && !$("note").value.trim()) { renderItem(); $("note").focus(); return; }
-  // Advance from the item just labeled only: a second key press must not skip the next item.
+  // Advance from the point just answered only: a second key press must not skip the next one.
   clearTimeout(advance);
   const from = state.i;
-  advance = setTimeout(() => { if (state.i === from) go(1); }, 180);
+  advance = setTimeout(() => { if (state.i === from) go(1); }, 220);
   renderItem();
 }
 
@@ -261,7 +495,7 @@ function go(d) {
   const j = state.i + d;
   if (j >= items.length) { show("done"); return; }
   if (j < 0) return;
-  state.i = j; save(); renderItem(); window.scrollTo(0, 0);
+  state.i = j; save(); renderItem();
 }
 
 function yaml() {
@@ -277,46 +511,137 @@ function yaml() {
 function renderDone() {
   const c = { keep: 0, drop: 0, unsure: 0 };
   items.forEach(i => { const l = state.answers[i.id]?.label; if (l) c[l]++; });
-  $("summary").textContent = `${answered()} of ${items.length} answered: ${c.keep} keep, ${c.drop} drop, ${c.unsure} not sure.`;
+  $("summary").textContent = `${answered()} of ${items.length} answered: ${c.keep} yes, ${c.drop} no, ${c.unsure} can't tell.`;
   const miss = items.map((x, j) => state.answers[x.id]?.label ? null : j + 1).filter(Boolean);
-  $("missing").textContent = miss.length ? `Still open: items ${miss.join(", ")}. You can download now and finish later.` : "";
-  $("yaml").textContent = yaml();
+  for (const b of ["download", "copy", "yaml", "doneHint"]) $(b).hidden = HOSTED;
+  $("submit").hidden = !HOSTED;
+  $("submitErr").textContent = "";
+  if (HOSTED) {
+    $("doneEyebrow").textContent = submitted ? "Done" : "Almost done";
+    $("doneTitle").textContent = submitted ? "Thank you!" : "Check and send";
+    $("missing").textContent = miss.length ? `Still open: points ${miss.join(", ")}. Answer them, then send.`
+      : submitted ? "Your answers are in. You can close this page, or go back and change an answer: changes are saved too."
+      : "Everything is answered. Press Send to tell us you are done.";
+    $("submit").disabled = miss.length > 0 || submitted;
+    $("submit").textContent = submitted ? "Sent ✓" : "Send my answers";
+  } else {
+    $("doneTitle").textContent = "Download and send";
+    $("missing").textContent = miss.length ? `Still open: points ${miss.join(", ")}. You can download now and finish later.` : "";
+    $("yaml").textContent = yaml();
+  }
 }
 
+async function signIn() {
+  $("signinErr").textContent = "";
+  try { load(await api("POST", "/session", { name: $("name").value })); show("item"); }
+  catch (e) { $("signinErr").textContent = e.status === 401
+    ? "That name is not on this check. Use the name you were given." : e.message; }
+}
+
+// ---------- spotlight guide (shown once, on the first point; "How it works" replays it) ----------
+const TOUR = [
+  { sel: "#pointBlock", title: "The point to check", text: "One entry of the answer key. Usually it says <b>who</b> is affected, <b>what the law makes them do</b> and <b>what it means for them</b>; some entries are a single statement instead. This is what you judge." },
+  { sel: "#docPane", title: "What the official report says", text: "The <b>highlighted</b> sentence is what the point is based on; the text around it is context. Read just enough to judge." },
+  { sel: "#answerBlock", title: "Your answer", text: "Does the report back the point up? <b>Yes</b> if the text supports it. <b>No</b> if it's background, an option not chosen, a vague remark, a wrong number, or a repeat. Keys: <b>Y</b>, <b>N</b>, <b>C</b>." },
+  { sel: "#noteBlock", title: "A short note", text: "Needed when you pick <b>Can't tell</b>, optional otherwise. One line is enough." },
+  { sel: "#othersBlock", title: "Already in the key", text: "Open this to see the law's other points. If this one repeats one of them, answer <b>No</b>." },
+  { sel: "#progressBlock", title: "Your progress", text: "Jump to any point with the squares; answered ones are coloured. Use ← → to move." },
+  { sel: "#finish", title: "Finish", text: "" },
+];
+let tourIdx = 0, tourRAF = null;
+function startTour() { if (view !== "item") return; tourIdx = 0; $("tour").hidden = false; showTourStep(); }
+function endTour() { if (tourRAF) { cancelAnimationFrame(tourRAF); tourRAF = null; } $("tour").hidden = true; try { localStorage.setItem(TOUR_KEY, "1"); } catch (e) {} }
+function showTourStep() {
+  const step = TOUR[tourIdx];
+  const t = document.querySelector(step.sel);
+  const r0 = t ? t.getBoundingClientRect() : { width: 0, height: 0 };
+  if (r0.width === 0 && r0.height === 0) { if (tourIdx < TOUR.length - 1) { tourIdx++; return showTourStep(); } return endTour(); }
+  t.scrollIntoView({ block: "nearest" });
+  $("tourStep").textContent = `Step ${tourIdx + 1} of ${TOUR.length}`;
+  $("tourTitle").textContent = step.title;
+  $("tourText").innerHTML = step.sel === "#finish" ? (HOSTED
+    ? "Your answers save as you go (you'll see <b>✓ Saved</b>). When every point is answered, press <b>Finish &amp; send</b>. You can stop and come back with the same link."
+    : "When every point is answered, press <b>Finish</b> and download the small answer file, then send it back.") : step.text;
+  $("tourBack").style.visibility = tourIdx === 0 ? "hidden" : "visible";
+  $("tourNext").textContent = tourIdx === TOUR.length - 1 ? "Got it" : "Next";
+  if (tourRAF) cancelAnimationFrame(tourRAF);
+  positionTour();
+  $("tourNext").focus();
+}
+// Re-measure every frame so the spotlight and card follow the target and stay on screen.
+function positionTour() {
+  if ($("tour").hidden) { tourRAF = null; return; }
+  const t = document.querySelector(TOUR[tourIdx].sel);
+  if (t) {
+    const r = t.getBoundingClientRect(), pad = 6, M = 12;
+    const spot = $("tourSpot");
+    spot.style.left = Math.max(2, r.left - pad) + "px"; spot.style.top = Math.max(2, r.top - pad) + "px";
+    spot.style.width = (r.width + pad * 2) + "px";
+    spot.style.height = Math.min(r.height + pad * 2, innerHeight - 4) + "px";
+    const pop = $("tourPop");
+    const pw = pop.offsetWidth || 340, ph = pop.offsetHeight || 170;
+    let left, top;
+    if (r.width > innerWidth * 0.5) { left = r.right - pw - 24; top = Math.min(r.bottom, innerHeight) - ph - 24; }  // big pane: its lower corner, off the text
+    else if (r.left - pw - M > M) { left = r.left - pw - M; top = r.top; }                     // to the left
+    else { left = r.left; top = r.bottom + M; if (top + ph > innerHeight - M) top = r.top - ph - M; }
+    top = Math.min(Math.max(M, top), innerHeight - ph - M);
+    left = Math.min(Math.max(M, left), innerWidth - pw - M);
+    pop.style.left = left + "px"; pop.style.top = top + "px";
+  }
+  tourRAF = requestAnimationFrame(positionTour);
+}
+
+// ---------- wiring ----------
+counts();
+$("fileName").textContent = DATA.file || "";
+if (!HOSTED) $("saveNote").textContent = "Your answers are kept in this browser as you go (don't use a private window). At the end you download a small file and send it back.";
 $("start").onclick = () => show("item");
-$("fileName").textContent = DATA.file;
-$("nItems").textContent = items.length;
-$("nMinutes").textContent = Math.max(1, Math.round(items.length / 2));
-document.querySelectorAll(".lab").forEach(b => b.onclick = () => label(b.dataset.l));
+$("signin").onclick = signIn;
+$("name").addEventListener("keydown", e => { if (e.key === "Enter") signIn(); });
+$("helpBtn").onclick = () => { if (view === "item") startTour(); else if (view === "done") show("item"), startTour(); else show("welcome"); };
+document.querySelectorAll(".tile").forEach(b => b.onclick = () => label(b.dataset.l));
 $("prev").onclick = () => go(-1);
 $("next").onclick = () => go(1);
 $("finish").onclick = () => show("done");
 $("back").onclick = () => show("item");
 $("note").oninput = () => {
   const it = items[state.i];
-  state.answers[it.id] = { ...(state.answers[it.id] || {}), note: $("note").value }; save();
+  state.answers[it.id] = { ...(state.answers[it.id] || {}), note: $("note").value };
   $("note").classList.remove("need");
+  clearTimeout(noteTimer); noteTimer = setTimeout(() => persist(it.id), 600);
+};
+$("submit").onclick = async () => {
+  try { await api("POST", "/submit"); submitted = true; renderDone(); renderItem(); }
+  catch (e) { $("submitErr").textContent = "Not sent: " + e.message; }
 };
 $("download").onclick = () => {
   const a = el("a"); a.href = URL.createObjectURL(new Blob([yaml()], { type: "text/yaml" }));
   a.download = DATA.file; a.click();
 };
 $("copy").onclick = () => { navigator.clipboard?.writeText(yaml()).then(() => { $("copy").textContent = "Copied"; }); };
+$("tourNext").onclick = () => { if (tourIdx === TOUR.length - 1) endTour(); else { tourIdx++; showTourStep(); } };
+$("tourBack").onclick = () => { if (tourIdx > 0) { tourIdx--; showTourStep(); } };
+$("tourSkip").onclick = endTour;
+window.addEventListener("resize", () => { if (!$("tour").hidden) showTourStep(); });
 document.addEventListener("keydown", e => {
-  if (view !== "item") { if (view === "intro" && e.key === "Enter") show("item"); return; }
+  if (!$("tour").hidden) { if (e.key === "Escape") endTour(); return; }
+  if (view === "done" && e.key === "Escape") { show("item"); return; }
+  if (view !== "item") { if (view === "welcome" && e.key === "Enter" && !HOSTED) show("item"); return; }
   if (e.target === $("note")) {
     if (e.key === "Escape") $("note").blur();
-    if (e.key === "Enter") { $("note").blur(); if (state.answers[items[state.i].id]?.label) go(1); }
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("note").blur(); if (state.answers[items[state.i].id]?.label) go(1); }
     return;
   }
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   const k = e.key.toLowerCase();
-  if (["k", "d", "u"].includes(k)) e.preventDefault();
-  if (k === "k") label("keep"); else if (k === "d") label("drop"); else if (k === "u") label("unsure");
-  else if (k === "n") { e.preventDefault(); $("note").focus(); }
+  if (["y", "n", "c"].includes(k)) e.preventDefault();
+  if (k === "y") label("keep"); else if (k === "n") label("drop"); else if (k === "c") label("unsure");
   else if (e.key === "ArrowRight") go(1); else if (e.key === "ArrowLeft") go(-1);
 });
-if (answered() > 0) show("item"); else show("intro");
+if (HOSTED) {
+  $("start").hidden = true; $("signinBox").hidden = false;
+  api("GET", "/me").then(p => { load(p); show("item"); }).catch(() => show("welcome"));
+} else if (answered() > 0) show("item"); else show("welcome");
 </script>
 </body>
 </html>

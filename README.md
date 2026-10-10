@@ -74,6 +74,12 @@ uv run uvicorn --factory womm.api.app:create_app --port 8000 --timeout-keep-aliv
 Deployed: https://womm-api-production.up.railway.app (`railway up --service womm-api` redeploys).
 `GET /livez` is the platform health check (liveness); `/health` is readiness.
 
+**Labelling pages.** With `WOMM_LABEL_ADMIN_TOKEN` set, the app also hosts the blind
+reference-answer check at `/label/<sample>`: annotators sign in with their name and every answer
+is saved in Postgres as they give it. The owner uploads a locally drawn sample and fetches the
+answers back with `scripts/reference_check.py upload` / `fetch`; the tool's decisions never leave
+the owner's machine.
+
 The app refuses to start without `WOMM_API_TOKEN` and `DATABASE_URL`. Runs execute in-process
 (at most 2 at a time); runs interrupted by a restart are marked `failed` / `orphaned` on the next
 start. The `Dockerfile` / `railway.json` build the same app; deployed versions must use the `api`

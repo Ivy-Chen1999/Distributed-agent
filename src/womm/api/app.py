@@ -1,7 +1,9 @@
 """HTTP API (U11): submit runs, poll status, read live node events.
 
 Every endpoint except /health requires `Authorization: Bearer <WOMM_API_TOKEN>`; the app refuses
-to start without a token. Run with: `uvicorn --factory womm.api.app:create_app`.
+to start without a token. The hosted labelling pages under /label (``womm.api.labels``) have
+their own sign-in and exist only when WOMM_LABEL_ADMIN_TOKEN is set.
+Run with: `uvicorn --factory womm.api.app:create_app`.
 """
 
 from __future__ import annotations
@@ -30,6 +32,7 @@ from womm.api.evolution import (
     read_publish_summary,
 )
 from womm.api.jobs import JobRunner, QueueFull
+from womm.api.labels import add_label_routes
 from womm.backends import prepare_backends
 from womm.config import REPO_ROOT, ConfigError, Settings, load_settings
 from womm.data.fixtures import Fixture, FixtureError, load_fixture
@@ -406,6 +409,13 @@ def create_app(
         known = _dossier_ids(dossier)
         return {"answer": out.answer, "cites": [c for c in out.cites if c in known],
                 "covered": out.covered}  # fmt: skip
+
+    if settings.label_admin_token:
+        if len(settings.label_admin_token) < MIN_TOKEN_LENGTH:
+            raise ConfigError(
+                f"WOMM_LABEL_ADMIN_TOKEN must be at least {MIN_TOKEN_LENGTH} chars when set"
+            )
+        add_label_routes(app, settings.label_admin_token)
 
     if web_dist is not None and (web_dist / "index.html").is_file():
         # The console is a single-page app served from the same origin as the API.

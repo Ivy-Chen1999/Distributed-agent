@@ -5,7 +5,9 @@ tie-break judge (``womm.eval.tiebreak``) rules on the rest. Those judges are LLM
 Anthropic's guidance is to calibrate such graders against people, after which human review can
 be occasional ("Demystifying evals for AI agents"). This check does that once, before the drafts
 are published: ``scripts/reference_check.py sample`` draws the items and writes one labeling page
-per annotator; ``scripts/reference_check.py score`` compares the labels with the tool.
+per annotator; ``upload`` hosts them on the app (``womm.api.labels``), where answers are saved as
+people give them, and ``fetch`` brings the answers back; ``scripts/reference_check.py score``
+compares the labels with the tool.
 
 **Population.** Every tool-decided item of the train/val drafts given: kept by the three judges
 (``auto_accepted``), kept by the tie-break (``llm_kept``) or dropped by it (``llm_dropped``).
@@ -56,6 +58,7 @@ STRATA = ("judges_accepted", "tiebreak_kept", "tiebreak_dropped")
 MAX_ERROR = ESCALATION_RATE
 PAGE_TEMPLATE = Path(__file__).with_name("reference_check_page.html")
 KEY_FILE = "key.private.json"
+TASKS_FILE = "pages.json"
 README_FILE = "README.md"
 # One-sided 95% for the upper bound printed next to the error rate.
 Z_95 = 1.645
@@ -63,6 +66,7 @@ SEND_TO = "the person who sent you this page"
 CONTEXT_CHARS = 600
 # ``why_missing`` is the recall step's own argument for a candidate: not shown, to stay blind.
 CLAIM_KEYS = ("affected_actor", "mechanism", "impact", "description")
+NAME_OK = re.compile(r"[A-Za-z0-9_-]{1,64}")
 
 
 class ReferenceCheckError(ValueError):
@@ -218,12 +222,22 @@ def render_page(
     downloaded as ``answers_<annotator>.yaml``."""
     meta = {"annotator": annotator, "sample": sample, "sendTo": send_to,
             "file": f"answers_{annotator}.yaml"}  # fmt: skip
-    data = json.dumps(meta | {"items": cards}, ensure_ascii=False).replace("</", "<\\/")
+    return _page(meta | {"items": cards}, annotator, send_to)
+
+
+def render_hosted_page(sample: str, *, api: str) -> str:
+    """The page as the server hosts it (``womm.api.labels``): the annotator signs in with their
+    name, the cards come from ``api`` and each answer is saved there."""
+    return _page({"annotator": "", "sample": sample, "api": api, "items": []}, "", SEND_TO)
+
+
+def _page(data: dict[str, Any], annotator: str, send_to: str) -> str:
+    blob = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
     page = PAGE_TEMPLATE.read_text(encoding="utf-8")
     return (
         page.replace("__ANNOTATOR__", html.escape(annotator))
         .replace("__SEND_TO__", html.escape(send_to))
-        .replace("__DATA__", data)
+        .replace("__DATA__", blob)
     )
 
 
@@ -244,7 +258,7 @@ def write_sample(
     if not annotators or len(set(annotators)) != len(annotators):
         raise ReferenceCheckError("give each annotator a distinct name")
     for name in annotators:
-        if not name.replace("_", "").replace("-", "").isalnum():
+        if not NAME_OK.fullmatch(name):
             raise ReferenceCheckError(f"annotator name {name!r}: letters, digits, - and _ only")
     if (out_dir / KEY_FILE).exists():
         raise ReferenceCheckError(f"{out_dir / KEY_FILE} exists; pick a new --out directory")
@@ -270,11 +284,15 @@ def write_sample(
         cached = ia_sources.load_cached_ia(fixture, ia_root)
         ia_texts[fixture] = cached.full_text if cached else None
     out_dir.mkdir(parents=True, exist_ok=True)
+    pages = {}
     for name in annotators:
         mine = [i for i in ids if keyed[i].annotator == name]
         cards = [card(i, keyed[i], by_case, ia_texts, in_sample[keyed[i].case_id]) for i in mine]
+        pages[name] = cards
         page = render_page(name, cards, sample=sample_id, send_to=send_to)
         (out_dir / f"label_{name}.html").write_text(page, encoding="utf-8")
+    tasks = {"sample": sample_id, "annotators": pages}
+    (out_dir / TASKS_FILE).write_text(json.dumps(tasks, ensure_ascii=False), encoding="utf-8")
     key = {
         "sample": sample_id,
         "seed": seed,
@@ -303,15 +321,40 @@ def _readme(annotators: list[str]) -> str:
     files = "\n".join(f"   - {a}: `label_{a}.html`" for a in annotators)
     return f"""# Reference-answer check sample
 
-1. **Label (about half a minute per item).** Send each annotator their own page, and nothing
-   else; each page holds different items. They open it in a browser (not a private window),
-   answer one item per screen and send back the downloaded `answers_<name>.yaml`.
+1. **Host the pages** (the usual way):
+   `uv run python scripts/reference_check.py upload --dir <this dir> --url <app url>`. It
+   prints one link; send it to the annotators. Each signs in with their name and their answers
+   are saved on the server as they go. When everyone is done:
+   `uv run python scripts/reference_check.py fetch --dir <this dir> --url <app url>`.
+
+   Without the server, send each annotator their own page instead, and nothing else; they
+   send back the downloaded `answers_<name>.yaml`:
 {files}
-2. **Score.** Put the answer files in this directory and run
+2. **Score.** With an answer file per annotator in this directory, run
    `uv run python scripts/reference_check.py score --dir <this dir>`.
 
-`{KEY_FILE}` holds the tool's decisions: keep it here and never send it to an annotator.
+`{KEY_FILE}` holds the tool's decisions: keep it here and never send or upload it.
+`{TASKS_FILE}` is what `upload` sends: the pages only.
 """
+
+
+def write_answer_files(out_dir: Path, sample: str, annotators: dict[str, dict]) -> list[str]:
+    """Write the server's answers as one ``answers_<name>.yaml`` per annotator, the format
+    ``read_answers`` reads; returns the names whose page is not submitted yet."""
+    pending = []
+    for name, got in sorted(annotators.items()):
+        if not NAME_OK.fullmatch(name):
+            raise ReferenceCheckError(f"annotator name {name!r} from the server is not valid")
+        if not got.get("submitted_at"):
+            pending.append(name)
+        rows = [{"item": a["item"], "label": a["label"], "note": a.get("note", "")}
+                for a in got.get("answers", [])]  # fmt: skip
+        data = {"sample": sample, "annotator": name, "answers": rows}
+        text = f"# Answers of {name}, fetched from the hosted page.\n" + yaml.safe_dump(
+            data, allow_unicode=True, sort_keys=False
+        )
+        (out_dir / f"answers_{name}.yaml").write_text(text, encoding="utf-8")
+    return pending
 
 
 # ----------------------------------------------------------------------------- scoring
