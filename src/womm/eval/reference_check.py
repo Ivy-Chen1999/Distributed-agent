@@ -14,22 +14,26 @@ compares the labels with the tool.
 Items a person decided and items dropped by a deterministic check are left out: there is no
 judgement to check. Holdout drafts are refused.
 
-**Sample.** ``n`` items per annotator, each annotator their own items, about a third from each
-stratum (``judges_accepted``, ``tiebreak_kept``, ``tiebreak_dropped``; the others fill in when
-one runs short), round-robin over cases so no case dominates.
+**Sample.** ``n`` items per annotator (20 by default), each annotator their own items, about a
+third from each stratum (``judges_accepted``, ``tiebreak_kept``, ``tiebreak_dropped``; the others
+fill in when one runs short), round-robin over cases so no case dominates. A reserve of
+``extra`` more per annotator (10 by default), drawn the same way from the rest, is kept back.
 
 **Blind labeling.** The page shows each item's claim, its quote and the IA text around it, and
 the case's other kept items that are not in the sample (to spot repeats; a sampled item never
 appears there, or its presence would give away the tool's decision). It never shows the tool's
 decision or reasons; those stay in ``key.private.json``.
 
-**Gate.** Each item gets ``keep``, ``drop`` or ``unsure``. The tool's error rate is the share of
-items where the person's keep/drop differs from the tool, with ``unsure`` counted as an error so
-the hard items do not drop out. At or below ``MAX_ERROR`` (the same 10% that escalates a
-proposal to full review), with every item answered, the reference answers count as robust;
-above it, fix the prompts, re-draft and check again. Each wrong item is printed with the tool's
-own reason: read it before changing a prompt. The one-sided 95% upper bound printed next to the
-rate says how far the true rate could be (no error in 60 items keeps it below 5%).
+**Gate, in two looks.** Each item gets ``keep``, ``drop`` or ``unsure``. The tool's error rate is
+the share of items where the person's keep/drop differs from the tool, with ``unsure`` counted as
+an error so the hard items do not drop out. After the first round the check stops early only if
+there is no error at all (0 in 40 keeps the 95% upper bound near 6%, under the limit); any error
+sends the reserve out (``extend``), and over all items the reference answers count as robust at
+or below ``MAX_ERROR`` (the same 10% that escalates a proposal to full review). Above it, fix the
+prompts, re-draft and check again. Every item must be answered before any verdict. Each wrong
+item is printed with the tool's own reason, and ``score`` writes ``review.html`` (local only: it
+holds the tool's decisions) to read them side by side. The one-sided 95% upper bound printed next
+to the rate says how far the true rate could be.
 """
 
 from __future__ import annotations
@@ -83,6 +87,7 @@ class Item:
     tool_kept: bool
     tool_reason: str = ""
     annotator: str = ""
+    stage: int = 1
 
 
 def stratum(item: _DraftItem) -> str | None:
@@ -252,9 +257,10 @@ def write_sample(
     annotators: list[str],
     send_to: str = SEND_TO,
     ia_root: Path | None = None,
+    extra: int = 10,
 ) -> dict[str, Any]:
-    """Draw ``n`` items per annotator, each annotator their own, and write the labeling pages
-    and the private key."""
+    """Draw ``n`` items per annotator, each annotator their own, plus a reserve of ``extra``
+    each, and write the labeling pages and the private key."""
     if n < 3:
         raise ReferenceCheckError("--n must be at least 3")
     if not annotators or len(set(annotators)) != len(annotators):
@@ -267,42 +273,60 @@ def write_sample(
     pop = population(drafts)
     if not pop:
         raise ReferenceCheckError("no tool-decided item in the drafts")
-    drawn = stratified_sample(pop, n * len(annotators), seed)
-    # Deal in stratum order so each annotator gets about a third of each stratum.
-    sample = [replace(it, annotator=annotators[j % len(annotators)]) for j, it in enumerate(drawn)]
-    random.Random(seed).shuffle(sample)
-    width = len(str(len(sample)))
-    ids = [f"r{i + 1:0{width}d}" for i in range(len(sample))]
-    keyed = dict(zip(ids, sample, strict=True))
+    if extra < 0:
+        raise ReferenceCheckError("--extra must not be negative")
+
+    def deal(drawn: list[Item], stage: int) -> list[Item]:
+        # Deal in stratum order so each annotator gets about a third of each stratum.
+        dealt = [replace(it, annotator=annotators[j % len(annotators)], stage=stage)
+                 for j, it in enumerate(drawn)]  # fmt: skip
+        random.Random(f"{seed}:{stage}").shuffle(dealt)
+        return dealt
+
+    first = stratified_sample(pop, n * len(annotators), seed)
+    taken = {(i.case_id, i.item_id) for i in first}
+    rest = [i for i in pop if (i.case_id, i.item_id) not in taken]
+    sample = deal(first, 1)
+    reserve = deal(stratified_sample(rest, extra * len(annotators), seed + 1), 2) if extra else []
+    width = len(str(len(sample) + len(reserve)))
+    ids = [f"r{i + 1:0{width}d}" for i in range(len(sample) + len(reserve))]
+    keyed = dict(zip(ids, sample + reserve, strict=True))
     created = dt.date.today().isoformat()
-    digest = hashlib.sha1(json.dumps([asdict(i) for i in sample]).encode()).hexdigest()[:8]
+    digest = hashlib.sha1(json.dumps([asdict(i) for i in sample + reserve]).encode()).hexdigest()[
+        :8
+    ]
     sample_id = f"{created}-{digest}"
     by_case = {d.case_id: d for d in drafts}
+    # Reserve items are hidden from "the case's other items" too: they may be shown later.
     in_sample: dict[str, set[str]] = defaultdict(set)
-    for it in sample:
+    for it in sample + reserve:
         in_sample[it.case_id].add(it.item_id)
     ia_texts = {}
     for fixture in sorted({d.fixture for d in drafts}):
         cached = ia_sources.load_cached_ia(fixture, ia_root)
         ia_texts[fixture] = cached.full_text if cached else None
     out_dir.mkdir(parents=True, exist_ok=True)
-    pages = {}
+    pages, held = {}, {}
     for name in annotators:
         mine = [i for i in ids if keyed[i].annotator == name]
-        cards = [card(i, keyed[i], by_case, ia_texts, in_sample[keyed[i].case_id]) for i in mine]
-        pages[name] = cards
-        page = render_page(name, cards, sample=sample_id, send_to=send_to)
+        cards = {i: card(i, keyed[i], by_case, ia_texts, in_sample[keyed[i].case_id]) for i in mine}
+        pages[name] = [cards[i] for i in mine if keyed[i].stage == 1]
+        held[name] = [cards[i] for i in mine if keyed[i].stage == 2]
+        page = render_page(name, pages[name], sample=sample_id, send_to=send_to)
         (out_dir / f"label_{name}.html").write_text(page, encoding="utf-8")
-    hosted_labels.write_pages(out_dir, kind=KIND, sample=sample_id, pages=pages)
+    hosted_labels.write_pages(out_dir, kind=KIND, sample=sample_id, pages=pages, reserve=held)
     key = {
         "sample": sample_id,
         "seed": seed,
         "n_per_annotator": n,
+        "extra_per_annotator": extra,
+        "extended": False,
         "created_on": created,
         "cases": sorted(by_case),
         "annotators": annotators,
         "population": len(pop),
-        "items": {iid: asdict(it) for iid, it in keyed.items()},
+        "items": {iid: asdict(it) for iid, it in keyed.items() if it.stage == 1},
+        "reserve": {iid: asdict(it) for iid, it in keyed.items() if it.stage == 2},
     }
     (out_dir / KEY_FILE).write_text(json.dumps(key, indent=2), encoding="utf-8")
     (out_dir / README_FILE).write_text(_readme(annotators), encoding="utf-8")
@@ -310,12 +334,36 @@ def write_sample(
         "out": str(out_dir),
         "sample": sample_id,
         "items": len(sample),
+        "reserve": len(reserve),
         "per_annotator": {a: sum(i.annotator == a for i in sample) for a in annotators},
         "by_stratum": {s: sum(i.stratum == s for i in sample) for s in STRATA},
         "cases": len({i.case_id for i in sample}),
         "population": len(pop),
         "missing_ia": sorted(f for f, t in ia_texts.items() if t is None),
     }
+
+
+def extend(out_dir: Path) -> dict[str, list[dict]]:
+    """Move the reserve into the sample: the key, pages.json and the local pages. Returns the
+    new cards per annotator, for the hosted pages."""
+    key_path = out_dir / KEY_FILE
+    key = json.loads(key_path.read_text(encoding="utf-8"))
+    if key.get("extended"):
+        raise ReferenceCheckError("this sample was already extended")
+    if not key.get("reserve"):
+        raise ReferenceCheckError("this sample has no reserve to send")
+    pages = hosted_labels.read_pages(out_dir)
+    added = pages.get("reserve") or {}
+    for name, cards in added.items():
+        pages["annotators"][name] = pages["annotators"].get(name, []) + cards
+        page = render_page(name, pages["annotators"][name], sample=key["sample"])
+        (out_dir / f"label_{name}.html").write_text(page, encoding="utf-8")
+    hosted_labels.write_pages(out_dir, kind=KIND, sample=key["sample"], pages=pages["annotators"])
+    key["items"] |= key.pop("reserve")
+    key["reserve"] = {}
+    key["extended"] = True
+    key_path.write_text(json.dumps(key, indent=2), encoding="utf-8")
+    return added
 
 
 def _readme(annotators: list[str]) -> str:
@@ -435,6 +483,14 @@ def score(key: dict[str, Any], labels: dict[str, str | None]) -> dict[str, Any]:
         ids = [i for i in items if items[i]["stratum"] == s]
         by_stratum[s] = sum(i in errors for i in ids) / len(ids) if ids else None
     error = len(errors) / len(items)
+    first_look = bool(key.get("reserve")) and not key.get("extended")
+    if blank:
+        verdict = "incomplete"
+    elif first_look:
+        # Early stop only with no error at all; otherwise the reserve goes out.
+        verdict = "robust" if not errors else "extend"
+    else:
+        verdict = "robust" if error <= MAX_ERROR else "not_robust"
     return {
         "items": len(items),
         "blank": blank,
@@ -443,7 +499,9 @@ def score(key: dict[str, Any], labels: dict[str, str | None]) -> dict[str, Any]:
         "error": error,
         "error_by_stratum": by_stratum,
         "upper_bound_95": upper_bound(len(errors), len(items)),
-        "robust": error <= MAX_ERROR and not blank,
+        "verdict": verdict,
+        "robust": verdict == "robust",
+        "first_look": first_look,
     }
 
 
@@ -476,11 +534,15 @@ def format_result(
         lines.append(f"  not sure: {name(iid)}")
         if note := (notes or {}).get(iid):
             lines.append(f"    person: {note}")
-    if result["blank"]:
+    verdict = result["verdict"]
+    if verdict == "incomplete":
         lines.append(f"INCOMPLETE: {len(result['blank'])} items have no label; finish them, "
                      "then score again")  # fmt: skip
-    elif result["robust"]:
+    elif verdict == "robust":
         lines.append("ROBUST: the reference answers can be published; spot checks stay optional")
+    elif verdict == "extend":
+        lines.append("NOT YET: errors in the first round; send the reserve with `extend` "
+                     "(each annotator gets their extra items), then score again")  # fmt: skip
     else:
         lines.append(
             "NOT ROBUST: fix the drafting or tie-break prompts, re-draft, then check again"

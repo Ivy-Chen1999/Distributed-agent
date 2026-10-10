@@ -20,7 +20,11 @@ seed derived from the case id (``tiebreak_audit_seed_for``), alongside the judge
 sample. With ``AUDIT_BLOCKS`` off these are optional spot checks: any a person decides count
 towards the per-proposal error rate, and a proposal over 10% is escalated to full human review.
 
-Train/val only: a holdout draft is refused, since every holdout item is verified by its owner.
+A holdout draft is ruled the same way, but its scenario is not in the public fixture: the caller
+passes the one built from the local holdout registry (``scripts/tiebreak_golden_case.py`` does,
+with LangSmith tracing disabled, and writes the ruled draft back under ``.cache/``). Its owner
+then spot-checks a sample (``scripts/verify_golden_case.py --spot-check``) once a reference check
+has passed, or verifies every item as before.
 """
 
 from __future__ import annotations
@@ -54,6 +58,7 @@ from womm.eval.drafting import (
 )
 from womm.llm.base import LLMBackend
 from womm.models.base import StrictModel
+from womm.models.regulation import Scenario
 
 ROLE = "tiebreak"
 # Flags from a deterministic check that no judgement can overrule.
@@ -95,9 +100,15 @@ def _claim(item: _DraftItem) -> dict:
 
 
 def tiebreak_input(
-    draft: GoldenDraft, items: list[_DraftItem], fixture: Fixture, ia_text: str, chars: int
+    draft: GoldenDraft,
+    items: list[_DraftItem],
+    fixture: Fixture,
+    ia_text: str,
+    chars: int,
+    scenario: Scenario | None = None,
 ) -> str:
-    scenario = fixture.scenario(draft.scenario_id)
+    """``scenario`` defaults to the draft's public one (train/val)."""
+    scenario = scenario or fixture.scenario(draft.scenario_id)
     kept = [
         {"item_id": i.item_id} | _claim(i)
         for i in draft.items()
@@ -237,11 +248,19 @@ async def tiebreak_draft(
     ia_text: str,
     config: DraftingConfig,
     backends: dict[str, LLMBackend],
+    scenario: Scenario | None = None,
 ) -> GoldenDraft:
-    """Rule on every open item of a train/val draft (one LLM call) and apply the rulings."""
-    if draft.split == "holdout":
+    """Rule on every open item of a draft (one LLM call) and apply the rulings. A holdout draft
+    needs ``scenario``, its local holdout scenario (it is not in the public fixture); the caller
+    keeps tracing disabled."""
+    if draft.split == "holdout" and scenario is None:
         raise DraftingError(
-            f"{draft.case_id}: a holdout draft is verified item by item by its owner; no tie-break"
+            f"{draft.case_id}: a holdout draft needs its local holdout scenario for a tie-break"
+        )
+    if scenario is not None and scenario.scenario_id != draft.scenario_id:
+        raise DraftingError(
+            f"{draft.case_id}: scenario {scenario.scenario_id!r} is not the draft's "
+            f"{draft.scenario_id!r}"
         )
     role = config.roles.tiebreak
     if role is None:
@@ -260,7 +279,7 @@ async def tiebreak_draft(
             )
     asked = [i for i in open_items if i.item_id not in rulings]
     if asked:
-        user = tiebreak_input(draft, asked, fixture, ia_text, config.context_chars)
+        user = tiebreak_input(draft, asked, fixture, ia_text, config.context_chars, scenario)
         backend = backends[role.backend]
         out, _ = await backend.call(ROLE, config.prompts[role.prompt], user, TiebreakOutput, role)
         got = {v.item_id: v for v in out.verdicts}

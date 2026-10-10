@@ -155,3 +155,43 @@ def test_upload_without_the_token_is_refused(app_client, tmp_path, monkeypatch, 
     base = ["--dir", str(out), "--url", URL, "--holdout-registry", str(tmp_path / "none.yaml")]
     assert script.main(["upload", *base]) == 2
     assert "401" in capsys.readouterr().err
+
+
+def test_reference_check_second_look_on_the_app(app_client, tmp_path, capsys):
+    """An error in the first round: extend sends the reserve to the same pages, people answer
+    the new items only, and the final score covers everything."""
+    out = tmp_path / "check"
+    rc.write_sample(out, [tiebroken("case_90_a"), tiebroken("case_91_b")], n=3, seed=1,
+                    annotators=["ana", "bo"], ia_root=tmp_path, extra=2)  # fmt: skip
+    key = json.loads((out / rc.KEY_FILE).read_text())
+    truth = {i: "keep" if it["tool_kept"] else "drop" for i, it in key["items"].items()}
+    truth |= {i: "keep" if it["tool_kept"] else "drop" for i, it in key["reserve"].items()}
+    base = ["--dir", str(out), "--url", URL, "--holdout-registry", str(tmp_path / "none.yaml")]
+    assert script.main(["upload", *base]) == 0
+    wrong = sorted(key["items"])[0]
+    for name in ("ana", "bo"):
+        _label_all(
+            app_client,
+            key["sample"],
+            name,
+            lambda i: ("unsure", "unclear") if i == wrong else (truth[i], ""),
+        )
+    assert script.main(["fetch", *base]) == 0
+    assert script.main(["score", "--dir", str(out)]) == 1
+    assert "NOT YET" in capsys.readouterr().out
+    assert script.main(["extend", "--dir", str(out), "--url", URL]) == 0
+    assert "open the same link again" in capsys.readouterr().out
+    for name in ("ana", "bo"):
+        app_client.cookies.clear()
+        me = app_client.post(f"/label/api/{key['sample']}/session", json={"name": name}).json()
+        assert not me["submitted"] and len(me["items"]) == 5
+        for card in me["items"]:
+            if card["id"] not in me["answers"]:
+                app_client.put(f"/label/api/{key['sample']}/answers/{card['id']}",
+                               json={"label": truth[card["id"]]})  # fmt: skip
+        assert app_client.post(f"/label/api/{key['sample']}/submit").status_code == 200
+    assert script.main(["fetch", *base]) == 0
+    code = script.main(["score", "--dir", str(out)])
+    printed = capsys.readouterr().out
+    assert "10 items" in printed and code == (0 if rc.MAX_ERROR >= 1 / 10 else 1)
+    assert (out / "review.html").exists()

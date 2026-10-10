@@ -51,6 +51,9 @@ def test_cycle_names_one_candidate(database_url, fake_version, tmp_path, capsys,
     assert out["cycle_id"] == "c_cli" and out["chosen"] == out["prompt_stage"]["best"]
     assert out["chosen"] != sv.version_id and out["prompt_stage"]["archived"]
     assert out["topology_stage"]["candidate"] is None
+    # No new expert made it: the 11-20 route is the prompt-only fallback, with the reason.
+    assert out["route"]["route"] == "prompt_only"
+    assert out["route"]["why"] == out["topology_stage"]["reason"]
     chosen = asyncio.run(_load(database_url, out["chosen"]))
     assert MARKER in "".join(chosen.prompts.values())  # the fiscal edit made it
 

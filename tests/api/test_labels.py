@@ -127,3 +127,23 @@ def test_sign_in_is_rate_limited(database_url):
         _upload(c)
         codes = [c.post(f"{API}/session", json={"name": f"x{i}"}).status_code for i in range(11)]
         assert codes[:10] == [401] * 10 and codes[10] == 429
+
+
+def test_extend_appends_cards_and_reopens_the_page(database_url):
+    with _client(database_url) as c:
+        _upload(c)
+        c.post(f"{API}/session", json={"name": "bob"})
+        c.put(f"{API}/answers/r03", json={"label": "keep"})
+        assert c.post(f"{API}/submit").status_code == 200
+        body = {"annotators": {"bob": [_card(4)]}}
+        assert c.post(f"{API}/admin/extend", json=body).status_code == 401
+        assert c.post(f"{API}/admin/extend", json=body, headers=ADMIN_AUTH).status_code == 200
+        me = c.get(f"{API}/me").json()
+        assert [i["id"] for i in me["items"]] == ["r03", "r04"] and not me["submitted"]
+        assert me["answers"]["r03"]["label"] == "keep"  # earlier answers are kept
+        again = c.post(f"{API}/admin/extend", json=body, headers=ADMIN_AUTH)
+        assert again.status_code == 409 and "r04" in again.text
+        nobody = {"annotators": {"carol": [_card(5)]}}
+        assert c.post(f"{API}/admin/extend", json=nobody, headers=ADMIN_AUTH).status_code == 409
+        leak = {"annotators": {"bob": [_card(6) | {"tool_kept": False}]}}
+        assert c.post(f"{API}/admin/extend", json=leak, headers=ADMIN_AUTH).status_code == 409

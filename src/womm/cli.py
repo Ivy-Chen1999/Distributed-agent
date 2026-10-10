@@ -539,6 +539,21 @@ async def cmd_evolve_cycle(args: argparse.Namespace) -> int:
         },
         "notes": result.notes,
     }  # fmt: skip
+    # The 2026-11-20 route (runbook): new expert only when the topology stage made the chosen
+    # candidate; otherwise the prompt-only fallback, with the reason.
+    if (
+        topo is not None
+        and topo.candidate is not None
+        and result.chosen.version_id == topo.candidate.version_id
+    ):
+        route, why = "new_expert", f"the new expert's candidate was chosen ({topo.reason})"
+    elif topo is not None and topo.candidate is not None:
+        route, why = "prompt_only", "the new expert's candidate did not beat its parent on val"
+    elif topo is not None:
+        route, why = "prompt_only", topo.reason
+    else:
+        route, why = "prompt_only", "the topology stage was not run (--stage prompt)"
+    data["route"] = {"route": route, "why": why}
     lines = [f"cycle {cycle_id} on {base.version_id}"]
     if prompt is not None:
         n, calls = len(prompt.archived), prompt.metric_calls
@@ -549,6 +564,7 @@ async def cmd_evolve_cycle(args: argparse.Namespace) -> int:
         lines.append(f"topology stage: {topo.reason} ({made})")
     lines += result.notes
     lines.append(f"candidate for the gate: {result.chosen.version_id}")
+    lines.append(f"route: {route.replace('_', '-')} ({why})")
     if result.all_proposals_failed:
         lines.append("error: every proposer call failed (see the rejections); nothing was "
                      "proposed")  # fmt: skip
@@ -764,6 +780,7 @@ async def cmd_calibrate_hosted(args: argparse.Namespace) -> int:
 async def cmd_calibrate_score(args: argparse.Namespace) -> int:
     """Agreement of the coverage judge with the annotators; --record appends the aggregate."""
     from womm.eval import judge_calibration as jc
+    from womm.eval import review_page
     from womm.evolve import promotion as pm
 
     directory = Path(args.dir)
@@ -776,6 +793,9 @@ async def cmd_calibrate_score(args: argparse.Namespace) -> int:
         raise UsageError(str(exc)) from None
     result = jc.score(key, answers)
     text = jc.format_result(result)
+    page = review_page.calibration(directory, key, result, answers, jc.read_notes(directory),
+                                   minimum=pm.CALIBRATION_MIN)  # fmt: skip
+    text += f"\nreview page (private, keep it local): {page}"
     if args.record:
         if problems := jc.record_problems(result):
             raise UsageError("not recorded: " + "; ".join(problems))
@@ -787,6 +807,47 @@ async def cmd_calibrate_score(args: argparse.Namespace) -> int:
         result["recorded"] = record
         text += f"\nrecorded in {args.records}; commit it"
     emit(args, result, text)
+    return EXIT_OK
+
+
+async def cmd_policy_sign(args: argparse.Namespace) -> int:
+    """Sign the promotion policy (pre-registration): set signed_by and signed_on, keeping the
+    file's comments. The owner then commits it; the gate reads only a committed file."""
+    import re
+
+    from womm.evolve import promotion as pm
+
+    path = Path(args.policy)
+    try:
+        policy, _ = pm.load_policy(path)
+    except pm.GateRefused as exc:
+        raise UsageError(str(exc)) from None
+    if policy.signed:
+        raise UsageError(f"already signed by {policy.signed_by} on {policy.signed_on}; a signed "
+                         "policy is never changed")  # fmt: skip
+    name = args.by.strip()
+    if not name:
+        raise UsageError("--by needs your name")
+    text = path.read_text(encoding="utf-8")
+    on = dt.date.today().isoformat()
+    text, n_by = re.subn(r"^signed_by:.*$", f"signed_by: {json.dumps(name)}", text, count=1,
+                         flags=re.M)  # fmt: skip
+    text, n_on = re.subn(r"^signed_on:.*$", f'signed_on: "{on}"', text, count=1, flags=re.M)
+    if n_by != 1 or n_on != 1:
+        raise UsageError(f"{path} has no signed_by / signed_on lines to fill in")
+    path.write_text(text, encoding="utf-8")
+    pm.load_policy(path)  # still valid
+    guards = ", ".join(f"{k} {v.model_dump(exclude_none=True)}" for k, v in policy.guards.items())
+    shown = path.relative_to(REPO_ROOT) if path.is_relative_to(REPO_ROOT) else path
+    summary = (f"signed {path} as {name} on {on}. What you signed:\n"
+               f"  primary metric: {policy.primary_metric}; guards: {guards}\n"
+               f"  formal mode: {policy.formal_mode}; expected gain: {policy.expected_gain}; "
+               f"repetitions: {policy.repetitions}\n"
+               f"  holdout budget: {policy.holdout_budget.per_cycle} per cycle, "
+               f"{policy.holdout_budget.total} in total; "
+               f"publish summary: {policy.publish_summary}\n"
+               f"commit it now: git commit {shown}")  # fmt: skip
+    emit(args, {"signed_by": name, "signed_on": on}, summary)
     return EXIT_OK
 
 
@@ -1220,6 +1281,12 @@ def _add_calibration_parsers(sub: Any, common: argparse.ArgumentParser) -> None:
     p_score.add_argument("--record", action="store_true",
                          help="append a judge_calibrations record (aggregates only)")  # fmt: skip
     p_score.add_argument("--records", default=str(RECORDS_PATH), help=argparse.SUPPRESS)
+    p_pol = sub.add_parser("policy", help="the pre-registered promotion policy")
+    pol = p_pol.add_subparsers(dest="policy_cmd", required=True)
+    p_sign = pol.add_parser("sign", parents=[common],
+                            help="sign the promotion policy with its current values")  # fmt: skip
+    p_sign.add_argument("--by", required=True, help="your name")
+    p_sign.add_argument("--policy", default=str(POLICY_PATH), help=argparse.SUPPRESS)
     p_noise = sub.add_parser("noise", help="R34 noise and minimum detectable delta")
     noise = p_noise.add_subparsers(dest="noise_cmd", required=True)
     p_nrep = noise.add_parser("report", parents=[common],
@@ -1297,7 +1364,9 @@ COST_HANDLERS = {
     "check": cmd_cost_check,
     "late-added": cmd_cost_late_added,
 }
+POLICY_HANDLERS = {"sign": cmd_policy_sign}
 GROUPS = {
+    "policy": ("policy_cmd", POLICY_HANDLERS),
     "evolve": ("evolve_cmd", EVOLVE_HANDLERS),
     "calibrate": ("calibrate_cmd", CALIBRATE_HANDLERS),
     "noise": ("noise_cmd", NOISE_HANDLERS),

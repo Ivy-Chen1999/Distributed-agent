@@ -231,9 +231,46 @@ def test_the_script_samples_and_scores(tmp_path, capsys):
     assert script.main(score) == 1
     printed = capsys.readouterr().out
     assert f"wrong: {first}" in printed and "    tool: " in printed
-    assert "person: the quote is about another option" in printed and "NOT ROBUST" in printed
+    # One error in the first round: not decided yet, the reserve goes out.
+    assert "person: the quote is about another option" in printed and "NOT YET" in printed
+    review = (out / "review.html").read_text()
+    assert first in review and "__DATA__" not in review and "another option" in review
+    # Send the reserve, answer it correctly: one error in all items is within the limit.
+    assert script.main(["extend", "--dir", str(out)]) == 0
+    capsys.readouterr()
+    key = json.loads((out / rc.KEY_FILE).read_text())
+    assert key["extended"] and not key["reserve"] and len(key["items"]) > 6
+    truth = {i: "keep" if it["tool_kept"] else "drop" for i, it in key["items"].items()}
+    for name in ("ana", "bo"):
+        mine = {i: truth[i] for i, it in key["items"].items() if it["annotator"] == name}
+        if name == "ana":
+            mine[first] = flip[truth[first]]
+        answer_file(out / f"answers_{name}.yaml", key, name, mine)
+    errors_allowed = len(key["items"]) * rc.MAX_ERROR >= 1
+    assert script.main(score) == (0 if errors_allowed else 1)
+    assert ("ROBUST" if errors_allowed else "NOT ROBUST") in capsys.readouterr().out
+    assert script.main(["extend", "--dir", str(out)]) == 2  # only once
     (out / "answers_bo.yaml").unlink()
     assert script.main(score) == 2
+
+
+def test_a_clean_first_round_stops_early_and_the_reserve_stays_hidden(tmp_path):
+    out = tmp_path / "check"
+    rc.write_sample(out, [tiebroken("case_90_a"), tiebroken("case_91_b")], n=3, seed=1,
+                    annotators=["ana", "bo"], ia_root=tmp_path, extra=2)  # fmt: skip
+    key = json.loads((out / rc.KEY_FILE).read_text())
+    pages = json.loads((out / "pages.json").read_text())
+    assert len(key["reserve"]) == 4 and not set(key["reserve"]) & set(key["items"])
+    shown = {c["id"] for cards in pages["annotators"].values() for c in cards}
+    assert shown == set(key["items"])
+    for name in ("ana", "bo"):  # the reserve is not on any page, and not among "others"
+        page = (out / f"label_{name}.html").read_text()
+        assert not any(f'"id": "{r}"' in page for r in key["reserve"])
+    labels = {i: "keep" if it["tool_kept"] else "drop" for i, it in key["items"].items()}
+    result = rc.score(key, labels)
+    assert result["verdict"] == "robust" and result["first_look"]
+    one_wrong = labels | {min(labels): "unsure"}
+    assert rc.score(key, one_wrong)["verdict"] == "extend"
 
 
 def test_the_passage_keeps_the_case_and_marks_the_quote():
