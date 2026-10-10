@@ -27,17 +27,21 @@ item is settled when more than half of the annotators give the same keep/drop la
 (a split, or an ``unsure``) ``score`` writes ``reconcile.html``, which shows those items with
 each person's label and note (still never the tool's decision), and the annotators pick one label
 together; the page downloads ``reconciled.yaml``. Agreement before reconciling is reported as raw
-agreement and Cohen's kappa (mean over pairs). Every file carries the sample's id, so answers
+agreement and Cohen's kappa (mean over pairs), and the split items are listed as ambiguous: a good
+reference item is one two people judge the same way on their own (Anthropic, "Demystifying
+evals"), so a kept one is worth a second look. Every file carries the sample's id, so answers
 from another sample are refused.
 
 **Gate.** The tool's error rate against the human label, raw and reweighted to the strata's
 shares of the population; the gate uses the higher of the two, and an item still unsettled
 counts as an error. At or below ``MAX_ERROR`` (the same 10% that escalates a proposal to full
-review), with every item settled and every annotator's answers complete, the reference answers
-count as robust and later spot checks stay optional; above it, fix the prompts, re-draft and
-check again. The one-sided 95% upper bound printed next to the rate says how far the true rate
-could be: no error in 30 items (the default) keeps it below 10%; no error in 20 still allows about
-12%, so 20 items catch gross failures only.
+review), with every item settled, every annotator's answers complete and raw agreement before
+reconciling at least ``MIN_AGREEMENT`` (below it the labels are too noisy to measure against),
+the reference answers count as robust and later spot checks stay optional; above it, fix the
+prompts, re-draft and check again. Each wrong item is printed with the tool's own reason: read
+it before changing a prompt. The one-sided 95% upper bound printed next to the rate says how far
+the true rate could be: no error in 30 items (the default) keeps it below 10%; no error in 20
+still allows about 12%, so 20 items catch gross failures only.
 """
 
 from __future__ import annotations
@@ -64,6 +68,7 @@ from womm.eval.golden_review import ESCALATION_RATE, KEPT_DECISIONS
 LABELS = ("keep", "drop", "unsure")
 STRATA = ("judges_accepted", "tiebreak_kept", "tiebreak_dropped")
 MAX_ERROR = ESCALATION_RATE
+MIN_AGREEMENT = 0.7
 PAGE_TEMPLATE = Path(__file__).with_name("reference_check_page.html")
 KEY_FILE = "key.private.json"
 CARDS_FILE = "cards.json"
@@ -89,6 +94,7 @@ class Item:
     item_id: str
     stratum: str
     tool_kept: bool
+    tool_reason: str = ""
 
 
 def stratum(item: _DraftItem) -> str | None:
@@ -108,6 +114,14 @@ def stratum(item: _DraftItem) -> str | None:
     return None
 
 
+def _tool_reason(item: _DraftItem) -> str:
+    if item.tiebreak is not None:
+        return f"tie-break: {item.tiebreak.reason}"
+    j = item.judge
+    return (f"judges: anchor: {j.anchor_faithfulness.reason} / derivability: "
+            f"{j.derivability.reason} / category: {j.category.reason}")  # fmt: skip
+
+
 def population(drafts: list[GoldenDraft]) -> list[Item]:
     items = []
     for draft in drafts:
@@ -116,7 +130,8 @@ def population(drafts: list[GoldenDraft]) -> list[Item]:
         for item in draft.items():
             if (s := stratum(item)) is not None:
                 kept = item.review.decision in KEPT_DECISIONS
-                items.append(Item(draft.case_id, draft.fixture, item.item_id, s, kept))
+                items.append(Item(draft.case_id, draft.fixture, item.item_id, s, kept,
+                                  _tool_reason(item)))  # fmt: skip
     return items
 
 
@@ -493,6 +508,7 @@ def score(key: dict[str, Any], answers: Labels, reconciled: dict[str, str] | Non
                 if (k := _kappa(la, lb)) is not None:
                     kappas.append(k)
     error = max(raw, natural)
+    agreement = _mean(inter)
     blank = {a: sum(v is None for v in answers[a].values()) for a in names}
     return {
         "items_sampled": len(items),
@@ -506,8 +522,12 @@ def score(key: dict[str, Any], answers: Labels, reconciled: dict[str, str] | Non
         "error_by_stratum": by_stratum,
         "error": error,
         "upper_bound_95": upper_bound(len(errors), len(items)),
-        "robust": error <= MAX_ERROR and not unsettled and not any(blank.values()),
-        "inter_annotator_agreement": _mean(inter),
+        "robust": error <= MAX_ERROR
+        and not unsettled
+        and not any(blank.values())
+        and agreement is not None
+        and agreement >= MIN_AGREEMENT,
+        "inter_annotator_agreement": agreement,
         "cohen_kappa": _mean(kappas),
         "wrong": wrong,
     }
@@ -537,6 +557,13 @@ def format_result(result: dict[str, Any], key: dict[str, Any]) -> str:
         for iid in result["wrong"]:
             it = key["items"][iid]
             lines.append(f"  wrong: {iid} = {it['case_id']} {it['item_id']} ({it['stratum']})")
+            if reason := it.get("tool_reason"):
+                lines.append(f"    {reason[:300]}")
+        for iid in result["split"]:
+            it = key["items"][iid]
+            kept = "kept" if it["tool_kept"] else "dropped"
+            lines.append(f"  ambiguous (annotators split): {iid} = {it['case_id']} "
+                         f"{it['item_id']}, {kept} by the tool")  # fmt: skip
     if blanks := {a: n for a, n in result["blank"].items() if n}:
         lines.append(f"blank labels: {blanks}")
     if any(result["blank"].values()):
@@ -544,6 +571,9 @@ def format_result(result: dict[str, Any], key: dict[str, Any]) -> str:
     elif result["unsettled"]:
         lines.append(f"NOT SETTLED YET: decide the split items together ({RECONCILE_PAGE}), "
                      "then score again")  # fmt: skip
+    elif (agree := result["inter_annotator_agreement"]) is None or agree < MIN_AGREEMENT:
+        lines.append(f"NOT RELIABLE: agreement before reconciling is below {MIN_AGREEMENT:.0%}; "
+                     "sharpen the rubric, then check again on a new sample")  # fmt: skip
     elif result["robust"]:
         lines.append("ROBUST: no gross failure; spot checks stay optional")
     else:
