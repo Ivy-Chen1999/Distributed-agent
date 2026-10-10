@@ -25,7 +25,7 @@ report is `docs/status/2026-10-06-v1-progress.md`; the human steps are in
 ## Where it stands
 
 The 11 train/val drafts (cases 03–13) are settled by tools alone, so nobody has to review a draft.
-Before the drafts are published, two classmates do a **one-time blind reference check**: 30
+Before the drafts are published, two classmates do a **one-time blind reference check**: 20
 items each, about 15 minutes, each on their own items. It measures whether the tool chain is
 robust. It runs on the deployed app: one link, sign-in by name, answers saved as people label.
 The check is built and tested end to end; it has not been run with real annotators yet.
@@ -82,9 +82,12 @@ merged; `evals/golden/drafts/` on `feat/golden-import` is empty.
   agents*, says human review may become occasional once the system is robust. The reference
   check measures that once. Afterwards the `audit: true` spot checks (20% of kept items, marked
   in each draft) stay optional.
-- **30 items per person, different items.** Two people on 60 different items measure the tool
-  better than two on the same 30, and need no joint session. No error in 60 items bounds the
-  true error rate below 5% at 95%. `--n` (items per annotator) defaults to 30.
+- **20 items per person, different items, in two looks.** Two people on different items measure
+  the tool better than two on the same items, and need no joint session. The check stops after
+  the first 40 only if there is no error at all (the 95% bound is then about 6%, under the 10%
+  limit); any error sends a reserve of 10 more each, drawn at the same time (`extend`), and the
+  10% rule applies to all 60. `--n` (first-round items per annotator) defaults to 20, `--extra`
+  to 10.
 
 ## The reference check in brief
 
@@ -95,14 +98,15 @@ and the hosting in `src/womm/api/labels.py` and `src/womm/eval/hosted_labels.py`
 `tests/api/test_labels_pipeline.py` (the whole path against Postgres). Edit this code on
 `feat/v1-integration`: the hosting exists only there.
 
-1. **Sample** 30 items per annotator, a third from each stratum, each annotator their own items,
+1. **Sample** 20 items per annotator (plus a held-back reserve of 10), a third from each stratum, each annotator their own items,
    and **upload** them to the app. Nothing on the page reveals the tool's decision. A sampled item
    is never listed among its case's other items, because that would reveal whether it was kept.
 2. Each annotator opens the link, signs in with their name and **labels** (keep, drop or can't
    tell, with an optional note); every answer is saved on the app. The owner **fetches** them
    back as `answers_<name>.yaml`. (A self-contained `label_<name>.html` per annotator is still
    written, as a fallback without the app; it downloads the answer file instead.)
-3. **Score.** The tool's error rate is the share of items where the person's keep/drop differs
+3. **Score.** `score` also writes `review.html` (local only): the verdict in plain words and
+   each disagreement next to the tool's own reason. The tool's error rate is the share of items where the person's keep/drop differs
    from the tool; "not sure" counts as an error. ROBUST at 10% or less, with every item
    answered. The output shows the rate per stratum and a one-sided 95% upper bound, and for each
    wrong item the tool's own reason and the person's note.
@@ -152,7 +156,9 @@ each name, then `fetch` and `score`.
 6. Then continue with the human-steps file on `feat/v1-integration` (merge `feat/golden-import`
    into it first; `womm calibrate` exists only there): the train/val eval run, the judge
    calibration (step 3: `womm calibrate sample`, then `upload`, `fetch` and `score --record`, on
-   the same labelling pages), and the owner reading 3–4 eval transcripts. Ask the classmates for
+   the same labelling pages; its review page replaces reading eval transcripts by hand). The
+   holdout then follows step 5 of the human-steps file: tie-break plus a 3-item spot check per
+   draft. Ask the classmates for
    both tasks in one sitting.
 
 ## Open decisions

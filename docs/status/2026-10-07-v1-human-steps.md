@@ -1,211 +1,176 @@
-# WOMM v1: the steps that need a person — 2026-10-07
+# WOMM v1: the steps that need a person — 2026-10-07 (revised 2026-10-10)
 
-Everything else in v1 is automated. This page lists the only steps a person must take, in order,
-with who, how long, the exact commands, and what "done" looks like. Commands refer to
-`feat/v1-integration` (PR #6).
+Everything else in v1 is automated. People are needed in two places only, because there an
+LLM is being checked and another LLM cannot be the reference: is the AI-made answer key right
+(the reference check), and does the AI grader judge like people do (the calibration). Both are
+one classmate sitting on the deployed app. The rest of this page is the owner's: permissions,
+one signature, and commands that run unattended. Commands refer to `feat/v1-integration`.
 
-Total human time: about 6–8 hours, nearly all the project owner's. Classmates have one sitting:
-the blind reference check and judge calibration (step 3), about 45 minutes each. Both run on
-the deployed app (revised 2026-10-10): each classmate gets a link, signs in with their name and
-labels in the browser; every answer is saved on the app as they go, so nothing is downloaded
-or sent back. Revised
-2026-10-08: golden cases need no human review (step 1). Revised 2026-10-09 after checking
-Anthropic's eval guidance: the tie-break no longer runs on the drafter's model, and robustness
-is measured once with a blind reference check before the drafts are published (step 1a).
+Revised 2026-10-10 to the least human work: the holdout is settled by the same tool chain as
+train/val and only spot-checked; transcript reading is replaced by the review pages that
+`score` writes; the 11-20 route is stated by `womm evolve cycle`; the IA cost reference is
+checked by a script; the hand-written R37 answers move to v1.1 (monitoring only, they gate
+nothing).
 
-| # | Step | Who | Time | Blocks |
-|---|---|---|---|---|
-| 1 | Merge the 11 tie-broken train/val drafts (no review required) | project owner | 15 min | evolution on real data |
-| 1a | One-time blind reference check, 30 golden items each, before publishing | 2 classmates (same sitting as step 3), owner scores | about 15 min each | publishing the golden cases |
-| 2 | Verify 8 holdout drafts and import them | project owner | 2–2.5 h | every promotion |
-| 3 | Label about 30 pairs for the coverage-judge calibration (with step 1a, the only classmate task) | 2 classmates | about 30 min each | statistical and weak gates |
-| 4 | Sign the promotion policy | project owner | 15 min | every gate, dev included |
-| 5 | Provide an api key, run R34 and the MDD report | project owner | about 1 h plus run time | formal gates |
-| 6 | Write the R37 reference answers | project owner | about 1 h | nothing (monitoring only) |
-| 7 | Branch protection on `main` | repo owner | 2 min | review gate enforcement |
-| 8 | 2026-11-20 route decision | project owner | 15 min | the demo |
-| 9 | Cost estimation: confirm defaults, check the IA cost reference, commit the cost versions | project owner (check: anyone careful) | about 1.5 h | scored cost sweeps (R6) |
+| # | Step | Who | Time |
+|---|---|---|---|
+| 0 | One-off setup: push, deploy, tokens, API key, branch protection | owner | about 30 min |
+| 1 | Merge the 11 train/val drafts | owner | 5 min |
+| 2 | Classmates' sitting: reference check and grader calibration | 2 classmates | about 40 min each |
+| 3 | Read the two review pages, mark who is right | owner | about 10 min |
+| 4 | Publish the golden cases | owner | 5 min |
+| 5 | Holdout: tie-break, spot-check 3 items a draft, import | owner | about 20 min |
+| 6 | Sign the promotion policy | owner | 5 min |
+| 7 | R34 noise run and MDD report | owner starts it | 10 min plus run time |
+| 8 | Cost reference: run the check, record the FTE basis | owner | 5 min |
 
-**Before any classmate step:** the app must run the labelling pages. Merge
-`feat/v1-integration` into `main` (Railway deploys `main`) and set `WOMM_LABEL_ADMIN_TOKEN` (a
-random value of at least 16 characters) in the Railway service's variables and in your local
-`.env`. Check that `https://<app>/label/x` answers 404 rather than the console.
-
-Steps 1, 1a and 7 can start today; step 3 needs the published cases and a first eval run. Step 4 should come before any holdout comparison, and step 2
-before any promotion.
+Order: 0, 1, then 2 (it needs the merged drafts and one train eval run), 3 and 4; 5 needs a
+passed reference check; 6 before any holdout comparison; 7 and 8 any time after 0.
 
 ---
 
-## 1. Publish the train/val golden drafts (project owner, no review)
+## 0. One-off setup (owner)
 
-- **What:** draft PRs #7–#17, one case each. A tie-break judge has settled every item the three
-  drafting judges left open (`scripts/tiebreak_golden_case.py`); unsure items were dropped.
-- **Required human decisions: none.** Building the reference answers is pipeline work; people
-  are spent on calibrating the scoring judge (step 3), as Anthropic's eval guidance advises.
-- **Optional spot checks:** items marked `audit: true` (20% of what the judges and the tie-break
-  judge kept). Anyone may check a few with `scripts/review_draft.py`; decisions count towards
-  the per-proposal error rate, and over 10% sends that proposal back to full human review.
-- **Done:** CI green with each PR marked ready; after step 1a passes, the owner publishes with
-  `scripts/publish_golden_cases.py` and merges.
+- Push every branch (normal push). Merge `feat/v1-integration` into `main`; Railway deploys
+  `main`.
+- Railway service variables: `WOMM_LABEL_ADMIN_TOKEN`, at least 16 random characters. Put the
+  same value in the local `.env`. Check that `https://<app>/label/x` answers 404 (not the
+  console).
+- API key, for step 7 and formal gates: set a monthly spend limit in the provider console first,
+  then put the key in the local `.env` only.
+- GitHub, Settings, Branches, `main`: require a pull request and "Require review from Code
+  Owners".
 
-## 1a. One-time reference check (2 classmates label blind, owner scores)
+## 1. Merge the 11 train/val drafts (owner)
 
-Anthropic's guidance allows human review to become occasional *once the system is robust*. This
-measures that once, before the tool-settled drafts are published (publishing deletes the drafts).
+The drafts are settled by tools (three judges and a tie-break); nobody reviews them.
 
-- **Prepare (owner),** on the merged drafts:
+```
+for n in $(seq 7 17); do gh pr ready $n && gh pr merge $n --merge; done
+git switch feat/v1-integration && git merge feat/golden-import
+```
 
-  ```
-  uv run python scripts/reference_check.py sample evals/golden/drafts/case_*.yaml \
-      --annotator <name1> --annotator <name2> --send-to "<you> on <channel>" \
-      --out .cache/reference_check/round1/
-  ```
+## 2. The classmates' sitting (2 classmates, about 40 minutes each)
 
-  30 items per annotator (the default `--n`), each their own, a third each kept by the three
-  judges, kept by the tie-break and dropped by it. Annotator names may use letters, digits, `-`
-  and `_` only; they are what each classmate types to sign in. The pages show the claim, the IA
-  quote and the text around it; never the tool's decision (that stays in `key.private.json`,
-  which is never uploaded).
-- **Host (owner):**
-  `uv run python scripts/reference_check.py upload --dir .cache/reference_check/round1/ --url https://<app>`
-  prints the one link to send to both classmates. Watch progress at `https://<app>/label/<sample>/admin`
-  (it asks for the admin token).
-- **Label (2 classmates, about 15 minutes each):** open the link, sign in with their name, read
-  the welcome card and the short guide on the first item, then answer each item: does the report
-  back this point up? (`Yes, keep` / `No, drop` / `Can't tell`). Press "Finish & send" at the end.
-- **Score (owner):** when the admin page shows both as sent,
-  `uv run python scripts/reference_check.py fetch --dir .cache/reference_check/round1/ --url https://<app>`
-  then `uv run python scripts/reference_check.py score --dir .cache/reference_check/round1/`.
-  `score` refuses to give a verdict while an item is blank; `unsure` counts as an error.
-- **Done:** error at most 10% ("ROBUST"): publish, and spot checks stay optional. With no error
-  in the 60 items, `score` also shows the true rate is below 5% at 95%. Above 10%: fix the drafting or tie-break prompt, re-run the tie-break
-  or re-draft, and check again with a new sample. Record the result here:
+**Owner, before** (about 10 minutes of commands; the eval run takes longer but runs alone):
 
-  | Date | Sample id | Error | 95% bound | Verdict |
-  |---|---|---|---|---|
-  | | | | | |
+```
+# the reference check: 20 items each, a reserve of 10 each held back
+uv run python scripts/reference_check.py sample evals/golden/drafts/case_*.yaml \
+    --annotator <name1> --annotator <name2> --out .cache/reference_check/round1/
+uv run python scripts/reference_check.py upload --dir .cache/reference_check/round1/ --url https://<app>
 
-## 2. Verify and import the holdout drafts (project owner only)
+# the grader calibration: one train eval run, then 30 pairs that both label
+uv run womm eval --split train --local
+uv run womm calibrate sample --sv system_versions/<incumbent>.yaml --report runs/<that report> \
+    --n 30 --seed 1 --annotator <name1> --annotator <name2> --out .cache/calibration/round1/
+uv run womm calibrate upload --dir .cache/calibration/round1/ --url https://<app>
+```
 
-The holdout must never be seen by anyone who also tunes the system, so this is not shared.
+Each `upload` prints one link. Send both links to both classmates. Names: letters, digits, `-`
+and `_` only; it is what each types to sign in. Draw the reference-check sample before
+publishing (step 4 deletes the drafts).
 
-- **What:** 8 drafts in `.cache/drafts/` (local only; never commit them).
-- **How, per draft:**
+**Classmates:** open each link, sign in with their name, read the welcome card and the short
+guide on the first item, answer every item, press "Finish & send". Answers are saved as they
+go; they can stop and come back. Work alone, and don't discuss items until both have sent.
+Progress is visible at `https://<app>/label/<sample>/admin` (asks for the admin token).
 
-  ```
-  uv run python scripts/verify_golden_case.py --draft .cache/drafts/<case>.yaml
-  HOLDOUT_DATABASE_URL=... uv run python scripts/import_holdout_case.py .cache/holdout_import/<case>.yaml
-  ```
+**If the reference check finds an error in the first round,** `score` says NOT YET. Then run
+`uv run python scripts/reference_check.py extend --dir .cache/reference_check/round1/ --url https://<app>`
+and ask both to open the reference-check link again: 10 more items each, about 5 minutes.
 
-  The first command walks every item interactively and writes a handoff. The second imports it
-  into the sealed holdout database (`HOLDOUT_DATABASE_URL`) and deletes the plaintext.
-- **Done:** `.cache/drafts/` is empty and the holdout store reports 8 cases from 8 proposals.
+## 3. Read the review pages (owner, about 10 minutes)
 
-## 3. Coverage-judge calibration (classmates label, owner records)
+When the admin pages show both as sent:
 
-The coverage judge decides whether a dossier covers an expected impact. Following Anthropic's
-eval guidance, it is trusted only after it agrees with people on a labelled sample.
+```
+uv run python scripts/reference_check.py fetch --dir .cache/reference_check/round1/ --url https://<app>
+uv run python scripts/reference_check.py score --dir .cache/reference_check/round1/
+uv run womm calibrate fetch --dir .cache/calibration/round1/ --url https://<app>
+uv run womm calibrate score --dir .cache/calibration/round1/ --record
+git commit evals/promotion_records.yaml
+```
 
-- **Prepare (owner):**
+Each `score` writes `review.html` in its directory: the verdict in plain words with what to do
+next, and every item where the people and the AI disagree, side by side with the AI's own
+reason. Open both and mark who is right on each disagreement; the advice on the page updates.
+This replaces reading eval transcripts by hand. The pages hold the AI's decisions: keep them
+local, never send them. Record the reference check here:
 
-  ```
-  uv run womm calibrate sample --sv <incumbent> --report <train/val eval report> --n 30 \
-      --out .cache/calibration/round1/
-  ```
+| Date | Sample id | Error | 95% bound | Verdict |
+|---|---|---|---|---|
+| | | | | |
 
-  Pairs are half judge-covered and half judge-missed; both classmates label the same pairs, in
-  their own order. The judge's verdicts stay in `key.private.json`, which is never uploaded.
-  Then host it: `uv run womm calibrate upload --dir .cache/calibration/round1/ --url https://<app>`
-  prints the link. (Without the app, `sheet_<name>.md` and `answers_<name>.yaml` still work.)
-- **Label (2 classmates, about 30 minutes each):** same link pattern and sign-in as step 1a. For
-  each pair: does the system's dossier (left) cover the expected impact (right)?
-  `Yes, covered` / `No, not covered` / `Can't tell`. Work alone; don't discuss pairs until both
-  have sent.
-- **Score and record (owner):** when both have sent,
+- Reference check ROBUST: go on to step 4. NOT ROBUST: fix the prompt the review page points
+  at, settle the drafts again, and run a new check (new `--out`, new `--seed`).
+- Calibration at least 85%: recorded, and the statistical and weak gates can run. Lower: fix
+  the coverage judge's prompt and calibrate again with a new seed.
 
-  ```
-  uv run womm calibrate fetch --dir .cache/calibration/round1/ --url https://<app>
-  uv run womm calibrate score --dir .cache/calibration/round1/ --record
-  git commit evals/promotion_records.yaml
-  ```
+## 4. Publish the golden cases (owner)
 
-  The score reports agreement per annotator and with the majority, Cohen's kappa and
-  inter-annotator agreement. The recorded agreement is the lower of the raw and the
-  natural-rate figure, so the stratified sample never flatters the judge.
-- **Done:** a `judge_calibrations` record with agreement of at least 0.85 for the incumbent's
-  judge version. If agreement is lower, fix the judge prompt and repeat with fresh pairs.
-- **Then (owner, about 30 minutes):** read the full transcripts of three or four eval runs
-  (dossier, judge verdicts and justifications) and check that the scores measure what matters.
-  Anthropic: "Read the transcripts!"
+```
+uv run python scripts/oracle_check.py evals/golden/drafts/case_*.yaml   # each case's own answer must score full
+uv run python scripts/publish_golden_cases.py
+```
 
-## 4. Sign the promotion policy (project owner)
+Then commit the published cases.
 
-- **What:** `evals/promotion_policy.yaml`. It fixes the rules before any holdout result exists.
-- **Decide before signing:**
-  - the primary metric (default: coverage);
-  - the tolerances (default: grounding may drop at most 0.02; omissions at most one noise SD);
-  - `expected_gain` (placeholder: 0.08);
-  - `publish_summary`: `true` shows holdout decisions on page 4 online; `false` keeps them
-    local, readable only through `womm evolve show`;
-  - whether dev-mode comparisons count against the v1 budget of 6 (current: yes).
-- **How:** set `signed_by` and `signed_on`, then commit. Never change the file after a
-  comparison; every decision records its sha256.
+## 5. Holdout (owner only, about 20 minutes)
 
-## 5. Api key, R34 noise run and MDD report (project owner)
+The holdout never leaves the owner's machine, so this cannot go to classmates. It needs a
+ROBUST reference check (step 3): the same tool chain then settles the holdout drafts, and the
+owner only checks 3 items a draft (one per kind of decision), about 24 in all.
 
-- **Key:** set a monthly spend limit in the provider console first. Then put the key in the local
-  `.env` file only, never in chat or a commit.
-- **Measure the cost first:** one full run to get the cost per run, then a budget estimate for
-  v1.
-- **R34 and MDD:**
+```
+uv run python scripts/tiebreak_golden_case.py .cache/drafts/<case>.yaml
+uv run python scripts/verify_golden_case.py --draft .cache/drafts/<case>.yaml \
+    --spot-check --reference-check .cache/reference_check/round1/
+HOLDOUT_DATABASE_URL=... uv run python scripts/import_holdout_case.py .cache/holdout_import/<case>.yaml
+```
 
-  ```
-  uv run womm eval --split val --repetitions 6 --formal
-  uv run womm noise report --report <that report> --holdout-cases 8 --holdout-proposals 8 --record
-  git commit evals/promotion_records.yaml
-  ```
+More than one disagreement with the tool on a draft refuses the spot check; then run
+`verify_golden_case.py` without `--spot-check` for that draft. Done: `.cache/drafts/` is empty
+and the holdout store reports 8 cases from 8 proposals.
 
-- **Done:** `formal_noise_runs` and `mdd_reports` records for the gate's judge. If the MDD is
-  above `expected_gain`, the gate uses the weak threshold, and the demo says so.
+## 6. Sign the promotion policy (owner)
 
-## 6. R37 reference answers (project owner, optional)
+`evals/promotion_policy.yaml` carries the plan's defaults (coverage primary; grounding may drop
+at most 0.02; omissions at most one noise SD; `expected_gain` 0.08; dev-mode comparisons count
+against the budget of 6). Change a value first if you disagree, then:
 
-- **What:** `evals/diff_regression/demo_penalties_amended.yaml`, about 5–10 items on what changed
-  between the AI Act proposal and the final text for provider obligations, SME measures and
-  penalties.
-- **Rule:** written by one person by hand. No LLM drafting, because this file is the yardstick
-  for the model.
-- **Done:** every TODO replaced, `status: written`, `written_by` and `written_on` filled in.
+```
+uv run womm policy sign --by "<your name>"
+git commit evals/promotion_policy.yaml
+```
 
-## 7. Branch protection (repo owner)
+Never change the file after a comparison; every decision records its sha256.
 
-GitHub, Settings, Branches, `main`: require a pull request and "Require review from Code Owners".
-Without this, CODEOWNERS on golden files does not block merges.
+## 7. R34 noise run and MDD (owner starts it)
 
-## 8. The 2026-11-20 route decision (project owner)
+```
+uv run womm eval --split val --repetitions 6 --formal
+uv run womm noise report --report <that report> --holdout-cases 8 --holdout-proposals 8 --record
+git commit evals/promotion_records.yaml
+```
 
-- **New-expert route:** choose it if `womm evolve failures` shows a persistent unowned pattern
-  across 2+ proposals and the topology candidate passes the gate.
-- **Prompt-only fallback:** otherwise. The runbook (`docs/demo/v1-self-evolution-runbook.md`)
-  has both paths.
+If the MDD is above `expected_gain`, the gate uses the weak threshold, and the demo says so.
 
-## 9. Cost estimation (Stage B, plan 2026-10-07-001)
+## 8. Cost reference (owner, on `feat/eu-cost`)
 
-- **Confirm the defaults (owner, 15 min), before the first scored sweep:**
-  - magnitude bands: negligible under €1k, low €1k–5k, medium €5k–25k, high €25k or more, each
-    one-off or recurring;
-  - the mapping of the seven effort types to administrative burden vs compliance cost;
-  - whether `not_costed` (for example prohibitions) is allowed (default: yes);
-  - whether R7 counts only added paragraphs (default) or also modified ones (adds 444 duties);
-  - whether cost demo runs use `v1.0-cost` (default: yes).
-- **Check the IA cost reference (about 1 h, anyone careful who is not tuning the system):** the
-  file transcribes about 11 cost items from the AI Act impact assessment (sections 6.1.3 and
-  6.2, Annexes 3 and 4). Compare each value and unit with the IA, then set `status: verified`.
-  Note that the IA itself gives 10 FTE in section 6.2 and 5 FTE in Annex 3 Table 5 for the EU
-  level; record which one is used.
-- **Commit the cost versions (owner, 5 min):** add `v1.0-cost` and its api twin to
-  `system_versions/PROMOTIONS.md`.
-- **What R6 can and cannot show:** the IA prices only high-risk requirements, conformity
-  assessment and governance (about 16 articles). Recall over those items and band agreement are
-  scored. Rank agreement is descriptive only, and costs the IA does not price are reported, not
-  scored.
+```
+uv run python scripts/check_ia_cost_reference.py
+uv run python scripts/check_ia_cost_reference.py --write --fte-basis section_6_2 --by "<your name>"
+```
+
+The script checks every transcribed figure against the IA text (11 of 11 matched on
+2026-10-10). The one choice is which EU-level FTE figure to use: 10 FTE (IA section 6.2) or 5
+FTE (Annex 3, Table 5); pass `annex3_table5` for the second. Then commit the file, and add
+`v1.0-cost` and its api twin to `system_versions/PROMOTIONS.md`.
+
+## Not a human step any more
+
+- **The 2026-11-20 route:** `womm evolve cycle` prints `route: new-expert` or `route:
+  prompt-only` with the reason, applying the runbook's rule.
+- **R37 reference answers** (`evals/diff_regression/demo_penalties_amended.yaml`): v1.1. They
+  are monitoring only and gate nothing; when written, still by hand, never LLM-drafted.
