@@ -555,3 +555,92 @@ class Database:
                 " deployable, decision, label, reasons, notes, deltas, n_proposals, flags, r37"
                 " FROM promotion_decisions ORDER BY created_at, gate_id"
             )).fetchall()  # fmt: skip
+
+    # ------------------------------------------------------------------ hosted labelling
+
+    async def put_label_tasks(self, sample: str, kind: str, cards: dict[str, list[dict]]) -> None:
+        """Store one sample's pages, one per annotator. A sample that already has answers is
+        refused (``ValueError``): re-uploading would orphan them."""
+        async with self.pool.connection() as conn, conn.transaction():
+            cur = await conn.execute(
+                "SELECT 1 FROM label_answers WHERE sample = %s LIMIT 1", (sample,)
+            )
+            if await cur.fetchone():
+                raise ValueError(f"sample {sample} already has answers")
+            await conn.execute("DELETE FROM label_tasks WHERE sample = %s", (sample,))
+            for annotator, annotator_cards in cards.items():
+                await conn.execute(
+                    "INSERT INTO label_tasks (sample, annotator, kind, cards)"
+                    " VALUES (%s, %s, %s, %s)",
+                    (sample, annotator, kind, Jsonb(_without_nul(annotator_cards))),
+                )
+
+    async def label_annotators(self, sample: str) -> list[str]:
+        async with self.pool.connection() as conn:
+            rows = await (await conn.execute(
+                "SELECT annotator FROM label_tasks WHERE sample = %s ORDER BY annotator", (sample,)
+            )).fetchall()  # fmt: skip
+            return [r["annotator"] for r in rows]
+
+    async def label_kind(self, sample: str) -> str | None:
+        async with self.pool.connection() as conn:
+            row = await (await conn.execute(
+                "SELECT kind FROM label_tasks WHERE sample = %s LIMIT 1", (sample,)
+            )).fetchone()  # fmt: skip
+            return row["kind"] if row else None
+
+    async def label_task(self, sample: str, annotator: str) -> dict | None:
+        """The annotator's cards, their saved answers and when they submitted."""
+        async with self.pool.connection() as conn:
+            task = await (await conn.execute(
+                "SELECT kind, cards, submitted_at FROM label_tasks WHERE sample = %s"
+                " AND annotator = %s",
+                (sample, annotator),
+            )).fetchone()  # fmt: skip
+            if task is None:
+                return None
+            rows = await (await conn.execute(
+                "SELECT item_id, label, note FROM label_answers WHERE sample = %s"
+                " AND annotator = %s", (sample, annotator),
+            )).fetchall()  # fmt: skip
+        answers = {r["item_id"]: {"label": r["label"], "note": r["note"]} for r in rows}
+        return {"kind": task["kind"], "cards": task["cards"], "submitted_at": task["submitted_at"],
+                "answers": answers}  # fmt: skip
+
+    async def save_label_answer(
+        self, sample: str, annotator: str, item_id: str, label: str, note: str
+    ) -> None:
+        async with self.pool.connection() as conn:
+            await conn.execute(
+                "INSERT INTO label_answers (sample, annotator, item_id, label, note)"
+                " VALUES (%s, %s, %s, %s, %s) ON CONFLICT (sample, annotator, item_id) DO UPDATE"
+                " SET label = EXCLUDED.label, note = EXCLUDED.note, updated_at = now()",
+                (sample, annotator, item_id, label, _without_nul(note)),
+            )
+
+    async def submit_label_task(self, sample: str, annotator: str) -> None:
+        async with self.pool.connection() as conn:
+            await conn.execute(
+                "UPDATE label_tasks SET submitted_at = now() WHERE sample = %s AND annotator = %s",
+                (sample, annotator),
+            )
+
+    async def label_results(self, sample: str) -> dict[str, dict]:
+        """Per annotator: number of cards, when they submitted, and their answers."""
+        async with self.pool.connection() as conn:
+            tasks = await (await conn.execute(
+                "SELECT annotator, kind, jsonb_array_length(cards) AS n, submitted_at"
+                " FROM label_tasks WHERE sample = %s ORDER BY annotator", (sample,),
+            )).fetchall()  # fmt: skip
+            rows = await (await conn.execute(
+                "SELECT annotator, item_id, label, note, updated_at FROM label_answers"
+                " WHERE sample = %s ORDER BY annotator, item_id", (sample,),
+            )).fetchall()  # fmt: skip
+        out = {t["annotator"]: {"kind": t["kind"], "cards": t["n"],
+                                "submitted_at": t["submitted_at"], "answers": []}
+               for t in tasks}  # fmt: skip
+        for r in rows:
+            out[r["annotator"]]["answers"].append(
+                {"item": r["item_id"], "label": r["label"], "note": r["note"]}
+            )
+        return out

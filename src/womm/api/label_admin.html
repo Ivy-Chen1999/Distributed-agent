@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Answer Key Check Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+/* Same shell as the labelling page (womm.eval reference_check_page.html). */
+:root { --ink: #0F0F0F; --bg: #FDFCFD; --bark: #C4B8AB; --bark-lt: #E1DCD7; --green: #007A5E;
+  --amber: #FFB000; --red: #A01414; --grey: #505A5F; --muted: #6b6b6b; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.5 "Manrope", -apple-system, "Segoe UI", Roboto, sans-serif; }
+[hidden] { display: none !important; }
+.topbar { height: 60px; display: flex; align-items: center; gap: 16px; padding: 0 32px;
+  background: var(--ink); color: var(--bg); }
+.topbar .title { font-weight: 700; } .topbar .sub { color: var(--bark); font-size: 14px; }
+main { max-width: 1040px; margin: 0 auto; padding: 28px 24px 60px; display: flex;
+  flex-direction: column; gap: 22px; }
+.panel { border: 1px solid var(--bark); border-radius: 4px; padding: 22px 24px; }
+h2 { font-size: 13px; letter-spacing: .06em; text-transform: uppercase; margin: 0 0 12px; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+input { height: 44px; border: 1px solid var(--ink); border-radius: 4px; padding: 0 12px;
+  font: inherit; min-width: 280px; flex: 1; background: var(--bg); }
+.primary { height: 44px; padding: 0 22px; border: none; border-radius: 4px; background: var(--ink);
+  color: var(--bg); font: inherit; font-weight: 700; cursor: pointer; }
+.primary:hover { background: var(--green); }
+.ghost { height: 36px; padding: 0 14px; border: 1px solid var(--ink); border-radius: 4px;
+  background: transparent; font: inherit; font-weight: 700; font-size: 14px; cursor: pointer; }
+.err { color: var(--red); font-weight: 700; font-size: 14px; min-height: 1.2em; margin: 8px 0 0; }
+.link { font-family: ui-monospace, Menlo, monospace; font-size: 14px; background: var(--bark-lt);
+  padding: 8px 12px; border-radius: 4px; overflow-wrap: anywhere; flex: 1; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.who { border: 1px solid var(--bark); border-radius: 4px; padding: 16px; display: flex;
+  flex-direction: column; gap: 8px; }
+.who b { font-size: 16px; }
+.bar { height: 6px; background: var(--bark-lt); border-radius: 3px; overflow: hidden; }
+.bar div { height: 100%; background: var(--ink); }
+.state { font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+.state.ok { color: var(--green); } .state.wait { color: var(--grey); }
+.counts { font-size: 13px; color: var(--grey); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { border-bottom: 1px solid var(--bark-lt); padding: 8px 10px; text-align: left; vertical-align: top; }
+th { font-size: 12px; letter-spacing: .05em; text-transform: uppercase; color: var(--grey); }
+.lab { font-weight: 700; } .lab.keep { color: var(--green); } .lab.drop { color: var(--red); }
+.lab.unsure { color: #8a6400; }
+.fine { font-size: 13px; color: var(--muted); margin: 0; }
+</style>
+</head>
+<body>
+<header class="topbar"><span class="title">Answer key check · admin</span>
+  <span class="sub">sample __SAMPLE__</span></header>
+<main>
+  <section class="panel" id="auth">
+    <h2>Admin token</h2>
+    <div class="row"><input id="token" type="password" autocomplete="off"
+      placeholder="WOMM_LABEL_ADMIN_TOKEN"><button class="primary" id="go">Show progress</button></div>
+    <p class="err" id="err"></p>
+    <p class="fine">Kept in this tab only and sent as a header, never in the address bar.</p>
+  </section>
+  <section class="panel" id="share" hidden>
+    <h2>Link to send to the annotators</h2>
+    <div class="row"><span class="link" id="link"></span><button class="ghost" id="copy">Copy</button></div>
+    <p class="fine">Each signs in with their name. Scores are computed on your machine:
+      <code>scripts/reference_check.py fetch</code>, then <code>score</code>. The tool's decisions are
+      not on this server.</p>
+  </section>
+  <section class="panel" id="progress" hidden>
+    <div class="row"><h2 style="margin:0">Progress</h2><span style="flex:1"></span>
+      <button class="ghost" id="refresh">Refresh</button>
+      <button class="ghost" id="download">Download answers (JSON)</button></div>
+    <div class="cards" id="cards" style="margin-top:14px"></div>
+  </section>
+  <section class="panel" id="notes" hidden>
+    <h2>Notes and "can't tell" answers</h2>
+    <table><thead><tr><th>Annotator</th><th>Point</th><th>Answer</th><th>Note</th></tr></thead>
+      <tbody id="noteRows"></tbody></table>
+  </section>
+</main>
+<script>
+const SAMPLE = "__SAMPLE__";
+const $ = id => document.getElementById(id);
+const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
+const LABEL = { keep: "Yes, keep", drop: "No, drop", unsure: "Can't tell" };
+let last = null;
+try { $("token").value = sessionStorage.getItem("womm-label-admin") || ""; } catch (e) {}
+
+async function load() {
+  $("err").textContent = "";
+  const token = $("token").value.trim();
+  const r = await fetch(`/label/api/${SAMPLE}/admin/results`, { headers: { Authorization: "Bearer " + token } });
+  if (!r.ok) { $("err").textContent = r.status === 401 ? "Wrong token." : "Error " + r.status; return; }
+  try { sessionStorage.setItem("womm-label-admin", token); } catch (e) {}
+  last = await r.json();
+  render(last);
+}
+
+function render(data) {
+  for (const id of ["share", "progress", "notes"]) $(id).hidden = false;
+  $("link").textContent = `${location.origin}/label/${SAMPLE}`;
+  const cards = $("cards"); cards.replaceChildren();
+  const rows = $("noteRows"); rows.replaceChildren();
+  for (const [name, a] of Object.entries(data.annotators)) {
+    const c = { keep: 0, drop: 0, unsure: 0 };
+    a.answers.forEach(x => { c[x.label] = (c[x.label] || 0) + 1; });
+    const card = el("div", "who");
+    const bar = el("div", "bar"); const fill = el("div"); fill.style.width = (100 * a.answers.length / a.cards) + "%"; bar.append(fill);
+    card.append(el("b", null, name),
+      el("span", "state " + (a.submitted_at ? "ok" : "wait"), a.submitted_at
+        ? "Sent " + new Date(a.submitted_at).toLocaleString() : a.answers.length ? "In progress" : "Not started"),
+      bar, el("span", "counts", `${a.answers.length} of ${a.cards} answered · ${c.keep} yes · ${c.drop} no · ${c.unsure} can't tell`));
+    cards.append(card);
+    for (const x of a.answers.filter(x => x.note || x.label === "unsure")) {
+      const tr = el("tr");
+      tr.append(el("td", null, name), el("td", null, x.item), el("td", "lab " + x.label, LABEL[x.label] || x.label), el("td", null, x.note || "—"));
+      rows.append(tr);
+    }
+  }
+  if (!rows.children.length) { const tr = el("tr"); const td = el("td", "fine", "None yet."); td.colSpan = 4; tr.append(td); rows.append(tr); }
+}
+
+$("go").onclick = load;
+$("token").addEventListener("keydown", e => { if (e.key === "Enter") load(); });
+$("refresh").onclick = load;
+$("copy").onclick = () => navigator.clipboard?.writeText($("link").textContent).then(() => { $("copy").textContent = "Copied"; });
+$("download").onclick = () => {
+  const a = el("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(last, null, 2)], { type: "application/json" }));
+  a.download = `answers_${SAMPLE}.json`; a.click();
+};
+if ($("token").value) load();
+</script>
+</body>
+</html>

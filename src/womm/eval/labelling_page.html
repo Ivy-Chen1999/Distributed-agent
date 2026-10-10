@@ -1,0 +1,769 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Answer Key Check</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+/* Layout and palette follow the scorecard labelling app: dark top bar, document on the left,
+   decision panel on the right, a first-visit welcome card and a spotlight guide. */
+:root {
+  --ink: #0F0F0F; --bg: #FDFCFD; --paper: #ffffff; --bark: #C4B8AB; --bark-lt: #E1DCD7;
+  --green: #007A5E; --green-lt: #e3f3ee; --amber: #FFB000; --amber-lt: #fff3d1;
+  --red: #A01414; --red-lt: #f8e3e3; --grey: #505A5F; --muted: #6b6b6b; --mark: #ffe08a;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink);
+  font-family: "Manrope", -apple-system, "Segoe UI", Roboto, sans-serif; }
+body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+[hidden] { display: none !important; }
+.spacer { flex: 1; }
+.muted { color: var(--muted); font-weight: 400; }
+button { font-family: inherit; cursor: pointer; }
+button:disabled { cursor: default; opacity: .45; }
+button:focus-visible, input:focus, textarea:focus { outline: 2px solid var(--ink); outline-offset: 1px; }
+::selection { background: rgba(255,176,0,0.35); }
+
+/* top bar */
+.topbar { flex-shrink: 0; height: 60px; display: flex; align-items: center; gap: 16px;
+  padding: 0 32px; background: var(--ink); color: var(--bg); }
+.topbar .title { font-weight: 700; font-size: 16px; }
+.topbar .divider { width: 1px; height: 22px; background: var(--grey); }
+.topbar .who { font-size: 14px; color: var(--bark); }
+.howto { height: 32px; padding: 0 14px; border: 1px solid var(--grey); border-radius: 4px;
+  background: transparent; color: var(--bg); font-weight: 700; font-size: 13px; }
+.howto:hover { background: var(--bg); color: var(--ink); }
+
+/* main split */
+.main { flex: 1; min-height: 0; display: flex; }
+.doc-pane { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.doc-toolbar { flex-shrink: 0; min-height: 48px; display: flex; align-items: center; gap: 10px;
+  flex-wrap: wrap; padding: 8px 24px; border-bottom: 1px solid var(--bark); }
+.tag { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  border: 1px solid var(--ink); border-radius: 4px; padding: 3px 8px; }
+.tag.soft { border-color: var(--bark); color: var(--grey); font-weight: 600; text-transform: none;
+  letter-spacing: 0; font-size: 13px; }
+.doc-scroll { flex: 1; overflow-y: auto; padding: 28px 24px; background: var(--bark-lt); }
+.page { max-width: 760px; margin: 0 auto; background: var(--paper); border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12); padding: 36px 44px; }
+.page-head { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--green); margin-bottom: 4px; }
+.page-sub { font-size: 13px; color: var(--muted); margin-bottom: 18px; }
+.passage { font-family: Georgia, "Times New Roman", serif; font-size: 17px; line-height: 1.7;
+  overflow-wrap: anywhere; color: #2a2a2a; }
+.passage mark { background: var(--mark); color: var(--ink); padding: 2px 3px; border-radius: 3px;
+  box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+.legend { margin-top: 18px; font-size: 13px; color: var(--muted); display: flex; gap: 8px;
+  align-items: center; }
+.legend i { width: 18px; height: 12px; background: var(--mark); border-radius: 2px; display: inline-block; }
+
+/* side pane */
+.side-pane { width: 430px; flex-shrink: 0; border-left: 1px solid var(--bark); overflow-y: auto;
+  background: var(--bg); padding: 24px; display: flex; flex-direction: column; gap: 26px; }
+.block { display: flex; flex-direction: column; gap: 10px; }
+.block-head { font-weight: 700; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; }
+.block-head .muted { text-transform: none; letter-spacing: 0; }
+dl.claim { margin: 0; display: flex; flex-direction: column; gap: 10px; }
+dl.claim div { border-left: 3px solid var(--ink); padding: 2px 0 2px 12px; }
+dl.claim dt { font-size: 12px; font-weight: 700; color: var(--grey); text-transform: uppercase;
+  letter-spacing: .05em; }
+dl.claim dd { margin: 2px 0 0; font-size: 15px; line-height: 1.55; }
+.question { font-size: 17px; font-weight: 700; line-height: 1.35; }
+.tiles { display: flex; flex-direction: column; gap: 8px; }
+.tile { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 8px 14px;
+  border: 1px solid var(--ink); border-radius: 4px; background: var(--bg); color: var(--ink);
+  text-align: left; font-size: 15px; }
+.tile b { font-size: 15px; min-width: 92px; }
+.tile span { font-size: 13px; color: var(--grey); line-height: 1.4; flex: 1; }
+.tile kbd { font-family: inherit; font-size: 11px; font-weight: 700; color: var(--grey);
+  border: 1px solid var(--bark); border-radius: 3px; padding: 0 5px; }
+.tile:hover { border-width: 2px; padding: 7px 13px; }
+.tile.keep.on { background: var(--green); border-color: var(--green); color: #fff; }
+.tile.drop.on { background: var(--red); border-color: var(--red); color: #fff; }
+.tile.unsure.on { background: var(--amber); border-color: var(--amber); color: var(--ink); }
+.tile.on span, .tile.on kbd { color: inherit; border-color: currentColor; }
+textarea.note { border: 1px solid var(--ink); border-radius: 4px; padding: 10px 14px;
+  font-family: inherit; font-size: 15px; line-height: 1.5; resize: vertical; background: var(--bg); }
+textarea.note.need { border: 2px solid var(--amber); background: var(--amber-lt); }
+.hint { font-size: 13px; color: var(--grey); line-height: 1.5; }
+details.others summary { cursor: pointer; list-style: none; display: flex; align-items: center; }
+details.others summary::-webkit-details-marker { display: none; }
+details.others summary::after { content: "▸"; color: var(--muted); margin-left: 8px; }
+details.others[open] summary::after { content: "▾"; }
+details.others ul { margin: 10px 0 0; padding: 0; list-style: none; display: flex;
+  flex-direction: column; gap: 8px; }
+details.others li { border-left: 3px solid var(--bark); padding: 2px 0 2px 10px; font-size: 13px;
+  line-height: 1.45; color: var(--grey); }
+
+/* bottom bar */
+.bottombar { flex-shrink: 0; min-height: 72px; display: flex; align-items: center; gap: 14px;
+  padding: 10px 32px; border-top: 1px solid var(--bark); background: var(--bg); }
+.progress { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.progress-text { font-size: 14px; color: var(--grey); }
+.progress-text b { color: var(--ink); }
+.dots { display: flex; flex-wrap: wrap; gap: 4px; }
+.dot { width: 20px; height: 20px; border-radius: 3px; border: 1px solid var(--bark); padding: 0;
+  font-size: 10px; font-weight: 700; color: var(--grey); background: var(--bg); }
+.dot.keep { background: var(--green); border-color: var(--green); color: #fff; }
+.dot.drop { background: var(--red); border-color: var(--red); color: #fff; }
+.dot.unsure { background: var(--amber); border-color: var(--amber); color: var(--ink); }
+.dot.cur { outline: 2px solid var(--ink); outline-offset: 1px; }
+.saved { font-size: 13px; color: var(--green); font-weight: 700; white-space: nowrap; }
+.saved.bad { color: var(--red); }
+
+/* buttons */
+.primary { height: 48px; padding: 0 28px; border: none; border-radius: 4px; background: var(--ink);
+  color: var(--bg); font-weight: 700; font-size: 16px; }
+.primary:hover:not(:disabled) { background: var(--green); }
+.primary.sm { height: 36px; padding: 0 16px; font-size: 14px; }
+.ghost { height: 44px; min-width: 44px; padding: 0 14px; border: 1px solid var(--ink); border-radius: 4px;
+  background: transparent; color: var(--ink); font-weight: 700; font-size: 15px; }
+.ghost.sm { height: 32px; min-width: 0; font-size: 14px; }
+.linkbtn { border: none; background: none; padding: 0; font-weight: 700; font-size: 13px;
+  color: var(--grey); text-decoration: underline; text-underline-offset: 3px; }
+
+/* overlays: welcome, done */
+.overlay { position: fixed; inset: 0; background: rgba(15,15,15,0.55); display: flex;
+  align-items: center; justify-content: center; z-index: 60; padding: 24px; }
+.card { background: var(--bg); border-radius: 12px; padding: 32px 36px; width: 640px; max-width: 100%;
+  max-height: calc(100vh - 48px); overflow: auto; box-shadow: 0 8px 28px rgba(0,0,0,0.32);
+  display: flex; flex-direction: column; gap: 14px; }
+.eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--green); }
+.card h2 { margin: 0; font-size: 24px; line-height: 1.25; }
+.card h3 { margin: 8px 0 0; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; }
+.lead { color: var(--grey); font-size: 15px; line-height: 1.6; margin: 0; }
+.reasons { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.reasons li { border-left: 3px solid var(--green); padding: 2px 0 2px 12px; font-size: 14px;
+  line-height: 1.55; color: var(--grey); }
+.reasons li b { color: var(--ink); }
+.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.steps li { display: flex; gap: 12px; align-items: flex-start; font-size: 14px; line-height: 1.55;
+  color: var(--grey); }
+.steps li b { color: var(--ink); }
+.step-n { flex-shrink: 0; width: 28px; height: 28px; border-radius: 6px; background: var(--ink);
+  color: var(--bg); font-weight: 700; font-size: 14px; display: flex; align-items: center;
+  justify-content: center; }
+.rules { display: grid; grid-template-columns: auto 1fr; gap: 8px 12px; font-size: 14px;
+  line-height: 1.5; color: var(--grey); }
+.pill { font-size: 12px; font-weight: 700; border-radius: 4px; padding: 3px 8px; white-space: nowrap;
+  align-self: start; }
+.pill.keep { background: var(--green); color: #fff; } .pill.drop { background: var(--red); color: #fff; }
+.pill.unsure { background: var(--amber); color: var(--ink); }
+details.examples summary { cursor: pointer; font-weight: 700; font-size: 14px; }
+.example { border: 1px solid var(--bark); border-radius: 6px; padding: 10px 14px; margin-top: 10px;
+  font-size: 14px; line-height: 1.5; }
+.example p { margin: 3px 0; }
+.example mark { background: var(--mark); }
+.example .ans { font-weight: 700; } .example .ans.keep { color: var(--green); }
+.example .ans.drop { color: var(--red); }
+.signin { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
+.signin label { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 200px;
+  font-weight: 700; font-size: 13px; letter-spacing: .04em; }
+.signin input { height: 48px; border: 1px solid var(--ink); border-radius: 4px; padding: 0 12px;
+  font-family: inherit; font-size: 15px; background: var(--bg); }
+.err { font-size: 14px; font-weight: 700; color: var(--red); min-height: 1.2em; margin: 0; }
+.fineprint { font-size: 13px; color: var(--muted); line-height: 1.5; margin: 0; }
+.done-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+pre { white-space: pre-wrap; font-size: 12px; background: var(--bark-lt); padding: 12px;
+  border-radius: 6px; max-height: 200px; overflow: auto; margin: 0; }
+
+/* spotlight guide */
+#tour { position: fixed; inset: 0; z-index: 90; }
+.tour-spot { position: fixed; border-radius: 8px; box-shadow: 0 0 0 9999px rgba(15,15,15,0.62);
+  transition: all 0.2s ease; pointer-events: none; }
+.tour-pop { position: fixed; max-width: 360px; background: var(--bg); border-radius: 10px;
+  padding: 18px 20px; box-shadow: 0 8px 28px rgba(0,0,0,0.32); display: flex; flex-direction: column; gap: 8px; }
+.tour-step { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--green); }
+.tour-title { font-size: 17px; }
+.tour-text { font-size: 14px; color: var(--grey); line-height: 1.55; }
+.tour-text b { color: var(--ink); }
+.tour-actions { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+
+/* the two tasks share the page; each shows only its own parts */
+body[data-kind="calibration"] [data-kind="reference_check"],
+body[data-kind="reference_check"] [data-kind="calibration"] { display: none !important; }
+.kind-body { display: flex; flex-direction: column; gap: 14px; }
+.dossier { display: flex; flex-direction: column; gap: 16px; }
+.imp { border-left: 3px solid var(--ink); padding: 2px 0 2px 14px; }
+.imp-head { font-size: 15px; line-height: 1.55; }
+.imp-head .n { font-size: 12px; font-weight: 700; color: var(--grey); margin-right: 6px; }
+.imp ul { margin: 6px 0 0; padding-left: 18px; font-size: 14px; color: var(--grey); line-height: 1.5; }
+.imp li { margin-bottom: 4px; } .imp li b { color: var(--ink); font-weight: 600; }
+
+/* narrow screens: stack the decision panel under the report */
+@media (max-width: 960px) {
+  body { height: auto; min-height: 100dvh; overflow-y: auto; }
+  .main { flex-direction: column; }
+  .doc-scroll { padding: 16px; }
+  .page { padding: 22px 20px; }
+  .side-pane { width: 100%; border-left: none; border-top: 1px solid var(--bark); padding: 20px 16px; }
+  .topbar, .bottombar, .doc-toolbar { padding-left: 16px; padding-right: 16px; }
+  .bottombar { position: sticky; bottom: 0; gap: 8px; min-height: 60px; padding-top: 8px; padding-bottom: 8px; }
+  .bottombar .primary { height: 40px; padding: 0 14px; font-size: 14px; }
+  .bottombar .ghost { height: 40px; min-width: 40px; padding: 0 10px; }
+  .bottombar .spacer { display: none; }
+  .progress-text { font-size: 13px; }
+  .dots, .tile kbd { display: none; }
+  .card { padding: 24px 20px; }
+}
+@media (max-width: 560px) { .topbar .divider, .topbar .who { display: none; } }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <span class="title" id="appTitle">Answer key check</span>
+  <span class="divider"></span>
+  <span class="who" id="who">__ANNOTATOR__</span>
+  <span class="spacer"></span>
+  <button class="howto" id="helpBtn">How it works</button>
+</header>
+
+<div class="main" id="mainView" hidden>
+  <section class="doc-pane">
+    <div class="doc-toolbar" id="docBar">
+      <span class="tag" id="lawTag"></span>
+      <span class="tag soft" id="articles"></span>
+    </div>
+    <div class="doc-scroll" id="docPane">
+      <div class="page">
+        <div class="page-head" id="srcTitle">The official report</div>
+        <div class="page-sub" id="section"></div>
+        <div class="passage" id="passage" data-kind="reference_check"></div>
+        <div class="legend" data-kind="reference_check"><i></i> highlighted: the sentence the point is based on</div>
+        <div class="dossier" id="dossier" data-kind="calibration"></div>
+      </div>
+    </div>
+  </section>
+
+  <aside class="side-pane">
+    <div class="block" id="pointBlock">
+      <span class="block-head" data-kind="reference_check">The point to check</span>
+      <span class="block-head" data-kind="calibration">The effect to look for</span>
+      <dl class="claim" id="claim"></dl>
+    </div>
+    <div class="block" id="answerBlock">
+      <span class="question" data-kind="reference_check">Does the report back this point up?</span>
+      <span class="question" data-kind="calibration">Does our AI's report cover this effect?</span>
+      <div class="tiles" data-kind="calibration">
+        <button class="tile keep" data-l="covered"><b>Yes, covered</b><span>An entry names the same group and the same way they are affected.</span><kbd>Y</kbd></button>
+        <button class="tile drop" data-l="not_covered"><b>No, not covered</b><span>No entry does. Other wording is fine; missing amounts don't count.</span><kbd>N</kbd></button>
+        <button class="tile unsure" data-l="unsure"><b>Can't tell</b><span>Still unsure after reading carefully: add a note why.</span><kbd>C</kbd></button>
+      </div>
+      <div class="tiles" data-kind="reference_check">
+        <button class="tile keep" data-l="keep"><b>Yes, keep</b><span>The report text supports the point.</span><kbd>Y</kbd></button>
+        <button class="tile drop" data-l="drop"><b>No, drop</b><span>Background, an option not chosen, a vague remark, a wrong number, or a repeat.</span><kbd>N</kbd></button>
+        <button class="tile unsure" data-l="unsure"><b>Can't tell</b><span>Still unsure after reading carefully: add a note why.</span><kbd>C</kbd></button>
+      </div>
+    </div>
+    <div class="block" id="noteBlock">
+      <span class="block-head">Note <span class="muted">(needed for Can't tell, otherwise optional)</span></span>
+      <textarea class="note" id="note" rows="2" placeholder="One line is enough"></textarea>
+    </div>
+    <details class="block others" id="othersBlock" data-kind="reference_check">
+      <summary class="block-head">Already in the key <span class="muted" id="othersCount"></span></summary>
+      <span class="hint">The other points the key has for this law. If the point above says the same thing as one of these, answer <b>No</b>.</span>
+      <ul id="others"></ul>
+    </details>
+  </aside>
+</div>
+
+<footer class="bottombar" id="bottomBar" hidden>
+  <button class="ghost" id="prev" aria-label="Previous point">←</button>
+  <div class="progress" id="progressBlock">
+    <span class="progress-text" id="count"></span>
+    <div class="dots" id="dots"></div>
+  </div>
+  <span class="saved" id="saved"></span>
+  <span class="spacer"></span>
+  <button class="ghost" id="next" aria-label="Next point">→</button>
+  <button class="primary" id="finish">Finish</button>
+</footer>
+
+<!-- welcome: what this is, why a person is needed, how to answer; sign-in when hosted -->
+<div class="overlay" id="welcome">
+  <div class="card">
+    <span class="eyebrow">About <span id="nMinutes">15</span> minutes · no legal knowledge needed</span>
+    <div class="kind-body" data-kind="reference_check">
+    <h2>Help us check an AI-written answer key</h2>
+    <p class="lead">When the EU proposes a law, it publishes an official report, the <b>impact
+      assessment</b>, on <b>who the law affects and how</b>: companies, authorities, consumers,
+      and what it costs or saves them. We are building an AI that produces that kind of list for
+      a new law. To grade it we need an <b>answer key</b>, and another AI wrote that key from the
+      official reports. Before we grade anything with it, a person checks a sample. That is you.</p>
+    <h3>Why a person has to look</h3>
+    <ul class="reasons">
+      <li><b>Every grade depends on the key.</b> A wrong key rewards our AI for copying its
+        mistakes, and we could not tell whether it really improved.</li>
+      <li><b>The AI is not consistent on hard cases.</b> On 105 borderline points, running the
+        same AI twice changed the answer on 15 (about 1 in 7); two different AIs disagreed on 24.</li>
+      <li><b>An AI checking an AI is not enough.</b> The standard advice is to compare AI graders
+        with people at least once. Some points you see were kept by the AI and some were thrown
+        out; you are not told which. If your answers match the AI's on at least 9 in 10, the key
+        is used as it is; otherwise we fix how it is made first.</li>
+    </ul>
+    <h3>What you do</h3>
+    <ol class="steps">
+      <li><span class="step-n">1</span><span><b><span class="nItems">30</span> points, one per screen.</b>
+        Most say "this group is affected by the law in this way"; some name one thing a good
+        assessment of the law has to cover.</span></li>
+      <li><span class="step-n">2</span><span><b>Read the highlighted report text</b> the point is
+        based on, on the left.</span></li>
+      <li><span class="step-n">3</span><span><b>Answer one question:</b> does the report back this
+        point up?</span></li>
+    </ol>
+    <div class="rules">
+      <span class="pill keep">Yes, keep</span><span>The report text really supports the point: this
+        group is affected in this way, or this is a real effect the assessment has to cover.</span>
+      <span class="pill drop">No, drop</span><span>The report doesn't really say it: the text is only
+        background, describes an option the EU did <i>not</i> choose, is a vague remark, says there
+        is no real effect, or a <b>number</b> in the point is not what the report says. Also "no" if
+        the point repeats one already in the key.</span>
+      <span class="pill unsure">Can't tell</span><span>You really can't decide. Add a few words why.</span>
+    </div>
+    <details class="examples">
+      <summary>See two short examples</summary>
+      <div class="example">
+        <p><b>Point:</b> Online shops must label AI-made product photos and pay for tools to do it.</p>
+        <p><b>Report:</b> "... <mark>online retailers will incur one-off costs to adapt their systems
+          to the labelling obligation</mark> ..."</p>
+        <p class="ans keep">Yes, keep: the report says these shops pay to comply.</p>
+      </div>
+      <div class="example">
+        <p><b>Point:</b> Banks must hire more compliance staff.</p>
+        <p><b>Report:</b> "... <mark>Option 3, which was not retained, would have required banks
+          to</mark> appoint additional officers ..."</p>
+        <p class="ans drop">No, drop: that option was not chosen, so it is not an effect of the law.</p>
+      </div>
+    </details>
+    </div>
+    <div class="kind-body" data-kind="calibration">
+    <h2>Help us check how our AI is graded</h2>
+    <p class="lead">Our AI reads a new EU law and writes a report on <b>who it affects and how</b>.
+      To grade it, a <b>grader AI</b> compares that report with the effects named in the EU's own
+      official report on the law (the impact assessment) and decides, for each effect, whether our
+      AI found it. Before we trust those grades, people check the grader on a sample. That is you.</p>
+    <h3>Why a person has to look</h3>
+    <ul class="reasons">
+      <li><b>Every score comes from the grader.</b> If it is too generous or too strict, we measure
+        our AI's progress wrongly, and may keep a worse version or throw away a better one.</li>
+      <li><b>Graders make predictable mistakes:</b> counting an effect as found because the words
+        look alike, or as missed because the words differ.</li>
+      <li><b>So we compare it with people once.</b> You and another person label the same pairs on
+        your own, without seeing what the grader decided. If the grader agrees with you at least
+        85% of the time, we use it; otherwise we fix it first.</li>
+    </ul>
+    <h3>What you do</h3>
+    <ol class="steps">
+      <li><span class="step-n">1</span><span><b><span class="nItems">30</span> pairs, one per screen.</b>
+        On the right, one effect from the official report; on the left, our AI's report on the same law.</span></li>
+      <li><span class="step-n">2</span><span><b>Look through our AI's entries</b> for that effect.</span></li>
+      <li><span class="step-n">3</span><span><b>Answer one question:</b> does our AI's report cover
+        this effect?</span></li>
+    </ol>
+    <div class="rules">
+      <span class="pill keep">Yes, covered</span><span>At least one entry names the same or a clearly
+        overlapping group <b>and</b> the same way they are affected. Other wording is fine. A more
+        specific entry covers a broader effect, not the other way round.</span>
+      <span class="pill drop">No, not covered</span><span>No entry does. Judge only what our AI wrote;
+        don't fill in what it probably meant.</span>
+      <span class="pill unsure">Can't tell</span><span>You really can't decide. Add a few words why.</span>
+    </div>
+    <p class="fineprint"><b>Ignore amounts.</b> Our AI only saw the law, not the report's cost
+      figures, so a missing euro amount, percentage or staff number does not count against it.
+      Work alone, and don't discuss pairs with the other person until you have both sent.</p>
+    <details class="examples">
+      <summary>See two short examples</summary>
+      <div class="example">
+        <p><b>Effect:</b> Online shops must label AI-made product photos and pay EUR 2,000 each for new tools.</p>
+        <p><b>Our AI wrote:</b> "Retailers selling online face compliance costs to mark synthetic images."</p>
+        <p class="ans keep">Yes, covered: same group, same way; the missing amount doesn't matter.</p>
+      </div>
+      <div class="example">
+        <p><b>Effect:</b> National authorities must supervise the new product register and need extra staff.</p>
+        <p><b>Our AI wrote:</b> "Companies must register their products before sale."</p>
+        <p class="ans drop">No, not covered: that entry is about companies registering, not authorities supervising.</p>
+      </div>
+    </details>
+    </div>
+    <p class="fineprint" id="saveNote">Your answers are saved as you go, straight to us: nothing to
+      download or send. You can stop and come back with the same link.</p>
+    <div class="signin" id="signinBox" hidden>
+      <label for="name">Your name <span class="muted">(the one you were given)</span>
+        <input id="name" autocomplete="username" autocapitalize="off" spellcheck="false"></label>
+      <button class="primary" id="signin">Start</button>
+    </div>
+    <p class="err" id="signinErr"></p>
+    <button class="primary" id="start" style="align-self:flex-start">Start</button>
+  </div>
+</div>
+
+<div class="overlay" id="done" hidden>
+  <div class="card">
+    <span class="eyebrow" id="doneEyebrow">Almost done</span>
+    <h2 id="doneTitle">Check and send</h2>
+    <p class="lead" id="summary"></p>
+    <p class="lead" id="missing"></p>
+    <div class="done-actions">
+      <button class="primary" id="submit">Send my answers</button>
+      <button class="primary" id="download">Download <span id="fileName"></span></button>
+      <button class="ghost" id="copy">Copy</button>
+      <button class="ghost" id="back">Back to the points</button>
+    </div>
+    <p class="err" id="submitErr"></p>
+    <p class="fineprint" id="doneHint">The file is in your Downloads folder. Send it to
+      <b>__SEND_TO__</b>.</p>
+    <pre id="yaml"></pre>
+  </div>
+</div>
+
+<!-- spotlight guide: dims the page and explains one part at a time -->
+<div id="tour" hidden>
+  <div id="tourSpot" class="tour-spot"></div>
+  <div id="tourPop" class="tour-pop" role="dialog" aria-live="polite">
+    <span id="tourStep" class="tour-step"></span>
+    <b id="tourTitle" class="tour-title"></b>
+    <span id="tourText" class="tour-text"></span>
+    <div class="tour-actions">
+      <button id="tourSkip" class="linkbtn">Skip</button>
+      <span class="spacer"></span>
+      <button id="tourBack" class="ghost sm">Back</button>
+      <button id="tourNext" class="primary sm">Next</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const DATA = __DATA__;
+const HOSTED = !!DATA.api;
+let KIND = DATA.kind || "reference_check";
+// Each task's labels, by key and by colour (yes / no / unsure).
+const KEYS = { reference_check: { y: "keep", n: "drop", c: "unsure" },
+  calibration: { y: "covered", n: "not_covered", c: "unsure" } };
+const CAT = { keep: "keep", covered: "keep", drop: "drop", not_covered: "drop", unsure: "unsure" };
+const WORDS = { reference_check: { keep: "yes", drop: "no", unsure: "can't tell", unit: "point", title: "Answer key check" },
+  calibration: { covered: "covered", not_covered: "not covered", unsure: "can't tell", unit: "pair", title: "Grader check" } };
+function setKind(k) {
+  KIND = k in KEYS ? k : "reference_check";
+  document.body.dataset.kind = KIND;
+  $("appTitle").textContent = document.title = WORDS[KIND].title;
+}
+let items = DATA.items;
+let KEY = "womm-refcheck:" + DATA.sample + ":" + DATA.annotator;
+// Seen-the-guide is remembered per task: each task has its own guide.
+const tourKey = () => "womm-label-tour:" + KIND;
+let state = { i: 0, answers: {} };
+let submitted = false;
+const restore = () => {
+  try { const s = JSON.parse(localStorage.getItem(KEY));
+    if (s && Number.isInteger(s.i) && s.i < items.length) state.i = s.i;
+    if (!HOSTED && s && s.answers) state.answers = s.answers; } catch (e) {}
+};
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(HOSTED ? { i: state.i } : state)); } catch (e) {} };
+if (!HOSTED) restore();
+const $ = id => document.getElementById(id);
+const el = (tag, cls, text) => { const e = document.createElement(tag);
+  if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const NAMES = { affected_actor: "Who is affected", mechanism: "What the law makes them do",
+  impact: "What it means for them", description: "The point" };
+let view = "welcome";
+let advance;
+
+async function api(method, path, body) {
+  const r = await fetch(DATA.api + path, { method, credentials: "same-origin",
+    headers: body ? { "Content-Type": "application/json" } : {},
+    body: body ? JSON.stringify(body) : undefined });
+  let data = null; try { data = await r.json(); } catch (e) {}
+  if (!r.ok) { const e = new Error((data && data.detail) || ("error " + r.status)); e.status = r.status; throw e; }
+  return data;
+}
+
+// Hosted: every answer goes to the server; a failed save is shown and retried with the next one.
+const unsaved = new Set();
+let noteTimer;
+async function persist(id) {
+  save();
+  if (!HOSTED) { $("saved").textContent = "Kept in this browser"; return; }
+  const a = state.answers[id];
+  if (!a || !a.label) return;
+  unsaved.add(id);
+  $("saved").textContent = "Saving..."; $("saved").classList.remove("bad");
+  for (const x of [...unsaved]) {
+    const ax = state.answers[x];
+    try { await api("PUT", "/answers/" + encodeURIComponent(x), { label: ax.label, note: ax.note || "" }); unsaved.delete(x); }
+    catch (e) {
+      $("saved").textContent = e.status === 401 ? "Signed out: reload the page" : "Not saved: check your connection";
+      $("saved").classList.add("bad"); return;
+    }
+  }
+  $("saved").textContent = "✓ Saved";
+}
+
+function load(p) {
+  setKind(p.kind);
+  items = p.items; state.answers = p.answers || {}; submitted = !!p.submitted;
+  DATA.annotator = p.annotator; $("who").textContent = p.annotator;
+  KEY = "womm-refcheck:" + DATA.sample + ":" + p.annotator; restore();
+  counts();
+}
+
+function counts() {
+  const n = items.length || 30;
+  document.querySelectorAll(".nItems").forEach(e => { e.textContent = n; });
+  // About half a minute per point; a pair means reading a whole report, about a minute.
+  $("nMinutes").textContent = Math.max(5, Math.round(KIND === "calibration" ? n : n / 2));
+}
+
+function show(v) {
+  view = v;
+  $("welcome").hidden = v !== "welcome";
+  $("mainView").hidden = $("bottomBar").hidden = v === "welcome";
+  $("done").hidden = v !== "done";
+  if (v !== "welcome") renderItem();
+  if (v === "done") renderDone();
+  if (v === "item") { try { if (!localStorage.getItem(tourKey())) setTimeout(startTour, 250); } catch (e) {} }
+}
+
+function answered() { return items.filter(i => state.answers[i.id]?.label).length; }
+
+function renderItem() {
+  const it = items[state.i];
+  const cal = KIND === "calibration";
+  $("lawTag").textContent = "Law: " + it.case.replace(/^case_\d+_/, "").replace(/_/g, " ");
+  $("articles").hidden = cal;
+  if (!cal) $("articles").textContent = "Articles " + it.provisions.map(p => p.split("/").pop()).join(", ");
+  const claim = $("claim"); claim.replaceChildren();
+  const fields = cal ? it.expected : it.claim;
+  // A fixed order: the server's JSON storage does not keep key order.
+  const keys = Object.keys(NAMES).filter(k => k in fields).concat(Object.keys(fields).filter(k => !(k in NAMES)));
+  for (const k of keys) { const d = el("div"); d.append(el("dt", null, NAMES[k] || k), el("dd", null, fields[k])); claim.append(d); }
+  if (cal) {
+    $("srcTitle").textContent = "What our AI wrote";
+    $("section").textContent = `Its report on this law: ${it.dossier.length} entries. Look for one that matches the effect on the right.`;
+    const box = $("dossier"); box.replaceChildren();
+    if (!it.dossier.length) box.append(el("p", "hint", "Our AI's report has no entries for this law."));
+    it.dossier.forEach((imp, j) => {
+      const d = el("div", "imp"); const h = el("div", "imp-head");
+      h.append(el("span", "n", String(j + 1)), imp.summary); d.append(h);
+      if (imp.findings.length) {
+        const ul = el("ul");
+        for (const f of imp.findings) {
+          const li = el("li");
+          li.append(el("b", null, f.affected_actor || "?"), ": " + [f.mechanism, f.impact].filter(Boolean).join(" → "));
+          ul.append(li);
+        }
+        d.append(ul);
+      }
+      box.append(d);
+    });
+  } else {
+    $("srcTitle").textContent = it.source === "report" ? "The official report"
+      : "The EU review board's opinion on the report";
+    $("section").textContent = "Section: " + it.section;
+    const p = $("passage"); p.replaceChildren();
+    if (it.passage) p.append(it.passage.before, el("mark", null, it.passage.quote), it.passage.after);
+    else p.append(el("mark", null, it.quote));
+  }
+  if (renderItem.last !== it.id) {  // a new point starts at the top of both panes
+    $("docPane").scrollTop = 0; document.querySelector(".side-pane").scrollTop = 0; window.scrollTo(0, 0);
+    renderItem.last = it.id;
+  }
+  const others = it.others || [];
+  $("othersCount").textContent = `(${others.length})`;
+  $("others").replaceChildren(...others.map(o => el("li", null, o)));
+  $("othersBlock").open = false;
+  const a = state.answers[it.id] || {};
+  document.querySelectorAll(".tile").forEach(b => b.classList.toggle("on", b.dataset.l === a.label));
+  $("note").value = a.note || "";
+  $("note").classList.toggle("need", a.label === "unsure" && !(a.note || "").trim());
+  $("prev").disabled = state.i === 0;
+  const dots = $("dots"); dots.replaceChildren();
+  items.forEach((x, j) => {
+    const d = el("button", "dot " + (CAT[state.answers[x.id]?.label] || "") + (j === state.i ? " cur" : ""), String(j + 1));
+    d.title = WORDS[KIND].unit + " " + (j + 1); d.onclick = () => { state.i = j; save(); show("item"); };
+    dots.append(d);
+  });
+  const unit = WORDS[KIND].unit;
+  $("count").innerHTML = `${unit[0].toUpperCase() + unit.slice(1)} <b>${state.i + 1}</b> of ${items.length} · ${answered()} answered`;
+  $("finish").textContent = HOSTED ? (submitted ? "Sent ✓" : "Finish & send") : "Finish";
+}
+
+function label(l) {
+  const it = items[state.i];
+  state.answers[it.id] = { ...(state.answers[it.id] || {}), label: l, note: $("note").value };
+  persist(it.id);
+  if (l === "unsure" && !$("note").value.trim()) { renderItem(); $("note").focus(); return; }
+  // Advance from the point just answered only: a second key press must not skip the next one.
+  clearTimeout(advance);
+  const from = state.i;
+  advance = setTimeout(() => { if (state.i === from) go(1); }, 220);
+  renderItem();
+}
+
+function go(d) {
+  const j = state.i + d;
+  if (j >= items.length) { show("done"); return; }
+  if (j < 0) return;
+  state.i = j; save(); renderItem();
+}
+
+function yaml() {
+  const rows = [`# Answers of ${DATA.annotator} for the reference-answer check (label_${DATA.annotator}.html).`,
+    `sample: ${JSON.stringify(DATA.sample)}`, `annotator: ${JSON.stringify(DATA.annotator)}`, "answers:"];
+  for (const it of [...items].sort((a, b) => a.id.localeCompare(b.id))) {
+    const a = state.answers[it.id] || {};
+    rows.push(`- item: ${it.id}`, `  label: ${a.label || ""}`, `  note: ${JSON.stringify(a.note || "")}`);
+  }
+  return rows.join("\n") + "\n";
+}
+
+function renderDone() {
+  const w = WORDS[KIND], c = {};
+  items.forEach(i => { const l = state.answers[i.id]?.label; if (l) c[l] = (c[l] || 0) + 1; });
+  const parts = Object.values(KEYS[KIND]).map(l => `${c[l] || 0} ${w[l]}`);
+  $("summary").textContent = `${answered()} of ${items.length} answered: ${parts.join(", ")}.`;
+  const miss = items.map((x, j) => state.answers[x.id]?.label ? null : j + 1).filter(Boolean);
+  for (const b of ["download", "copy", "yaml", "doneHint"]) $(b).hidden = HOSTED;
+  $("submit").hidden = !HOSTED;
+  $("submitErr").textContent = "";
+  if (HOSTED) {
+    $("doneEyebrow").textContent = submitted ? "Done" : "Almost done";
+    $("doneTitle").textContent = submitted ? "Thank you!" : "Check and send";
+    $("missing").textContent = miss.length ? `Still open: ${w.unit}s ${miss.join(", ")}. Answer them, then send.`
+      : submitted ? "Your answers are in. You can close this page, or go back and change an answer: changes are saved too."
+      : "Everything is answered. Press Send to tell us you are done.";
+    $("submit").disabled = miss.length > 0 || submitted;
+    $("submit").textContent = submitted ? "Sent ✓" : "Send my answers";
+  } else {
+    $("doneTitle").textContent = "Download and send";
+    $("missing").textContent = miss.length ? `Still open: points ${miss.join(", ")}. You can download now and finish later.` : "";
+    $("yaml").textContent = yaml();
+  }
+}
+
+async function signIn() {
+  $("signinErr").textContent = "";
+  try { load(await api("POST", "/session", { name: $("name").value })); show("item"); }
+  catch (e) { $("signinErr").textContent = e.status === 401
+    ? "That name is not on this check. Use the name you were given." : e.message; }
+}
+
+// ---------- spotlight guide (shown once, on the first point; "How it works" replays it) ----------
+const TOURS = {};
+TOURS.reference_check = [
+  { sel: "#pointBlock", title: "The point to check", text: "One entry of the answer key. Usually it says <b>who</b> is affected, <b>what the law makes them do</b> and <b>what it means for them</b>; some entries are a single statement instead. This is what you judge." },
+  { sel: "#docPane", title: "What the official report says", text: "The <b>highlighted</b> sentence is what the point is based on; the text around it is context. Read just enough to judge." },
+  { sel: "#answerBlock", title: "Your answer", text: "Does the report back the point up? <b>Yes</b> if the text supports it. <b>No</b> if it's background, an option not chosen, a vague remark, a wrong number, or a repeat. Keys: <b>Y</b>, <b>N</b>, <b>C</b>." },
+  { sel: "#noteBlock", title: "A short note", text: "Needed when you pick <b>Can't tell</b>, optional otherwise. One line is enough." },
+  { sel: "#othersBlock", title: "Already in the key", text: "Open this to see the law's other points. If this one repeats one of them, answer <b>No</b>." },
+  { sel: "#progressBlock", title: "Your progress", text: "Jump to any point with the squares; answered ones are coloured. Use ← → to move." },
+  { sel: "#finish", title: "Finish", text: "" },
+];
+TOURS.calibration = [
+  { sel: "#pointBlock", title: "The effect to look for", text: "One effect the EU's official report names: <b>who</b> is affected, <b>what the law makes them do</b> and <b>what it means for them</b>." },
+  { sel: "#docPane", title: "What our AI wrote", text: "Our AI's report on the same law, one entry per effect it found. Look through it for the effect on the right. Tip: <b>Ctrl+F</b> (<b>Cmd+F</b> on a Mac) finds a word such as the group's name." },
+  { sel: "#answerBlock", title: "Your answer", text: "<b>Yes</b> if at least one entry names the same or a clearly overlapping group and the same way they are affected, in any words. <b>No</b> if none does. Ignore missing amounts. Keys: <b>Y</b>, <b>N</b>, <b>C</b>." },
+  { sel: "#noteBlock", title: "A short note", text: "Needed when you pick <b>Can't tell</b>, optional otherwise. One line is enough." },
+  { sel: "#progressBlock", title: "Your progress", text: "Jump to any pair with the squares; answered ones are coloured. Use ← → to move." },
+  { sel: "#finish", title: "Finish", text: "" },
+];
+const tour = () => TOURS[KIND];
+let tourIdx = 0, tourRAF = null;
+function startTour() { if (view !== "item") return; tourIdx = 0; $("tour").hidden = false; showTourStep(); }
+function endTour() { if (tourRAF) { cancelAnimationFrame(tourRAF); tourRAF = null; } $("tour").hidden = true; try { localStorage.setItem(tourKey(), "1"); } catch (e) {} }
+function showTourStep() {
+  const step = tour()[tourIdx];
+  const t = document.querySelector(step.sel);
+  const r0 = t ? t.getBoundingClientRect() : { width: 0, height: 0 };
+  if (r0.width === 0 && r0.height === 0) { if (tourIdx < tour().length - 1) { tourIdx++; return showTourStep(); } return endTour(); }
+  t.scrollIntoView({ block: "nearest" });
+  $("tourStep").textContent = `Step ${tourIdx + 1} of ${tour().length}`;
+  $("tourTitle").textContent = step.title;
+  $("tourText").innerHTML = step.sel === "#finish" ? (HOSTED
+    ? `Your answers save as you go (you'll see <b>✓ Saved</b>). When every ${WORDS[KIND].unit} is answered, press <b>Finish &amp; send</b>. You can stop and come back with the same link.`
+    : "When every point is answered, press <b>Finish</b> and download the small answer file, then send it back.") : step.text;
+  $("tourBack").style.visibility = tourIdx === 0 ? "hidden" : "visible";
+  $("tourNext").textContent = tourIdx === tour().length - 1 ? "Got it" : "Next";
+  if (tourRAF) cancelAnimationFrame(tourRAF);
+  positionTour();
+  $("tourNext").focus();
+}
+// Re-measure every frame so the spotlight and card follow the target and stay on screen.
+function positionTour() {
+  if ($("tour").hidden) { tourRAF = null; return; }
+  const t = document.querySelector(tour()[tourIdx].sel);
+  if (t) {
+    const r = t.getBoundingClientRect(), pad = 6, M = 12;
+    const spot = $("tourSpot");
+    spot.style.left = Math.max(2, r.left - pad) + "px"; spot.style.top = Math.max(2, r.top - pad) + "px";
+    spot.style.width = (r.width + pad * 2) + "px";
+    spot.style.height = Math.min(r.height + pad * 2, innerHeight - 4) + "px";
+    const pop = $("tourPop");
+    const pw = pop.offsetWidth || 340, ph = pop.offsetHeight || 170;
+    let left, top;
+    if (r.width > innerWidth * 0.5) { left = r.right - pw - 24; top = Math.min(r.bottom, innerHeight) - ph - 24; }  // big pane: its lower corner, off the text
+    else if (r.left - pw - M > M) { left = r.left - pw - M; top = r.top; }                     // to the left
+    else { left = r.left; top = r.bottom + M; if (top + ph > innerHeight - M) top = r.top - ph - M; }
+    top = Math.min(Math.max(M, top), innerHeight - ph - M);
+    left = Math.min(Math.max(M, left), innerWidth - pw - M);
+    pop.style.left = left + "px"; pop.style.top = top + "px";
+  }
+  tourRAF = requestAnimationFrame(positionTour);
+}
+
+// ---------- wiring ----------
+setKind(KIND);
+counts();
+$("fileName").textContent = DATA.file || "";
+if (!HOSTED) $("saveNote").textContent = "Your answers are kept in this browser as you go (don't use a private window). At the end you download a small file and send it back.";
+$("start").onclick = () => show("item");
+$("signin").onclick = signIn;
+$("name").addEventListener("keydown", e => { if (e.key === "Enter") signIn(); });
+$("helpBtn").onclick = () => { if (view === "item") startTour(); else if (view === "done") show("item"), startTour(); else show("welcome"); };
+document.querySelectorAll(".tile").forEach(b => b.onclick = () => label(b.dataset.l));
+$("prev").onclick = () => go(-1);
+$("next").onclick = () => go(1);
+$("finish").onclick = () => show("done");
+$("back").onclick = () => show("item");
+$("note").oninput = () => {
+  const it = items[state.i];
+  state.answers[it.id] = { ...(state.answers[it.id] || {}), note: $("note").value };
+  $("note").classList.remove("need");
+  clearTimeout(noteTimer); noteTimer = setTimeout(() => persist(it.id), 600);
+};
+$("submit").onclick = async () => {
+  try { await api("POST", "/submit"); submitted = true; renderDone(); renderItem(); }
+  catch (e) { $("submitErr").textContent = "Not sent: " + e.message; }
+};
+$("download").onclick = () => {
+  const a = el("a"); a.href = URL.createObjectURL(new Blob([yaml()], { type: "text/yaml" }));
+  a.download = DATA.file; a.click();
+};
+$("copy").onclick = () => { navigator.clipboard?.writeText(yaml()).then(() => { $("copy").textContent = "Copied"; }); };
+$("tourNext").onclick = () => { if (tourIdx === tour().length - 1) endTour(); else { tourIdx++; showTourStep(); } };
+$("tourBack").onclick = () => { if (tourIdx > 0) { tourIdx--; showTourStep(); } };
+$("tourSkip").onclick = endTour;
+window.addEventListener("resize", () => { if (!$("tour").hidden) showTourStep(); });
+document.addEventListener("keydown", e => {
+  if (!$("tour").hidden) { if (e.key === "Escape") endTour(); return; }
+  if (view === "done" && e.key === "Escape") { show("item"); return; }
+  if (view !== "item") { if (view === "welcome" && e.key === "Enter" && !HOSTED) show("item"); return; }
+  if (e.target === $("note")) {
+    if (e.key === "Escape") $("note").blur();
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("note").blur(); if (state.answers[items[state.i].id]?.label) go(1); }
+    return;
+  }
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = e.key.toLowerCase();
+  if (k in KEYS[KIND]) { e.preventDefault(); label(KEYS[KIND][k]); }
+  else if (e.key === "ArrowRight") go(1); else if (e.key === "ArrowLeft") go(-1);
+});
+if (HOSTED) {
+  $("start").hidden = true; $("signinBox").hidden = false;
+  api("GET", "/me").then(p => { load(p); show("item"); }).catch(() => show("welcome"));
+} else if (answered() > 0) show("item"); else show("welcome");
+</script>
+</body>
+</html>

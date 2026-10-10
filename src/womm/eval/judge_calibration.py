@@ -35,6 +35,7 @@ majority and counted; a pair with no majority (all unsure, or a tie) is excluded
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
 import json
 import random
 from collections import defaultdict
@@ -44,10 +45,13 @@ from typing import Any
 
 import yaml
 
+from womm.eval import hosted_labels
 from womm.eval.golden import HOLDOUT_REFUSAL, GoldenCase, GoldenError
 from womm.eval.run_eval import read_report, report_judge_versions
 
 LABELS = ("covered", "not_covered", "unsure")
+KIND = "calibration"
+CLAIM_KEYS = ("affected_actor", "mechanism", "impact")
 KEY_FILE = "key.private.json"
 README_FILE = "README.md"
 MIN_PAIRS_ADVISED = 30
@@ -217,6 +221,40 @@ def render_sheet(
     return "\n".join(lines)
 
 
+def card(pair_id: str, p: Pair, cases: dict[str, GoldenCase], run: dict[str, Any]) -> dict:
+    """What the hosted page shows for one pair: never the judge's verdict."""
+    expected = next(e for e in cases[p.case_id].expected_impacts
+                    if e.expected_id == p.expected_id)  # fmt: skip
+    dossier = [
+        {"impact_id": imp.get("impact_id", "?"), "summary": (imp.get("summary") or "").strip(),
+         "findings": [{k: f.get(k, "") for k in CLAIM_KEYS} for f in imp.get("findings", [])]}
+        for imp in (run.get("dossier") or {}).get("impacts") or []
+    ]  # fmt: skip
+    claim = {k: getattr(expected, k) for k in CLAIM_KEYS}
+    return {"id": pair_id, "case": p.case_id, "fixture": p.fixture, "expected": claim,
+            "dossier": dossier}  # fmt: skip
+
+
+def write_answer_files(out_dir: Path, pair_ids: list[str], got: dict[str, dict]) -> None:
+    """Write the hosted answers as one ``answers_<name>.yaml`` per annotator, every pair id
+    present (blank when unanswered), the format ``read_answers`` reads."""
+    for name, a in sorted(got.items()):
+        if not _name_ok(name):
+            raise CalibrationError(f"annotator name {name!r} from the server is not valid")
+        given = {x["item"]: x for x in a.get("answers", [])}
+        rows = [{"pair_id": pid, "label": given.get(pid, {}).get("label"),
+                 "note": given.get(pid, {}).get("note", "")} for pid in pair_ids]  # fmt: skip
+        data = {"annotator": name, "answers": rows}
+        text = f"# Answers of {name}, fetched from the hosted page.\n" + yaml.safe_dump(
+            data, allow_unicode=True, sort_keys=False
+        )
+        (out_dir / f"answers_{name}.yaml").write_text(text, encoding="utf-8")
+
+
+def _name_ok(name: str) -> bool:
+    return bool(name) and name.replace("_", "").replace("-", "").isalnum() and name.isascii()
+
+
 def render_answers(annotator: str, pair_ids: list[str]) -> str:
     rows = [
         f"# Answers of {annotator} for the coverage-judge calibration (sheet_{annotator}.md).",
@@ -248,7 +286,7 @@ def write_sample(
     if not annotators or len(set(annotators)) != len(annotators):
         raise CalibrationError("give each annotator a distinct name")
     for name in annotators:
-        if not name.replace("_", "").replace("-", "").isalnum():
+        if not _name_ok(name):
             raise CalibrationError(f"annotator name {name!r}: letters, digits, - and _ only")
     if (out_dir / KEY_FILE).exists():
         raise CalibrationError(f"{out_dir / KEY_FILE} exists; pick a new --out directory")
@@ -271,6 +309,10 @@ def write_sample(
     ids = [f"p{i + 1:0{width}d}" for i in range(len(sample))]
     keyed = dict(zip(ids, sample, strict=True))
     out_dir.mkdir(parents=True, exist_ok=True)
+    created = dt.date.today().isoformat()
+    digest = hashlib.sha1(json.dumps([asdict(p) for p in sample]).encode()).hexdigest()[:8]
+    sample_id = f"{created}-{digest}"
+    pages = {}
     for name in annotators:
         order = list(ids)
         random.Random(f"{seed}:{name}").shuffle(order)
@@ -278,13 +320,16 @@ def write_sample(
             render_sheet(name, [(i, keyed[i]) for i in order], cases, runs), encoding="utf-8"
         )
         (out_dir / f"answers_{name}.yaml").write_text(render_answers(name, ids), encoding="utf-8")
+        pages[name] = [card(i, keyed[i], cases, runs[keyed[i].run_id]) for i in order]
+    hosted_labels.write_pages(out_dir, kind=KIND, sample=sample_id, pages=pages)
     covered_pop = sum(p.judge_covered for p in usable)
     key = {
+        "sample": sample_id,
         "judge_version": judge_version,
         "system_version": system_version,
         "seed": seed,
         "n_requested": n,
-        "created_on": dt.date.today().isoformat(),
+        "created_on": created,
         "reports": [str(r) for r in reports],
         "annotators": annotators,
         "stratification": STRATIFICATION,
@@ -301,6 +346,7 @@ def write_sample(
     (out_dir / README_FILE).write_text(_readme(annotators), encoding="utf-8")
     return {
         "out": str(out_dir),
+        "sample": sample_id,
         "pairs": len(sample),
         "judge_covered": sum(p.judge_covered for p in sample),
         "judge_missed": sum(not p.judge_covered for p in sample),
@@ -314,7 +360,12 @@ def _readme(annotators: list[str]) -> str:
     files = "\n".join(f"- {a}: `sheet_{a}.md` and `answers_{a}.yaml`" for a in annotators)
     return f"""# Coverage-judge calibration sample
 
-Send each annotator their two files, and nothing else:
+**Hosted (the usual way).** `womm calibrate upload --dir <this dir> --url <app url>` prints one
+link to send to the annotators; they sign in with their name and their answers are saved on the
+app as they go. When everyone has sent theirs, `womm calibrate fetch --dir <this dir> --url <app
+url>` writes the answer files below. Both need `WOMM_LABEL_ADMIN_TOKEN`.
+
+**Without the app,** send each annotator their two files, and nothing else:
 
 {files}
 

@@ -68,6 +68,8 @@ examples:
   womm eval --split val --repetitions 6 --formal   # R34 noise run (api backend only)
   womm calibrate sample --sv sv_761d872bb18e --report runs/eval_X.json --n 30 --seed 1 \
       --annotator alice --annotator bob --out .cache/calibration/2026-10
+  womm calibrate upload --dir .cache/calibration/2026-10 --url https://<app>.up.railway.app
+  womm calibrate fetch --dir .cache/calibration/2026-10 --url https://<app>.up.railway.app
   womm calibrate score --dir .cache/calibration/2026-10 --record
   womm noise report --report runs/eval_X.json --holdout-cases 8 --holdout-proposals 8 --record
   womm cost sweep --sv v1.0-cost --version com2021_206 --repetitions 3
@@ -725,9 +727,37 @@ async def cmd_calibrate_sample(args: argparse.Namespace) -> int:
             f"{summary['judge_missed']} judge-missed) from {summary['cases']} case(s); "
             f"population {pop['pairs']} pairs, judge covered rate "
             f"{pop['natural_covered_rate']:.1%}\n"
-            f"wrote {summary['out']}: send each annotator sheet_<name>.md and "
-            f"answers_<name>.yaml; keep {jc.KEY_FILE} private")  # fmt: skip
+            f"wrote {summary['out']}: host it with `womm calibrate upload` (or send each "
+            f"annotator sheet_<name>.md and answers_<name>.yaml); "
+            f"keep {jc.KEY_FILE} private")  # fmt: skip
     emit(args, summary, text)
+    return EXIT_OK
+
+
+async def cmd_calibrate_hosted(args: argparse.Namespace) -> int:
+    """Host the sample's pages on the app (upload) or write its answers back as files (fetch)."""
+    import httpx
+
+    from womm.eval import hosted_labels as hl
+    from womm.eval import judge_calibration as jc
+
+    directory = Path(args.dir)
+    try:
+        if args.calibrate_cmd == "upload":
+            link = hl.upload(directory, args.url)
+            emit(args, {"link": link}, f"hosted. Send this link to the annotators:\n  {link}")
+            return EXIT_OK
+        key = json.loads((directory / jc.KEY_FILE).read_text(encoding="utf-8"))
+        got = hl.fetch(directory, args.url)
+        jc.write_answer_files(directory, list(key["pairs"]), got)
+    except FileNotFoundError:
+        raise UsageError(f"no {jc.KEY_FILE} in {directory}: run `womm calibrate sample`") from None
+    except (hl.HostedLabelsError, jc.CalibrationError, httpx.HTTPError) as exc:
+        raise UsageError(str(exc)) from None
+    lines, pending = hl.progress(got)
+    if pending:
+        lines.append(f"waiting for {', '.join(pending)}; score once everyone has submitted")
+    emit(args, {"annotators": got, "pending": pending}, "\n".join(lines))
     return EXIT_OK
 
 
@@ -1178,6 +1208,13 @@ def _add_calibration_parsers(sub: Any, common: argparse.ArgumentParser) -> None:
                           help="annotator name; one sheet each (repeatable)")  # fmt: skip
     p_sample.add_argument("--out", required=True, help="e.g. .cache/calibration/<name>/")
     p_sample.add_argument("--golden-dir", default=str(GOLDEN_DIR), help=argparse.SUPPRESS)
+    for name, text in (("upload", "host the labelling pages on the deployed app"),
+                       ("fetch", "write the hosted answers back as answer files")):  # fmt: skip
+        p_host = cal.add_parser(name, parents=[common], help=text)
+        p_host.add_argument("--dir", required=True, help="the `calibrate sample --out` directory")
+        p_host.add_argument(
+            "--url", required=True, help="the app, e.g. https://<app>.up.railway.app"
+        )
     p_score = cal.add_parser("score", parents=[common], help="judge agreement with annotators")
     p_score.add_argument("--dir", required=True, help="the `calibrate sample --out` directory")
     p_score.add_argument("--record", action="store_true",
@@ -1252,7 +1289,8 @@ EVOLVE_HANDLERS = {
 }
 
 
-CALIBRATE_HANDLERS = {"sample": cmd_calibrate_sample, "score": cmd_calibrate_score}
+CALIBRATE_HANDLERS = {"sample": cmd_calibrate_sample, "score": cmd_calibrate_score,
+                      "upload": cmd_calibrate_hosted, "fetch": cmd_calibrate_hosted}  # fmt: skip
 NOISE_HANDLERS = {"report": cmd_noise_report}
 COST_HANDLERS = {
     "sweep": cmd_cost_sweep,

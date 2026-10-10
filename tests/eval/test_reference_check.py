@@ -248,3 +248,52 @@ def test_the_key_keeps_the_tools_reason():
     reasons = {i.item_id: i.tool_reason for i in rc.population([tiebroken()])}
     assert any(r.startswith("tie-break: ") for r in reasons.values())
     assert any(r.startswith("judges: anchor: ") for r in reasons.values())
+
+
+def test_hosted_upload_and_fetch_round_trip(tmp_path, monkeypatch, capsys):
+    """upload sends pages.json (never the key); fetch writes answer files that score reads."""
+    import httpx
+
+    drafts = [tiebroken("case_90_a"), tiebroken("case_91_b")]
+    out = tmp_path / "check"
+    rc.write_sample(out, drafts, n=3, seed=1, annotators=["ana", "bo"], ia_root=tmp_path)
+    key = json.loads((out / rc.KEY_FILE).read_text())
+    truth = {i: "keep" if it["tool_kept"] else "drop" for i, it in key["items"].items()}
+    sent = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.headers["authorization"] == "Bearer admin-0123456789abcdef"
+        if request.method == "PUT":
+            sent.update(json.loads(request.content))
+            return httpx.Response(200, json={})
+        answers = {a: {"cards": 3, "submitted_at": "2026-10-10T10:00:00Z" if a == "ana" else None,
+                       "answers": [{"item": i, "label": truth[i], "note": "ok: fine"}
+                                   for i, it in key["items"].items() if it["annotator"] == a]}
+                   for a in ("ana", "bo")}  # fmt: skip
+        return httpx.Response(200, json={"sample": key["sample"], "annotators": answers})
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    monkeypatch.setenv("WOMM_LABEL_ADMIN_TOKEN", "admin-0123456789abcdef")
+    base = ["--dir", str(out), "--url", "https://app.example/", "--holdout-registry",
+            str(tmp_path / "x.yaml")]  # fmt: skip
+    assert script.hosted(script.parse_args(["upload", *base]), client) == 0
+    assert f"https://app.example/label/{key['sample']}" in capsys.readouterr().out
+    assert set(sent["annotators"]) == {"ana", "bo"}
+    for leak in LEAKS:
+        assert leak not in json.dumps(sent)
+    assert script.hosted(script.parse_args(["fetch", *base]), client) == 0
+    assert "waiting for bo" in capsys.readouterr().out
+    labels, notes = rc.read_answers(out, key)
+    assert labels == truth and set(notes.values()) == {"ok: fine"}
+    monkeypatch.delenv("WOMM_LABEL_ADMIN_TOKEN")
+    assert script.main(["fetch", *base]) == 2
+
+
+def test_the_hosted_page_starts_empty_and_signs_in():
+    page = rc.render_hosted_page("2026-10-10-0123abcd", api="/label/api/2026-10-10-0123abcd")
+    assert not re.search(r"__[A-Z_]+__", page)
+    data = json.loads(re.search(r"const DATA = (.*);\n", page).group(1))
+    assert data["items"] == [] and data["api"].endswith("0123abcd")
+    for tag in ("<script>", "</script>", "<body>", "</body>", "</style>", 'id="welcome"'):
+        assert page.count(tag) == 1, tag
+    assert page.rstrip().endswith("</html>")
