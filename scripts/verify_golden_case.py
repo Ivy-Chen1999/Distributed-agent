@@ -86,7 +86,7 @@ from womm.eval.tiebreak import needs_tiebreak
 HANDOFF_DIR = REPO_ROOT / ".cache" / "holdout_import"
 CLAIM_FIELDS = ("affected_actor", "mechanism", "impact", "description")
 SHORTCUTS = {"v": "verified", "e": "edited", "r": "rejected", "u": "unclear"}
-SPOT_SAMPLE = 10
+SPOT_SAMPLE = 3  # one per stratum: about 24 items over the 8 holdout drafts
 SPOT_MAX_DISAGREEMENTS = 1
 TOOL_DECISIONS = ("auto_accepted", "llm_kept", "llm_dropped")
 

@@ -347,7 +347,8 @@ def test_spot_check_with_more_than_one_disagreement_is_refused(tmp_path, settled
     argv = _spot_argv(tmp_path, settled, _reference_round(tmp_path))
     assert verify.main(argv, interactive=True, ask=ask, say=say) == 2
     err = capsys.readouterr().err
-    assert f"disagreed with the tool on 2 of 10 sampled items {sorted(kept[:2])}" in err
+    n = verify.SPOT_SAMPLE
+    assert f"disagreed with the tool on 2 of {n} sampled items {sorted(kept[:2])}" in err
     assert "without --spot-check" in err
     assert not (tmp_path / "cache" / "handoff").exists()
 
@@ -367,7 +368,8 @@ def test_spot_check_writes_a_handoff_the_importer_accepts(tmp_path, settled, mon
     handoff = yaml.safe_load(path.read_text())
     assert stat.S_IMODE(path.stat().st_mode) == 0o600
     assert handoff["spot_check"] == {
-        "sample_size": 10, "seed": verify.spot_seed_for(CASE), "items": sorted(shown),
+        "sample_size": verify.SPOT_SAMPLE, "seed": verify.spot_seed_for(CASE),
+        "items": sorted(shown),
         "disagreements": [kept], "reference_check": "2026-10-01-abcd1234",
     }  # fmt: skip
     case = GoldenCase.model_validate(handoff["case"])
@@ -377,7 +379,7 @@ def test_spot_check_writes_a_handoff_the_importer_accepts(tmp_path, settled, mon
     assert by_id["c90_e05"].provenance == e05
     unsampled = next(i.item_id for i in draft.expected_impacts if i.item_id not in shown)
     assert by_id[unsampled].provenance == "llm_judged", "the tool's decision stands"
-    assert "Holdout spot check by jdoe: 10 tool-decided items" in case.notes
+    assert f"Holdout spot check by jdoe: {verify.SPOT_SAMPLE} tool-decided items" in case.notes
     assert "spot-checked on 2026-10-21" in case.notes and "2026-10-01-abcd1234" in case.notes
 
     # The importer takes it unchanged.
