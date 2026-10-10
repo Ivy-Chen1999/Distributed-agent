@@ -57,7 +57,7 @@ Labelling requirements defined for this plan (L-numbers), traced to the origin p
 - L5. Admin: publish tasks, progress dashboard, disagreement flags, resolution, exports. → U3, U7, U8
 - L6. Exports are consumable unchanged by `scripts/review_draft.py --apply` and `womm calibrate score`. → U8
 - L7. Holdout material never reaches Railway: refused at load time, with tests. → U3, U4
-- L8. Auth: shared access code + validated per-reviewer GitHub username; separate admin token; every write after auth; rate-limited sign-in; the existing bearer-token console unaffected. → U2
+- L8. Auth: reviewers sign in with their GitHub username alone, which must be on the owner's roster (no access code or token; decided 2026-10-10); separate admin token; every write after auth; rate-limited sign-in; the existing bearer-token console unaffected. → U2
 - L9. EUR-Lex links only for train/val. → U3, U4
 - L10. Desktop-first, usable on 13-inch laptop screens; keyboard shortcuts for fast labelling. → U5, U6
 - L11. Visual: side-by-side claim and highlighted IA passage, check ticks, big decision buttons, collapsible judge reasons, progress bar, per-case overview grid, inline diff for edits, admin charts. → U5, U6, U7
@@ -76,7 +76,7 @@ Labelling requirements defined for this plan (L-numbers), traced to the origin p
 
 ### Deferred to Follow-Up Work
 
-- Per-person sign-in links (magic tokens) instead of a shared code plus a username (see Needs the User 2).
+- Per-person sign-in links (magic tokens) or a shared access code on top of the username.
 - Analyst feedback marking in this UI (stays on LangSmith annotation queues).
 - PDF rendering of the IA. v1 shows the cached IA text excerpt plus the EUR-Lex link.
 - Free-text highlights and passage comments (the prior workflow had them; the four checks and a note cover what the review rules need).
@@ -112,7 +112,7 @@ The review tooling is complete on `feat/v1-integration` (it merges `feat/golden-
 
 The user built the same workflow twice before (a reviewer web app on Railway, and command-line labelling plus merge scripts). Adopted:
 
-- Shared access code on a styled sign-in page, signed `HttpOnly; SameSite=Strict; Secure` session cookie (12 h), constant-time comparison, session secret derived so that rotating the code or admin token signs everyone out.
+- Username sign-in on a styled page (roster only), signed `HttpOnly; SameSite=Strict; Secure` session cookie (12 h), session secret derived so that rotating the admin token signs everyone out.
 - The reviewer names themselves once; work is saved straight to the backend as they go (no files, no email), with a local retry queue so a refresh or a lost connection loses nothing.
 - A first-visit guided tour, and `Esc` closing any overlay.
 - A separate admin token for the dashboard and exports, never in a URL (the earlier app put it in `?token=`; this plan uses an admin session cookie instead, so tokens never reach logs or browser history).
@@ -131,9 +131,9 @@ The user built the same workflow twice before (a reviewer web app on Railway, an
 ## Key Technical Decisions
 
 - **One app, one database, one deploy.** New routes under `/label/api/*` in the existing FastAPI app, new tables in migration 007, a second Vite entry (`web/label/index.html`) served at `/label/`. Classmates never load the console bundle or its token modal; the console never sees labelling routes. Shared design tokens and widgets keep the look consistent.
-- **Labelling is off unless configured.** Without `WOMM_LABEL_ACCESS_CODE` and `WOMM_LABEL_ADMIN_TOKEN` (each ≥ 16 chars, admin ≥ 32), every `/label/api/*` route answers 404 and the app starts normally. Unlike the earlier tool, an unset code never means "open".
+- **Labelling is off unless configured.** Without `WOMM_LABEL_ADMIN_TOKEN` (≥ 32 chars), every `/label/api/*` route answers 404 and the app starts normally. With an empty roster nobody can sign in.
 - **Auth model.**
-  - Reviewer sign-in: `POST /label/api/session` with `{access_code, github_username}`. The code is compared in constant time; the username must match `GITHUB_USERNAME` and be on the roster (`label_reviewers`, filled by the owner). The session cookie carries the casefolded username and role `reviewer`.
+  - Reviewer sign-in: `POST /label/api/session` with `{github_username}`. The username must match `GITHUB_USERNAME` and be on the roster (`label_reviewers`, filled by the owner); every request re-checks the roster, so removing a username ends that session. The session cookie carries the casefolded username and role `reviewer`.
   - Admin sign-in: `POST /label/api/admin/session` with the admin token → cookie with role `admin`. The publish and export commands use `Authorization: Bearer <admin token>` on `/label/api/admin/*` instead of the cookie.
   - The labelling dependencies never accept `WOMM_API_TOKEN`, and `require_token` never accepts a labelling cookie or the admin token: separate secrets, separate code paths, tests both ways.
   - Writes need the session plus `Content-Type: application/json` plus a custom `X-WOMM-Label: 1` header (CSRF defence on top of `SameSite=Strict`).
@@ -181,8 +181,8 @@ The user built the same workflow twice before (a reviewer web app on Railway, an
 
 Each has a proposed default; the plan proceeds on it unless told otherwise.
 
-1. **Who may sign in.** Default: a roster of GitHub usernames the owner adds (`womm label roster add …`); a username not on it cannot sign in even with the code. Alternative: any well-formed username (faster, weaker).
-2. **Identity strength.** Default: shared code plus roster username, as asked. Anyone holding the code could sign in as another rostered classmate; the exported decisions name the classmate as `review.reviewer` in a commit the owner makes. Accept this for a class project, or move to per-person sign-in links (Deferred)?
+1. **Who may sign in.** Decided 2026-10-10: a roster of GitHub usernames the owner adds (`womm label roster add …`); a username not on it cannot sign in.
+2. **Identity strength.** Decided 2026-10-10: the roster username alone, no access code or token. Anyone who knows the URL and a rostered username can sign in as that classmate; accepted for a class project (train/val items only, every sign-in and write in the audit log, the owner reviews the labels before scoring).
 3. **Warm-up case.** Default: one shared warm-up case that every reviewer decides first (about 5–8 extra minutes each), giving an early disagreement measure. Alternative: none.
 4. **Judge reasons visibility in golden review.** Default: verdict chips visible, reasons collapsed (to limit anchoring). Alternative: reasons expanded, as `review_draft.py` prints them.
 5. **Term-overlap highlights in calibration.** Default: off for calibration (keeps the human judgement unaided, like the judge's), on for golden review. Alternative: on for both.
@@ -213,7 +213,7 @@ flowchart LR
   end
   subgraph RAIL["Railway: existing FastAPI app + Postgres (migration 007)"]
     ADM["/label/api/admin/* (admin token)"]
-    REV["/label/api/* (access code + roster username)"]
+    REV["/label/api/* (roster username)"]
     DB[("label_* tables, split CHECK train/val, no verdict columns")]
     UI["/label/ (React entry): review cards, calibration cards, admin dashboard"]
   end
@@ -299,7 +299,7 @@ flowchart LR
 
 ---
 
-- U2. **Labelling auth: access code, roster identity, admin token, rate limits**
+- U2. **Labelling auth: roster username, admin token, rate limits**
 
 **Goal:** Sessions for reviewers and the admin, separate from the console's bearer token, with rate-limited sign-in and CSRF-safe writes.
 
@@ -309,13 +309,13 @@ flowchart LR
 
 **Files:**
 - Create: `src/womm/api/labelling_auth.py` (cookie signing with `hmac`/`hashlib`, dependencies `reviewer_session`, `admin_session_or_bearer`, `write_guard`, in-memory `RateLimiter`)
-- Modify: `src/womm/config.py` (`label_access_code`, `label_admin_token`, `label_session_secret`, all optional)
+- Modify: `src/womm/config.py` (`label_admin_token`, `label_session_secret`, both optional)
 - Modify: `.env.example` (the three variables, empty)
 - Test: `tests/api/test_labelling_auth.py`
 
 **Approach:**
-- Session secret: `WOMM_LABEL_SESSION_SECRET` if set, else derived from the access code and admin token (rotation signs everyone out). Cookie `womm_label`, `HttpOnly; Secure; SameSite=Strict; Path=/label; Max-Age=43200`.
-- Sign-in validates code (constant time), username (`_valid_reviewer`, strips `@`), roster membership; logs to `label_events` without the code.
+- Session secret: `WOMM_LABEL_SESSION_SECRET` if set, else derived from the admin token (rotating it signs everyone out). Cookie `womm_label`, `HttpOnly; Secure; SameSite=Strict; Path=/label; Max-Age=43200`.
+- Sign-in validates the username (`_valid_reviewer`, strips `@`) and roster membership; logs to `label_events`.
 - Sign-out clears the cookie. `GET /label/api/me` returns username, role, tasks.
 - Labelling routes return 404 when unconfigured; a configured but too-short code or token refuses startup of the labelling router only (logged), never the whole app.
 
@@ -326,7 +326,7 @@ flowchart LR
 - Error path: the 6th failed sign-in from one address within 10 minutes → 429 with `Retry-After`; the 11th for one username within an hour from rotating addresses → 429.
 - Error path: a write without `X-WOMM-Label` or with a form content type → 403.
 - Security: `WOMM_API_TOKEN` as bearer on `/label/api/admin/*` → 401; the admin token as bearer on `/runs` → 401; a reviewer cookie on `/label/api/admin/*` → 403.
-- Security: a tampered or expired cookie → 401; rotating the access code invalidates existing cookies.
+- Security: a tampered or expired cookie → 401; rotating the admin token invalidates existing cookies; a username removed from the roster → 401 on its next request.
 - Edge case: labelling env unset → `/label/api/session` is 404 and `/runs` works with the bearer token as before.
 
 **Verification:** auth tests green; the existing `tests/api/` suite unchanged and green.
@@ -423,7 +423,7 @@ flowchart LR
 - Test: `web/src/label/model/*.test.ts`, `web/src/label/ReviewCard.test.tsx`, `web/e2e/label-review.spec.ts`
 
 **Approach:**
-- Sign-in page in the console's style: access code, GitHub username (with the `USERNAME_HINT` as help text), one button. Then a task list, then the case grid, then cards.
+- Sign-in page in the console's style: GitHub username (with the `USERNAME_HINT` as help text), one button. Then a task list, then the case grid, then cards.
 - Card layout, check ticks, decision bar, inline edit and diff, judge chips and collapsible reasons, progress bar and overview grid as in Key Technical Decisions. All UI text in English.
 - Saves are immediate and optimistic; failures go to a `localStorage` queue retried with backoff, and a banner says "3 decisions not saved yet, retrying". A 409 shows both versions and asks which to keep.
 - A first-visit tour of five steps (the passage, the checks, the decision keys, the grid, the shortcut sheet); `?` reopens the sheet.
@@ -438,7 +438,7 @@ flowchart LR
 - Component: all four checks ticked highlights `Verified`; `Rejected` opens a required note and `Enter` without text does not save.
 - Component: `edited` on a `human_added` item shows `ia_anchor` among the editable fields; `Verified` is disabled with an explanation.
 - E2E (Playwright, fresh database, published fixture task): sign in → claim case → decide 3 items by keyboard only (`a m i x 1 Enter`, `3 n "contradicts the IA" Enter`, `2` edit impact `Enter`) → progress shows 3/n → reload → decisions persist → grid shows 3 decided tiles.
-- E2E: wrong access code shows "Wrong access code" and no session; display name rejected with the hint.
+- E2E: an unrostered username shows "ask the course owner to add you" and no session; display name rejected with the hint.
 - E2E: viewport 1280×720 and 1440×900 show both columns with no horizontal scroll; 1024×640 stacks; axe has no serious violations on sign-in, card and grid.
 - E2E: the server rejecting a decision (e.g. the drafter) shows the server's message on the card.
 
@@ -548,7 +548,7 @@ flowchart LR
 - Test: `web/e2e/label-review.spec.ts` covers the deployed shape locally; a post-deploy smoke checklist in the runbook
 
 **Approach:**
-- Environment on Railway: `WOMM_LABEL_ACCESS_CODE` (random, ≥ 16 chars, shared with classmates out of band), `WOMM_LABEL_ADMIN_TOKEN` (random, ≥ 32 chars, owner only), optional `WOMM_LABEL_SESSION_SECRET`. Locally: `WOMM_LABEL_URL`, `WOMM_LABEL_ADMIN_TOKEN` for the CLI. None are committed; `.env.example` lists them empty.
+- Environment on Railway: `WOMM_LABEL_ADMIN_TOKEN` (random, ≥ 32 chars, owner only), optional `WOMM_LABEL_SESSION_SECRET`. Locally: `WOMM_LABEL_URL`, `WOMM_LABEL_ADMIN_TOKEN` for the CLI. None are committed; `.env.example` lists them empty.
 - Deploy: merge to `main` → CI → Railway auto-deploy → migration 007 at startup. Smoke: `/livez` 200; `/label/` loads; wrong code → 401; admin sign-in works; console with `WOMM_API_TOKEN` still works.
 - Runbook (owner workflow): roster → publish golden (refs) → `calibrate sample` → publish calibration → share URL and code → watch dashboard, resolve flags → close → export → per case: `git switch review/<case>`, `--apply` each reviewer's file, `--check`, commit, push, mark the PR ready → CI and CODEOWNERS → merge; calibration: export answers into the sample dir → `womm calibrate score --dir … --record` → commit `evals/promotion_records.yaml` → optionally `womm label publish-score`.
 
@@ -563,9 +563,9 @@ flowchart LR
 
 | # | Point | Who | When | Effort |
 |---|---|---|---|---|
-| 1 | Set `WOMM_LABEL_ACCESS_CODE` and `WOMM_LABEL_ADMIN_TOKEN` on the Railway service | user | once, before the merge that ships U2 | 5 min |
+| 1 | Set `WOMM_LABEL_ADMIN_TOKEN` on the Railway service | user | once, before the merge that ships U2 | 5 min |
 | 2 | Answer Needs the User 1–6 (defaults stand otherwise) | user | before U2/U5 | 10 min |
-| 3 | Add classmates' GitHub usernames to the roster; share the URL and access code privately | user | once per cohort | 5 min |
+| 3 | Add classmates' GitHub usernames to the roster; share the URL | user | once per cohort | 5 min |
 | 4 | Publish golden tasks from the open `review/*` branches; run `calibrate sample` and publish the pairs | user | per round | 10 min |
 | 5 | Label: golden review (about 5–8 min per case) and calibration (about 1 h for 30 pairs per annotator) | classmates | per round | as in the golden plan |
 | 6 | Read the disagreement list; resolve or mark items `unclear`; fix the rubric or guide if a pattern shows | user | after the warm-up case and at the end | 15–30 min |
@@ -612,7 +612,7 @@ Total about 22–29 hours of focused work. **Usable checkpoint at the end of day
 | Risk | Mitigation |
 |---|---|
 | `feat/v1-integration` is not on `main`, so migration 007 cannot deploy | Merge it first (Needs the User 6); this branch starts from it |
-| Identity: anyone with the code can sign in as a rostered classmate | Roster, audit log of sign-ins and writes, the owner knows the cohort; per-person links as a follow-up (Needs the User 2) |
+| Identity: anyone who knows a rostered username can sign in as that classmate | Roster, per-username rate limits, audit log of sign-ins and writes, the owner knows the cohort and reviews labels before scoring; per-person links as a follow-up |
 | A holdout draft or verdict slips into a bundle | Four layers (local refusal, strict models, server checks, DB CHECKs), each tested; calibration models have no verdict field to fill |
 | The draft changes on its branch after publish, so an export no longer fits | Published sha stored; export warns on mismatch; `--apply` and CI re-validate anyway; republish carries decisions on unchanged items |
 | Judge reasons anchor reviewers | Reasons collapsed by default; the four checks come before the decision; the human vs judge chart shows whether humans only agree with judges |
