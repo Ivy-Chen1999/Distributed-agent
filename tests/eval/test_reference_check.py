@@ -273,3 +273,29 @@ def test_answer_files_need_the_sample_id_and_quoted_names_survive(tmp_path):
     (tmp_path / "answers_007.yaml").write_text("- just a list\n")
     with pytest.raises(rc.ReferenceCheckError, match="not an answer file"):
         rc.read_answers(tmp_path, key)
+
+
+def test_low_agreement_before_reconciling_makes_the_result_unreliable():
+    key = _key([("judges_accepted", True)] * 5 + [("tiebreak_dropped", False)] * 5)
+    truth = {f"r{n}": "keep" if n <= 5 else "drop" for n in range(1, 11)}
+    flips = {"r1": "drop", "r2": "drop", "r6": "keep", "r7": "keep"}
+    res = rc.score(key, {"ana": truth, "bo": truth | flips}, {i: truth[i] for i in flips})
+    assert res["inter_annotator_agreement"] == pytest.approx(0.6) and res["error"] == 0
+    assert not res["robust"]
+    assert "NOT RELIABLE" in rc.format_result(res, key)
+
+
+def test_wrong_items_show_the_tools_reason_and_split_items_are_ambiguous():
+    key = _key([("judges_accepted", True)] * 9 + [("tiebreak_kept", True)])
+    key["items"]["r10"]["tool_reason"] = "tie-break: the IA states it"
+    labels = {f"r{n}": "keep" for n in range(1, 10)} | {"r10": "drop"}
+    res = rc.score(key, {"ana": labels, "bo": labels | {"r1": "drop"}}, {"r1": "keep"})
+    out = rc.format_result(res, key)
+    assert "wrong: r10" in out and "tie-break: the IA states it" in out
+    assert "ambiguous (annotators split): r1 = c i1, kept by the tool" in out
+
+
+def test_the_key_keeps_the_tools_reason():
+    reasons = {i.item_id: i.tool_reason for i in rc.population([tiebroken()])}
+    assert any(r.startswith("tie-break: ") for r in reasons.values())
+    assert any(r.startswith("judges: anchor: ") for r in reasons.values())
