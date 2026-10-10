@@ -25,10 +25,9 @@ report is `docs/status/2026-10-06-v1-progress.md`; the human steps are in
 ## Where it stands
 
 The 11 train/val drafts (cases 03–13) are settled by tools alone, so nobody has to review a draft.
-Before the drafts are published, two classmates do a **one-time blind reference check** of 30
-items: about 15 minutes each alone, then about 5 minutes together. It measures whether the tool
-chain is robust. The check is built, reviewed three times and tested; it has not been run with
-real annotators yet.
+Before the drafts are published, two classmates do a **one-time blind reference check**: 30
+items each, about 15 minutes, each on their own items. It measures whether the tool chain is
+robust. The check is built and tested; it has not been run with real annotators yet.
 
 ## Branches and PRs
 
@@ -79,8 +78,9 @@ merged; `evals/golden/drafts/` on `feat/golden-import` is empty.
   agents*, says human review may become occasional once the system is robust. The reference
   check measures that once. Afterwards the `audit: true` spot checks (20% of kept items, marked
   in each draft) stay optional.
-- **30 items, not 20.** No error in 30 items shows the true error rate is below 10% at 95%; no
-  error in 20 still allows about 12%. `--n` defaults to 30.
+- **30 items per person, different items.** Two people on 60 different items measure the tool
+  better than two on the same 30, and need no joint session. No error in 60 items bounds the
+  true error rate below 5% at 95%. `--n` (items per annotator) defaults to 30.
 
 ## The reference check in brief
 
@@ -88,22 +88,16 @@ Code: `src/womm/eval/reference_check.py` (the module docstring is the spec),
 `src/womm/eval/reference_check_page.html` and `scripts/reference_check.py`. Tests:
 `tests/eval/test_reference_check.py`.
 
-1. **Sample** 30 items, a third from each stratum. Each annotator gets one self-contained
-   `label_<name>.html`. Nothing on the page reveals the tool's decision. A sampled item is never
-   listed among its case's other items, because that would reveal whether it was kept.
-2. Each annotator **labels alone** (keep, drop or not sure, with an optional note) and sends
-   back the downloaded `answers_<name>.yaml`.
-3. **Score.** An item is settled when more than half of the annotators give the same keep/drop
-   label. For the rest, `score` writes `reconcile.html`, which shows each person's label and
-   note but never the tool's; the annotators pick one label together and send back
-   `reconciled.yaml`.
-4. **Gate.** The error rate is the higher of the raw rate and the rate reweighted to the
-   population's strata. An unsettled item counts as an error, and every annotator must answer.
-   The rate must be at most 10%, and the annotators must agree on at least 70% of the items
-   before reconciling (below that, `score` says NOT RELIABLE: the labels are too noisy to
-   measure against). The output also shows Cohen's kappa and a one-sided 95% upper bound of
-   the error rate, lists the split items as ambiguous, and prints the tool's own reason for
-   each item it got wrong.
+1. **Sample** 30 items per annotator, a third from each stratum, each annotator their own items.
+   Each gets one self-contained `label_<name>.html`. Nothing on the page reveals the tool's
+   decision. A sampled item is never listed among its case's other items, because that would
+   reveal whether it was kept.
+2. Each annotator **labels** (keep, drop or not sure, with an optional note) and sends back the
+   downloaded `answers_<name>.yaml`.
+3. **Score.** The tool's error rate is the share of items where the person's keep/drop differs
+   from the tool; "not sure" counts as an error. ROBUST at 10% or less, with every item
+   answered. The output shows the rate per stratum and a one-sided 95% upper bound, and for each
+   wrong item the tool's own reason and the person's note.
 
 Every file carries the sample id; files from another sample are refused. `key.private.json`
 holds the tool's decisions and is never sent to an annotator.
@@ -129,7 +123,7 @@ label a few items and run `score`.
    it publishes. Send each classmate their own `label_<name>.html` and nothing else.
 3. Put the answer files in `round1/`, run
    `uv run python scripts/reference_check.py score --dir .cache/reference_check/round1/`,
-   reconcile if it asks, and score again. Record the result in the table in step 1a of the
+   and record the result in the table in step 1a of the
    human-steps file.
 4. If it is ROBUST, run `scripts/publish_golden_cases.py` and commit the published cases. If
    not, fix the drafting or tie-break prompt and settle the open items again. The tie-break
