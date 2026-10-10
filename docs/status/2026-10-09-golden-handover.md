@@ -4,28 +4,57 @@ For whoever takes over the golden-case work for WOMM v1 (due around 2026-11-27).
 report is `docs/status/2026-10-06-v1-progress.md`; the human steps are in
 `docs/status/2026-10-07-v1-human-steps.md`.
 
+## Terms
+
+- **IA:** the European Commission's impact assessment of a proposal. Golden cases are built from
+  it. **RSB:** the Regulatory Scrutiny Board, whose opinion on the IA is a second source.
+- **Golden case:** the reference answers for one proposal: which actors the provisions affect, how,
+  and what the IA leaves out. The system is scored against them. Cases 03–13 are the train/val
+  split; the holdout cases are separate and never shared.
+- **Draft:** a golden case before publishing, in `evals/golden/drafts/`. An LLM drafter writes it
+  from the IA; three LLM judges check every item.
+- **Open item:** an item the three judges did not all accept. **Tie-break:** a fourth LLM call
+  that rules keep, drop or unsure on each open item.
+- **Stratum:** how an item was decided: kept by the judges, kept by the tie-break, or dropped by
+  it. The reference check samples a third of each.
+- **Strict gate:** the CI check on drafts (`tests/eval/test_golden_drafts.py`); a draft PR is
+  exempt until it is marked ready.
+- **U5, U6 …:** implementation units of `docs/plans/2026-10-04-001-feat-golden-case-expansion-plan.md`
+  and the plans after it.
+
 ## Where it stands
 
-The 11 train/val golden drafts (cases 03–13) are settled by tools alone: three LLM judges accept
-what they agree on, and a tie-break judge rules on the rest. Nobody has to review a draft. Before
-the drafts are published, two classmates do a **one-time blind reference check** of 20–30 items
-(10–15 minutes each, in one sitting) to measure whether that tool chain is robust. That check is
-built, reviewed twice and tested; it has not been run with real annotators yet.
+The 11 train/val drafts (cases 03–13) are settled by tools alone, so nobody has to review a draft.
+Before the drafts are published, two classmates do a **one-time blind reference check** of 30
+items: about 15 minutes each alone, then about 5 minutes together. It measures whether the tool
+chain is robust. The check is built, reviewed three times and tested; it has not been run with
+real annotators yet.
 
 ## Branches and PRs
 
 | Branch | PR | Contents |
 |---|---|---|
 | `feat/golden-import` | #5 | Golden import, drafting, tie-break, the grader-model rule and the reference check |
-| `feat/v1-integration` | #6 | Integration branch; `feat/golden-import` merged in |
+| `feat/v1-integration` | #6 | Integration branch; `feat/golden-import` merged in; has `womm calibrate` |
 | `feat/eu-cost` | #18 | EU cost work; `feat/golden-import` merged in |
 | `feat/provision-comparison` | #3 | Plans and status docs, including this file |
 | `review/case-03-…` … `review/case-13-…` | #7–#17 | One draft each, re-settled by the Sonnet tie-break (below) |
 
-PR #7 is case 03, #8 case 04, and so on up to #17 for case 13. If any of these branches is still
-ahead of `origin`, it has not been pushed yet: run `git status -sb` on it. The PR descriptions
-for #7–#17 must be replaced by the ones generated from the current drafts (the owner keeps them
-locally); the descriptions on GitHub may still show the earlier Opus counts.
+PR #7 is case 03, #8 case 04, and so on up to #17 for case 13. The review PRs target
+`feat/golden-import`. **The drafts exist only on the review branches** until those PRs are
+merged; `evals/golden/drafts/` on `feat/golden-import` is empty.
+
+## Before handing over (the current owner)
+
+1. Push every branch above (normal push, no force). Until then a fresh clone shows none of this
+   work, including this file. Check with `git status -sb` on each branch.
+2. Replace the descriptions of #7–#17 with the ones generated from the current drafts. They are
+   on the owner's machine in `.cache/handover/pr_bodies/pr_<N>_body.md` (gitignored); the
+   descriptions on GitHub still show the earlier Opus counts.
+3. Draw the reference-check sample yourself (step 2 below) or hand over the IA cache: the
+   labelling pages show the text around each IA quote only when `.cache/ia/<fixture>/` exists.
+   It is filled by `scripts/draft_golden_case.py` and is not in git; without it the pages show
+   the quote alone.
 
 ## Decisions and why
 
@@ -48,7 +77,10 @@ locally); the descriptions on GitHub may still show the earlier Opus counts.
   Borderline items are unstable even for one model, which is why the human check exists.
 - **One-time human check instead of ongoing review.** Anthropic, *Demystifying evals for AI
   agents*, says human review may become occasional once the system is robust. The reference
-  check measures that once. Afterwards the `audit: true` spot checks stay optional.
+  check measures that once. Afterwards the `audit: true` spot checks (20% of kept items, marked
+  in each draft) stay optional.
+- **30 items, not 20.** No error in 30 items shows the true error rate is below 10% at 95%; no
+  error in 20 still allows about 12%. `--n` defaults to 30.
 
 ## The reference check in brief
 
@@ -56,14 +88,15 @@ Code: `src/womm/eval/reference_check.py` (the module docstring is the spec),
 `src/womm/eval/reference_check_page.html` and `scripts/reference_check.py`. Tests:
 `tests/eval/test_reference_check.py`.
 
-1. **Sample** about 20 items, a third each kept by the judges, kept by the tie-break and dropped
-   by it. Each annotator gets one self-contained `label_<name>.html`. Nothing on the page reveals
-   the tool's decision. A sampled item is never listed among its case's other items, because
-   that would reveal whether it was kept.
-2. Each annotator **labels alone** and sends back the downloaded `answers_<name>.yaml`.
+1. **Sample** 30 items, a third from each stratum. Each annotator gets one self-contained
+   `label_<name>.html`. Nothing on the page reveals the tool's decision. A sampled item is never
+   listed among its case's other items, because that would reveal whether it was kept.
+2. Each annotator **labels alone** (keep, drop or not sure, with an optional note) and sends
+   back the downloaded `answers_<name>.yaml`.
 3. **Score.** An item is settled when more than half of the annotators give the same keep/drop
-   label. For the rest, `score` writes `reconcile.html` and the annotators pick one label
-   together.
+   label. For the rest, `score` writes `reconcile.html`, which shows each person's label and
+   note but never the tool's; the annotators pick one label together and send back
+   `reconciled.yaml`.
 4. **Gate.** The error rate is the higher of the raw rate and the rate reweighted to the
    population's strata. An unsettled item counts as an error, and every annotator must answer.
    The rate must be at most 10%. The output also shows agreement before reconciling (raw and
@@ -72,33 +105,44 @@ Code: `src/womm/eval/reference_check.py` (the module docstring is the spec),
 Every file carries the sample id; files from another sample are refused. `key.private.json`
 holds the tool's decisions and is never sent to an annotator.
 
+**To practise,** draw a sample with made-up names into a scratch directory (any
+`--annotator demo1 --annotator demo2 --out .cache/reference_check/practice/`), open a page,
+label a few items and run `score`.
+
 ## Next steps, in order
 
-1. Push the branches above. The owner runs every push; nothing is force-pushed. Then replace
-   the descriptions of #7–#17.
-2. Merge the review PRs into `feat/golden-import`, or carry their drafts over. Then draw the
-   real sample from the merged drafts, with the classmates' names:
+1. Mark the review PRs #7–#17 ready (the strict gate passes on each) and merge them into
+   `feat/golden-import`. The drafts are then in `evals/golden/drafts/`.
+2. On `feat/golden-import`, draw the real sample with the classmates' names (letters, digits,
+   `-` and `_` only; they become file names):
 
    ```
    uv run python scripts/reference_check.py sample evals/golden/drafts/case_*.yaml \
        --annotator <name1> --annotator <name2> --send-to "<owner> on <channel>" \
-       --out .cache/reference_check/round1/ --n 30
+       --out .cache/reference_check/round1/
    ```
 
    Draw the sample **before** publishing: `scripts/publish_golden_cases.py` deletes each draft
-   it publishes.
-3. Collect the answers, run `score`, reconcile if asked, and score again. Record the result in
-   the human-steps file (step 1a).
-4. If it is ROBUST, publish. If not, fix the drafting or tie-break prompt, re-run the
-   tie-break, and check again with a new `--out` and a new `--seed`.
-5. Then continue with the human-steps file: the eval run, `womm calibrate sample`, the labelling
-   page for the judge calibration (U6), and the owner reading 3–4 eval transcripts.
+   it publishes. Send each classmate their own `label_<name>.html` and nothing else.
+3. Put the answer files in `round1/`, run
+   `uv run python scripts/reference_check.py score --dir .cache/reference_check/round1/`,
+   reconcile if it asks, and score again. Record the result in the table in step 1a of the
+   human-steps file.
+4. If it is ROBUST, run `scripts/publish_golden_cases.py` and commit the published cases. If
+   not, fix the drafting or tie-break prompt and settle the open items again. The tie-break
+   refuses a draft it has already settled, so first restore the draft as it was before: find
+   the first draft commit with `git log --oneline -- evals/golden/drafts/<case>.yaml` and
+   `git show <commit>:evals/golden/drafts/<case>.yaml > evals/golden/drafts/<case>.yaml`, then
+   run `uv run python scripts/tiebreak_golden_case.py evals/golden/drafts/<case>.yaml`. Check
+   again with a new `--out` and a new `--seed`.
+5. Then continue with the human-steps file on `feat/v1-integration` (merge `feat/golden-import`
+   into it first; `womm calibrate` exists only there): the train/val eval run, the judge
+   calibration (step 3: `womm calibrate sample`, blind `sheet_<name>.md` files; a labelling web
+   page is planned in `docs/plans/2026-10-08-001-feat-labelling-web-ui-plan.md`), and the owner
+   reading 3–4 eval transcripts.
 
 ## Open decisions
 
-- **Sample size.** No error in 20 items still allows about 12% at 95%, so 20 items rule out only
-  gross failures. No error in 30 items shows at most 10%, at about 5 more minutes per person.
-  Recommended: `--n 30`.
 - **Cross-family grader.** The judges are another model of the same family. A grader from
   another provider would be stronger, but it waits on the decision about an OpenAI key or API.
 - **Case 07 is thin.** The tie-break dropped 10 of its 11 open items, leaving 5 expected impacts.
@@ -108,10 +152,12 @@ holds the tool's decisions and is never sent to an annotator.
 
 - Never commit holdout identifiers, API keys or client names; the repository is public. Keys
   live only in the local `.env`.
-- LLM roles use the `claude_code` backend (Claude Code subscription, no API cost); respect the
-  budget caps in `evals/drafting.yaml`.
+- LLM roles use the `claude_code` backend (the Claude Code subscription, no API cost).
+  `evals/drafting.yaml` sets each role's model, prompt and timeout, and
+  `max_parallel_llm_calls`.
 - CI is strict on golden drafts unless the PR is a draft (`WOMM_DRAFT_PR`). Marking a review PR
   ready runs the strict gate.
-- In zsh, `$var:evals/...` applies a filename modifier; write `${var}:evals/...` in loops over
-  git refs.
+- In zsh, an unmatched glob such as `evals/golden/drafts/case_*.yaml` is an error, not an empty
+  list; and `$var:evals/...` applies a filename modifier, so write `${var}:evals/...` in loops
+  over git refs.
 - A local hook blocks `rm -rf`; delete specific files instead.

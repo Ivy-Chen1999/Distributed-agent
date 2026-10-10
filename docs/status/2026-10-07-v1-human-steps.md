@@ -5,7 +5,7 @@ with who, how long, the exact commands, and what "done" looks like. Commands ref
 `feat/v1-integration` (PR #6).
 
 Total human time: about 6–8 hours, nearly all the project owner's. Classmates have one sitting:
-the blind reference check and judge calibration (step 3), about 35 minutes each. Revised
+the blind reference check and judge calibration (step 3), about 50 minutes each. Revised
 2026-10-08: golden cases need no human review (step 1). Revised 2026-10-09 after checking
 Anthropic's eval guidance: the tie-break no longer runs on the drafter's model, and robustness
 is measured once with a blind reference check before the drafts are published (step 1a).
@@ -13,9 +13,9 @@ is measured once with a blind reference check before the drafts are published (s
 | # | Step | Who | Time | Blocks |
 |---|---|---|---|---|
 | 1 | Merge the 11 tie-broken train/val drafts (no review required) | project owner | 15 min | evolution on real data |
-| 1a | One-time blind reference check of about 20 golden items, before publishing | 2 classmates (same sitting as step 3), owner scores | about 10 min each | publishing the golden cases |
+| 1a | One-time blind reference check of 30 golden items, before publishing | 2 classmates (same sitting as step 3), owner scores | about 15 min each, plus 5 min together | publishing the golden cases |
 | 2 | Verify 8 holdout drafts and import them | project owner | 2–2.5 h | every promotion |
-| 3 | Label about 30 pairs for the coverage-judge calibration (with step 1a, the only classmate task) | 2 classmates | about 25 min each | statistical and weak gates |
+| 3 | Label about 30 pairs for the coverage-judge calibration (with step 1a, the only classmate task) | 2 classmates | about 30 min each | statistical and weak gates |
 | 4 | Sign the promotion policy | project owner | 15 min | every gate, dev included |
 | 5 | Provide an api key, run R34 and the MDD report | project owner | about 1 h plus run time | formal gates |
 | 6 | Write the R37 reference answers | project owner | about 1 h | nothing (monitoring only) |
@@ -53,10 +53,11 @@ measures that once, before the tool-settled drafts are published (publishing del
       --out .cache/reference_check/round1/
   ```
 
-  About 20 items, a third each kept by the three judges, kept by the tie-break and dropped by
-  it. The page shows the claim, the IA quote and the text around it; never the tool's decision
+  30 items (the default `--n`), a third each kept by the three judges, kept by the tie-break
+  and dropped by it. Annotator names may use letters, digits, `-` and `_` only; they become
+  file names. The page shows the claim, the IA quote and the text around it; never the tool's decision
   (that stays in `key.private.json`).
-- **Label (2 classmates, about 10 minutes each):** each opens their own `label_<name>.html`
+- **Label (2 classmates, about 15 minutes each):** each opens their own `label_<name>.html`
   and, for each item, picks `keep`, `drop` or `unsure`: does it belong in the reference answer?
   Work independently, then send back the downloaded `answers_<name>.yaml`.
 - **Score (owner):** `uv run python scripts/reference_check.py score --dir .cache/reference_check/round1/`
@@ -68,10 +69,13 @@ measures that once, before the tool-settled drafts are published (publishing del
   and Cohen's kappa). An item still unsettled counts as an error, and `score` refuses to run
   until every annotator's file is in.
 - **Done:** gate error at most 10% ("ROBUST"): publish, and spot checks stay optional. With
-  20 items this rules out gross failures only (no error in 20 still allows about 12% at 95%;
-  `score` prints the bound); `--n 30` with no error would show at most 10%. Above
-  10%: fix the drafting or tie-break prompt, re-run the tie-break or re-draft, and check again
-  with a new sample. Record the result in this file.
+  no error in 30 items, `score` also shows the true rate is below 10% at 95% (20 items would
+  still allow about 12%). Above 10%: fix the drafting or tie-break prompt, re-run the tie-break
+  or re-draft, and check again with a new sample. Record the result here:
+
+  | Date | Sample id | Gate error | 95% bound | Kappa | Verdict |
+  |---|---|---|---|---|---|
+  | | | | | | |
 
 ## 2. Verify and import the holdout drafts (project owner only)
 
