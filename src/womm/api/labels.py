@@ -226,6 +226,19 @@ def add_label_routes(app: FastAPI, admin_token: str) -> None:
             raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from None
         return {"sample": sample, "kind": body.kind, "annotators": sorted(body.annotators)}
 
+    @app.post("/label/api/{sample}/admin/extend", dependencies=[Depends(require_admin)])
+    async def extend(sample: str, body: Upload, request: Request) -> dict:
+        """More cards for a sample already out (the reference check's second look)."""
+        kind = await db(request).label_kind(sample_id(sample))
+        if kind is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "no such sample")
+        try:
+            _check_cards(kind, body.annotators)
+            await db(request).extend_label_tasks(sample, body.annotators)
+        except (ValueError, ReviewError) as exc:
+            raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from None
+        return {"sample": sample, "extended": sorted(body.annotators)}
+
     @app.get("/label/api/{sample}/admin/results", dependencies=[Depends(require_admin)])
     async def results(sample: str, request: Request) -> dict:
         found = await db(request).label_results(sample_id(sample))

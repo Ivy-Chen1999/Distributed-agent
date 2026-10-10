@@ -410,6 +410,19 @@ def read_answers(directory: Path, pair_ids: set[str]) -> dict[str, dict[str, str
     return out
 
 
+def read_notes(directory: Path) -> dict[str, dict[str, str]]:
+    """Annotator -> pair id -> note, for the pairs that have one (answers read by
+    ``read_answers`` first, so the files are known to be valid)."""
+    out: dict[str, dict[str, str]] = {}
+    for path in sorted(directory.glob("answers_*.yaml")):
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        name = data.get("annotator") or path.stem.removeprefix("answers_")
+        rows = data.get("answers") or []
+        out[name] = {str(r["pair_id"]): str(r.get("note") or "").strip() for r in rows
+                     if str(r.get("note") or "").strip()}  # fmt: skip
+    return out
+
+
 def _kappa(a: list[bool], b: list[bool]) -> float | None:
     """Cohen's kappa for two binary raters; None when undefined (no pairs or pe == 1)."""
     if not a:
@@ -491,6 +504,10 @@ def score(key: dict[str, Any], answers: dict[str, dict[str, str | None]]) -> dic
         "inter_annotator_agreement": _mean(inter_agree),
         "inter_annotator_kappa": _mean(inter_kappa),
         "confusion": confusion,
+        # For the review page: where the judge and the people's majority differ, and the pairs
+        # with no majority (all unsure, or a tie).
+        "disagreements": [pid for pid in resolved if not agree[pid]],
+        "excluded_pairs": sorted(set(judge) - set(resolved)),
     }
 
 

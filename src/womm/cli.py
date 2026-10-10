@@ -750,6 +750,7 @@ async def cmd_calibrate_hosted(args: argparse.Namespace) -> int:
 async def cmd_calibrate_score(args: argparse.Namespace) -> int:
     """Agreement of the coverage judge with the annotators; --record appends the aggregate."""
     from womm.eval import judge_calibration as jc
+    from womm.eval import review_page
     from womm.evolve import promotion as pm
 
     directory = Path(args.dir)
@@ -762,6 +763,9 @@ async def cmd_calibrate_score(args: argparse.Namespace) -> int:
         raise UsageError(str(exc)) from None
     result = jc.score(key, answers)
     text = jc.format_result(result)
+    page = review_page.calibration(directory, key, result, answers, jc.read_notes(directory),
+                                   minimum=pm.CALIBRATION_MIN)  # fmt: skip
+    text += f"\nreview page (private, keep it local): {page}"
     if args.record:
         if problems := jc.record_problems(result):
             raise UsageError("not recorded: " + "; ".join(problems))

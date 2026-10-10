@@ -25,8 +25,16 @@ class HostedLabelsError(ValueError):
     """The upload or fetch could not be done: nothing was changed locally."""
 
 
-def write_pages(out_dir: Path, *, kind: str, sample: str, pages: dict[str, list[dict]]) -> None:
-    data = {"kind": kind, "sample": sample, "annotators": pages}
+def write_pages(
+    out_dir: Path,
+    *,
+    kind: str,
+    sample: str,
+    pages: dict[str, list[dict]],
+    reserve: dict[str, list[dict]] | None = None,
+) -> None:
+    """``reserve``: cards drawn but held back, sent only by ``extend``."""
+    data = {"kind": kind, "sample": sample, "annotators": pages, "reserve": reserve or {}}
     (out_dir / PAGES_FILE).write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
 
 
@@ -66,6 +74,20 @@ def upload(
     if r.status_code >= 400:
         raise HostedLabelsError(f"upload refused ({r.status_code}): {r.text}")
     return f"{base}/label/{pages['sample']}"
+
+
+def extend(
+    url: str, sample: str, cards: dict[str, list[dict]], *, client: httpx.Client | None = None
+) -> None:
+    """Add cards to the annotators' hosted pages; they see them the next time they open it."""
+    client = client or httpx.Client(timeout=30)
+    r = client.post(
+        f"{url.rstrip('/')}/label/api/{sample}/admin/extend",
+        json={"annotators": cards},
+        headers={"Authorization": f"Bearer {_token()}"},
+    )
+    if r.status_code >= 400:
+        raise HostedLabelsError(f"extend refused ({r.status_code}): {r.text}")
 
 
 def fetch(directory: Path, url: str, *, client: httpx.Client | None = None) -> dict[str, dict]:

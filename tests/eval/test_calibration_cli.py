@@ -60,6 +60,8 @@ def test_calibrate_sample_then_score_and_record(fixture, tmp_path, capsys):
     assert calib.judge_version == key["judge_version"] and calib.annotators == ["ann", "bob"]
     assert calib.pairs == 3 and calib.agreement == 1.0  # the tied pair is excluded
     assert calib.excluded == 1
+    review = (out / "review.html").read_text()
+    assert "Grader check: review" in review and "__DATA__" not in review
 
 
 def test_score_refuses_to_record_blank_labels(tmp_path, capsys):

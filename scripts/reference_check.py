@@ -5,11 +5,13 @@
     uv run python scripts/reference_check.py upload --dir .cache/reference_check/round1 --url <app>
     uv run python scripts/reference_check.py fetch --dir .cache/reference_check/round1 --url <app>
     uv run python scripts/reference_check.py score --dir .cache/reference_check/round1
+    uv run python scripts/reference_check.py extend --dir .cache/reference_check/round1 --url <app>
 
 Run ``sample`` on the tie-broken train/val drafts before they are published
 (scripts/publish_golden_cases.py deletes each draft it publishes). It draws ``--n`` items per
 annotator (30 by default; each annotator gets different items), a third each kept by the three
-judges, kept by the tie-break and dropped by it, and writes one blind labeling page per
+judges, kept by the tie-break and dropped by it (20 a person by default, plus a reserve of 10
+sent only if the first round has an error: ``extend``), and writes one blind labeling page per
 annotator plus ``key.private.json`` (the tool's decisions; never send it). ``upload`` hosts the
 pages on the deployed app and prints the one link to send; annotators sign in with their name and
 every answer is saved there. ``fetch`` writes the answers back as files (both need
@@ -28,7 +30,7 @@ from pathlib import Path
 
 import httpx
 
-from womm.eval import hosted_labels
+from womm.eval import hosted_labels, review_page
 from womm.eval import reference_check as rc
 from womm.eval.golden_review import (
     HOLDOUT_REGISTRY,
@@ -45,7 +47,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     sample.add_argument("drafts", nargs="+", type=Path, help="tie-broken train/val draft files")
     sample.add_argument("--annotator", action="append", required=True, dest="annotators")
     sample.add_argument("--out", type=Path, required=True, help="a new directory under .cache/")
-    sample.add_argument("--n", type=int, default=30, help="items per annotator")
+    sample.add_argument("--n", type=int, default=20, help="first-round items per annotator")
+    sample.add_argument("--extra", type=int, default=10,
+                        help="reserve items per annotator, sent only if the first round has an "
+                             "error")  # fmt: skip
     sample.add_argument("--seed", type=int, default=1)
     sample.add_argument(
         "--send-to",
@@ -66,6 +71,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         hosted.add_argument(
             "--holdout-registry", type=Path, default=HOLDOUT_REGISTRY, help=argparse.SUPPRESS
         )
+    ext = sub.add_parser("extend", help="send the reserve items (after a first round with errors)")
+    ext.add_argument("--dir", type=Path, required=True, help="the sample directory")
+    ext.add_argument("--url", help="the app, when the pages are hosted")
     score = sub.add_parser("score", help="compare the labels with the tool")
     score.add_argument("--dir", type=Path, required=True)
     score.add_argument("--json", action="store_true", help="print the result as JSON")
@@ -83,7 +91,7 @@ def main(argv: list[str] | None = None) -> int:
                 drafts.append(draft)
             out = rc.write_sample(args.out, drafts, n=args.n, seed=args.seed,
                                   annotators=args.annotators, send_to=args.send_to,
-                                  ia_root=args.ia_root)  # fmt: skip
+                                  ia_root=args.ia_root, extra=args.extra)  # fmt: skip
             print(json.dumps(out, indent=2))
             if out["missing_ia"]:
                 print(f"note: no IA cache for {out['missing_ia']}; those sheets show the quote "
@@ -91,15 +99,36 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.command in ("upload", "fetch"):
             return hosted(args)
+        if args.command == "extend":
+            return extend(args)
         key = json.loads((args.dir / rc.KEY_FILE).read_text(encoding="utf-8"))
         labels, notes = rc.read_answers(args.dir, key)
         result = rc.score(key, labels)
         print(json.dumps(result, indent=2) if args.json else rc.format_result(result, key, notes))
+        page = review_page.reference_check(args.dir, key, result, labels, notes, limit=rc.MAX_ERROR)
+        print(f"review page (private, keep it local): {page}", file=sys.stderr)
         return 0 if result["robust"] else 1
     except (FileNotFoundError, rc.ReferenceCheckError, ReviewError, httpx.HTTPError,
             hosted_labels.HostedLabelsError) as exc:  # fmt: skip
         print(f"error: {exc}", file=sys.stderr)
         return 2
+
+
+def extend(args: argparse.Namespace, client: httpx.Client | None = None) -> int:
+    pages = hosted_labels.read_pages(args.dir)
+    if not pages.get("reserve"):
+        raise rc.ReferenceCheckError("this sample has no reserve left to send")
+    if args.url:  # the app first: a refusal there must leave the local files as they were
+        hosted_labels.extend(args.url, pages["sample"], pages["reserve"], client=client)
+    added = rc.extend(args.dir)
+    counts = ", ".join(f"{name} +{len(cards)}" for name, cards in sorted(added.items()))
+    where = (
+        "on the app; ask them to open the same link again"
+        if args.url
+        else ("in their label_<name>.html; send each their new page")
+    )
+    print(f"extended: {counts}, {where}")
+    return 0
 
 
 def hosted(args: argparse.Namespace, client: httpx.Client | None = None) -> int:

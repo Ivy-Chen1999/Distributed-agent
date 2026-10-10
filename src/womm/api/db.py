@@ -575,6 +575,26 @@ class Database:
                     (sample, annotator, kind, Jsonb(_without_nul(annotator_cards))),
                 )
 
+    async def extend_label_tasks(self, sample: str, cards: dict[str, list[dict]]) -> None:
+        """Append cards to annotators' pages and reopen them (they submit again). Refused
+        (``ValueError``) for an unknown annotator or a card id already on the page."""
+        async with self.pool.connection() as conn, conn.transaction():
+            for annotator, extra in cards.items():
+                row = await (await conn.execute(
+                    "SELECT cards FROM label_tasks WHERE sample = %s AND annotator = %s"
+                    " FOR UPDATE", (sample, annotator),
+                )).fetchone()  # fmt: skip
+                if row is None:
+                    raise ValueError(f"{annotator} is not on sample {sample}")
+                have = {c["id"] for c in row["cards"]}
+                if dup := sorted(have & {c["id"] for c in extra}):
+                    raise ValueError(f"{annotator} already has {', '.join(dup)}")
+                await conn.execute(
+                    "UPDATE label_tasks SET cards = cards || %s, submitted_at = NULL"
+                    " WHERE sample = %s AND annotator = %s",
+                    (Jsonb(_without_nul(extra)), sample, annotator),
+                )
+
     async def label_annotators(self, sample: str) -> list[str]:
         async with self.pool.connection() as conn:
             rows = await (await conn.execute(
