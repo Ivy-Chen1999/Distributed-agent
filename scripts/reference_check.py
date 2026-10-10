@@ -1,11 +1,11 @@
 """One-time blind check that the tool-settled reference answers are robust (womm.eval.reference_check).
 
     uv run python scripts/reference_check.py sample evals/golden/drafts/case_*.yaml \\
-        --annotator alice --annotator bob --out .cache/reference_check/2026-10
-    uv run python scripts/reference_check.py score --dir .cache/reference_check/2026-10
+        --annotator <name1> --annotator <name2> --n 30 --out .cache/reference_check/round1
+    uv run python scripts/reference_check.py score --dir .cache/reference_check/round1
 
 Run ``sample`` on the tie-broken train/val drafts before they are published
-(scripts/publish_golden_cases.py deletes each draft it publishes). It draws about 20 items, a
+(scripts/publish_golden_cases.py deletes each draft it publishes). It draws 30 items by default, a
 third each kept by the three judges, kept by the tie-break and dropped by it, and writes one
 blind labeling page per annotator plus ``key.private.json`` (the tool's decisions; never send
 it). ``score`` reads the answer files back and reports the tool's error rate against the human
@@ -38,7 +38,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     sample.add_argument("drafts", nargs="+", type=Path, help="tie-broken train/val draft files")
     sample.add_argument("--annotator", action="append", required=True, dest="annotators")
     sample.add_argument("--out", type=Path, required=True, help="a new directory under .cache/")
-    sample.add_argument("--n", type=int, default=20)
+    sample.add_argument("--n", type=int, default=30)
     sample.add_argument("--seed", type=int, default=1)
     sample.add_argument(
         "--send-to",
