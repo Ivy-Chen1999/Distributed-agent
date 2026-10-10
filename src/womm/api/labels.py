@@ -1,9 +1,11 @@
-"""Hosted labelling for the reference-answer check (``womm.eval.reference_check``).
+"""Hosted labelling: the blind reference-answer check (``womm.eval.reference_check``) and the
+coverage-judge calibration (``womm.eval.judge_calibration``) on the deployed app.
 
-The owner draws a sample locally and uploads its pages (``scripts/reference_check.py upload``);
+The owner draws a sample locally and uploads its pages (``scripts/reference_check.py upload``
+or ``womm calibrate upload``; ``womm.eval.hosted_labels``);
 annotators open ``/label/<sample>``, sign in with their name, and each answer is saved here as
 they give it, so there is nothing to download or send. The owner fetches the answers back
-(``scripts/reference_check.py fetch``) and scores them locally, where the tool's decisions are.
+(``fetch``) and scores them locally, where the tool's or judge's decisions are.
 
 Off unless ``WOMM_LABEL_ADMIN_TOKEN`` is set. Sign-in is the annotator's name alone, checked
 against the sample's annotators on every request through a signed cookie (decided 2026-10-10:
@@ -28,6 +30,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 
 from womm.api.db import Database
+from womm.eval import judge_calibration as jc
 from womm.eval import reference_check as rc
 from womm.eval.golden_review import ReviewError, refuse_holdout_fixture
 
@@ -36,8 +39,12 @@ SAMPLE = re.compile(r"\d{4}-\d{2}-\d{2}-[0-9a-f]{8}")
 NAME = rc.NAME_OK
 COOKIE = "womm_label"
 SESSION_S = 30 * 86400  # long enough to stop and come back with the same link
-# What only the private key holds: a card carrying any of these would show the tool's decision.
-KEY_FIELDS = {"stratum", "tool_kept", "tool_reason", "decision", "review", "judge", "tiebreak"}
+# The labels each kind of task accepts.
+KINDS = {"reference_check": rc.LABELS, "calibration": jc.LABELS}
+# What only the private key holds: a card carrying any of these would show the tool's or the
+# judge's decision.
+KEY_FIELDS = {"stratum", "tool_kept", "tool_reason", "decision", "review", "judge", "tiebreak",
+              "judge_covered", "covered", "matched_impact_id", "justification"}  # fmt: skip
 MAX_CARDS = 500
 SIGN_IN_FAILURES = 10
 SIGN_IN_WINDOW_S = 600.0
@@ -55,6 +62,7 @@ class Answer(BaseModel):
 
 
 class Upload(BaseModel):
+    kind: str = "reference_check"
     annotators: dict[str, list[dict]]
 
 
@@ -86,7 +94,9 @@ def _client_ip(request: Request) -> str:
     return forwarded.split(",")[0].strip() or (request.client.host if request.client else "")
 
 
-def _check_cards(annotators: dict[str, list[dict]]) -> None:
+def _check_cards(kind: str, annotators: dict[str, list[dict]]) -> None:
+    if kind not in KINDS:
+        raise ValueError(f"unknown kind {kind!r}; one of {', '.join(KINDS)}")
     if not annotators:
         raise ValueError("no annotators")
     for name, cards in annotators.items():
@@ -135,14 +145,16 @@ def add_label_routes(app: FastAPI, admin_token: str) -> None:
         task = await db(request).label_task(sample, name)
         if task is None:
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, "sign in with your name")
-        return {"annotator": name, "items": task["cards"], "answers": task["answers"],
-                "submitted": task["submitted_at"] is not None}  # fmt: skip
+        submitted = task["submitted_at"] is not None
+        return {"annotator": name, "kind": task["kind"], "items": task["cards"],
+                "answers": task["answers"], "submitted": submitted}  # fmt: skip
 
     @app.get("/label/{sample}", include_in_schema=False)
     async def page(sample: str, request: Request) -> HTMLResponse:
-        if not await db(request).label_annotators(sample_id(sample)):
+        kind = await db(request).label_kind(sample_id(sample))
+        if kind is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "no such sample")
-        html = rc.render_hosted_page(sample, api=f"/label/api/{sample}")
+        html = rc.render_hosted_page(sample, api=f"/label/api/{sample}", kind=kind)
         return HTMLResponse(html, headers={"Cache-Control": "no-store"})
 
     @app.get("/label/{sample}/admin", include_in_schema=False)
@@ -181,11 +193,12 @@ def add_label_routes(app: FastAPI, admin_token: str) -> None:
     @app.put("/label/api/{sample}/answers/{item_id}")
     async def answer(sample: str, item_id: str, body: Answer, request: Request) -> dict:
         name = await annotator(request, sample)
-        if body.label not in rc.LABELS:
-            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT,
-                                f"label must be one of {', '.join(rc.LABELS)}")  # fmt: skip
         task = await db(request).label_task(sample, name)
-        if task is None or item_id not in {c["id"] for c in task["cards"]}:
+        allowed = KINDS[task["kind"]] if task else ()
+        if body.label not in allowed:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT,
+                                f"label must be one of {', '.join(allowed)}")  # fmt: skip
+        if item_id not in {c["id"] for c in task["cards"]}:
             raise HTTPException(status.HTTP_404_NOT_FOUND, f"item {item_id} is not on your page")
         await db(request).save_label_answer(sample, name, item_id, body.label, body.note.strip())
         return {"saved": item_id}
@@ -204,14 +217,14 @@ def add_label_routes(app: FastAPI, admin_token: str) -> None:
     async def upload(sample: str, body: Upload, request: Request) -> dict:
         sample_id(sample)
         try:
-            _check_cards(body.annotators)
+            _check_cards(body.kind, body.annotators)
         except (ValueError, ReviewError) as exc:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from None
         try:
-            await db(request).put_label_tasks(sample, body.annotators)
+            await db(request).put_label_tasks(sample, body.kind, body.annotators)
         except ValueError as exc:
             raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from None
-        return {"sample": sample, "annotators": sorted(body.annotators)}
+        return {"sample": sample, "kind": body.kind, "annotators": sorted(body.annotators)}
 
     @app.get("/label/api/{sample}/admin/results", dependencies=[Depends(require_admin)])
     async def results(sample: str, request: Request) -> dict:

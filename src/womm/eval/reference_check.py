@@ -49,16 +49,17 @@ from typing import Any
 import yaml
 
 from womm.citations import normalize
-from womm.eval import ia_sources
+from womm.eval import hosted_labels, ia_sources
 from womm.eval.drafting import DraftCandidate, GoldenDraft, _DraftItem
 from womm.eval.golden_review import ESCALATION_RATE, KEPT_DECISIONS
 
 LABELS = ("keep", "drop", "unsure")
 STRATA = ("judges_accepted", "tiebreak_kept", "tiebreak_dropped")
 MAX_ERROR = ESCALATION_RATE
-PAGE_TEMPLATE = Path(__file__).with_name("reference_check_page.html")
+PAGE_TEMPLATE = Path(__file__).with_name("labelling_page.html")
 KEY_FILE = "key.private.json"
-TASKS_FILE = "pages.json"
+TASKS_FILE = hosted_labels.PAGES_FILE
+KIND = "reference_check"
 README_FILE = "README.md"
 # One-sided 95% for the upper bound printed next to the error rate.
 Z_95 = 1.645
@@ -220,15 +221,16 @@ def render_page(
 ) -> str:
     """A self-contained HTML labeling page: one item per screen, answers kept in the browser and
     downloaded as ``answers_<annotator>.yaml``."""
-    meta = {"annotator": annotator, "sample": sample, "sendTo": send_to,
+    meta = {"kind": KIND, "annotator": annotator, "sample": sample, "sendTo": send_to,
             "file": f"answers_{annotator}.yaml"}  # fmt: skip
     return _page(meta | {"items": cards}, annotator, send_to)
 
 
-def render_hosted_page(sample: str, *, api: str) -> str:
-    """The page as the server hosts it (``womm.api.labels``): the annotator signs in with their
-    name, the cards come from ``api`` and each answer is saved there."""
-    return _page({"annotator": "", "sample": sample, "api": api, "items": []}, "", SEND_TO)
+def render_hosted_page(sample: str, *, api: str, kind: str = KIND) -> str:
+    """The page as the server hosts it (``womm.api.labels``) for either task: the annotator
+    signs in with their name, the cards come from ``api`` and each answer is saved there."""
+    data = {"kind": kind, "annotator": "", "sample": sample, "api": api, "items": []}
+    return _page(data, "", SEND_TO)
 
 
 def _page(data: dict[str, Any], annotator: str, send_to: str) -> str:
@@ -291,8 +293,7 @@ def write_sample(
         pages[name] = cards
         page = render_page(name, cards, sample=sample_id, send_to=send_to)
         (out_dir / f"label_{name}.html").write_text(page, encoding="utf-8")
-    tasks = {"sample": sample_id, "annotators": pages}
-    (out_dir / TASKS_FILE).write_text(json.dumps(tasks, ensure_ascii=False), encoding="utf-8")
+    hosted_labels.write_pages(out_dir, kind=KIND, sample=sample_id, pages=pages)
     key = {
         "sample": sample_id,
         "seed": seed,

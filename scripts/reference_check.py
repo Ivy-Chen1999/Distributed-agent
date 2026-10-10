@@ -23,12 +23,12 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 from pathlib import Path
 
 import httpx
 
+from womm.eval import hosted_labels
 from womm.eval import reference_check as rc
 from womm.eval.golden_review import (
     HOLDOUT_REGISTRY,
@@ -96,39 +96,23 @@ def main(argv: list[str] | None = None) -> int:
         result = rc.score(key, labels)
         print(json.dumps(result, indent=2) if args.json else rc.format_result(result, key, notes))
         return 0 if result["robust"] else 1
-    except (FileNotFoundError, rc.ReferenceCheckError, ReviewError, httpx.HTTPError) as exc:
+    except (FileNotFoundError, rc.ReferenceCheckError, ReviewError, httpx.HTTPError,
+            hosted_labels.HostedLabelsError) as exc:  # fmt: skip
         print(f"error: {exc}", file=sys.stderr)
         return 2
 
 
 def hosted(args: argparse.Namespace, client: httpx.Client | None = None) -> int:
-    token = os.environ.get("WOMM_LABEL_ADMIN_TOKEN", "").strip()
-    if not token:
-        raise rc.ReferenceCheckError("set WOMM_LABEL_ADMIN_TOKEN (the value on the app)")
-    tasks = json.loads((args.dir / rc.TASKS_FILE).read_text(encoding="utf-8"))
-    sample, base = tasks["sample"], args.url.rstrip("/")
-    api = f"{base}/label/api/{sample}/admin"
-    client = client or httpx.Client(timeout=30)
-    headers = {"Authorization": f"Bearer {token}"}
     if args.command == "upload":
-        for cards in tasks["annotators"].values():
-            for c in cards:
-                refuse_holdout_fixture(c["fixture"], "hosting a labelling page",
-                                       args.holdout_registry)  # fmt: skip
-        r = client.put(f"{api}/tasks", json={"annotators": tasks["annotators"]}, headers=headers)
-        if r.status_code >= 400:
-            raise rc.ReferenceCheckError(f"upload refused ({r.status_code}): {r.text}")
-        print(f"hosted {sample} for {', '.join(tasks['annotators'])}. Send this link:")
-        print(f"  {base}/label/{sample}")
+        link = hosted_labels.upload(args.dir, args.url, client=client,
+                                    holdout_registry=args.holdout_registry)  # fmt: skip
+        print(f"hosted. Send this link to the annotators:\n  {link}")
         return 0
-    r = client.get(f"{api}/results", headers=headers)
-    if r.status_code >= 400:
-        raise rc.ReferenceCheckError(f"fetch refused ({r.status_code}): {r.text}")
-    got = r.json()["annotators"]
-    pending = rc.write_answer_files(args.dir, sample, got)
-    for name, a in sorted(got.items()):
-        state = "submitted" if a.get("submitted_at") else "not submitted yet"
-        print(f"{name}: {len(a['answers'])} of {a['cards']} answered, {state}")
+    got = hosted_labels.fetch(args.dir, args.url, client=client)
+    sample = hosted_labels.read_pages(args.dir)["sample"]
+    rc.write_answer_files(args.dir, sample, got)
+    lines, pending = hosted_labels.progress(got)
+    print("\n".join(lines))
     if pending:
         print(f"waiting for {', '.join(pending)}; score once everyone has submitted")
     return 0

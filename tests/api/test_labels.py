@@ -94,7 +94,8 @@ def test_label_flow(database_url):
             {"item": "r01", "label": "drop", "note": ""},
             {"item": "r02", "label": "unsure", "note": "vague"},
         ]
-        assert res["bob"] == {"cards": 1, "submitted_at": None, "answers": []}
+        assert res["bob"] == {"kind": "reference_check", "cards": 1, "submitted_at": None,
+                              "answers": []}  # fmt: skip
 
 
 def test_cookie_is_bound_to_sample_signature_and_expiry(database_url):
