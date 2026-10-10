@@ -14,11 +14,14 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+from dotenv import load_dotenv
 
+from womm.config import REPO_ROOT
 from womm.eval.golden_review import HOLDOUT_REGISTRY, refuse_holdout_fixture
 
 PAGES_FILE = "pages.json"
 TOKEN_ENV = "WOMM_LABEL_ADMIN_TOKEN"
+ENV_FILE = REPO_ROOT / ".env"
 
 
 class HostedLabelsError(ValueError):
@@ -46,6 +49,8 @@ def read_pages(directory: Path) -> dict[str, Any]:
 
 
 def _token() -> str:
+    # Like the womm CLI: the local .env fills in what the shell does not set.
+    load_dotenv(ENV_FILE, override=False)
     token = os.environ.get(TOKEN_ENV, "").strip()
     if not token:
         raise HostedLabelsError(f"set {TOKEN_ENV} (the value on the app)")

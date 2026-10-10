@@ -10,6 +10,7 @@ import sys
 import pytest
 
 from womm.config import REPO_ROOT
+from womm.eval import hosted_labels
 from womm.eval import reference_check as rc
 from womm.eval.drafting import GoldenDraft, write_draft
 
@@ -323,6 +324,7 @@ def test_hosted_upload_and_fetch_round_trip(tmp_path, monkeypatch, capsys):
     labels, notes = rc.read_answers(out, key)
     assert labels == truth and set(notes.values()) == {"ok: fine"}
     monkeypatch.delenv("WOMM_LABEL_ADMIN_TOKEN")
+    monkeypatch.setattr(hosted_labels, "ENV_FILE", tmp_path / "no.env")
     assert script.main(["fetch", *base]) == 2
 
 
