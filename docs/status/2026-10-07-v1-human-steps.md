@@ -66,7 +66,7 @@ measures that once, before the tool-settled drafts are published (publishing del
   writes `reconcile.html` with only those items and each person's label and note (never the
   tool's decision). They agree on one label per item, download `reconciled.yaml` into the same
   directory, and the owner scores again. The result reports agreement before reconciling (raw
-  and Cohen's kappa). An item still unsettled counts as an error, and `score` refuses to run
+  and Cohen's kappa); below 70% raw agreement it says NOT RELIABLE. An item still unsettled counts as an error, and `score` refuses to run
   until every annotator's file is in.
 - **Done:** gate error at most 10% ("ROBUST"): publish, and spot checks stay optional. With
   no error in 30 items, `score` also shows the true rate is below 10% at 95% (20 items would
