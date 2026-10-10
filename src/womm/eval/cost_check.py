@@ -32,7 +32,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import yaml
-from pydantic import Field, ValidationError
+from pydantic import Field, ValidationError, model_validator
 
 from womm.config import REPO_ROOT
 from womm.cost.categories import FTE_EUR, band_for_eur
@@ -74,12 +74,32 @@ class ReferenceItem(StrictModel):
     ]
     comparable_unit: bool
     inconsistency: str | None = None
+    ia_anchors: list[str] = Field(
+        default_factory=list,
+        description="Short verbatim IA phrases just before each figure; the automatic check "
+        "(scripts/check_ia_cost_reference.py) looks for the item's figures right after them.",
+    )
+    fte_options: dict[str, float] = Field(
+        default_factory=dict,
+        description="Inconsistent IA FTE figures by IA location; fte_basis names the one used.",
+    )
+    fte_basis: str | None = None
     # Filled by the loader: provision keys through the corpus index, and the computed band.
     keys: list[str] = Field(default_factory=list)
     band: Band | None = None
 
+    @model_validator(mode="after")
+    def _basis_is_an_option(self) -> ReferenceItem:
+        if self.fte_basis is not None and self.fte_basis not in self.fte_options:
+            raise ValueError(
+                f"fte_basis {self.fte_basis!r} is not one of {sorted(self.fte_options)}"
+            )
+        return self
+
     @property
     def midpoint_eur(self) -> float | None:
+        if self.fte_basis is not None:
+            return self.fte_options[self.fte_basis] * FTE_EUR
         if self.eur_low is not None and self.eur_high is not None:
             return (self.eur_low + self.eur_high) / 2
         if self.fte_low is not None and self.fte_high is not None:
@@ -152,6 +172,11 @@ def load_reference(path: Path, corpus: Corpus) -> CostReference:
             "verified, verified_by and verified_on before any scored check"
         )
     for i in ref.items:
+        if i.fte_options and i.fte_basis is None:
+            raise CostReferenceError(
+                f"{path}: {i.item_id} has two IA FTE figures and no fte_basis; the check "
+                "records the one used (scripts/check_ia_cost_reference.py --fte-basis)"
+            )
         if i.recurrence == "recurring" and not i.effort_types:
             raise CostReferenceError(f"{path}: {i.item_id} is recurring and names no effort_types")
     ids = [i.item_id for i in ref.items]

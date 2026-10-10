@@ -32,7 +32,8 @@ COST_CHECK = "womm.eval.cost_check"
 # Canaries are derived from the IA cost reference itself (EU cost plan, IA figure audit), so a
 # new item or figure there is a new canary here: every eur_* / fte_* value and range in common
 # renderings, the figure_text clauses, the numbers in figure_text / inconsistency / notes, the
-# IA's identifiers and its section and table labels. None may appear in any agent input.
+# IA's identifiers, its section and table labels, and the ia_anchors phrases of four or more
+# words. None may appear in any agent input.
 # The band edges (EUR 1 000, 5 000, 25 000) are the system's own ordinal scale, stated in the
 # cost prompt; a round IA figure equal to an edge is a canary in its ranges and clauses only.
 BAND_EDGES = {float(e) for edges in BAND_EDGES_EUR.values() for e in edges if e}
@@ -79,6 +80,10 @@ def derive_canaries(path: Path = REFERENCE_PATH) -> dict[str, str]:
         for clause in _clauses(item.get("figure_text") or ""):
             words = r"\s+".join(re.escape(w) for w in clause.split())
             out[f"{item['item_id']} text: {clause}"] = words
+        for anchor in item.get("ia_anchors") or []:  # verbatim IA phrases
+            if len(anchor.split()) >= 4:
+                words = r"\s+".join(re.escape(w) for w in anchor.split())
+                out[f"{item['item_id']} anchor: {anchor}"] = words
         for kind, suffix in (("eur", ""), ("fte", r"\s*FTE")):
             low, high = item.get(f"{kind}_low"), item.get(f"{kind}_high")
             for value in {v for v in (low, high) if v is not None}:

@@ -4,6 +4,7 @@ import pytest
 import yaml
 
 from womm.config import REPO_ROOT
+from womm.cost.categories import FTE_EUR
 from womm.data.corpus import load_corpus
 from womm.eval.cost_check import (
     REFERENCE_PATH,
@@ -39,6 +40,9 @@ def corpus():
 def _verified(tmp_path, mutate=None):
     data = yaml.safe_load(REFERENCE_PATH.read_text(encoding="utf-8"))
     data.update(status="verified", verified_by="test", verified_on="2026-10-07")
+    for item in data["items"]:
+        if item.get("fte_options"):
+            item["fte_basis"] = "section_6_2"
     if mutate:
         mutate(data)
     path = tmp_path / "ref.yaml"
@@ -227,3 +231,34 @@ def test_tau_b_counts_only_items_with_a_prediction(ref):
     assert out["rank_n"] == {"min": 2, "max": 3, "values": [3, 2]}
     text = format_report(out, header={"reference_sha": "abc", "backend": "api"})
     assert "n = 2-3" in text
+
+
+def test_a_verified_reference_without_the_fte_basis_fails_loading(tmp_path, corpus):
+    def unset(data):
+        for item in data["items"]:
+            item.pop("fte_basis", None)
+
+    with pytest.raises(CostReferenceError, match="fte_basis"):
+        load_reference(_verified(tmp_path, unset), corpus)
+
+
+def test_an_fte_basis_outside_the_options_fails_loading(tmp_path, corpus):
+    def wrong(data):
+        for item in data["items"]:
+            if item.get("fte_options"):
+                item["fte_basis"] = "table_9"
+
+    with pytest.raises(CostReferenceError, match="table_9"):
+        load_reference(_verified(tmp_path, wrong), corpus)
+
+
+@pytest.mark.parametrize("basis, fte", [("section_6_2", 10), ("annex3_table5", 5)])
+def test_the_fte_basis_sets_the_midpoint(tmp_path, corpus, basis, fte):
+    def pick(data):
+        for item in data["items"]:
+            if item.get("fte_options"):
+                item["fte_basis"] = basis
+
+    ref = load_reference(_verified(tmp_path, pick), corpus)
+    item = next(i for i in ref.items if i.fte_options)
+    assert item.midpoint_eur == fte * FTE_EUR and item.band == "high"

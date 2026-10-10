@@ -78,6 +78,9 @@ def _verified_reference(tmp_path):
 
     data = yaml.safe_load(REFERENCE_PATH.read_text(encoding="utf-8"))
     data.update(status="verified", verified_by="test", verified_on="2026-10-07")
+    for item in data["items"]:
+        if item.get("fte_options"):
+            item["fte_basis"] = "section_6_2"
     path = tmp_path / "ref.yaml"
     path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
     return path
