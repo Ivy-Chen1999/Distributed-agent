@@ -16,8 +16,10 @@ from womm.eval.golden_review import (
     human_reasons,
     tiebreak_problems,
 )
+from womm.eval.holdout import HoldoutScenarioSpec, build_scenario
 from womm.eval.tiebreak import needs_tiebreak, tiebreak_audit_seed_for, tiebreak_draft
 from womm.llm.fake import FakeBackend
+from womm.models.regulation import Scenario
 from womm.models.system_version import RoleConfig
 
 from .draft_factory import KEYS, decide, draft_dict, seal, to_draft
@@ -101,9 +103,38 @@ def test_a_failed_anchor_check_is_dropped_without_asking_the_llm():
     assert check_draft(draft, set(KEYS)) == []
 
 
-def test_holdout_and_a_second_run_are_refused():
-    with pytest.raises(DraftingError, match="holdout"):
-        run(to_draft(draft_dict("holdout")), [])
+def holdout_scenario(scenario_id: str = "eval_spot_sealed") -> Scenario:
+    """A local holdout scenario over the draft factory's articles (not in the public fixture)."""
+    spec = HoldoutScenarioSpec(scenario_id=scenario_id, description="Sealed switching",
+                               articles=[k.rsplit("/", 1)[1] for k in KEYS])  # fmt: skip
+    return build_scenario(load_fixture(fixture_dir("data_act")), spec)
+
+
+def run_holdout(draft: GoldenDraft, verdicts: list[dict]) -> tuple[GoldenDraft, FakeBackend]:
+    fake = FakeBackend({"tiebreak": [{"verdicts": verdicts}]})
+    fixture = load_fixture(fixture_dir("data_act"))
+    scenario = holdout_scenario(draft.scenario_id)
+    out = asyncio.run(tiebreak_draft(draft, fixture, IA, config(), {"fake": fake}, scenario))
+    return out, fake
+
+
+def test_a_holdout_draft_is_ruled_against_its_local_scenario():
+    data = draft_dict("holdout") | {"scenario_id": "eval_spot_sealed"}
+    with pytest.raises(DraftingError, match="local holdout scenario"):
+        run(to_draft(data), [])
+    ruled, fake = run_holdout(to_draft(data), [verdict("c90_e05"), verdict("c90_m01", "drop")])
+    assert "Scenario: eval_spot_sealed: Sealed switching" in fake.calls[0].user_content
+    items = by_id(ruled)
+    assert items["c90_e05"].review.decision == "llm_kept"
+    assert items["c90_m02"].review.decision == "llm_dropped"
+    assert check_draft(ruled, set(KEYS), holdout_spot_check=True, reviewer_pattern=None) == []
+    with pytest.raises(DraftingError, match="not the draft's"):
+        fixture = load_fixture(fixture_dir("data_act"))
+        asyncio.run(tiebreak_draft(to_draft(data), fixture, IA, config(), {},
+                                   holdout_scenario("eval_other")))  # fmt: skip
+
+
+def test_a_second_run_is_refused():
     once, _ = run(to_draft(draft_dict()), [verdict("c90_e05")])
     with pytest.raises(DraftingError, match="already tie-broken"):
         run(once, [])
