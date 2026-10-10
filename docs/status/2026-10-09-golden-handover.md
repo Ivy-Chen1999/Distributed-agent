@@ -125,14 +125,19 @@ label a few items and run `score`.
    `uv run python scripts/reference_check.py score --dir .cache/reference_check/round1/`,
    and record the result in the table in step 1a of the
    human-steps file.
-4. If it is ROBUST, run `scripts/publish_golden_cases.py` and commit the published cases. If
+4. Run the full-score check on the drafts (no people; one coverage-judge call per case):
+   `uv run python scripts/oracle_check.py evals/golden/drafts/case_*.yaml`. It scores each
+   case's own reference answer, which must reach full coverage; an item it fails points at a
+   broken item or the judge, not at the system. Fix those first. Without paths it checks the
+   published cases.
+5. If both checks pass, run `scripts/publish_golden_cases.py` and commit the published cases. If
    not, fix the drafting or tie-break prompt and settle the open items again. The tie-break
    refuses a draft it has already settled, so first restore the draft as it was before: find
    the first draft commit with `git log --oneline -- evals/golden/drafts/<case>.yaml` and
    `git show <commit>:evals/golden/drafts/<case>.yaml > evals/golden/drafts/<case>.yaml`, then
    run `uv run python scripts/tiebreak_golden_case.py evals/golden/drafts/<case>.yaml`. Check
    again with a new `--out` and a new `--seed`.
-5. Then continue with the human-steps file on `feat/v1-integration` (merge `feat/golden-import`
+6. Then continue with the human-steps file on `feat/v1-integration` (merge `feat/golden-import`
    into it first; `womm calibrate` exists only there): the train/val eval run, the judge
    calibration (step 3: `womm calibrate sample`, blind `sheet_<name>.md` files; a labelling web
    page is planned in `docs/plans/2026-10-08-001-feat-labelling-web-ui-plan.md`), and the owner
