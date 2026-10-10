@@ -112,27 +112,6 @@ holds the tool's decisions and is never sent to an annotator.
 `--annotator demo1 --annotator demo2 --out .cache/reference_check/practice/`), open a page,
 label a few items and run `score`.
 
-## How this follows Anthropic's eval guidance
-
-Sources: *Demystifying evals for AI agents* (Anthropic engineering blog) and *Develop your
-tests* (Claude docs).
-
-| Guidance | Here |
-|---|---|
-| "Use a different model to evaluate than the model used to generate the evaluated output" | Judges and tie-break on claude-sonnet-5, drafter on claude-opus-5-5; `DraftingRoles` enforces it |
-| "Prioritize volume over quality": automated grading over human hand-grading | Every item is settled by LLM graders; people label 30 items once |
-| LLM graders "require calibration with human graders"; human review only occasionally "once the system is robust" | The reference check is that calibration, done once before publishing |
-| "Give the LLM a way out", e.g. "Unknown" | Judges may say `uncertain`, the tie-break `unsure` (dropped); annotators may say "not sure" |
-| "Two domain experts would independently reach the same pass/fail verdict" | Annotators label alone; agreement under 70% fails the check; split items are listed as ambiguous |
-| "Test both the cases where a behavior should occur and where it shouldn't" | A third of the sample is items the tie-break dropped |
-| "Read the transcripts and grades" | `score` prints the tool's reason for every wrong item; the owner also reads 3–4 eval transcripts |
-| "20-50 simple tasks" to start | 11 train/val and 8 holdout cases |
-
-Where it falls short: the graders are the same model family as the drafter, and the annotators
-are classmates rather than EU-law experts. The second is acceptable for a yardstick whose items
-quote the IA directly, but if a split item needs legal judgement, ask someone with that
-background.
-
 ## Next steps, in order
 
 1. Mark the review PRs #7–#17 ready (the strict gate passes on each) and merge them into
