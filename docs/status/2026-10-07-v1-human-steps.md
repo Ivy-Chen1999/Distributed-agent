@@ -114,8 +114,11 @@ local, never send them. Record the reference check here:
 
 - Reference check ROBUST: go on to step 4. NOT ROBUST: fix the prompt the review page points
   at, settle the drafts again, and run a new check (new `--out`, new `--seed`).
-- Calibration at least 85%: recorded, and the statistical and weak gates can run. Lower: fix
-  the coverage judge's prompt and calibrate again with a new seed.
+- Calibration counts only when the two classmates agree with each other on at least 80% of the
+  pairs and at least 24 of the 30 have a clear answer; then the grader must agree with them on
+  at least 85%. Passed: recorded, and the statistical and weak gates can run. People below 80%:
+  the rule is unclear; sharpen its wording from the split pairs on the review page, then a new
+  seed. Grader below 85%: fix the coverage judge's prompt, then a new seed.
 
 ## 4. Publish the golden cases (owner)
 
@@ -139,7 +142,8 @@ uv run python scripts/verify_golden_case.py --draft .cache/drafts/<case>.yaml \
 HOLDOUT_DATABASE_URL=... uv run python scripts/import_holdout_case.py .cache/holdout_import/<case>.yaml
 ```
 
-More than one disagreement with the tool on a draft refuses the spot check; then run
+Any disagreement with the tool on a draft refuses the spot check (the same rule as the
+reference check's early stop; the holdout is newer material than train/val); then run
 `verify_golden_case.py` without `--spot-check` for that draft. Done: `.cache/drafts/` is empty
 and the holdout store reports 8 cases from 8 proposals.
 
