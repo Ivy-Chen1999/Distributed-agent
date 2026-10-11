@@ -77,11 +77,11 @@ uv run womm calibrate sample --sv system_versions/<incumbent>.yaml --report runs
 uv run womm calibrate upload --dir .cache/calibration/round1/ --url https://<app>
 ```
 
-Each `upload` prints one link. Send both links to both classmates. Names: letters, digits, `-`
-and `_` only; it is what each types to sign in. Draw the reference-check sample before
+Each `upload` prints one link. Send both links to both classmates. `--annotator` is each
+classmate's GitHub username; they sign in by typing it (case and a leading `@` do not matter). Draw the reference-check sample before
 publishing (step 4 deletes the drafts).
 
-**Classmates:** open each link, sign in with their name, read the welcome card and the short
+**Classmates:** open each link, sign in with their GitHub username, read the welcome card and the short
 guide on the first item, answer every item, press "Finish & send". Answers are saved as they
 go; they can stop and come back. Work alone, and don't discuss items until both have sent.
 Progress is visible at `https://<app>/label/<sample>/admin` (asks for the admin token).
