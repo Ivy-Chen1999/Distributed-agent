@@ -1044,7 +1044,8 @@ def _add_calibration_parsers(sub: Any, common: argparse.ArgumentParser) -> None:
     p_sample.add_argument("--n", type=int, default=30, help="pairs to draw (default 30)")
     p_sample.add_argument("--seed", type=int, required=True)
     p_sample.add_argument("--annotator", action="append",
-                          help="annotator name; one sheet each (repeatable)")  # fmt: skip
+                          help="annotator's GitHub username, what they sign in with; "
+                               "one sheet each (repeatable)")  # fmt: skip
     p_sample.add_argument("--out", required=True, help="e.g. .cache/calibration/<name>/")
     p_sample.add_argument("--golden-dir", default=str(GOLDEN_DIR), help=argparse.SUPPRESS)
     for name, text in (("upload", "host the labelling pages on the deployed app"),

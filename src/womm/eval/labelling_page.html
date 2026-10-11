@@ -391,8 +391,8 @@ body[data-kind="reference_check"] [data-kind="calibration"] { display: none !imp
     <p class="fineprint" id="saveNote">Your answers are saved as you go, straight to us: nothing to
       download or send. You can stop and come back with the same link.</p>
     <div class="signin" id="signinBox" hidden>
-      <label for="name">Your name <span class="muted">(the one you were given)</span>
-        <input id="name" autocomplete="username" autocapitalize="off" spellcheck="false"></label>
+      <label for="name">Your GitHub username
+        <input id="name" autocomplete="username" autocapitalize="off" spellcheck="false" placeholder="e.g. octocat"></label>
       <button class="primary" id="signin">Start</button>
     </div>
     <p class="err" id="signinErr"></p>
@@ -647,7 +647,7 @@ async function signIn() {
   $("signinErr").textContent = "";
   try { load(await api("POST", "/session", { name: $("name").value })); show("item"); }
   catch (e) { $("signinErr").textContent = e.status === 401
-    ? "That name is not on this check. Use the name you were given." : e.message; }
+    ? "That GitHub username is not on this check. Check the spelling, or ask who sent you the link." : e.message; }
 }
 
 // ---------- spotlight guide (shown once, on the first point; "How it works" replays it) ----------

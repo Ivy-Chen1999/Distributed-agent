@@ -25,6 +25,16 @@ def _pct(x: float | None) -> str:
     return "n/a" if x is None else f"{x:.0%}" if x in (0, 1) else f"{x:.1%}"
 
 
+def _interval(result: dict) -> str:
+    ci = result.get("agreement_raw_ci95")
+    if not ci:
+        return ""
+    return (
+        f" With this few pairs the true raw figure could be anywhere from {_pct(ci[0])} to "
+        f"{_pct(ci[1])} (95%): context only, the gate uses the measured figure."
+    )
+
+
 def _cards_by_id(directory: Path) -> dict[str, dict]:
     try:
         pages = hosted_labels.read_pages(directory)
@@ -178,7 +188,7 @@ def calibration(
         {"label": "Grader agrees with people", "value": _pct(agreement),
          "good": None if agreement is None else agreement >= minimum,
          "explain": f"Over the pairs where the people's majority is clear; the lower of the raw "
-                    f"and the natural-rate figure. Needs {_pct(minimum)}."},
+                    f"and the natural-rate figure. Needs {_pct(minimum)}.{_interval(result)}"},
         {"label": "People agree with each other", "value": _pct(inter),
          "good": None if inter is None else inter >= 0.8,  # promotion.CALIBRATION_MIN_INTER
          "explain": "If this is low, the rule itself is unclear: fix the wording before trusting "

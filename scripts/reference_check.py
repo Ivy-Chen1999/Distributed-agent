@@ -45,7 +45,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     sub = parser.add_subparsers(dest="command", required=True)
     sample = sub.add_parser("sample", help="draw the items and write the labeling material")
     sample.add_argument("drafts", nargs="+", type=Path, help="tie-broken train/val draft files")
-    sample.add_argument("--annotator", action="append", required=True, dest="annotators")
+    sample.add_argument(
+        "--annotator",
+        action="append",
+        required=True,
+        dest="annotators",
+        help="annotator's GitHub username, what they sign in with (repeatable)",
+    )
     sample.add_argument("--out", type=Path, required=True, help="a new directory under .cache/")
     sample.add_argument("--n", type=int, default=20, help="first-round items per annotator")
     sample.add_argument("--extra", type=int, default=10,
