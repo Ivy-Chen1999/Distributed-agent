@@ -25,8 +25,7 @@ The round's answers are re-scored here (a ROBUST verdict is required, not truste
 must have been settled by the judges or the tie-break, and only a seeded sample of
 ``SPOT_SAMPLE`` tool-decided items, spread over judges-accepted, tie-break-kept and
 tie-break-dropped like the reference check, is asked, interactively. Disagreeing with the tool
-on more than ``SPOT_MAX_DISAGREEMENTS`` of them refuses the spot check: verify every item
-instead. Otherwise the tool's decisions stand beside the owner's, and the handoff records the
+on any of them refuses the spot check: verify every item of that draft instead. Otherwise the tool's decisions stand beside the owner's, and the handoff records the
 spot check (sample, disagreements, reference-check sample) in the case notes and in
 ``spot_check``.
 
@@ -87,7 +86,9 @@ HANDOFF_DIR = REPO_ROOT / ".cache" / "holdout_import"
 CLAIM_FIELDS = ("affected_actor", "mechanism", "impact", "description")
 SHORTCUTS = {"v": "verified", "e": "edited", "r": "rejected", "u": "unclear"}
 SPOT_SAMPLE = 3  # one per stratum: about 24 items over the 8 holdout drafts
-SPOT_MAX_DISAGREEMENTS = 1
+# Like the reference check's early stop: any disagreement sends the draft to a full check. One
+# in three would tolerate a 33% tool error on the holdout, which is new, post-cutoff material.
+SPOT_MAX_DISAGREEMENTS = 0
 TOOL_DECISIONS = ("auto_accepted", "llm_kept", "llm_dropped")
 
 Ask = Callable[[str], str]

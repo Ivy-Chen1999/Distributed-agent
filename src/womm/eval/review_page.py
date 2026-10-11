@@ -140,12 +140,27 @@ def calibration(
     verdicts = _judge_verdicts(key)
     agreement = result["agreement"]
     blank = any(a["blank"] for a in result["annotators"].values())
+    problems = []
+    if not blank and agreement is not None:
+        from womm.eval import judge_calibration as jc
+        from womm.evolve import promotion as pm
+
+        problems = pm.calibration_problems(
+            pm.JudgeCalibration(**jc.calibration_record(result, "review"))
+        )
     if blank:
         state, tag, headline, meaning, nxt = (
             "wait", "Not finished", "Some pairs have no answer yet",
             "A result needs every pair answered by everyone.",
             ["Wait until everyone has sent, then <code>womm calibrate fetch</code> and "
              "<code>score</code> again."])  # fmt: skip
+    elif problems:
+        state, tag, headline, meaning, nxt = (
+            "fail", "Does not count", "The people's answers are not a clear enough reference",
+            "Before the grader can be judged, the people must mostly agree with each other: "
+            + "; ".join(problems) + ".",
+            ["Read the pairs where the two people split (below, \"unsure\") and sharpen the "
+             "rule's wording, then calibrate again with new pairs (a new seed)."])  # fmt: skip
     elif agreement is not None and agreement >= minimum:
         state, tag, headline, meaning, nxt = (
             "pass", "Passed", "The grader agrees with people well enough to be trusted",
@@ -165,12 +180,13 @@ def calibration(
          "explain": f"Over the pairs where the people's majority is clear; the lower of the raw "
                     f"and the natural-rate figure. Needs {_pct(minimum)}."},
         {"label": "People agree with each other", "value": _pct(inter),
-         "good": None if inter is None else inter >= 0.8,
+         "good": None if inter is None else inter >= 0.8,  # promotion.CALIBRATION_MIN_INTER
          "explain": "If this is low, the rule itself is unclear: fix the wording before trusting "
                     "any grader result."},
         {"label": "Pairs with a clear answer", "value": f"{result['pairs_resolved']} of {result['pairs_sampled']}",
          "good": None,
-         "explain": f"{result['excluded']} left out: both said can't tell, or the people split."},
+         "explain": f"{result['excluded']} left out: both said can't tell, or the people split. "
+                    "At least 24 are needed for the result to count."},
         {"label": "Grader too generous", "value": str(result["confusion"]["judge_covered_human_not"]),
          "good": None, "explain": "Pairs the grader counted as found that people did not."},
         {"label": "Grader too strict", "value": str(result["confusion"]["judge_missed_human_covered"]),

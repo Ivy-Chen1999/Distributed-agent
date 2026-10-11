@@ -779,6 +779,10 @@ async def cmd_calibrate_score(args: argparse.Namespace) -> int:
         raise UsageError(str(exc)) from None
     result = jc.score(key, answers)
     text = jc.format_result(result)
+    if result["agreement"] is not None and not jc.record_problems(result):
+        record = pm.JudgeCalibration(**jc.calibration_record(result, "check"))
+        if problems := pm.calibration_problems(record):
+            text += "\ndoes not count for promotion: " + "; ".join(problems)
     page = review_page.calibration(directory, key, result, answers, jc.read_notes(directory),
                                    minimum=pm.CALIBRATION_MIN)  # fmt: skip
     text += f"\nreview page (private, keep it local): {page}"

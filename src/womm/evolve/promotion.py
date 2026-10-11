@@ -60,6 +60,11 @@ from womm.models.system_version import SystemVersion
 POLICY_PATH = REPO_ROOT / "evals" / "promotion_policy.yaml"
 RECORDS_PATH = REPO_ROOT / "evals" / "promotion_records.yaml"
 CALIBRATION_MIN = 0.85
+# A calibration counts only when the people themselves agree and few pairs drop out: pairs the
+# two annotators split on are excluded from the judge's agreement, so without these floors a
+# calibration over the easy pairs alone could pass.
+CALIBRATION_MIN_PAIRS = 24
+CALIBRATION_MIN_INTER = 0.80
 FORMAL_BACKEND = "api"
 Metric = Literal["coverage", "omissions_addressed", "grounding"]
 Mode = Literal["statistical", "weak", "dev"]
@@ -171,6 +176,25 @@ class JudgeCalibration(StrictModel):
     kappa: float | None = Field(default=None, description="Cohen's kappa, judge vs majority.")
     inter_annotator_agreement: float | None = Field(default=None, ge=0, le=1)
     excluded: int | None = Field(default=None, ge=0, description="Unsure or tied pairs.")
+
+
+def calibration_problems(c: JudgeCalibration) -> list[str]:
+    """Why a calibration on record does not count, apart from its agreement (empty when it
+    does)."""
+    problems = []
+    if c.pairs < CALIBRATION_MIN_PAIRS:
+        problems.append(f"only {c.pairs} pairs with a clear human answer, at least "
+                        f"{CALIBRATION_MIN_PAIRS} needed: draw a new sample")  # fmt: skip
+    if c.inter_annotator_agreement is None:
+        if len(c.annotators) > 1:
+            problems.append("no inter-annotator agreement recorded")
+    elif c.inter_annotator_agreement < CALIBRATION_MIN_INTER:
+        problems.append(f"the people agree with each other on "
+                        f"{c.inter_annotator_agreement:.0%}, below {CALIBRATION_MIN_INTER:.0%}: "
+                        "the rule is unclear, fix its wording first")  # fmt: skip
+    if len(c.annotators) < 2:
+        problems.append("one annotator only: two are needed to check the people agree")
+    return problems
 
 
 class FormalNoiseRun(StrictModel):
@@ -402,6 +426,9 @@ async def preflight(
             raise GateRefused(f"the coverage-judge calibration for {jv} is "
                               f"{calibration.agreement:.0%}, below {CALIBRATION_MIN:.0%}: fix "
                               "the judge rubric before any promotion run")  # fmt: skip
+        if problems := calibration_problems(calibration):
+            raise GateRefused(f"the coverage-judge calibration for {jv} does not count: "
+                              + "; ".join(problems))  # fmt: skip
         if records.noise_run(jv) is None:
             raise GateRefused(f"no R34 formal noise run on record for judge {jv}")
     total, in_cycle = await store.budget_used(cycle_id)
