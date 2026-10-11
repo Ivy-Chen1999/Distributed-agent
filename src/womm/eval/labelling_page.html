@@ -287,7 +287,7 @@ body[data-kind="reference_check"] [data-kind="calibration"] { display: none !imp
     <span class="progress-text" id="count"></span>
     <div class="dots" id="dots"></div>
   </div>
-  <span class="saved" id="saved"></span>
+  <span class="saved" id="saved" role="status" aria-live="polite"></span>
   <span class="spacer"></span>
   <button class="ghost" id="next" aria-label="Next point">→</button>
   <button class="primary" id="finish">Finish</button>
@@ -599,7 +599,8 @@ function renderItem() {
   $("others").replaceChildren(...others.map(o => el("li", null, o)));
   $("othersBlock").open = false;
   const a = state.answers[it.id] || {};
-  document.querySelectorAll(".tile").forEach(b => b.classList.toggle("on", b.dataset.l === a.label));
+  document.querySelectorAll(".tile").forEach(b => {
+    b.classList.toggle("on", b.dataset.l === a.label); b.setAttribute("aria-pressed", String(b.dataset.l === a.label)); });
   $("note").value = a.note || "";
   $("note").classList.toggle("need", a.label === "unsure" && !(a.note || "").trim());
   $("prev").disabled = state.i === 0;

@@ -90,12 +90,15 @@ def test_label_flow(database_url):
         assert _upload(c).status_code == 409
         assert c.get(f"{API}/admin/results").status_code == 401
         res = c.get(f"{API}/admin/results", headers=ADMIN_AUTH).json()["annotators"]
-        assert res["alice"]["submitted_at"] and res["alice"]["answers"] == [
+        answers = res["alice"]["answers"]
+        assert res["alice"]["submitted_at"] and all(x.pop("saved_at") for x in answers)
+        assert answers == [
             {"item": "r01", "label": "drop", "note": ""},
             {"item": "r02", "label": "unsure", "note": "vague"},
         ]
+        assert res["alice"]["seconds_per_item"] is None  # too few answers for a pace
         assert res["bob"] == {"kind": "reference_check", "cards": 1, "submitted_at": None,
-                              "answers": []}  # fmt: skip
+                              "answers": [], "seconds_per_item": None}  # fmt: skip
 
 
 def test_cookie_is_bound_to_sample_signature_and_expiry(database_url):

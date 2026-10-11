@@ -104,6 +104,21 @@ async def _drop_unused_event(conn: Any, event_id: int | None) -> None:
     )
 
 
+BREAK_S = 15 * 60  # a gap this long between two answers is a break, not reading time
+
+
+def pace(saved: list) -> float | None:
+    """Median seconds between consecutive answers, breaks left out; None below 3 answers. An
+    edited answer moves its time, so this is a rough reading speed, enough to spot clicking
+    through."""
+    times = sorted(t.timestamp() for t in saved if t is not None)
+    gaps = sorted(b - a for a, b in zip(times, times[1:], strict=False) if b - a < BREAK_S)
+    if len(gaps) < 2:
+        return None
+    mid = len(gaps) // 2
+    return round(gaps[mid] if len(gaps) % 2 else (gaps[mid - 1] + gaps[mid]) / 2, 1)
+
+
 class Database:
     def __init__(
         self, url: str, *, min_size: int = 1, max_size: int = 5, statement_timeout_ms: int = 30_000
@@ -661,6 +676,13 @@ class Database:
                for t in tasks}  # fmt: skip
         for r in rows:
             out[r["annotator"]]["answers"].append(
-                {"item": r["item_id"], "label": r["label"], "note": r["note"]}
+                {
+                    "item": r["item_id"],
+                    "label": r["label"],
+                    "note": r["note"],
+                    "saved_at": r["updated_at"],
+                }
             )
+        for a in out.values():
+            a["seconds_per_item"] = pace([x["saved_at"] for x in a["answers"]])
         return out
