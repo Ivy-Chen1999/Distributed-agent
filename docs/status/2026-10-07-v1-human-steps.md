@@ -16,15 +16,16 @@ nothing).
 |---|---|---|---|
 | 0 | One-off setup: push, deploy, tokens, API key, branch protection | owner | about 30 min |
 | 1 | Merge the 11 train/val drafts | owner | 5 min |
-| 2 | Classmates' sitting: reference check and grader calibration | 2 classmates | about 40 min each |
-| 3 | Read the two review pages, mark who is right | owner | about 10 min |
-| 4 | Publish the golden cases | owner | 5 min |
+| 2 | Reference check (**live since 2026-10-11**, samuel and eetu) | 2 classmates | about 15 min each |
+| 3 | Read the reference-check review page, mark who is right | owner | about 5 min |
+| 4 | Publish the golden cases; then the calibration sitting | owner, then 2 classmates | 5 min, then about 20 min each |
 | 5 | Holdout: tie-break, spot-check 3 items a draft, import | owner | about 20 min |
 | 6 | Sign the promotion policy | owner | 5 min |
 | 7 | R34 noise run and MDD report | owner starts it | 10 min plus run time |
 | 8 | Cost reference: run the check, record the FTE basis | owner | 5 min |
 
-Order: 0, 1, then 2 (it needs the merged drafts and one train eval run), 3 and 4; 5 needs a
+Order: 0, 1, 2, 3, 4; the calibration in 4 needs the published cases and the API key (the gate
+calibrates the API grader, and the published cases give it 13 cases instead of 2); 5 needs a
 passed reference check; 6 before any holdout comparison; 7 and 8 any time after 0.
 
 ---
@@ -60,28 +61,25 @@ for n in $(seq 7 17); do gh pr ready $n && gh pr merge $n --merge; done
 git switch feat/v1-integration && git merge feat/golden-import
 ```
 
-## 2. The classmates' sitting (2 classmates, about 40 minutes each)
+## 2. The reference check (2 classmates, about 15 minutes each)
 
-**Owner, before** (about 10 minutes of commands; the eval run takes longer but runs alone):
+**Done 2026-10-11:** drawn from the 11 drafts as they are on the `review/case-*` branches
+(copied to `.cache/reference_check/round1_drafts/`), seed 2 (the practice sample used seed 1),
+20 items each and a reserve of 10 each, and uploaded. Link to send to samuel and eetu:
+`https://womm-api-production.up.railway.app/label/2026-10-11-86dae710`. Do not send them the
+practice links. If a draft changes before publishing, draw a new check. How it was made:
 
 ```
-# the reference check: 20 items each, a reserve of 10 each held back
-uv run python scripts/reference_check.py sample evals/golden/drafts/case_*.yaml \
-    --annotator <name1> --annotator <name2> --out .cache/reference_check/round1/
+uv run python scripts/reference_check.py sample .cache/reference_check/round1_drafts/case_*.yaml \
+    --annotator samuel --annotator eetu --n 20 --extra 10 --seed 2 --out .cache/reference_check/round1/
 uv run python scripts/reference_check.py upload --dir .cache/reference_check/round1/ --url https://<app>
-
-# the grader calibration: one train eval run, then 30 pairs that both label
-uv run womm eval --split train --local
-uv run womm calibrate sample --sv system_versions/<incumbent>.yaml --report runs/<that report> \
-    --n 30 --seed 1 --annotator <name1> --annotator <name2> --out .cache/calibration/round1/
-uv run womm calibrate upload --dir .cache/calibration/round1/ --url https://<app>
 ```
 
-Each `upload` prints one link. Send both links to both classmates. `--annotator` is each
+`upload` prints the link. `--annotator` is each
 classmate's name (letters, digits, `-`, `_`); they sign in by typing it (case does not matter). Draw the reference-check sample before
 publishing (step 4 deletes the drafts).
 
-**Classmates:** open each link, sign in with their name, read the welcome card and the short
+**Classmates:** open the link, sign in with their name, read the welcome card and the short
 guide on the first item, answer every item, press "Finish & send". Answers are saved as they
 go; they can stop and come back. Work alone, and don't discuss items until both have sent.
 Progress is visible at `https://<app>/label/<sample>/admin` (asks for the admin token).
@@ -90,21 +88,18 @@ Progress is visible at `https://<app>/label/<sample>/admin` (asks for the admin 
 `uv run python scripts/reference_check.py extend --dir .cache/reference_check/round1/ --url https://<app>`
 and ask both to open the reference-check link again: 10 more items each, about 5 minutes.
 
-## 3. Read the review pages (owner, about 10 minutes)
+## 3. Read the review page (owner, about 5 minutes)
 
-When the admin pages show both as sent:
+When the admin page shows both as sent:
 
 ```
 uv run python scripts/reference_check.py fetch --dir .cache/reference_check/round1/ --url https://<app>
 uv run python scripts/reference_check.py score --dir .cache/reference_check/round1/
-uv run womm calibrate fetch --dir .cache/calibration/round1/ --url https://<app>
-uv run womm calibrate score --dir .cache/calibration/round1/ --record
-git commit evals/promotion_records.yaml
 ```
 
-Each `score` writes `review.html` in its directory: the verdict in plain words with what to do
+`score` writes `review.html` in its directory: the verdict in plain words with what to do
 next, and every item where the people and the AI disagree, side by side with the AI's own
-reason. Open both and mark who is right on each disagreement; the advice on the page updates.
+reason. Open it and mark who is right on each disagreement; the advice on the page updates.
 This replaces reading eval transcripts by hand. The pages hold the AI's decisions: keep them
 local, never send them. Record the reference check here:
 
@@ -114,20 +109,33 @@ local, never send them. Record the reference check here:
 
 - Reference check ROBUST: go on to step 4. NOT ROBUST: fix the prompt the review page points
   at, settle the drafts again, and run a new check (new `--out`, new `--seed`).
-- Calibration counts only when the two classmates agree with each other on at least 80% of the
-  pairs and at least 24 of the 30 have a clear answer; then the grader must agree with them on
-  at least 85%. Passed: recorded, and the statistical and weak gates can run. People below 80%:
-  the rule is unclear; sharpen its wording from the split pairs on the review page, then a new
-  seed. Grader below 85%: fix the coverage judge's prompt, then a new seed.
 
-## 4. Publish the golden cases (owner)
+## 4. Publish the golden cases, then the calibration sitting
 
 ```
 uv run python scripts/oracle_check.py evals/golden/drafts/case_*.yaml   # each case's own answer must score full
 uv run python scripts/publish_golden_cases.py
 ```
 
-Then commit the published cases.
+Commit the published cases. Then the calibration (needs the OpenAI key in `.env`): one train
+eval run with the API incumbent, 30 pairs that both classmates label, about 20 minutes each.
+
+```
+uv run womm eval --system-version system_versions/v0.3-api.yaml --split train --local
+uv run womm calibrate sample --sv system_versions/v0.3-api.yaml --report runs/<that report> \
+    --n 30 --seed 1 --annotator samuel --annotator eetu --out .cache/calibration/round1/
+uv run womm calibrate upload --dir .cache/calibration/round1/ --url https://<app>
+# when both have sent:
+uv run womm calibrate fetch --dir .cache/calibration/round1/ --url https://<app>
+uv run womm calibrate score --dir .cache/calibration/round1/ --record
+git commit evals/promotion_records.yaml
+```
+
+- Calibration counts only when the two classmates agree with each other on at least 80% of the
+  pairs and at least 24 of the 30 have a clear answer; then the grader must agree with them on
+  at least 85%. Passed: recorded, and the statistical and weak gates can run. People below 80%:
+  the rule is unclear; sharpen its wording from the split pairs on the review page, then a new
+  seed. Grader below 85%: fix the coverage judge's prompt, then a new seed.
 
 ## 5. Holdout (owner only, about 20 minutes)
 
