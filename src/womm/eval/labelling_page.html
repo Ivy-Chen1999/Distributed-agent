@@ -321,7 +321,7 @@ body[data-kind="reference_check"] [data-kind="calibration"] { display: none !imp
         Most say "this group is affected by the law in this way"; some name one thing a good
         assessment of the law has to cover.</span></li>
       <li><span class="step-n">2</span><span><b>Read the highlighted report text</b> the point is
-        based on, on the left.</span></li>
+        based on.</span></li>
       <li><span class="step-n">3</span><span><b>Answer one question:</b> does the report back this
         point up?</span></li>
     </ol>
@@ -369,7 +369,8 @@ body[data-kind="reference_check"] [data-kind="calibration"] { display: none !imp
     <h3>What you do</h3>
     <ol class="steps">
       <li><span class="step-n">1</span><span><b><span class="nItems">30</span> pairs, one per screen.</b>
-        On the right, one effect from the official report; on the left, our AI's report on the same law.</span></li>
+        One effect from the official report, and our AI's report on the same law. Easiest on a
+        computer: the report is long and <b>Ctrl+F</b> helps.</span></li>
       <li><span class="step-n">2</span><span><b>Look through our AI's entries</b> for that effect.</span></li>
       <li><span class="step-n">3</span><span><b>Answer one question:</b> does our AI's report cover
         this effect?</span></li>
@@ -561,7 +562,7 @@ function renderItem() {
   for (const k of keys) { const d = el("div"); d.append(el("dt", null, NAMES[k] || k), el("dd", null, fields[k])); claim.append(d); }
   if (cal) {
     $("srcTitle").textContent = "What our AI wrote";
-    $("section").textContent = `Its report on this law: ${it.dossier.length} entries. Look for one that matches the effect on the right.`;
+    $("section").textContent = `Its report on this law: ${it.dossier.length} entries. Look for one that matches the effect to look for.`;
     const box = $("dossier"); box.replaceChildren();
     if (!it.dossier.length) box.append(el("p", "hint", "Our AI's report has no entries for this law."));
     it.dossier.forEach((imp, j) => {
@@ -688,7 +689,7 @@ TOURS.reference_check = [
 ];
 TOURS.calibration = [
   { sel: "#pointBlock", title: "The effect to look for", text: "One effect the EU's official report names: <b>who</b> is affected, <b>what the law makes them do</b> and <b>what it means for them</b>." },
-  { sel: "#docPane", title: "What our AI wrote", text: "Our AI's report on the same law, one entry per effect it found. Look through it for the effect on the right. Tip: <b>Ctrl+F</b> (<b>Cmd+F</b> on a Mac) finds a word such as the group's name." },
+  { sel: "#docPane", title: "What our AI wrote", text: "Our AI's report on the same law, one entry per effect it found. Look through it for the effect to look for. Tip: <b>Ctrl+F</b> (<b>Cmd+F</b> on a Mac) finds a word such as the group's name." },
   { sel: "#answerBlock", title: "Your answer", text: "<b>Yes</b> if at least one entry names the same or a clearly overlapping group and the same way they are affected, in any words. <b>No</b> if none does. Ignore missing amounts. Keys: <b>Y</b>, <b>N</b>, <b>C</b>." },
   { sel: "#noteBlock", title: "A short note", text: "Needed when you pick <b>Can't tell</b>, optional otherwise. One line is enough." },
   { sel: "#progressBlock", title: "Your progress", text: "Jump to any pair with the squares; answered ones are coloured. Use ← → to move." },
