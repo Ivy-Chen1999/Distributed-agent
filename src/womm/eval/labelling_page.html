@@ -118,6 +118,10 @@ details.others li { border-left: 3px solid var(--bark); padding: 2px 0 2px 10px;
   color: var(--bg); font-weight: 700; font-size: 16px; }
 .primary:hover:not(:disabled) { background: var(--green); }
 .primary.sm { height: 36px; padding: 0 16px; font-size: 14px; }
+.primary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.primary.sent, .primary.sent:disabled { background: var(--green); color: #fff; opacity: 1; }
+.ic { width: 1em; height: 1em; flex: none; vertical-align: -0.125em; }
+.saved { display: inline-flex; align-items: center; gap: 5px; }
 .ghost { height: 44px; min-width: 44px; padding: 0 14px; border: 1px solid var(--ink); border-radius: 4px;
   background: transparent; color: var(--ink); font-weight: 700; font-size: 15px; }
 .ghost.sm { height: 32px; min-width: 0; font-size: 14px; }
@@ -464,6 +468,8 @@ const restore = () => {
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(HOSTED ? { i: state.i } : state)); } catch (e) {} };
 if (!HOSTED) restore();
 const $ = id => document.getElementById(id);
+const CHECK = '<svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3.2L13 4.8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const sentButton = (b, sent, idle) => { b.classList.toggle("sent", sent); b.innerHTML = sent ? CHECK + "Sent" : idle; };
 const el = (tag, cls, text) => { const e = document.createElement(tag);
   if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 const NAMES = { affected_actor: "Who is affected", mechanism: "What the law makes them do",
@@ -498,7 +504,7 @@ async function persist(id) {
       $("saved").classList.add("bad"); return;
     }
   }
-  $("saved").textContent = "✓ Saved";
+  $("saved").innerHTML = CHECK + "Saved";
 }
 
 function load(p) {
@@ -506,6 +512,13 @@ function load(p) {
   items = p.items; state.answers = p.answers || {}; submitted = !!p.submitted;
   DATA.annotator = p.annotator; $("who").textContent = p.annotator;
   KEY = "womm-refcheck:" + DATA.sample + ":" + p.annotator; restore();
+  // Coming back (stopped half-way, or more points were added): start at the first open one.
+  const open = items.findIndex(i => !state.answers[i.id]?.label);
+  if (open >= 0 && answered() > 0) {
+    state.i = open;
+    const n = items.length - answered(), unit = WORDS[KIND].unit;
+    $("saved").textContent = `Welcome back: ${n} ${unit}${n === 1 ? "" : "s"} still open`;
+  }
   counts();
 }
 
@@ -587,7 +600,7 @@ function renderItem() {
   });
   const unit = WORDS[KIND].unit;
   $("count").innerHTML = `${unit[0].toUpperCase() + unit.slice(1)} <b>${state.i + 1}</b> of ${items.length} · ${answered()} answered`;
-  $("finish").textContent = HOSTED ? (submitted ? "Sent ✓" : "Finish & send") : "Finish";
+  sentButton($("finish"), HOSTED && submitted, HOSTED ? "Finish &amp; send" : "Finish");
 }
 
 function label(l) {
@@ -635,7 +648,7 @@ function renderDone() {
       : submitted ? "Your answers are in. You can close this page, or go back and change an answer: changes are saved too."
       : "Everything is answered. Press Send to tell us you are done.";
     $("submit").disabled = miss.length > 0 || submitted;
-    $("submit").textContent = submitted ? "Sent ✓" : "Send my answers";
+    sentButton($("submit"), submitted, "Send my answers");
   } else {
     $("doneTitle").textContent = "Download and send";
     $("missing").textContent = miss.length ? `Still open: points ${miss.join(", ")}. You can download now and finish later.` : "";
@@ -682,7 +695,7 @@ function showTourStep() {
   $("tourStep").textContent = `Step ${tourIdx + 1} of ${tour().length}`;
   $("tourTitle").textContent = step.title;
   $("tourText").innerHTML = step.sel === "#finish" ? (HOSTED
-    ? `Your answers save as you go (you'll see <b>✓ Saved</b>). When every ${WORDS[KIND].unit} is answered, press <b>Finish &amp; send</b>. You can stop and come back with the same link.`
+    ? `Your answers save as you go (you'll see <b>Saved</b> with a tick). When every ${WORDS[KIND].unit} is answered, press <b>Finish &amp; send</b>. You can stop and come back with the same link.`
     : "When every point is answered, press <b>Finish</b> and download the small answer file, then send it back.") : step.text;
   $("tourBack").style.visibility = tourIdx === 0 ? "hidden" : "visible";
   $("tourNext").textContent = tourIdx === tour().length - 1 ? "Got it" : "Next";
