@@ -50,7 +50,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="append",
         required=True,
         dest="annotators",
-        help="annotator's GitHub username, what they sign in with (repeatable)",
+        help="annotator's name, what they sign in with (repeatable)",
     )
     sample.add_argument("--out", type=Path, required=True, help="a new directory under .cache/")
     sample.add_argument("--n", type=int, default=20, help="first-round items per annotator")

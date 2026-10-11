@@ -138,13 +138,13 @@ def add_label_routes(app: FastAPI, admin_token: str) -> None:
         sample_id(sample)
         name = cookie_annotator(admin_token, sample, request.cookies.get(COOKIE, ""), time.time())
         if name is None or name not in await db(request).label_annotators(sample):
-            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "sign in with your GitHub username")
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "sign in with your name")
         return name
 
     async def task_view(request: Request, sample: str, name: str) -> dict:
         task = await db(request).label_task(sample, name)
         if task is None:
-            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "sign in with your GitHub username")
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "sign in with your name")
         submitted = task["submitted_at"] is not None
         return {"annotator": name, "kind": task["kind"], "items": task["cards"],
                 "answers": task["answers"], "submitted": submitted}  # fmt: skip
@@ -178,8 +178,7 @@ def add_label_routes(app: FastAPI, admin_token: str) -> None:
         name = next((a for a in roster if a.casefold() == wanted), None)
         if name is None:
             recent.append(now)
-            raise HTTPException(status.HTTP_401_UNAUTHORIZED,
-                                "that GitHub username is not on this check")  # fmt: skip
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "that name is not on this check")
         https = "https" in (request.url.scheme, request.headers.get("x-forwarded-proto"))
         response.set_cookie(
             COOKIE, session_cookie(admin_token, sample, name, time.time()), path="/label",
