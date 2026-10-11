@@ -31,7 +31,7 @@ passed reference check; 6 before any holdout comparison; 7 and 8 any time after 
 
 ## 0. One-off setup (owner)
 
-**Done 2026-10-10:** `feat/v1-integration` (ae1c7f3) is deployed to the Railway service
+**Done 2026-10-10, updated 2026-10-11:** `feat/v1-integration` (e79413f) is deployed to the Railway service
 `womm-api` with `railway up` from a clean `git archive` (no git push, `main` unchanged), and
 `WOMM_LABEL_ADMIN_TOKEN` is set on Railway and in the local `.env`. A production smoke run
 (sample, upload, sign-in, label, submit, fetch, score) passed. Two practice samples are up
