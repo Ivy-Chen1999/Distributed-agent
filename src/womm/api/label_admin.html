@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Answer Key Check Admin</title>
+<title>Labelling Admin</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
@@ -50,7 +50,7 @@ th { font-size: 12px; letter-spacing: .05em; text-transform: uppercase; color: v
 </style>
 </head>
 <body>
-<header class="topbar"><span class="title">Answer key check · admin</span>
+<header class="topbar"><span class="title" id="title">Labelling · admin</span>
   <span class="sub">sample __SAMPLE__</span></header>
 <main>
   <section class="panel" id="auth">
@@ -58,19 +58,22 @@ th { font-size: 12px; letter-spacing: .05em; text-transform: uppercase; color: v
     <div class="row"><input id="token" type="password" autocomplete="off"
       placeholder="WOMM_LABEL_ADMIN_TOKEN"><button class="primary" id="go">Show progress</button></div>
     <p class="err" id="err"></p>
-    <p class="fine">Kept in this tab only and sent as a header, never in the address bar.</p>
+    <p class="fine">Only for you, the owner: annotators sign in with their name and never need it.
+      It guards this page because it shows everyone's answers and notes. Remembered in this browser
+      after the first time (sent as a header, never in the address bar).</p>
   </section>
   <section class="panel" id="share" hidden>
     <h2>Link to send to the annotators</h2>
     <div class="row"><span class="link" id="link"></span><button class="ghost" id="copy">Copy</button></div>
     <p class="fine">Each signs in with their name. Scores are computed on your machine:
-      <code>scripts/reference_check.py fetch</code>, then <code>score</code>. The tool's decisions are
-      not on this server.</p>
+      <code id="fetchCmd">scripts/reference_check.py fetch</code>, then <code>score</code>. The AI's
+      decisions are not on this server.</p>
   </section>
   <section class="panel" id="progress" hidden>
     <div class="row"><h2 style="margin:0">Progress</h2><span style="flex:1"></span>
       <button class="ghost" id="refresh">Refresh</button>
-      <button class="ghost" id="download">Download answers (JSON)</button></div>
+      <button class="ghost" id="download">Download answers (JSON)</button>
+      <button class="ghost" id="forget">Forget token</button></div>
     <div class="cards" id="cards" style="margin-top:14px"></div>
   </section>
   <section class="panel" id="notes" hidden>
@@ -83,16 +86,24 @@ th { font-size: 12px; letter-spacing: .05em; text-transform: uppercase; color: v
 const SAMPLE = "__SAMPLE__";
 const $ = id => document.getElementById(id);
 const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
-const LABEL = { keep: "Yes, keep", drop: "No, drop", unsure: "Can't tell" };
+const LABEL = { keep: "Yes, keep", drop: "No, drop", covered: "Yes, covered",
+  not_covered: "No, not covered", unsure: "Can't tell" };
+const YES = new Set(["keep", "covered"]), NO = new Set(["drop", "not_covered"]);
+const STORE = "womm-label-admin";
 let last = null;
-try { $("token").value = sessionStorage.getItem("womm-label-admin") || ""; } catch (e) {}
+try { $("token").value = localStorage.getItem(STORE) || ""; } catch (e) {}
 
 async function load() {
   $("err").textContent = "";
   const token = $("token").value.trim();
   const r = await fetch(`/label/api/${SAMPLE}/admin/results`, { headers: { Authorization: "Bearer " + token } });
-  if (!r.ok) { $("err").textContent = r.status === 401 ? "Wrong token." : "Error " + r.status; return; }
-  try { sessionStorage.setItem("womm-label-admin", token); } catch (e) {}
+  if (!r.ok) {
+    $("err").textContent = r.status === 401 ? "Wrong token." : "Error " + r.status;
+    if (r.status === 401) { try { localStorage.removeItem(STORE); } catch (e) {} }
+    $("auth").hidden = false; return;
+  }
+  try { localStorage.setItem(STORE, token); } catch (e) {}
+  $("auth").hidden = true;
   last = await r.json();
   render(last);
 }
@@ -102,15 +113,20 @@ function render(data) {
   $("link").textContent = `${location.origin}/label/${SAMPLE}`;
   const cards = $("cards"); cards.replaceChildren();
   const rows = $("noteRows"); rows.replaceChildren();
+  const kinds = Object.values(data.annotators).map(a => a.kind);
+  const calib = kinds.includes("calibration");
+  $("fetchCmd").textContent = calib ? "womm calibrate fetch" : "scripts/reference_check.py fetch";
+  $("title").textContent = (calib ? "Grader check" : "Answer key check") + " · admin";
+  document.title = (calib ? "Grader Check" : "Answer Key Check") + " Admin";
   for (const [name, a] of Object.entries(data.annotators)) {
-    const c = { keep: 0, drop: 0, unsure: 0 };
-    a.answers.forEach(x => { c[x.label] = (c[x.label] || 0) + 1; });
+    const c = { yes: 0, no: 0, unsure: 0 };
+    a.answers.forEach(x => { c[YES.has(x.label) ? "yes" : NO.has(x.label) ? "no" : "unsure"]++; });
     const card = el("div", "who");
     const bar = el("div", "bar"); const fill = el("div"); fill.style.width = (100 * a.answers.length / a.cards) + "%"; bar.append(fill);
     card.append(el("b", null, name),
       el("span", "state " + (a.submitted_at ? "ok" : "wait"), a.submitted_at
         ? "Sent " + new Date(a.submitted_at).toLocaleString() : a.answers.length ? "In progress" : "Not started"),
-      bar, el("span", "counts", `${a.answers.length} of ${a.cards} answered · ${c.keep} yes · ${c.drop} no · ${c.unsure} can't tell`));
+      bar, el("span", "counts", `${a.answers.length} of ${a.cards} answered · ${c.yes} yes · ${c.no} no · ${c.unsure} can't tell`));
     cards.append(card);
     for (const x of a.answers.filter(x => x.note || x.label === "unsure")) {
       const tr = el("tr");
@@ -124,6 +140,11 @@ function render(data) {
 $("go").onclick = load;
 $("token").addEventListener("keydown", e => { if (e.key === "Enter") load(); });
 $("refresh").onclick = load;
+$("forget").onclick = () => {
+  try { localStorage.removeItem(STORE); } catch (e) {}
+  $("token").value = ""; $("auth").hidden = false;
+  for (const id of ["share", "progress", "notes"]) $(id).hidden = true;
+};
 $("copy").onclick = () => navigator.clipboard?.writeText($("link").textContent).then(() => { $("copy").textContent = "Copied"; });
 $("download").onclick = () => {
   const a = el("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(last, null, 2)], { type: "application/json" }));
