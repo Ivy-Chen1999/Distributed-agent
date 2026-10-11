@@ -13,14 +13,14 @@ def _at(*seconds):
 
 
 def test_pace_is_the_median_gap_without_breaks():
-    assert pace(_at(0, 30, 50, 90)) == 30.0  # gaps 30, 20, 40
-    assert pace(_at(0, 30, 50, 50 + 3600, 50 + 3640)) == 30.0  # the hour-long break is left out
-    assert pace(_at(40, 0, 20)) == 20.0  # order does not matter
+    assert pace(_at(0, 30, 50, 90, 120)) == 30.0  # gaps 30, 20, 40, 30
+    assert pace(_at(0, 30, 50, 90, 90 + 3600, 90 + 3630)) == 30.0  # the hour-long break is left out
+    assert pace(_at(40, 0, 20, 70, 100)) == 25.0  # order does not matter: gaps 20, 20, 30, 30
 
 
-def test_pace_needs_three_answers():
-    assert pace([]) is None and pace(_at(0, 10)) is None
-    assert pace(_at(0, 10, 10_000)) is None  # one gap left after the break
+def test_pace_needs_five_answers_in_a_row():
+    assert pace([]) is None and pace(_at(0, 10, 20, 30)) is None
+    assert pace(_at(0, 10, 20, 30, 10_000)) is None  # three gaps left after the break
 
 
 def test_progress_flags_a_very_fast_annotator():

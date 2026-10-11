@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23141414'/%3E%3Cpath d='M9 16.5l4.5 4.5L23 11' fill='none' stroke='%23FFB000' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Labelling Admin</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -72,6 +73,7 @@ th { font-size: 12px; letter-spacing: .05em; text-transform: uppercase; color: v
   </section>
   <section class="panel" id="progress" hidden>
     <div class="row"><h2 style="margin:0">Progress</h2><span style="flex:1"></span>
+      <span class="fine" id="updated"></span>
       <button class="ghost" id="refresh">Refresh</button>
       <button class="ghost" id="download">Download answers (JSON)</button>
       <button class="ghost" id="forget">Forget token</button></div>
@@ -107,6 +109,7 @@ async function load() {
   try { localStorage.setItem(STORE, token); } catch (e) {}
   $("auth").hidden = true;
   last = await r.json();
+  $("updated").textContent = "Updated " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) + " · refreshes every minute";
   render(last);
 }
 
@@ -158,6 +161,8 @@ $("download").onclick = () => {
   a.download = `answers_${SAMPLE}.json`; a.click();
 };
 if ($("token").value) load();
+// Progress refreshes itself every minute while the page is open and signed in.
+setInterval(() => { if ($("auth").hidden && !document.hidden) load(); }, 60_000);
 </script>
 </body>
 </html>

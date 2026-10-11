@@ -108,12 +108,13 @@ BREAK_S = 15 * 60  # a gap this long between two answers is a break, not reading
 
 
 def pace(saved: list) -> float | None:
-    """Median seconds between consecutive answers, breaks left out; None below 3 answers. An
+    """Median seconds between consecutive answers, breaks left out; None below 4 gaps (five
+    answers in a row), where one quick answer would decide it. An
     edited answer moves its time, so this is a rough reading speed, enough to spot clicking
     through."""
     times = sorted(t.timestamp() for t in saved if t is not None)
     gaps = sorted(b - a for a, b in zip(times, times[1:], strict=False) if b - a < BREAK_S)
-    if len(gaps) < 2:
+    if len(gaps) < 4:
         return None
     mid = len(gaps) // 2
     return round(gaps[mid] if len(gaps) % 2 else (gaps[mid - 1] + gaps[mid]) / 2, 1)
