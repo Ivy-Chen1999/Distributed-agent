@@ -18,8 +18,9 @@ nothing).
 | 1 | Merge the 11 train/val drafts | owner | 5 min |
 | 2 | Reference check (**live since 2026-10-11**, samuel and eetu) | 2 classmates | about 15 min each |
 | 3 | Read the reference-check review page, mark who is right | owner | about 5 min |
+| 3b | RSB companions: commit them to the review branches, then the classmates label all of them | owner, then 2 classmates | 10 min, then about 15 min each |
 | 4 | Publish the golden cases; then the calibration sitting | owner, then 2 classmates | 5 min, then about 20 min each |
-| 5 | Holdout: tie-break, spot-check 3 items a draft, import | owner | about 20 min |
+| 5 | Holdout: spot-check 3 items a draft on a local page (tie-break **done 2026-10-12**), import | owner | about 20 min |
 | 6 | Sign the promotion policy (**done 2026-10-12**) | owner | 5 min |
 | 7 | R34 noise run and MDD report | owner starts it | 10 min plus run time |
 | 8 | Cost reference: run the check, record the FTE basis (**done 2026-10-12**) | owner | 5 min |
@@ -106,6 +107,28 @@ local, never send them. Record the reference check here:
 | Date | Sample id | Error | 95% bound | Verdict |
 |---|---|---|---|---|
 | | | | | |
+
+## 3b. RSB companions (after a ROBUST reference check)
+
+The RSB opinions were fetched on 2026-10-12 (15 of 23 laws) and a companion draft of RSB
+omissions was drafted for each of the 11 practice cases (31 points, 18 kept by the AI checks;
+`docs/status/2026-10-12-rsb-companions.md`). They are drafted locally and not committed until
+the reference check passes. Then, on the integration branch:
+
+```
+# merge the companion code into each review branch, then commit its companion
+for b in $(git branch --list 'review/case-*' --format='%(refname:short)'); do
+  git switch $b && git merge --no-edit feat/v1-integration && git switch -
+done
+uv run python scripts/draft_rsb_companion.py evals/golden/drafts/<case>.yaml   # on each branch
+# the census: every companion point, split between the two classmates
+uv run python scripts/reference_check.py sample evals/golden/drafts/case_*.yaml \
+    --annotator samuel --annotator eetu --companions --out .cache/reference_check/companions/
+uv run python scripts/reference_check.py upload --dir .cache/reference_check/companions/ --url https://<app>
+```
+
+Score it like step 3. At most 10% wrong: the companions are published with their cases. More:
+delete the companion files, fix the input, draft `--version rsb2` and check again.
 
 - Reference check ROBUST: go on to step 4. NOT ROBUST: fix the prompt the review page points
   at, settle the drafts again, and run a new check (new `--out`, new `--seed`).
