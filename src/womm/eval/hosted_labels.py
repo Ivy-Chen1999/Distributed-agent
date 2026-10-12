@@ -108,11 +108,6 @@ def fetch(directory: Path, url: str, *, client: httpx.Client | None = None) -> d
     return r.json()["annotators"]
 
 
-# Below this median time per item someone is clicking through rather than reading: reading the
-# highlighted sentence and the point alone takes longer.
-FAST_S = 8
-
-
 def progress(got: dict[str, dict]) -> tuple[list[str], list[str]]:
     """Printable lines, one per annotator, and the names not submitted yet."""
     lines, pending = [], []
@@ -121,13 +116,5 @@ def progress(got: dict[str, dict]) -> tuple[list[str], list[str]]:
         if not done:
             pending.append(name)
         state = "submitted" if done else "not submitted yet"
-        line = f"{name}: {len(a['answers'])} of {a['cards']} answered, {state}"
-        if (s := a.get("seconds_per_item")) is not None:
-            line += f", about {s:.0f} s per item"
-            if s < FAST_S:
-                line += (
-                    " (very fast: read this person's answers on the review page with care, "
-                    "and ask them to slow down if the check is extended)"
-                )
-        lines.append(line)
+        lines.append(f"{name}: {len(a['answers'])} of {a['cards']} answered, {state}")
     return lines, pending

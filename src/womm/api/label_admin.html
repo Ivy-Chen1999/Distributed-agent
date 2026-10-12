@@ -42,7 +42,6 @@ input { height: 44px; border: 1px solid var(--ink); border-radius: 4px; padding:
 .state { font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
 .state.ok { color: var(--green); } .state.wait { color: var(--grey); }
 .counts { font-size: 13px; color: var(--grey); }
-.counts.fast { color: var(--red, #b3261e); font-weight: 700; }
 table { border-collapse: collapse; width: 100%; font-size: 14px; }
 th, td { border-bottom: 1px solid var(--bark-lt); padding: 8px 10px; text-align: left; vertical-align: top; }
 th { font-size: 12px; letter-spacing: .05em; text-transform: uppercase; color: var(--grey); }
@@ -93,7 +92,6 @@ const LABEL = { keep: "Yes, keep", drop: "No, drop", covered: "Yes, covered",
   not_covered: "No, not covered", unsure: "Can't tell" };
 const YES = new Set(["keep", "covered"]), NO = new Set(["drop", "not_covered"]);
 const STORE = "womm-label-admin";
-const FAST_S = 8;  // hosted_labels.FAST_S
 let last = null;
 try { $("token").value = localStorage.getItem(STORE) || ""; } catch (e) {}
 
@@ -132,11 +130,6 @@ function render(data) {
       el("span", "state " + (a.submitted_at ? "ok" : "wait"), a.submitted_at
         ? "Sent " + new Date(a.submitted_at).toLocaleString() : a.answers.length ? "In progress" : "Not started"),
       bar, el("span", "counts", `${a.answers.length} of ${a.cards} answered · ${c.yes} yes · ${c.no} no · ${c.unsure} can't tell`));
-    if (a.seconds_per_item != null) {
-      const fast = a.seconds_per_item < FAST_S;
-      card.append(el("span", "counts" + (fast ? " fast" : ""), `About ${Math.round(a.seconds_per_item)} s per point` +
-        (fast ? ": very fast, likely clicking through. Read their answers with care." : "")));
-    }
     cards.append(card);
     for (const x of a.answers.filter(x => x.note || x.label === "unsure")) {
       const tr = el("tr");
