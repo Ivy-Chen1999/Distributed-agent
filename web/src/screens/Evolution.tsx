@@ -296,7 +296,7 @@ export function Evolution() {
         <section aria-label="Candidates" style={{ ...CARD, padding: '14px 14px', display: 'flex', flexDirection: 'column', gap: 10, position: 'sticky', top: 90 }}>
           <h3 style={{ ...LABEL, margin: 0 }}>Lineage</h3>
           <LineageTree nodes={nodes} selected={selected} onSelect={setPicked} />
-          {lineage.data.publish_summary === false && <div style={{ fontSize: 11, color: 'var(--n2)', lineHeight: 1.5 }}>Holdout decisions are not published here (publish_summary is off).</div>}
+          {lineage.data.publish_summary === false && !lineage.data.nodes.some(n => n.decision) && <div style={{ fontSize: 11, color: 'var(--n2)', lineHeight: 1.5 }}>Holdout decisions are not published here (publish_summary is off).</div>}
         </section>
         <div style={{ minWidth: 0 }}>
           {detail.status === 'error' ? (

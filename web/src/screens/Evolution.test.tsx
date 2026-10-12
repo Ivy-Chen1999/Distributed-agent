@@ -31,6 +31,19 @@ beforeEach(() => localStorage.setItem(TOKEN_KEY, 'test-token-1234567890'));
 afterEach(() => vi.unstubAllGlobals());
 
 describe('Evolution page', () => {
+  it('says decisions are unpublished only when no decision is shown', async () => {
+    stub();
+    const first = render(<Evolution />);
+    await screen.findByRole('list', { name: 'Lineage' });
+    expect(screen.queryByText(/not published here/)).toBeNull(); // decisions are on the page
+    first.unmount();
+    const undecided = lineage();
+    undecided.nodes = undecided.nodes.map((n) => ({ ...n, decision: null, label: null }));
+    stub((path) => (path === '/evolution/lineage' ? { status: 200, body: undecided } : undefined));
+    render(<Evolution />);
+    expect(await screen.findByText(/not published here/)).toBeTruthy();
+  });
+
   it('renders the lineage tree with the topology badge and opens the latest decision', async () => {
     stub();
     render(<Evolution />);
