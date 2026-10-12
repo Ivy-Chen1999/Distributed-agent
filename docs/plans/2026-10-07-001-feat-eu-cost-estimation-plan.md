@@ -10,6 +10,8 @@ origin: docs/brainstorms/2026-10-02-next-stage-cost-and-methodology-requirements
 
 > **Decision context (2026-10-07).** Stage B (origin R4–R7) moved from "v1 if time allows" into v1 by user decision on 2026-10-07. Stage A (obligation enrichment, the adversarial reviewer) stays in v1.1. The defaults below were set at user level before this plan; the user may revise them, and the plan proceeds on them until told otherwise. Where a section below conflicts with this block, this block wins.
 >
+> **Confirmed 2026-10-12** (owner decision, before any scored sweep): every default below stands as recorded: the seven effort types and their mapping to the IA categories, the EUR band edges, `not_costed` as a status, and R7 counting `added` units only. They are now fixed; changing them later would move the goalposts.
+>
 > - **Effort types: the colleague's seven, as they are.** `new_process`, `documentation`, `registration`, `notification`, `human_oversight`, `training`, `assessment`. Each record has one primary type and optional secondary types.
 > - **Fixed mapping to the IA cost categories,** using the golden `CATEGORY_GUIDE` wording (`src/womm/eval/drafting.py`, from `feat/golden-import`):
 >
