@@ -378,3 +378,138 @@ def test_fixture_sources_do_not_restate_their_ia(name):
             continue
         full_share, _ = ngram_overlap(source.text, ia.full_text)
         assert full_share <= FULL_MAX_SHARE, (source.source_id, full_share)
+
+
+# ----------------------------------------------------------------------------- RSB opinions
+
+
+def make_pdf(lines: list[str]) -> bytes:
+    """A one-page PDF with a text layer (synthetic: no real RSB opinion in the repo)."""
+    content = "BT /F1 11 Tf 50 750 Td " + " ".join(f"({x}) Tj 0 -14 Td" for x in lines) + " ET"
+    objs = [
+        "<< /Type /Catalog /Pages 2 0 R >>",
+        "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R "
+        "/Resources << /Font << /F1 5 0 R >> >> >>",
+        f"<< /Length {len(content)} >>\nstream\n{content}\nendstream",
+        "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    ]
+    out, offsets = b"%PDF-1.4\n", []
+    for i, obj in enumerate(objs, 1):
+        offsets.append(len(out))
+        out += f"{i} 0 obj\n{obj}\nendobj\n".encode()
+    xref = len(out)
+    out += f"xref\n0 {len(objs) + 1}\n0000000000 65535 f \n".encode()
+    out += b"".join(f"{o:010d} 00000 n \n".encode() for o in offsets)
+    out += f"trailer << /Size {len(objs) + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF".encode()
+    return out
+
+
+OPINION_PDF = make_pdf(["REGULATORY SCRUTINY BOARD OPINION", "Overall opinion: POSITIVE",
+                        "The report does not show the costs for small widget makers."])  # fmt: skip
+WORK = f"{BASE}/cellar/0000aaaa-0000-0000-0000-000000000001"
+ANNEX_PHRASE = "who bears the widget registry costs"
+
+
+def sparql(works: list[str]) -> httpx.Response:
+    bindings = [{"work": {"type": "uri", "value": w.replace("https://", "http://")}} for w in works]
+    return httpx.Response(200, json={"results": {"bindings": bindings}})
+
+
+def rsb_client(sparql_response: httpx.Response, routes: dict | None = None):
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        if str(request.url).startswith(ia_sources.SPARQL_URL):
+            return sparql_response
+        return (routes or {}).get(str(request.url), httpx.Response(404))
+
+    return httpx.Client(transport=httpx.MockTransport(handler)), seen
+
+
+def test_sec_reference_forms_normalise():
+    assert ia_sources.sec_reference("SEC(2099) 7 final") == ("2099", 7)
+    assert ia_sources.sec_reference("sec ( 2099 )7") == ("2099", 7)
+    assert ia_sources.sec_reference("Ares(2099) 1") is None
+
+
+def test_opinion_found_as_pi_com_pdf(tmp_path):
+    client, seen = rsb_client(sparql([WORK]), {WORK: httpx.Response(200, content=OPINION_PDF)})
+    op = ia_sources.fetch_rsb_opinion("SEC(2099) 7 final", tmp_path, client=client)
+    assert op.status == "opinion found in Cellar (pi_com PDF)" and op.url == WORK
+    assert "costs for small widget makers" in op.text and len(op.sha256) == 64
+    query = next(r for r in seen if str(r.url).startswith(ia_sources.SPARQL_URL))
+    assert "pi_com:SEC(2099)7" in query.url.params["query"]
+    assert next(r for r in seen if str(r.url) == WORK).headers["Accept"] == "application/pdf"
+
+
+def test_no_work_found_is_reported(tmp_path):
+    client, _ = rsb_client(sparql([]))
+    op = ia_sources.fetch_rsb_opinion("SEC(2099) 7", tmp_path, client=client)
+    assert op.status == "opinion none found in Cellar" and op.text is None
+
+
+def test_works_off_cellar_are_ignored(tmp_path):
+    client, seen = rsb_client(sparql(["https://evil.example/cellar/x"]))
+    op = ia_sources.fetch_rsb_opinion("SEC(2099) 7", tmp_path, client=client)
+    assert op.status == "opinion none found in Cellar"
+    assert not any("evil.example" in str(r.url) for r in seen)
+
+
+def test_pdf_without_text_or_too_large_is_unreadable(tmp_path):
+    blank = make_pdf([])
+    client, _ = rsb_client(sparql([WORK]), {WORK: httpx.Response(200, content=blank)})
+    op = ia_sources.fetch_rsb_opinion("SEC(2099) 7", tmp_path, client=client)
+    assert op.status.startswith("opinion found in Cellar but not readable") and op.text is None
+    with pytest.raises(IaSourceError, match="size limit"):
+        ia_sources.pdf_text(b"%PDF" + b"0" * ia_sources.MAX_PDF_BYTES)
+    with pytest.raises(IaSourceError):
+        ia_sources.pdf_text(b"<html>not a pdf</html>")
+
+
+def test_lookup_failure_is_reported_not_raised(tmp_path):
+    client, _ = rsb_client(httpx.Response(503))
+    op = ia_sources.fetch_rsb_opinion("SEC(2099) 7", tmp_path, client=client)
+    assert op.status.startswith("opinion none found in Cellar (lookup failed")
+
+
+def test_cache_keeps_opinion_and_annex_apart_and_checks_both(tmp_path):
+    routes = multipart_routes() | {WORK: httpx.Response(200, content=OPINION_PDF)}
+    client, _ = rsb_client(sparql([WORK]), routes)
+    cached = cache_ia("widgets", IA_CELEX, "SEC(2099) 7", root=tmp_path, client=client)
+    directory = tmp_path / "widgets"
+    assert "costs for small widget makers" in (directory / "rsb_opinion.txt").read_text()
+    assert "who bears the widget registry costs" in (directory / "rsb.txt").read_text()
+    assert cached.rsb_status == (
+        "opinion found in Cellar (pi_com PDF); the IA's procedural-information annex kept"
+    )
+    # Anchors of source: rsb items are checked against the opinion and the annex together.
+    assert "costs for small widget makers" in cached.rsb_text
+    assert "who bears the widget registry costs" in cached.rsb_text
+    assert "who bears" not in cached.rsb_opinion
+    again = load_cached_ia("widgets", tmp_path)
+    assert again.rsb_text == cached.rsb_text and again.rsb_opinion == cached.rsb_opinion
+    manifest = json.loads((directory / "manifest.json").read_text())
+    assert manifest["rsb_opinion"]["url"] == WORK
+
+
+def test_refresh_rsb_adds_the_opinion_and_keeps_old_annex_anchors(tmp_path):
+    client, _ = serve(multipart_routes())  # no opinion at first: the annex stands in
+    before = cache_ia("widgets", IA_CELEX, "SEC(2099) 7", root=tmp_path, client=client)
+    assert before.rsb_opinion == "" and ANNEX_PHRASE in before.rsb_text
+    client, _ = rsb_client(sparql([WORK]), {WORK: httpx.Response(200, content=OPINION_PDF)})
+    after = ia_sources.refresh_rsb("widgets", "SEC(2099) 7", root=tmp_path, client=client)
+    assert "costs for small widget makers" in after.rsb_opinion
+    assert ANNEX_PHRASE in after.rsb_text  # an omission anchored in the annex still verifies
+    assert after.full_text == before.full_text  # the IA itself is not refetched
+    assert after.rsb_status.startswith("opinion found in Cellar (pi_com PDF)")
+    # A later failed lookup never throws away the cached opinion.
+    client, _ = rsb_client(httpx.Response(503))
+    kept = ia_sources.refresh_rsb("widgets", "SEC(2099) 7", root=tmp_path, client=client)
+    assert kept.rsb_opinion == after.rsb_opinion
+
+
+def test_refresh_rsb_needs_a_cached_ia(tmp_path):
+    with pytest.raises(IaSourceError, match="no cached IA"):
+        ia_sources.refresh_rsb("widgets", "SEC(2099) 7", root=tmp_path)

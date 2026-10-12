@@ -34,12 +34,15 @@ anchor verification), ``cut.txt`` (the kept sections), ``rsb.txt`` (RSB source t
 
 from __future__ import annotations
 
+import io
 import json
 import re
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import httpx
+import pypdf
 from lxml import etree
 
 from womm.config import REPO_ROOT
@@ -47,6 +50,7 @@ from womm.data.cellar import (
     CellarError,
     CellarMultipleChoice,
     celex_url,
+    fetch,
     fetch_document,
     parse_listing,
     sha256,
@@ -54,6 +58,16 @@ from womm.data.cellar import (
 from womm.data.parse_proposal import _clean, _text, parse_document
 
 IA_CACHE_ROOT = REPO_ROOT / ".cache" / "ia"
+# RSB opinions are not under Cellar's comnat resources but are registered as pi_com works,
+# served as PDF only: found through the SPARQL endpoint by their SEC reference.
+SPARQL_URL = "https://publications.europa.eu/webapi/rdf/sparql"
+CELLAR_HOST = "publications.europa.eu"
+PDF = "application/pdf"
+MAX_PDF_BYTES = 25_000_000
+MAX_PDF_PAGES = 80
+OPINION_FOUND = "opinion found in Cellar"
+OPINION_NONE = "opinion none found in Cellar"
+OPINION_UNREADABLE = "opinion found in Cellar but not readable"
 FORBIDDEN_ROOTS = (REPO_ROOT / "data", REPO_ROOT / "evals")
 
 _HEADING_CLASS = re.compile(r"^Heading([1-4])$")
@@ -377,31 +391,119 @@ def fetch_ia_parts(ia_celex: str, cache_dir: Path, **kwargs) -> list[tuple[str, 
         raise IaSourceError(f"{ia_celex}: download failed: {exc}") from None
 
 
+_SEC = re.compile(r"\s*SEC\s*\(\s*(\d{4})\s*\)\s*(\d+)\s*(?:final)?\s*", re.I)
+
+
+def sec_reference(rsb_ref: str) -> tuple[str, int] | None:
+    """('YYYY', N) of an RSB reference such as 'SEC(2099) 7 final', or None."""
+    m = _SEC.fullmatch(rsb_ref)
+    return (m.group(1), int(m.group(2))) if m else None
+
+
 def rsb_url(rsb_ref: str) -> str | None:
     """Cellar ``comnat`` resource for an RSB reference such as 'SEC(2099) 7'."""
-    m = re.fullmatch(r"\s*SEC\s*\(\s*(\d{4})\s*\)\s*(\d+)\s*(?:final)?\s*", rsb_ref, re.I)
-    if not m:
+    ref = sec_reference(rsb_ref)
+    if ref is None:
         return None
-    return (
-        f"https://publications.europa.eu/resource/comnat/SEC_{m.group(1)}_{int(m.group(2)):04d}_FIN"
+    return f"https://{CELLAR_HOST}/resource/comnat/SEC_{ref[0]}_{ref[1]:04d}_FIN"
+
+
+def rsb_works(rsb_ref: str, client: httpx.Client | None = None) -> list[str]:
+    """Cellar work URIs registered under ``pi_com:SEC(YYYY)N``, on Cellar's own host only."""
+    ref = sec_reference(rsb_ref)
+    if ref is None:
+        return []
+    query = (
+        "PREFIX cdm: <http://publications.europa.eu/ontology/cdm#> SELECT DISTINCT ?work WHERE "
+        f'{{ ?work cdm:work_id_document "pi_com:SEC({ref[0]}){ref[1]}"^^<http://www.w3.org/2001/'
+        "XMLSchema#string> }"
     )
+    own = client is None
+    client = client or httpx.Client(follow_redirects=True, timeout=60.0)
+    try:
+        response = client.get(
+            SPARQL_URL,
+            params={"query": query, "format": "application/sparql-results+json"},
+            headers={"Accept": "application/sparql-results+json"},
+        )
+    finally:
+        if own:
+            client.close()
+    if response.status_code != 200:
+        raise CellarError(f"SPARQL lookup of {rsb_ref} returned HTTP {response.status_code}")
+    works = sorted({b["work"]["value"] for b in response.json()["results"]["bindings"]})
+    own_host = [w for w in works if urlsplit(w).hostname == CELLAR_HOST]
+    return [w.replace("http://", "https://", 1) for w in own_host]
+
+
+def pdf_text(body: bytes) -> str:
+    """The text layer of a PDF (at most ``MAX_PDF_PAGES`` pages); empty when it has none."""
+    if len(body) > MAX_PDF_BYTES or not body.startswith(b"%PDF"):
+        raise IaSourceError("not a PDF within the size limit")
+    try:
+        reader = pypdf.PdfReader(io.BytesIO(body))
+        pages = reader.pages[:MAX_PDF_PAGES]
+        text = "\n".join(page.extract_text() or "" for page in pages)
+    except pypdf.errors.PdfReadError as exc:
+        raise IaSourceError(f"unreadable PDF: {exc}") from None
+    return re.sub(r"[ \t]+\n", "\n", text).strip()
+
+
+def _pdf_body(work: str, cache_dir: Path, **kwargs) -> bytes:
+    try:
+        return fetch(work, accept=PDF, cache_dir=cache_dir, **kwargs)
+    except CellarMultipleChoice as exc:
+        items = [i for i in parse_listing(exc.listing) if i.stream_name.lower().endswith(".pdf")]
+        english = [i for i in items if "_en_" in i.stream_name.lower()] or items
+        if not english:
+            raise
+        return fetch(english[0].url, accept=PDF, cache_dir=cache_dir, **kwargs)
+
+
+@dataclass
+class RsbOpinion:
+    status: str
+    text: str | None = None
+    url: str | None = None
+    sha256: str | None = None
+
+
+def fetch_rsb_opinion(rsb_ref: str | None, cache_dir: Path, **kwargs) -> RsbOpinion:
+    """The RSB opinion for ``rsb_ref``: Cellar's comnat resource (XHTML) first, then the pi_com
+    work found by SPARQL (PDF). The status says what happened; nothing falls back silently."""
+    if not rsb_ref:
+        return RsbOpinion("no RSB reference in the local IA index")
+    url = rsb_url(rsb_ref)
+    if url is None:
+        return RsbOpinion("RSB reference not in SEC(YYYY) N form")
+    raw = cache_dir / "raw"
+    try:
+        body = fetch_document(url, cache_dir=raw, **kwargs)
+        text = parse_ia(body).full_text()
+        return RsbOpinion(OPINION_FOUND + " (comnat)", text, url, sha256(body))
+    except (CellarError, httpx.HTTPError, IaSourceError):
+        pass
+    try:
+        works = rsb_works(rsb_ref, kwargs.get("client"))
+    except (CellarError, httpx.HTTPError, KeyError, ValueError) as exc:
+        return RsbOpinion(f"{OPINION_NONE} (lookup failed: {exc})")
+    if not works:
+        return RsbOpinion(OPINION_NONE)
+    for work in works:
+        try:
+            body = _pdf_body(work, raw, **kwargs)
+            text = pdf_text(body)
+        except (CellarError, httpx.HTTPError, IaSourceError):
+            continue
+        if text:
+            return RsbOpinion(OPINION_FOUND + " (pi_com PDF)", text, work, sha256(body))
+    return RsbOpinion(OPINION_UNREADABLE + f" ({len(works)} work(s), no text layer)")
 
 
 def fetch_rsb(rsb_ref: str | None, cache_dir: Path, **kwargs) -> tuple[str, str | None]:
-    """(status, text). RSB opinions are rarely in Cellar; 'none found' is a normal outcome."""
-    if not rsb_ref:
-        return "no RSB reference in the local IA index", None
-    url = rsb_url(rsb_ref)
-    if url is None:
-        return "RSB reference not in SEC(YYYY) N form", None
-    try:
-        body = fetch_document(url, cache_dir=cache_dir / "raw", **kwargs)
-    except (CellarError, httpx.HTTPError):
-        return "opinion none found in Cellar", None
-    try:
-        return "opinion found in Cellar", parse_ia(body).full_text()
-    except IaSourceError:
-        return "opinion found in Cellar but not parseable", None
+    """(status, text) of the RSB opinion; see ``fetch_rsb_opinion``."""
+    opinion = fetch_rsb_opinion(rsb_ref, cache_dir, **kwargs)
+    return opinion.status, opinion.text
 
 
 @dataclass
@@ -412,10 +514,27 @@ class CachedIa:
     directory: Path
     full_text: str
     cut_text: str
-    rsb_text: str
-    rsb_status: str
+    rsb_text: str  # the opinion (when found) followed by the IA's procedural annex: anchors
+    rsb_status: str  # of ``source: rsb`` items are checked against both
     sections: list[dict]
     extract: IaExtract | None = None
+    rsb_opinion: str = ""  # the RSB opinion alone; new RSB items must quote it
+
+
+ANNEX_NOTE = "using the IA's procedural-information annex"
+
+
+def combined_rsb_text(opinion: str, annex: str) -> str:
+    """What RSB anchors are checked against: the opinion first, then the annex."""
+    return "\n\n".join(t for t in (opinion.strip(), annex.strip()) if t)
+
+
+def _rsb_status(opinion: RsbOpinion, annex: str) -> str:
+    if not annex:
+        return opinion.status
+    if opinion.text:
+        return f"{opinion.status}; the IA's procedural-information annex kept"
+    return f"{opinion.status}; {ANNEX_NOTE}"
 
 
 def cache_ia(
@@ -434,17 +553,15 @@ def cache_ia(
     fetched = fetch_ia_parts(ia_celex, directory, **kwargs)
     parts = [parse_ia(body, n) for n, (_, body) in enumerate(fetched, start=1)]
     extract = extract_sections(parts)
-    rsb_status, rsb_text = fetch_rsb(rsb_ref, directory, **kwargs)
-    if rsb_text is None:
-        procedural = [s for s in extract.sections if s.kind == "procedural"]
-        if procedural:
-            rsb_status += "; using the IA's procedural-information annex"
-            rsb_text = "\n\n".join(s.text for s in procedural)
+    opinion = fetch_rsb_opinion(rsb_ref, directory, **kwargs)
+    annex = "\n\n".join(s.text for s in extract.sections if s.kind == "procedural")
+    rsb_status = _rsb_status(opinion, annex)
     directory.mkdir(parents=True, exist_ok=True)
     full, cut = extract.full_text(), extract.cut_text()
     (directory / "ia_full.txt").write_text(full, encoding="utf-8")
     (directory / "cut.txt").write_text(cut, encoding="utf-8")
-    (directory / "rsb.txt").write_text(rsb_text or "", encoding="utf-8")
+    (directory / "rsb.txt").write_text(annex, encoding="utf-8")
+    (directory / "rsb_opinion.txt").write_text(opinion.text or "", encoding="utf-8")
     sections = [
         {k: v for k, v in asdict(s).items() if k != "text"} | {"chars": s.chars}
         for s in extract.sections
@@ -455,12 +572,51 @@ def cache_ia(
         "sections": sections,
         "missing_sections": extract.missing,
         "rsb_status": rsb_status,
+        "rsb_opinion": {"url": opinion.url, "sha256": opinion.sha256},
         "headings_seen": extract.headings_seen,
     }
     (directory / "manifest.json").write_text(
         json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
-    return CachedIa(fixture, directory, full, cut, rsb_text or "", rsb_status, sections, extract)
+    rsb_text = combined_rsb_text(opinion.text or "", annex)
+    return CachedIa(fixture, directory, full, cut, rsb_text, rsb_status, sections, extract,
+                    opinion.text or "")  # fmt: skip
+
+
+def refresh_rsb(
+    fixture: str,
+    rsb_ref: str | None,
+    *,
+    root: Path | None = None,
+    refresh: bool = False,
+    client: httpx.Client | None = None,
+) -> CachedIa:
+    """Fetch the RSB opinion of an already cached IA again, without refetching the IA: writes
+    the opinion next to the kept annex and updates the manifest's status."""
+    directory = ia_cache_dir(fixture, root)
+    manifest_path = directory / "manifest.json"
+    if not manifest_path.exists():
+        raise IaSourceError(f"{fixture}: no cached IA; fetch it first (cache_ia)")
+    meta = json.loads(manifest_path.read_text(encoding="utf-8"))
+    annex_path = directory / "rsb.txt"
+    annex = annex_path.read_text(encoding="utf-8") if annex_path.exists() else ""
+    if (
+        annex
+        and ANNEX_NOTE not in meta.get("rsb_status", "")
+        and "annex kept" not in meta.get("rsb_status", "")
+    ):
+        annex = ""  # an earlier rsb.txt that held an opinion, not the annex
+    kwargs = {"refresh": refresh} | ({"client": client} if client else {})
+    opinion = fetch_rsb_opinion(rsb_ref, directory, **kwargs)
+    if opinion.text is None and not refresh and (directory / "rsb_opinion.txt").exists():
+        kept = (directory / "rsb_opinion.txt").read_text(encoding="utf-8")
+        if kept:  # a network failure never discards an opinion already cached
+            return load_cached_ia(fixture, root)  # type: ignore[return-value]
+    (directory / "rsb_opinion.txt").write_text(opinion.text or "", encoding="utf-8")
+    meta["rsb_status"] = _rsb_status(opinion, annex)
+    meta["rsb_opinion"] = {"url": opinion.url, "sha256": opinion.sha256}
+    manifest_path.write_text(json.dumps(meta, indent=2, ensure_ascii=False) + "\n", "utf-8")
+    return load_cached_ia(fixture, root)  # type: ignore[return-value]
 
 
 def load_cached_ia(fixture: str, root: Path | None = None) -> CachedIa | None:
@@ -475,14 +631,16 @@ def load_cached_ia(fixture: str, root: Path | None = None) -> CachedIa | None:
         path = directory / name
         return path.read_text(encoding="utf-8") if path.exists() else ""
 
+    opinion = read("rsb_opinion.txt")
     return CachedIa(
         fixture,
         directory,
         read("ia_full.txt"),
         read("cut.txt"),
-        read("rsb.txt"),
+        combined_rsb_text(opinion, read("rsb.txt")),
         meta.get("rsb_status", ""),
         meta.get("sections", []),
+        rsb_opinion=opinion,
     )
 
 
