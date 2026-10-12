@@ -86,6 +86,18 @@ uv run womm evolve promote <chosen> --incumbent sv_73c6a3fdd013
 uv run womm evolve show <chosen>
 ```
 
+**Rehearsed 2026-10-12** (local database, `claude_code`, before the 11 practice cases were
+published): seed, replay of the 2 AI Act train cases x 2 (4 of 4 runs, 0 errors, about 50
+minutes), failures and `diffcheck` (R37 coverage 0.917 over 3 runs) all worked. `cycle` stopped
+at its first precondition: "the prompt stage needs at least one train and one val case". So:
+
+- The cycle needs the published practice cases (3 of the 11 are val).
+- The two hand-written AI Act cases carry no item categories, so their failure patterns are
+  "uncategorised"; the published cases have categories.
+- The topology stage needs a pattern with owner none in 2+ proposals: impossible with the AI Act
+  alone, possible with the 12 laws of the published cases.
+- Budget several hours on `claude_code` for a cycle: 4 full runs took about 50 minutes.
+
 What each step needs:
 
 | Step | Needs |
