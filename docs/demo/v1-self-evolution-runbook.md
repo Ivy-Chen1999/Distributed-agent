@@ -171,13 +171,14 @@ promotion metrics. The holdout and the promotion policy are untouched.
 
 Before the first scored sweep (once):
 
-1. The user confirms the plan's Decision-context defaults (effort-type mapping, EUR band edges,
-   `not_costed`, R7 = `added` units only). Changing them later moves the goalposts.
-2. One person checks `evals/cost_reference/ai_act_swd2021_84.yaml` against SWD(2021) 84 Part 1
+1. Done 2026-10-12: the plan's Decision-context defaults (effort-type mapping, EUR band edges,
+   `not_costed`, R7 = `added` units only) are confirmed as recorded. Changing them later moves
+   the goalposts.
+2. Done 2026-10-12 (scripts/check_ia_cost_reference.py, 11 of 11): one person checks `evals/cost_reference/ai_act_swd2021_84.yaml` against SWD(2021) 84 Part 1
    §6.1.3 and §6.2 and Part 2 Annex 3 (Table 5) and Annex 4 (about 1 hour), then sets
    `status: verified`, `verified_by` and `verified_on` and commits it. `womm cost check` refuses
    the file until then. Every report prints the commit sha of the reference.
-3. The user lists `v1.0-cost.yaml` and `v1.0-cost-api.yaml` in `system_versions/PROMOTIONS.md`
+3. Done 2026-10-12: the user lists `v1.0-cost.yaml` and `v1.0-cost-api.yaml` in `system_versions/PROMOTIONS.md`
    as cost-analysis candidates (not promotions).
 
 Runs (dev on `claude_code`, labelled dev-only; formal on `v1.0-cost-api` when an api key
