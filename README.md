@@ -1,5 +1,8 @@
 # WOMM
 
+> New to the project? Start with [docs/guide/](docs/guide/README.md): what WOMM does, which laws
+> it uses and why, where the answers come from, and what every check is for.
+
 Self-evolving multi-agent Regulatory Impact Assessment (RIA), starting with the EU AI Act.
 
 - Requirements: `docs/brainstorms/2026-09-28-womm-phased-requirements.md`
