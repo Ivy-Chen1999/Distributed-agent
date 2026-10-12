@@ -34,7 +34,7 @@ def test_the_scripted_demo_proposes_a_new_expert_and_gates_it_in_dev_mode(databa
     assert d["mode"] == "dev" and not d["deployable"] and d["decision"] == "promoted"
     assert d["label"] == "promoted (dev-only, not deployable; weak threshold: directional)"
     assert "insufficient_proposals" in d["flags"]
-    assert d["r37"]["status"] == "not_available"
+    assert d["r37"]["status"] == "not_run"  # reference drafted; neither version diff-checked
 
 
 def test_page_four_shows_the_lineage_with_the_new_expert(database_url, tmp_path):

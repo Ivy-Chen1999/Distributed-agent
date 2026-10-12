@@ -1,11 +1,14 @@
 """R37 diff regression check (U8): every SystemVersion scored on the provision-level demo diff.
 
 The R2 demo scenario ``demo_penalties_amended`` (proposal -> adopted Regulation) has no impact
-assessment, so it is scored against hand-written reference answers in
+assessment, so it is scored against reference answers in
 ``evals/diff_regression/demo_penalties_amended.yaml`` (``GoldenCase`` shape, split
-``diff_check``; anchors are provision quotes, not IA quotes). One person writes and decides
-every item, as origin R37 requires: no LLM writes them and no item is auto-accepted. Until a
-person has written them the file is a template and the check reports ``not_available``.
+``diff_check``; anchors are provision quotes, not IA quotes). The file says who wrote it:
+``status: written`` (a person decided every item) or ``status: llm_drafted`` (owner decision
+2026-10-12: monitoring only, so an LLM may draft it). A drafted file must quote the provision
+texts: every "..." fragment of an item's ``ia_section`` must appear word for word in the
+scenario's proposal or final articles, or the file is refused. A template reports
+``not_available``.
 
 - **Monitoring only.** The score is recorded per version in the archive (``sv_metrics`` split
   ``diff_check``) and copied into each promotion record next to the incumbent's score. A
@@ -20,6 +23,7 @@ person has written them the file is a template and the check reports ``not_avail
 from __future__ import annotations
 
 import math
+import re
 from pathlib import Path
 from typing import Any, Literal
 
@@ -37,6 +41,8 @@ DIFF_CHECK_SPLIT = "diff_check"
 SCENARIO_ID = "demo_penalties_amended"
 SCORE_METRIC = "coverage"
 PLACEHOLDER = "TODO"
+STATUSES = ("written", "llm_drafted")
+QUOTE = re.compile(r'"([^"]+)"')
 
 
 class DiffCheckCase(GoldenCase):
@@ -49,6 +55,8 @@ class Reference(StrictModel):
     available: bool
     reason: str | None = None
     case: DiffCheckCase | None = None
+    status: str | None = None
+    written_by: str | None = None
 
 
 def _placeholders(value: Any) -> int:
@@ -74,10 +82,10 @@ def load_reference(path: Path = REFERENCE_PATH) -> Reference:
         return _not_available(f"no reference answers at {path}")
     if not isinstance(raw, dict):
         raise ValueError(f"{path}: expected a mapping")
-    if raw.get("status") != "written" or not str(raw.get("written_by") or "").strip():
+    if raw.get("status") not in STATUSES or not str(raw.get("written_by") or "").strip():
         return _not_available(
-            "the reference answers are still a template: a person writes them by hand (R37), "
-            "sets status: written and written_by"
+            "the reference answers are still a template: write or draft them (R37), then set "
+            "status (written or llm_drafted) and written_by"
         )
     if n := _placeholders(raw.get("case")):
         return _not_available(f"{n} {PLACEHOLDER} placeholder(s) left in the reference answers")
@@ -86,7 +94,10 @@ def load_reference(path: Path = REFERENCE_PATH) -> Reference:
     except ValidationError as exc:
         raise ValueError(f"{path}: {exc}") from None
     check_reference(case)
-    return Reference(available=True, case=case)
+    if raw["status"] == "llm_drafted":
+        check_quotes(case)
+    return Reference(available=True, case=case, status=raw["status"],
+                     written_by=str(raw["written_by"]))  # fmt: skip
 
 
 def check_reference(case: DiffCheckCase) -> None:
@@ -102,6 +113,28 @@ def check_reference(case: DiffCheckCase) -> None:
         missing = [k for k in item.provision_keys if k not in keys]
         if missing:
             raise ValueError(f"{case.case_id}: provision_keys {missing} are not in {SCENARIO_ID}")
+
+
+def _flat(text: str) -> str:
+    return " ".join(text.split())
+
+
+def check_quotes(case: DiffCheckCase) -> None:
+    """Every quoted fragment of every expected impact is in the scenario's article texts, and
+    every expected impact quotes at least one: a drafted reference cannot invent its anchors."""
+    fixture = load_case_fixture(case)
+    scenario = fixture.scenario(case.scenario_id)
+    keys = set(scenario.provision_keys)
+    versions = {scenario.before_version, scenario.after_version}
+    texts = " ".join(_flat(p.text) for v in fixture.regulation.versions if v.version_id in versions
+                     for p in v.provisions if p.provision_key in keys)  # fmt: skip
+    for item in case.expected_impacts:
+        quotes = QUOTE.findall(item.ia_section or "")
+        if not quotes:
+            raise ValueError(f"{item.expected_id}: ia_section quotes no provision text")
+        missing = [q for q in quotes if _flat(q) not in texts]
+        if missing:
+            raise ValueError(f"{item.expected_id}: not in the provision texts: {missing}")
 
 
 # ----------------------------------------------------------------------------- scores

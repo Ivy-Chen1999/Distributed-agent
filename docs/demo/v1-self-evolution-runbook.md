@@ -91,7 +91,7 @@ What each step needs:
 | Step | Needs |
 |---|---|
 | `seed`, `replay`, `failures`, `cycle` | `DATABASE_URL`; the Claude CLI (`claude_code`); golden train/val cases. No holdout URL (these commands refuse one). |
-| `diffcheck` (R37) | The hand-written reference answers in `evals/diff_regression/demo_penalties_amended.yaml` (status `written`, `written_by`). Until then it reports `not_available`. Never gates. |
+| `diffcheck` (R37) | The reference answers in `evals/diff_regression/demo_penalties_amended.yaml`: LLM-drafted on 2026-10-12 (status `llm_drafted`; every quote is machine-checked against the article texts). Run `womm evolve diffcheck <version>` for the candidate and the incumbent so the evolution page can compare them. Never gates. |
 | `promote` (dev mode) | **A signed and committed `evals/promotion_policy.yaml`** (user decision 2026-10-06: every gate mode, dev included, reads the sealed holdout and spends its budget). The sealed holdout imported into `HOLDOUT_DATABASE_URL` (golden plan U8). Dev mode skips the coverage-judge calibration and the R34 run. |
 | Page 4 shows the holdout decision | `publish_summary: true` in the signed policy (decision 3). With `false`, the decision stays in the holdout audit and only `womm evolve show` reads it. |
 

@@ -18,6 +18,15 @@ from .test_replay import CODE, script, worker
 TEMPLATE = yaml.safe_load(dr.REFERENCE_PATH.read_text())
 
 
+def template(tmp_path: Path) -> Path:
+    """The committed reference turned back into an unfilled template."""
+    data = copy.deepcopy(TEMPLATE)
+    data.update(status="template", written_by=None, written_on=None)
+    path = tmp_path / "template.yaml"
+    path.write_text(yaml.safe_dump(data))
+    return path
+
+
 def written(tmp_path: Path, **case_changes) -> Path:
     """The template with every placeholder replaced, as a person would leave it."""
     data = copy.deepcopy(TEMPLATE)
@@ -41,12 +50,33 @@ def written(tmp_path: Path, **case_changes) -> Path:
 # ----------------------------------------------------------------------------- reference answers
 
 
-def test_the_committed_file_is_a_template_and_reports_not_available():
-    ref = dr.load_reference()
-    assert not ref.available and ref.case is None
-    assert "template" in ref.reason and "by hand" in ref.reason
-    assert TEMPLATE["status"] == "template" and TEMPLATE["written_by"] is None
-    assert "TODO" in dr.REFERENCE_PATH.read_text()
+def test_the_committed_reference_is_llm_drafted_and_quotes_the_articles():
+    ref = dr.load_reference()  # the quote check runs: every quote is in the article texts
+    assert ref.available and ref.status == "llm_drafted" and "LLM-drafted" in ref.written_by
+    assert len(ref.case.expected_impacts) == 8 and len(ref.case.important_omissions) == 3
+    assert "TODO" not in dr.REFERENCE_PATH.read_text()
+
+
+def test_a_template_reports_not_available(tmp_path):
+    ref = dr.load_reference(template(tmp_path))
+    assert not ref.available and ref.case is None and "template" in ref.reason
+
+
+def test_a_drafted_reference_cannot_invent_or_omit_its_quotes(tmp_path):
+    data = copy.deepcopy(TEMPLATE)
+    item = data["case"]["expected_impacts"][0]
+    item["ia_section"] = 'Regulation Art 99(3): "fines of up to EUR 99000000"'
+    path = tmp_path / "invented.yaml"
+    path.write_text(yaml.safe_dump(data))
+    with pytest.raises(ValueError, match="not in the provision texts"):
+        dr.load_reference(path)
+    item["ia_section"] = "Regulation Art 99(3), paraphrased"
+    path.write_text(yaml.safe_dump(data))
+    with pytest.raises(ValueError, match="quotes no provision text"):
+        dr.load_reference(path)
+    data["status"] = "written"  # a person's reference is not held to quoting
+    path.write_text(yaml.safe_dump(data))
+    assert dr.load_reference(path).available
 
 
 def test_missing_file_and_leftover_placeholders_are_not_available(tmp_path):
@@ -62,7 +92,7 @@ def test_missing_file_and_leftover_placeholders_are_not_available(tmp_path):
 def test_a_written_reference_is_available_and_validated(tmp_path):
     ref = dr.load_reference(written(tmp_path))
     assert ref.available and ref.case.split == "diff_check"
-    assert ref.case.scenario_id == "demo_penalties_amended" and len(ref.case.expected_impacts) == 3
+    assert ref.case.scenario_id == "demo_penalties_amended" and len(ref.case.expected_impacts) == 8
     with pytest.raises(ValueError, match="not in demo_penalties_amended"):
         bad = written(
             tmp_path,
@@ -134,7 +164,7 @@ def test_regression_is_more_than_one_pooled_sd_below_the_incumbent():
 
 async def test_r37_report_states(db, tmp_path):
     archive = Archive(db)
-    not_available = await dr.r37_report(archive, "a", "b", dr.load_reference())
+    not_available = await dr.r37_report(archive, "a", "b", dr.load_reference(template(tmp_path)))
     assert not_available["status"] == "not_available" and not_available["regression"] is None
     ref = dr.load_reference(written(tmp_path))
     not_run = await dr.r37_report(archive, "sv_a", "sv_b", ref)
@@ -214,5 +244,5 @@ async def test_an_invalid_reference_file_is_recorded_as_an_error_and_never_block
     assert (await dr.r37_record(archive, cand.version_id, inc.version_id, broken))["status"] == (
         "error"
     )
-    ok = await dr.r37_record(archive, cand.version_id, inc.version_id, dr.REFERENCE_PATH)
+    ok = await dr.r37_record(archive, cand.version_id, inc.version_id, template(tmp_path))
     assert ok["status"] == "not_available"

@@ -71,11 +71,15 @@ def test_show_cli_reads_the_sealed_audit(holdout_url, monkeypatch, capsys):
 # ----------------------------------------------------------------------------- CLI
 
 
-def test_diffcheck_reports_not_available_without_touching_the_database(monkeypatch, capsys):
+def test_diffcheck_reports_not_available_without_touching_the_database(
+    monkeypatch, capsys, tmp_path
+):
     def no_db(*_a, **_k):
         raise AssertionError("diffcheck opened the database without reference answers")
 
     monkeypatch.delenv("HOLDOUT_DATABASE_URL", raising=False)
     monkeypatch.setattr(cli, "_evolve_db", no_db)
-    assert cli.main(["evolve", "diffcheck", "sv_x"]) == cli.EXIT_OK
+    template = tmp_path / "template.yaml"
+    template.write_text("status: template\nwritten_by: null\n")
+    assert cli.main(["evolve", "diffcheck", "sv_x", "--reference", str(template)]) == cli.EXIT_OK
     assert "R37 diff check: not_available" in capsys.readouterr().out
