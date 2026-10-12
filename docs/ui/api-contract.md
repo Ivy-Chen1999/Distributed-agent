@@ -90,6 +90,14 @@ because nothing was within its scope; it does not degrade the run on its own. `d
 `error_kind` on a failed run is the failure class (`timeout`, `auth`, `orphaned`, `cancelled`,
 `process_error`, …; `pipeline_failed` when the pipeline failed without a tagged cause).
 
+**Costs.** `dossier.costs` is a `CostSection` (`docs/ui/schema/cost_section.schema.json`) on runs
+of cost-enabled versions (`v1.0-cost`), null or absent otherwise: `records[]` (one per duty or
+prohibition: payer, effort type, one-off and recurring cost bands, dates, the provision it comes
+from), `hotspots[]` (the provisions with the highest cost, ranked), `coverage` (counts of
+estimated, not costed and not estimated records), `late_added` (costs only in the final text),
+`delta_basis` and `notes`. A worked example is `COSTS` in `web/src/screens/Detail.test.tsx`; the
+pipeline shows a cost column and the run detail a Costs tab.
+
 ### `GET /runs/{run_id}/events?after=N&limit=500`
 `{"run_id": "…", "events": [{"seq": 1, "node": "planner", "event": "started"|"finished"|"failed", "payload": {…}, "at": "ISO"}], "next_after": N}`
 Nodes: `planner`, `router`, `expert_<id>`, `validate` (citation check), `synthesis`, `assemble`
