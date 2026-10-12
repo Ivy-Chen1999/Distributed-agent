@@ -263,9 +263,12 @@ def write_sample(
     send_to: str = SEND_TO,
     ia_root: Path | None = None,
     extra: int = 10,
+    companions: list[GoldenDraft] | None = None,
 ) -> dict[str, Any]:
     """Draw ``n`` items per annotator, each annotator their own, plus a reserve of ``extra``
-    each, and write the labeling pages and the private key."""
+    each, and write the labeling pages and the private key. With ``companions`` (RSB companion
+    drafts, plan 2026-10-12-001) the items are drawn from the companions only, and each case is
+    shown with its companion's omissions next to its own; ``drafts`` are then their cases."""
     if n < 3:
         raise ReferenceCheckError("--n must be at least 3")
     if not annotators or len(set(annotators)) != len(annotators):
@@ -275,7 +278,22 @@ def write_sample(
             raise ReferenceCheckError(f"annotator name {name!r}: letters, digits, - and _ only")
     if (out_dir / KEY_FILE).exists():
         raise ReferenceCheckError(f"{out_dir / KEY_FILE} exists; pick a new --out directory")
-    pop = population(drafts)
+    if companions is not None:
+        by_id = {d.case_id: d for d in drafts if d.companion is None}
+        orphans = sorted({c.case_id for c in companions} - set(by_id))
+        if orphans or any(c.companion is None for c in companions):
+            raise ReferenceCheckError(f"companions need their case drafts: {orphans}")
+        pop = population(companions)
+        merged = dict(by_id)
+        for c in companions:
+            case = merged[c.case_id]
+            both = [*case.important_omissions, *c.important_omissions]
+            merged[c.case_id] = case.model_copy(update={"important_omissions": both})
+        drafts = list(merged.values())
+    else:
+        if any(d.companion is not None for d in drafts):
+            raise ReferenceCheckError("companion drafts are checked on their own (companions=)")
+        pop = population(drafts)
     if not pop:
         raise ReferenceCheckError("no tool-decided item in the drafts")
     if extra < 0:

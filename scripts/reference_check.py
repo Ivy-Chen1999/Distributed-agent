@@ -59,6 +59,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
                              "error")  # fmt: skip
     sample.add_argument("--seed", type=int, default=1)
     sample.add_argument(
+        "--companions",
+        action="store_true",
+        help="label every item of the RSB companion drafts given (a census split between the "
+        "annotators; give their case drafts too); without it companions are left out",
+    )
+    sample.add_argument(
         "--send-to",
         default=rc.SEND_TO,
         help='who the annotators send their file to, e.g. "Yuxin on Slack"',
@@ -95,9 +101,23 @@ def main(argv: list[str] | None = None) -> int:
                 draft = load_draft_for_review(path)
                 refuse_holdout_fixture(draft.fixture, "a reference check", args.holdout_registry)
                 drafts.append(draft)
-            out = rc.write_sample(args.out, drafts, n=args.n, seed=args.seed,
-                                  annotators=args.annotators, send_to=args.send_to,
-                                  ia_root=args.ia_root, extra=args.extra)  # fmt: skip
+            companions = [d for d in drafts if d.companion is not None]
+            cases = [d for d in drafts if d.companion is None]
+            if args.companions:
+                # A census: every companion item, split evenly between the annotators.
+                items = len(rc.population(companions))
+                n = max(3, -(-items // len(args.annotators)))
+                out = rc.write_sample(args.out, cases, n=n, seed=args.seed,
+                                      annotators=args.annotators, send_to=args.send_to,
+                                      ia_root=args.ia_root, extra=0,
+                                      companions=companions)  # fmt: skip
+            else:
+                if companions:
+                    print(f"note: {len(companions)} companion draft(s) left out; label them "
+                          "with --companions", file=sys.stderr)  # fmt: skip
+                out = rc.write_sample(args.out, cases, n=args.n, seed=args.seed,
+                                      annotators=args.annotators, send_to=args.send_to,
+                                      ia_root=args.ia_root, extra=args.extra)  # fmt: skip
             print(json.dumps(out, indent=2))
             if out["missing_ia"]:
                 print(f"note: no IA cache for {out['missing_ia']}; those sheets show the quote "

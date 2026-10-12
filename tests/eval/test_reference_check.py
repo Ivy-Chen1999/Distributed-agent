@@ -12,7 +12,7 @@ import pytest
 from womm.config import REPO_ROOT
 from womm.eval import hosted_labels
 from womm.eval import reference_check as rc
-from womm.eval.drafting import GoldenDraft, write_draft
+from womm.eval.drafting import GoldenDraft, load_draft, write_draft
 
 from .draft_factory import decide, draft_dict, seal, to_draft
 from .test_tiebreak import run, verdict
@@ -356,3 +356,64 @@ def test_a_card_for_an_rsb_item_shows_the_opinion_around_its_quote():
     assert with_rsb["passage"]["before"].startswith("The Board notes")
     without = rc.card("x1", it, {draft.case_id: draft}, {draft.fixture: "IA text"}, set())
     assert without["passage"] is None and without["quote"] == "small widget makers are not costed"
+
+
+def _companion_of(case: GoldenDraft, quotes: list[str]) -> GoldenDraft:
+    """A real companion (plan 2026-10-12-001) of ``case`` with judge-accepted RSB omissions."""
+    import asyncio
+
+    from womm.data.fixtures import fixture_dir, load_fixture
+    from womm.eval.drafting import draft_rsb_companion
+    from womm.llm.fake import FakeBackend
+
+    from .test_drafting import config, omission
+    from .test_rsb_companion import OPINION, companion_inputs, script
+
+    fixture = load_fixture(fixture_dir("data_act"))
+    inp = companion_inputs(fixture).model_copy(update={"case_id": case.case_id})
+    fake = FakeBackend(script([omission(q, "rsb") for q in quotes]))
+    assert all(q in OPINION for q in quotes)
+    return asyncio.run(draft_rsb_companion(case, inp, config(), {"fake": fake}))
+
+
+QUOTES = [
+    "the report does not show how the switching deadlines affect small widget resellers",
+    "who would lose their margin on bundled exit services",
+]
+
+
+def test_companions_are_labelled_in_full_and_never_mixed_into_a_sample(tmp_path, capsys):
+    drafts_dir = tmp_path / "drafts"
+    case = tiebroken()
+    case_path = write_draft(case, drafts_dir)
+    comp_path = write_draft(_companion_of(case, QUOTES), drafts_dir)
+    base = ["--annotator", "ana", "--annotator", "bo", "--ia-root", str(tmp_path),
+            "--holdout-registry", str(tmp_path / "x.yaml")]  # fmt: skip
+    # A census: every companion item, once, split between the two; nothing from the case.
+    out = tmp_path / "census"
+    argv = ["sample", str(case_path), str(comp_path), *base, "--out", str(out), "--companions"]
+    assert script.main(argv) == 0
+    key = json.loads((out / rc.KEY_FILE).read_text())
+    comp_ids = sorted(o.omission_id for o in load_draft(comp_path).important_omissions)
+    assert sorted(it["item_id"] for it in key["items"].values()) == comp_ids
+    assert {it["annotator"] for it in key["items"].values()} == {"ana", "bo"}
+    assert not key.get("reserve")
+    # The page shows the case with its companion: the others include the case's kept points.
+    cards = page_data(out / "label_ana.html")["items"]
+    assert cards and any("Actor 1" in o for o in cards[0]["others"])
+    # An ordinary sample leaves companions out and says so.
+    capsys.readouterr()
+    argv = ["sample", str(case_path), str(comp_path), *base, "--out", str(tmp_path / "s"),
+            "--n", "3"]  # fmt: skip
+    assert script.main(argv) == 0
+    assert "1 companion draft(s) left out" in capsys.readouterr().err
+    key = json.loads((tmp_path / "s" / rc.KEY_FILE).read_text())
+    assert not set(comp_ids) & {it["item_id"] for it in key["items"].values()}
+
+
+def test_a_companion_without_its_case_cannot_be_sampled(tmp_path):
+    comp = _companion_of(tiebroken(), QUOTES)
+    with pytest.raises(rc.ReferenceCheckError, match="need their case drafts"):
+        rc.write_sample(tmp_path / "x", [], n=3, seed=1, annotators=["ana"], companions=[comp])
+    with pytest.raises(rc.ReferenceCheckError, match="checked on their own"):
+        rc.write_sample(tmp_path / "y", [tiebroken(), comp], n=3, seed=1, annotators=["ana"])
