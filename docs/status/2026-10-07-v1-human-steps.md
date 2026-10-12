@@ -120,7 +120,10 @@ the reference check passes. Then, on the integration branch:
 for b in $(git branch --list 'review/case-*' --format='%(refname:short)'); do
   git switch $b && git merge --no-edit feat/v1-integration && git switch -
 done
-uv run python scripts/draft_rsb_companion.py evals/golden/drafts/<case>.yaml   # on each branch
+# on each branch: copy the companion drafted on 2026-10-12 (kept in .cache/rsb_companions/),
+# check it, commit it (no new LLM call; same drafts, same result as the status report)
+cp .cache/rsb_companions/<case>.rsb.yaml evals/golden/drafts/
+uv run python scripts/review_draft.py evals/golden/drafts/<case>.rsb.yaml --check
 # the census: every companion point, split between the two classmates
 uv run python scripts/reference_check.py sample evals/golden/drafts/case_*.yaml \
     --annotator samuel --annotator eetu --companions --out .cache/reference_check/companions/
