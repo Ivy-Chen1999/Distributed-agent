@@ -436,12 +436,33 @@ class GoldenDraft(StrictModel):
     expected_impacts: list[DraftImpact]
     important_omissions: list[DraftOmission] = Field(default_factory=list)
     possibly_missing: list[DraftCandidate] = Field(default_factory=list)
+    companion: str | None = Field(
+        default=None,
+        pattern=r"^rsb\d*$",
+        description="Set on a companion draft: RSB omissions of the case, drafted after it "
+        "(plan 2026-10-12-001); the version ('rsb', 'rsb2', ...) seeds its samples.",
+    )
 
     @model_validator(mode="after")
     def _no_links_on_holdout(self) -> GoldenDraft:
         if self.split == "holdout" and self.review_links is not None:
             raise ValueError("a holdout draft never carries review_links (IA identifiers)")
         return self
+
+    @model_validator(mode="after")
+    def _companion_holds_rsb_omissions_only(self) -> GoldenDraft:
+        if self.companion is not None:
+            if self.expected_impacts or self.possibly_missing:
+                raise ValueError("a companion draft holds important omissions only")
+            if any(o.source != "rsb" for o in self.important_omissions):
+                raise ValueError("a companion draft holds RSB-sourced omissions only")
+        return self
+
+    @property
+    def seed_id(self) -> str:
+        """What the audit and tie-break seeds derive from: the case id, or the case id and the
+        companion version, so a companion never shares a sample with its case."""
+        return f"{self.case_id}#{self.companion}" if self.companion else self.case_id
 
     def items(self) -> list[_DraftItem]:
         return [*self.expected_impacts, *self.important_omissions, *self.possibly_missing]
@@ -799,6 +820,71 @@ async def draft_case(
         rows.append(("candidate", _row(f"{p}_m{n:02d}", item, inp, keys, "ia")))
 
     verdicts = await run_judges([r for _, r in rows], inp, provisions, config, backends)
+    return _assemble(inp, config, rows, verdicts)
+
+
+def _already_in_key(draft: GoldenDraft) -> str:
+    """The case's existing points, for the companion drafter: claims only, no decisions."""
+    impacts = [
+        {"affected_actor": i.affected_actor, "mechanism": i.mechanism, "impact": i.impact}
+        for i in draft.expected_impacts
+    ]
+    omissions = [o.description for o in draft.important_omissions]
+    return _dump({"expected_impacts": impacts, "important_omissions": omissions})
+
+
+def _last_omission_number(draft: GoldenDraft) -> int:
+    numbers = [int(o.omission_id.rsplit("_o", 1)[1]) for o in draft.important_omissions]
+    return max(numbers, default=0)
+
+
+async def draft_rsb_companion(
+    case: GoldenDraft,
+    inp: DraftInputs,
+    config: DraftingConfig,
+    backends: dict[str, LLMBackend],
+    version: str = "rsb",
+) -> GoldenDraft:
+    """The RSB omissions of ``case`` as a companion draft (plan 2026-10-12-001): the same
+    drafter prompt, with ``inp.rsb_text`` holding the RSB opinion alone and the case's existing
+    points listed as already in the key; only ``source: rsb`` omissions are kept, numbered after
+    the case's last omission, then judged by the same three judges. ``case`` is not changed."""
+    if case.companion is not None:
+        raise DraftingError(f"{case.case_id}: a companion is drafted from its case draft")
+    if not inp.rsb_text.strip():
+        raise DraftingError(f"{case.case_id}: no RSB opinion text; nothing to draft from")
+    if inp.case_id != case.case_id:
+        raise DraftingError(f"inputs are for {inp.case_id}, not {case.case_id}")
+    provisions = _provisions_block(inp.fixture, inp.scenario)
+    keys = set(inp.scenario.provision_keys)
+    message = (
+        _drafter_input(inp, provisions)
+        + "\n## Already in the key (these points are covered: do not repeat them; draft only "
+        "important omissions from the RSB text above, with source: rsb)\n\n"
+        + _already_in_key(case)
+        + "\n"
+    )
+    draft: DraftOutput = await _call(backends, config, "drafter", message, DraftOutput)
+    p = case_prefix(inp.case_id)
+    start = _last_omission_number(case) + 1
+    picked = [o for o in draft.important_omissions if o.source == "rsb"]
+    rows = [
+        ("omission", _row(f"{p}_o{n:02d}", item, inp, keys, "rsb"))
+        for n, item in enumerate(picked, start)
+    ]
+    verdicts = await run_judges([r for _, r in rows], inp, provisions, config, backends)
+    return _assemble(inp, config, rows, verdicts, companion=version)
+
+
+def _assemble(
+    inp: DraftInputs,
+    config: DraftingConfig,
+    rows: list[tuple[str, dict]],
+    verdicts: dict[str, dict[str, DimensionVerdict]],
+    companion: str | None = None,
+) -> GoldenDraft:
+    """The draft from judged rows: auto-acceptance, the seeded audit sample, provenance and
+    stats. A companion's seed derives from the case id and its version."""
     drafting_model = config.roles.drafter.model
     recall_model = config.roles.recall.model
     for _, r in rows:
@@ -808,7 +894,8 @@ async def draft_case(
         r["review"] = Review(decision="auto_accepted" if accepted else "pending").model_dump()
 
     test_seed = inp.test_audit_seed is not None
-    seed = inp.test_audit_seed if test_seed else audit_seed_for(inp.case_id)
+    seed_id = f"{inp.case_id}#{companion}" if companion else inp.case_id
+    seed = inp.test_audit_seed if test_seed else audit_seed_for(seed_id)
     eligible = [
         r["id"]
         for kind, r in rows
@@ -897,6 +984,7 @@ async def draft_case(
         expected_impacts=impacts,
         important_omissions=omissions,
         possibly_missing=candidates,
+        companion=companion,
     )
 
 
@@ -926,10 +1014,14 @@ DRAFT_HEADER = (
 )
 
 
-def draft_path(case_id: str, split: Split, out_dir: Path | None = None) -> Path:
-    """Where a draft goes; a holdout draft anywhere but under .cache/ is refused."""
+def draft_path(
+    case_id: str, split: Split, out_dir: Path | None = None, companion: str | None = None
+) -> Path:
+    """Where a draft goes (a companion next to its case as ``<case>.<version>.yaml``); a
+    holdout draft anywhere but under .cache/ is refused."""
     directory = out_dir or (HOLDOUT_DRAFTS_DIR if split == "holdout" else DRAFTS_DIR)
-    path = (directory / f"{case_id}.yaml").resolve()
+    name = f"{case_id}.{companion}.yaml" if companion else f"{case_id}.yaml"
+    path = (directory / name).resolve()
     if split == "holdout":
         if path.is_relative_to(EVALS_DIR.resolve()):
             raise DraftingError(
@@ -956,11 +1048,13 @@ def _reviewer_order(item: dict) -> dict:
 
 
 def write_draft(draft: GoldenDraft, out_dir: Path | None = None) -> Path:
-    path = draft_path(draft.case_id, draft.split, out_dir)
+    path = draft_path(draft.case_id, draft.split, out_dir, draft.companion)
     path.parent.mkdir(parents=True, exist_ok=True)
     data = draft.model_dump(mode="json")
     if data["review_links"] is None:
         del data["review_links"]
+    if data["companion"] is None:
+        del data["companion"]  # a case draft's bytes stay as they were before companions
     if data["provenance"]["tiebreak_audit"] is None:
         del data["provenance"]["tiebreak_audit"]
     for section in ("expected_impacts", "important_omissions", "possibly_missing"):

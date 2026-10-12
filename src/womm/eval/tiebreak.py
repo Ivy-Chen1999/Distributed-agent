@@ -106,8 +106,10 @@ def tiebreak_input(
     ia_text: str,
     chars: int,
     scenario: Scenario | None = None,
+    rsb_text: str = "",
 ) -> str:
-    """``scenario`` defaults to the draft's public one (train/val)."""
+    """``scenario`` defaults to the draft's public one (train/val). An item anchored on the RSB
+    text gets its context from ``rsb_text`` (the opinion and annex), when given."""
     scenario = scenario or fixture.scenario(draft.scenario_id)
     kept = [
         {"item_id": i.item_id} | _claim(i)
@@ -117,9 +119,8 @@ def tiebreak_input(
     ]
     payload = []
     for item in items:
-        context = (
-            anchor_context(item.ia_anchor, ia_text, chars) if item.anchor.against == "ia" else None
-        )
+        text = ia_text if item.anchor.against == "ia" else rsb_text
+        context = anchor_context(item.ia_anchor, text, chars) if text else None
         payload.append(
             {
                 "item_id": item.item_id,
@@ -224,7 +225,7 @@ def apply_rulings(
     kept = sorted(
         i.item_id for s in sections.values() for i in s if i.review.decision == "llm_kept"
     )
-    seed = tiebreak_audit_seed_for(draft.case_id)
+    seed = tiebreak_audit_seed_for(draft.seed_id)
     sampled = draw_audit(kept, AUDIT_RATE, seed)
     for name, items in sections.items():
         sections[name] = [_audit(i, i.item_id in sampled) for i in items]
@@ -249,10 +250,11 @@ async def tiebreak_draft(
     config: DraftingConfig,
     backends: dict[str, LLMBackend],
     scenario: Scenario | None = None,
+    rsb_text: str = "",
 ) -> GoldenDraft:
     """Rule on every open item of a draft (one LLM call) and apply the rulings. A holdout draft
     needs ``scenario``, its local holdout scenario (it is not in the public fixture); the caller
-    keeps tracing disabled."""
+    keeps tracing disabled. ``rsb_text`` gives RSB-anchored items their context."""
     if draft.split == "holdout" and scenario is None:
         raise DraftingError(
             f"{draft.case_id}: a holdout draft needs its local holdout scenario for a tie-break"
@@ -279,7 +281,8 @@ async def tiebreak_draft(
             )
     asked = [i for i in open_items if i.item_id not in rulings]
     if asked:
-        user = tiebreak_input(draft, asked, fixture, ia_text, config.context_chars, scenario)
+        user = tiebreak_input(draft, asked, fixture, ia_text, config.context_chars, scenario,
+                              rsb_text)  # fmt: skip
         backend = backends[role.backend]
         out, _ = await backend.call(ROLE, config.prompts[role.prompt], user, TiebreakOutput, role)
         got = {v.item_id: v for v in out.verdicts}

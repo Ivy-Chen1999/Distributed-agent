@@ -41,7 +41,7 @@ import asyncio
 import datetime as dt
 import os
 import sys
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 import yaml
@@ -121,8 +121,11 @@ def publish_one(
     registry: Path = HOLDOUT_REGISTRY,
     ia_root: Path | None = None,
     feedback_rows: Mapping[str, Mapping[str, object]] | None = None,
+    companions: Sequence[tuple[Path, GoldenDraft]] = (),
 ) -> Path:
     """Write one case; raises ReviewError (or GoldenError) with the reasons when refused.
+    ``companions`` (the case's RSB companion drafts) are checked like the draft, merged into
+    the case and removed with it.
 
     ``feedback_rows`` are the ``analyst_feedback`` rows of the kept analyst candidates; None
     means no database here (the cross-check is noted, not run)."""
@@ -135,6 +138,8 @@ def publish_one(
     escalated = draft.fixture in escalated_fixtures(all_drafts, tally)
     ia_text = _cached_ia_text(draft.fixture, ia_root)
     problems = check_draft(draft, scenario_keys_for(draft), escalated=escalated, ia_text=ia_text)
+    for _, companion in companions:
+        problems.extend(check_draft(companion, scenario_keys_for(companion), escalated=escalated))
     if feedback_rows is not None:
         problems.extend(analyst_feedback_problems(draft, feedback_rows))
     notes = unchecked_human_anchors(draft, ia_text)
@@ -145,7 +150,8 @@ def publish_one(
     if problems:
         raise ReviewError("not fully decided:\n  " + "\n  ".join(problems))
     audit = fixture_audit(draft.fixture, all_drafts, tally)
-    case = build_case(draft, published_on=today, audit=audit)
+    case = build_case(draft, published_on=today, audit=audit,
+                      companions=[c for _, c in companions])  # fmt: skip
     check_against_fixture(case)
     target = golden_dir / f"{case.case_id}.yaml"
     if target.exists():
@@ -157,6 +163,8 @@ def publish_one(
     golden_dir.mkdir(parents=True, exist_ok=True)
     target.write_text(case_yaml_header(_display(source)) + body, encoding="utf-8")
     source.unlink()
+    for path, _ in companions:
+        path.unlink()
     return target
 
 
@@ -193,7 +201,17 @@ def main(argv: list[str] | None = None) -> int:
             if not args.case or path.stem in args.case:
                 info(f"refused {_display(path)}: invalid draft: {exc}")
                 refused += 1
-    selected = [(p, d) for p, d in loaded if not args.case or d.case_id in args.case]
+    # RSB companion drafts are published with their case, never on their own.
+    companions: dict[str, list[tuple[Path, GoldenDraft]]] = {}
+    for path, draft in loaded:
+        if draft.companion is not None:
+            companions.setdefault(draft.case_id, []).append((path, draft))
+    cases = {d.case_id for _, d in loaded if d.companion is None}
+    for case_id in sorted(set(companions) - cases):
+        info(f"refused companion of {case_id}: no case draft in {_display(args.drafts_dir)}")
+        refused += 1
+    selected = [(p, d) for p, d in loaded
+                if d.companion is None and (not args.case or d.case_id in args.case)]  # fmt: skip
     missing = sorted(set(args.case or []) - {d.case_id for _, d in loaded})
     for case_id in missing:
         info(f"refused {case_id}: no draft in {_display(args.drafts_dir)}")
@@ -225,14 +243,15 @@ def main(argv: list[str] | None = None) -> int:
                 draft, path, all_drafts=all_drafts, golden_dir=args.golden_dir,
                 today=today, dry_run=args.dry_run, tally=before,
                 registry=args.holdout_registry, ia_root=args.ia_root,
-                feedback_rows=feedback_rows,
+                feedback_rows=feedback_rows, companions=companions.get(draft.case_id, []),
             )  # fmt: skip
         except (ReviewError, GoldenError) as exc:
             info(f"refused {draft.case_id}: {exc}")
             refused += 1
             continue
         if not args.dry_run:
-            tally[draft.fixture] = tally.get(draft.fixture, _ZERO) + audit_result([draft])
+            published = [draft, *(c for _, c in companions.get(draft.case_id, []))]
+            tally[draft.fixture] = tally.get(draft.fixture, _ZERO) + audit_result(published)
             try:
                 write_audit_tally(tally, args.tally, holdout=holdout)
             except TallyError as exc:

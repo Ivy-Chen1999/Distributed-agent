@@ -338,3 +338,48 @@ def test_an_unreachable_database_refuses_analyst_candidates(tmp_path, capsys, mo
     assert _run(tmp_path, "--ia-root", str(tmp_path / "no-ia"), "--database-url", "pg://x") == 2
     assert "connection refused" in capsys.readouterr().err
     assert (tmp_path / "drafts" / f"{CASE}.yaml").exists()
+
+
+def _companion_for(case_data: dict):
+    """An RSB companion of the case, drafted by the real companion code with a fake LLM."""
+    import asyncio
+
+    from womm.data.fixtures import fixture_dir, load_fixture
+    from womm.eval.drafting import draft_rsb_companion
+    from womm.llm.fake import FakeBackend
+
+    from .eval.draft_factory import to_draft
+    from .eval.test_drafting import config
+    from .eval.test_rsb_companion import Q1, companion_inputs, omission, script
+
+    fixture = load_fixture(fixture_dir("data_act"))
+    fake = FakeBackend(script([omission(Q1, "rsb")]))
+    return asyncio.run(draft_rsb_companion(to_draft(case_data), companion_inputs(fixture),
+                                           config(), {"fake": fake}))  # fmt: skip
+
+
+def test_a_companion_is_published_with_its_case_and_removed(tmp_path, capsys):
+    from womm.eval.drafting import write_draft
+
+    data = fully_decided()
+    draft = tmp_path / "drafts" / f"{CASE}.yaml"
+    write(draft, data)
+    companion = write_draft(_companion_for(data), tmp_path / "drafts")
+    assert companion.name == f"{CASE}.rsb.yaml"
+    assert _run(tmp_path) == 0
+    assert f"published {CASE}" in capsys.readouterr().out
+    assert not draft.exists() and not companion.exists()
+    case = load_golden(tmp_path / "golden" / f"{CASE}.yaml")
+    sources = [o.source for o in case.important_omissions]
+    assert any(s.startswith("RSB opinion (companion), ") for s in sources)
+    assert any(s.startswith("Impact assessment, ") for s in sources)
+    assert [c.case_id for c in load_all_golden(tmp_path / "golden")] == [CASE]
+
+
+def test_a_companion_without_its_case_is_refused(tmp_path, capsys):
+    from womm.eval.drafting import write_draft
+
+    companion = write_draft(_companion_for(fully_decided()), tmp_path / "drafts")
+    assert _run(tmp_path) == 2
+    assert f"refused companion of {CASE}: no case draft" in capsys.readouterr().err
+    assert companion.exists() and not (tmp_path / "golden" / f"{CASE}.yaml").exists()

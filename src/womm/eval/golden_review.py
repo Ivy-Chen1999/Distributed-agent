@@ -35,7 +35,7 @@ from __future__ import annotations
 
 import datetime as dt
 import re
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -292,7 +292,7 @@ def integrity_problems(draft: GoldenDraft) -> list[str]:
         problems.append(f"{cid}: drafted with a test-only audit seed; not publishable, re-draft")
     if audit.rate != AUDIT_RATE:
         problems.append(f"{cid}: audit rate {audit.rate} is not the pinned {AUDIT_RATE}")
-    seed = audit_seed_for(cid)
+    seed = audit_seed_for(draft.seed_id)
     if audit.seed != seed and not audit.non_publishable_test_seed:
         problems.append(f"{cid}: audit seed is not the one derived from the case id")
     if audit.eligible != len(audit.eligible_ids):
@@ -519,7 +519,7 @@ def tiebreak_problems(draft: GoldenDraft) -> list[str]:
             )
     if tb is None:
         return problems
-    seed = tiebreak_audit_seed_for(cid)
+    seed = tiebreak_audit_seed_for(draft.seed_id)
     kept = sorted(i.item_id for i in ruled if i.tiebreak.verdict == "keep")
     if tb.rate != AUDIT_RATE or tb.seed != seed:
         problems.append(f"{cid}: tie-break audit rate or seed is not the pinned one")
@@ -621,7 +621,7 @@ def check_draft(
                     problems.append(
                         f"{where}: provision_keys {unknown} are not in scenario {draft.scenario_id}"
                     )
-    if not allow_pending and not problems:
+    if not allow_pending and not problems and draft.companion is None:  # companions: omissions
         kept = len(kept_impacts(draft))
         if kept < MIN_KEPT_IMPACTS:
             problems.append(
@@ -692,10 +692,14 @@ def build_case(
     published_on: dt.date,
     audit: AuditResult,
     action: str = "published",
+    companions: Sequence[GoldenDraft] = (),
 ) -> GoldenCase:
     """The published case: kept items only, edits as written, review record in ``notes``.
+    ``companions`` (RSB omissions drafted after the case, plan 2026-10-12-001) add their kept
+    omissions, marked as companion items in ``source``.
 
-    The caller has already run ``check_draft`` strictly; this refuses too few kept impacts."""
+    The caller has already run ``check_draft`` strictly on the draft and every companion; this
+    refuses too few kept impacts, and a companion of another case."""
     impacts = [
         ExpectedImpact(
             expected_id=i.item_id,
@@ -715,19 +719,27 @@ def build_case(
             f"{draft.case_id}: only {len(impacts)} expected impacts kept "
             f"(minimum {MIN_KEPT_IMPACTS}); not published"
         )
+    for c in companions:
+        if c.case_id != draft.case_id or c.companion is None:
+            raise ReviewError(f"{c.case_id}: not a companion of {draft.case_id}")
+    sources = [(draft, "")] + [(c, " (companion)") for c in companions]
     omissions = [
         Omission(
             omission_id=o.omission_id,
             description=o.description,
             provision_keys=list(o.provision_keys),
             source=("RSB opinion" if o.source == "rsb" else "Impact assessment")
-            + f", {o.ia_section}",
+            + f"{mark}, {o.ia_section}",
             category=o.category,
             provenance=_provenance(o),  # type: ignore[arg-type]
         )
-        for o in draft.important_omissions
+        for d, mark in sources
+        for o in d.important_omissions
         if o.review.decision in KEPT_DECISIONS
     ]
+    ids = [o.omission_id for o in omissions]
+    if len(set(ids)) != len(ids):
+        raise ReviewError(f"{draft.case_id}: a companion repeats an omission id of its case")
     notes = " ".join(
         n for n in (draft.notes.strip(), review_notes(draft, published_on, audit, action)) if n
     )
