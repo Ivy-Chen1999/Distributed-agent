@@ -231,10 +231,13 @@ def render_page(
     return _page(meta | {"items": cards}, annotator, send_to)
 
 
-def render_hosted_page(sample: str, *, api: str, kind: str = KIND) -> str:
+def render_hosted_page(sample: str, *, api: str, kind: str = KIND, title: str | None = None) -> str:
     """The page as the server hosts it (``womm.api.labels``) for either task: the annotator
-    signs in with their name, the cards come from ``api`` and each answer is saved there."""
+    signs in with their name, the cards come from ``api`` and each answer is saved there.
+    ``title`` replaces the task's own title (the local holdout review)."""
     data = {"kind": kind, "annotator": "", "sample": sample, "api": api, "items": []}
+    if title:
+        data["title"] = title
     return _page(data, "", SEND_TO)
 
 
