@@ -24,7 +24,11 @@ from ..eval.test_holdout import CLEAN, _sealed
 from ..eval.test_holdout_resume import ProgressStore
 from ..graph.conftest import fake_sv
 
-POLICY = yaml.safe_load((REPO_ROOT / "evals" / "promotion_policy.yaml").read_text())
+# The committed policy's values, unsigned: each test signs (SIGNED) where it needs to.
+POLICY = yaml.safe_load((REPO_ROOT / "evals" / "promotion_policy.yaml").read_text()) | {
+    "signed_by": None,
+    "signed_on": None,
+}
 
 
 def policy(**changes) -> pm.PromotionPolicy:
@@ -90,9 +94,9 @@ def decide(c, mode="statistical", deployable=True, **kw):
 # ----------------------------------------------------------------------------- policy
 
 
-def test_the_committed_policy_holds_the_plan_defaults_and_is_unsigned():
+def test_the_committed_policy_holds_the_plan_defaults_and_is_signed():
     p, sha = pm.load_policy()
-    assert p.primary_metric == "coverage" and not p.signed
+    assert p.primary_metric == "coverage" and p.signed  # pre-registered 2026-10-12
     assert p.guards["grounding"].max_drop == 0.02
     assert p.guards["omissions_addressed"].max_drop_noise_sd == 1.0
     assert (p.holdout_budget.per_cycle, p.holdout_budget.total) == (1, 6)

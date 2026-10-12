@@ -1,7 +1,5 @@
 """`womm policy sign`: the owner signs the pre-registered promotion policy with one command."""
 
-import shutil
-
 import yaml
 
 from womm import cli
@@ -9,10 +7,15 @@ from womm.evolve import promotion as pm
 
 
 def _policy(tmp_path):
+    """The committed policy with its signature lines reset, as it was before signing."""
     path = tmp_path / "promotion_policy.yaml"
-    shutil.copy(pm.POLICY_PATH, path)
-    data = yaml.safe_load(path.read_text())
-    assert data["signed_by"] is None, "the committed policy is expected unsigned"
+    text = pm.POLICY_PATH.read_text()
+    data = yaml.safe_load(text)
+    if data["signed_by"] is not None:
+        text = text.replace(f'signed_by: "{data["signed_by"]}"', "signed_by: null")
+        text = text.replace(f'signed_on: "{data["signed_on"]}"', "signed_on: null")
+    path.write_text(text)
+    assert yaml.safe_load(path.read_text())["signed_by"] is None
     return path
 
 
