@@ -144,15 +144,19 @@ ROBUST reference check (step 3): the same tool chain then settles the holdout dr
 owner only checks 3 items a draft (one per kind of decision), about 24 in all.
 
 ```
-uv run python scripts/tiebreak_golden_case.py .cache/drafts/<case>.yaml
-uv run python scripts/verify_golden_case.py --draft .cache/drafts/<case>.yaml \
-    --spot-check --reference-check .cache/reference_check/round1/
+uv run python scripts/tiebreak_golden_case.py .cache/drafts/<case>.yaml      # each draft
+uv run python scripts/holdout_review.py --reference-check .cache/reference_check/round1/ \
+    --reviewer "Chen Yuxin"     # opens a local page with every draft's 3 items, blind
 HOLDOUT_DATABASE_URL=... uv run python scripts/import_holdout_case.py .cache/holdout_import/<case>.yaml
 ```
 
+The page runs on this machine only (127.0.0.1), never on Railway. The browser's translate button
+works on it; it sends the page text to the translation service, so use it only if that is
+acceptable for the holdout.
+
 Any disagreement with the tool on a draft refuses the spot check (the same rule as the
 reference check's early stop; the holdout is newer material than train/val); then run
-`verify_golden_case.py` without `--spot-check` for that draft. Done: `.cache/drafts/` is empty
+`holdout_review.py ... --full <case_id>` for that draft (every item, same page). Done: `.cache/drafts/` is empty
 and the holdout store reports 8 cases from 8 proposals.
 
 ## 6. Sign the promotion policy (owner)
