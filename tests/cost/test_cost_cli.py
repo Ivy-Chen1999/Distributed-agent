@@ -89,7 +89,12 @@ def _verified_reference(tmp_path):
 def test_cost_check_refuses_the_unverified_reference(cost_version, tmp_path, capsys,
                                                      fake_backends):  # fmt: skip
     directory = _sweep(cost_version, tmp_path, capsys)
-    code = cli.main(["cost", "check", "--sweep", directory, "--runs-dir", str(tmp_path)])
+    ref = _verified_reference(tmp_path)
+    data = yaml.safe_load(ref.read_text(encoding="utf-8"))
+    data.update(status="unverified", verified_by=None, verified_on=None)
+    ref.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+    code = cli.main(["cost", "check", "--sweep", directory, "--reference", str(ref),
+                     "--runs-dir", str(tmp_path)])  # fmt: skip
     assert code == cli.EXIT_USAGE
     assert "unverified" in capsys.readouterr().err
 

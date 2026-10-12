@@ -9,9 +9,9 @@ proposal_version: com2021_206
 # --write sets status: verified, verified_by and verified_on when every item is OK and
 # --fte-basis names the EU-level FTE figure used. The loader refuses an unverified file, so no
 # scored check runs before that.
-status: unverified
-verified_by: null
-verified_on: null
+status: verified
+verified_by: scripts/check_ia_cost_reference.py (machine check), run by Chen Yuxin
+verified_on: "2026-10-12"
 notes: >-
   Hand-written paraphrase of the IA with its figures, transcribed from the cached IA text on
   2026-10-07; no IA text is copied verbatim beyond the short ia_anchors phrases that
@@ -192,7 +192,7 @@ items:
       - "assisted by secretarial support at EU level"
       - "Establish competent authorities"
     fte_options: {section_6_2: 10, annex3_table5: 5}
-    fte_basis: null
+    fte_basis: section_6_2
   - item_id: ia11_aggregate
     label: Total compliance costs per application after the business-as-usual factor
     ia_section: Part 1 §6.1.3; Part 2 Annex 3 Table 5

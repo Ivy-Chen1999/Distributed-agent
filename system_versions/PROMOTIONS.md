@@ -51,3 +51,15 @@ api backend, router in shadow (or off) mode, at least 6 runs per case. Pre-regis
 scoped coverage is more than one noise band below unscoped, revise the default scopes before
 v1.0-scoped is used further; otherwise keep the scopes. Golden-case results measure preset-mode
 scoping only. The single-agent arm (`v1.0-single`) is deferred until 15–30 golden cases exist.
+
+## 2026-10-12 candidates: cost analysis (not promoted)
+
+Cost-analysis candidates of the EU cost plan. Neither replaces the incumbent or takes part in the
+self-evolution promotion gate; they are scored by `womm cost check` against the verified IA cost
+reference (`evals/cost_reference/ai_act_swd2021_84.yaml`, checked 11 of 11 on 2026-10-12, EU-level
+FTE basis §6.2).
+
+| File | Version id | Purpose |
+|---|---|---|
+| `v1.0-cost.yaml` | `sv_1f12d8afd1e7` | `v1.0-unscoped` plus the cost step (cost records per duty in a separate dossier section); development runs on claude_code, dev-only. |
+| `v1.0-cost-api.yaml` | `sv_dbb2adb836b7` | api twin of `v1.0-cost.yaml`, for the formal cost check once an API key exists. |

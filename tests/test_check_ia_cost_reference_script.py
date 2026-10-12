@@ -216,7 +216,7 @@ def test_an_unreadable_reference_is_bad_input(tmp_path, ia_root):
 
 def test_the_committed_reference_parses_and_names_anchors_for_every_item():
     ref, _ = check.load(check.REFERENCE_PATH)
-    assert ref.status == "unverified"
+    assert ref.status == "verified"  # checked 2026-10-12, 11 of 11
     assert all(i.ia_anchors for i in ref.items)
     eu = [i for i in ref.items if i.fte_options]
     assert len(eu) == 1 and eu[0].fte_options == {"section_6_2": 10, "annex3_table5": 5}

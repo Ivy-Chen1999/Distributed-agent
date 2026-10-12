@@ -77,9 +77,18 @@ def _matching_all(ref):
     return out
 
 
-def test_the_committed_reference_is_unverified_and_refused(corpus):
+def test_an_unverified_reference_is_refused(corpus, tmp_path):
+    data = yaml.safe_load(REFERENCE_PATH.read_text(encoding="utf-8"))
+    data.update(status="unverified", verified_by=None, verified_on=None)
+    path = tmp_path / "ref.yaml"
+    path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
     with pytest.raises(CostReferenceError, match="unverified"):
-        load_reference(REFERENCE_PATH, corpus)
+        load_reference(path, corpus)
+
+
+def test_the_committed_reference_is_verified(corpus):
+    ref = load_reference(REFERENCE_PATH, corpus)  # checked 2026-10-12, 11 of 11
+    assert ref.status == "verified"
 
 
 def test_the_committed_reference_loads_when_verified(ref):
