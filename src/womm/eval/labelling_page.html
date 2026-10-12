@@ -303,11 +303,9 @@ body[data-kind="reference_check"] [data-kind="calibration"] { display: none !imp
     <span class="eyebrow">About <span id="nMinutes">15</span> minutes · no legal knowledge needed</span>
     <div class="kind-body" data-kind="reference_check">
     <h2>Help us check an AI-written answer key</h2>
-    <p class="lead">When the EU proposes a law, it publishes an official report, the <b>impact
-      assessment</b>, on <b>who the law affects and how</b>: companies, authorities, consumers,
-      and what it costs or saves them. We are building an AI that produces that kind of list for
-      a new law. To grade it we need an <b>answer key</b>, and another AI wrote that key from the
-      official reports. Before we grade anything with it, a person checks a sample. That is you.</p>
+    <p class="lead">Our AI lists <b>who a new EU law affects and how</b>. We grade it against an
+      <b>answer key</b> that another AI wrote from the EU's official reports. Please check whether
+      that key is right.</p>
     <h3>Why a person has to look</h3>
     <ul class="reasons">
       <li><b>Every grade depends on the key.</b> A wrong key rewards our AI for copying its
@@ -356,10 +354,9 @@ body[data-kind="reference_check"] [data-kind="calibration"] { display: none !imp
     </div>
     <div class="kind-body" data-kind="calibration">
     <h2>Help us check how our AI is graded</h2>
-    <p class="lead">Our AI reads a new EU law and writes a report on <b>who it affects and how</b>.
-      To grade it, a <b>grader AI</b> compares that report with the effects named in the EU's own
-      official report on the law (the impact assessment) and decides, for each effect, whether our
-      AI found it. Before we trust those grades, people check the grader on a sample. That is you.</p>
+    <p class="lead">Our AI writes a report on <b>who a new EU law affects and how</b>. A
+      <b>grader AI</b> checks whether that report covers the effects the EU itself lists. Please
+      check whether the grader judges the way a person would.</p>
     <h3>Why a person has to look</h3>
     <ul class="reasons">
       <li><b>Every score comes from the grader.</b> If it is too generous or too strict, we measure
@@ -408,7 +405,7 @@ body[data-kind="reference_check"] [data-kind="calibration"] { display: none !imp
       download or send. You can stop and come back with the same link.</p>
     <div class="signin" id="signinBox" hidden>
       <label for="name">Your name
-        <input id="name" autocomplete="username" autocapitalize="off" spellcheck="false" placeholder="e.g. Samuel"></label>
+        <input id="name" autocomplete="username" autocapitalize="off" spellcheck="false"></label>
       <button class="primary" id="signin">Start</button>
     </div>
     <p class="err" id="signinErr"></p>
