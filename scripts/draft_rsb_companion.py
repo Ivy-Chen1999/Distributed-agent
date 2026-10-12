@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import importlib.util
+import re
 import sys
 from pathlib import Path
 
@@ -89,6 +90,8 @@ def companion_inputs(case, ia_root: Path | None, ia_index: Path) -> tuple[DraftI
 
 
 async def run(args: argparse.Namespace, backends=None) -> list[Path]:
+    if not re.fullmatch(r"rsb\d*", args.version):
+        raise DraftingError(f"--version {args.version!r}: use rsb, rsb2, rsb3, ...")
     config = load_drafting_config(args.config) if args.config else load_drafting_config()
     written = []
     for path in args.drafts:

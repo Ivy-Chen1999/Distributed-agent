@@ -109,10 +109,12 @@ async def run(args: argparse.Namespace) -> int:
             # Holdout material never reaches LangSmith.
             with tracing_context(enabled=False):
                 ruled = await tiebreak_draft(
-                    draft, fixture, cached.full_text, config, backends, scenario
-                )
+                    draft, fixture, cached.full_text, config, backends, scenario,
+                    rsb_text=cached.rsb_text,
+                )  # fmt: skip
         else:
-            ruled = await tiebreak_draft(draft, fixture, cached.full_text, config, backends)
+            ruled = await tiebreak_draft(draft, fixture, cached.full_text, config, backends,
+                                         rsb_text=cached.rsb_text)  # fmt: skip
         write_draft(ruled, path.parent)
         s = ruled.stats
         people = [i.item_id for i in ruled.items() if human_reasons(i)]

@@ -85,3 +85,13 @@ def test_a_case_without_its_opinion_is_refused_with_the_reason(tmp_path, monkeyp
     _, args = _args(tmp_path, root)
     with pytest.raises(DraftingError, match="no RSB opinion for data_act"):
         asyncio.run(script.run(args, backends=_backends()))
+
+
+def test_a_bad_version_is_refused_before_any_llm_call(tmp_path, monkeypatch):
+    monkeypatch.setattr(script, "load_drafting_config", lambda *_a, **_k: config())
+    root = _ia(tmp_path)
+    _, args = _args(tmp_path, root, "--version", "v2")
+    backends = _backends()
+    with pytest.raises(DraftingError, match="use rsb, rsb2"):
+        asyncio.run(script.run(args, backends=backends))
+    assert backends["fake"].calls == []

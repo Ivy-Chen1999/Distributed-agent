@@ -212,3 +212,8 @@ def test_apply_refuses_the_analyst_as_reviewer(staged, tmp_path):
     text = staged.read_text()
     code, _ = _run(staged.parent, "--apply", str(decisions))
     assert code == 2 and staged.read_text() == text
+
+
+def test_a_case_id_finds_the_case_not_its_rsb_companion(drafts):
+    (drafts / "case_90_widget_switching.rsb.yaml").write_text("companion: rsb\n")
+    assert review.resolve_draft("case_90", drafts).name == "case_90_widget_switching.yaml"

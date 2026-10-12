@@ -444,7 +444,7 @@ def pdf_text(body: bytes) -> str:
         reader = pypdf.PdfReader(io.BytesIO(body))
         pages = reader.pages[:MAX_PDF_PAGES]
         text = "\n".join(page.extract_text() or "" for page in pages)
-    except pypdf.errors.PdfReadError as exc:
+    except (pypdf.errors.PyPdfError, ValueError) as exc:  # incl. encrypted, needing extras
         raise IaSourceError(f"unreadable PDF: {exc}") from None
     return re.sub(r"[ \t]+\n", "\n", text).strip()
 
@@ -489,15 +489,24 @@ def fetch_rsb_opinion(rsb_ref: str | None, cache_dir: Path, **kwargs) -> RsbOpin
         return RsbOpinion(f"{OPINION_NONE} (lookup failed: {exc})")
     if not works:
         return RsbOpinion(OPINION_NONE)
+    failures: list[str] = []
     for work in works:
         try:
             body = _pdf_body(work, raw, **kwargs)
+        except (CellarError, httpx.HTTPError) as exc:
+            failures.append(f"download failed: {exc}")
+            continue
+        try:
             text = pdf_text(body)
-        except (CellarError, httpx.HTTPError, IaSourceError):
+        except IaSourceError as exc:
+            failures.append(str(exc))
             continue
         if text:
             return RsbOpinion(OPINION_FOUND + " (pi_com PDF)", text, work, sha256(body))
-    return RsbOpinion(OPINION_UNREADABLE + f" ({len(works)} work(s), no text layer)")
+        failures.append("no text layer")
+    if all(f.startswith("download failed") for f in failures):
+        return RsbOpinion(f"{OPINION_NONE} ({len(works)} work(s); {failures[-1]})")
+    return RsbOpinion(OPINION_UNREADABLE + f" ({len(works)} work(s): {'; '.join(failures)})")
 
 
 def fetch_rsb(rsb_ref: str | None, cache_dir: Path, **kwargs) -> tuple[str, str | None]:
@@ -600,19 +609,20 @@ def refresh_rsb(
     meta = json.loads(manifest_path.read_text(encoding="utf-8"))
     annex_path = directory / "rsb.txt"
     annex = annex_path.read_text(encoding="utf-8") if annex_path.exists() else ""
-    if (
-        annex
-        and ANNEX_NOTE not in meta.get("rsb_status", "")
-        and "annex kept" not in meta.get("rsb_status", "")
-    ):
-        annex = ""  # an earlier rsb.txt that held an opinion, not the annex
+    status = meta.get("rsb_status", "")
+    if annex and ANNEX_NOTE not in status and "annex kept" not in status:
+        # A cache from before opinions and annex were kept apart: rsb.txt held the opinion.
+        annex_path.write_text("", encoding="utf-8")
+        annex = ""
     kwargs = {"refresh": refresh} | ({"client": client} if client else {})
     opinion = fetch_rsb_opinion(rsb_ref, directory, **kwargs)
-    if opinion.text is None and not refresh and (directory / "rsb_opinion.txt").exists():
-        kept = (directory / "rsb_opinion.txt").read_text(encoding="utf-8")
-        if kept:  # a network failure never discards an opinion already cached
-            return load_cached_ia(fixture, root)  # type: ignore[return-value]
-    (directory / "rsb_opinion.txt").write_text(opinion.text or "", encoding="utf-8")
+    opinion_path = directory / "rsb_opinion.txt"
+    kept = opinion_path.read_text(encoding="utf-8") if opinion_path.exists() else ""
+    if not opinion.text and kept:
+        # A failed or empty lookup never discards an opinion already cached (with --refresh
+        # too: refresh means download again, not accept a failure).
+        return load_cached_ia(fixture, root)  # type: ignore[return-value]
+    opinion_path.write_text(opinion.text or "", encoding="utf-8")
     meta["rsb_status"] = _rsb_status(opinion, annex)
     meta["rsb_opinion"] = {"url": opinion.url, "sha256": opinion.sha256}
     manifest_path.write_text(json.dumps(meta, indent=2, ensure_ascii=False) + "\n", "utf-8")

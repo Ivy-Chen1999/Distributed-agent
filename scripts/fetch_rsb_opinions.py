@@ -53,7 +53,7 @@ def main(argv: list[str] | None = None, client=None) -> int:
     args = parse_args(argv)
     try:
         rows = run(args, client)
-    except (ia_sources.IaSourceError, ValueError) as exc:
+    except (ia_sources.IaSourceError, ValueError, OSError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
     width = max((len(f) for f, _, _ in rows), default=7)

@@ -72,7 +72,8 @@ def resolve_draft(arg: str | None, drafts_dir: Path = DRAFTS_DIR) -> Path:
     """A path, a case id (prefix) in the drafts folder, or the folder's only draft."""
     if arg and Path(arg).is_file():
         return Path(arg)
-    files = sorted(drafts_dir.glob("*.yaml"))
+    # A case's RSB companion (<case>.rsb.yaml) is reviewed by its path, never by case id.
+    files = [f for f in sorted(drafts_dir.glob("*.yaml")) if "." not in f.stem]
     if arg:
         files = [f for f in files if f.stem.startswith(Path(arg).stem)]
     if len(files) == 1:

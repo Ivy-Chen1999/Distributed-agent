@@ -513,3 +513,39 @@ def test_refresh_rsb_adds_the_opinion_and_keeps_old_annex_anchors(tmp_path):
 def test_refresh_rsb_needs_a_cached_ia(tmp_path):
     with pytest.raises(IaSourceError, match="no cached IA"):
         ia_sources.refresh_rsb("widgets", "SEC(2099) 7", root=tmp_path)
+
+
+def test_a_failed_refresh_never_discards_the_cached_opinion(tmp_path):
+    client, _ = serve(multipart_routes())
+    cache_ia("widgets", IA_CELEX, None, root=tmp_path, client=client)
+    good, _ = rsb_client(sparql([WORK]), {WORK: httpx.Response(200, content=OPINION_PDF)})
+    first = ia_sources.refresh_rsb("widgets", "SEC(2099) 7", root=tmp_path, client=good)
+    for failing in (rsb_client(httpx.Response(503))[0], rsb_client(sparql([]))[0]):
+        again = ia_sources.refresh_rsb("widgets", "SEC(2099) 7", root=tmp_path, refresh=True,
+                                       client=failing)  # fmt: skip
+        assert again.rsb_opinion == first.rsb_opinion and again.rsb_status == first.rsb_status
+
+
+def test_a_download_failure_is_reported_as_such(tmp_path):
+    client, _ = rsb_client(sparql([WORK]), {WORK: httpx.Response(500)})
+    op = ia_sources.fetch_rsb_opinion("SEC(2099) 7", tmp_path, client=client)
+    assert op.status.startswith("opinion none found in Cellar (1 work(s); download failed")
+
+
+def test_an_encrypted_or_broken_pdf_is_unreadable_not_a_crash():
+    with pytest.raises(IaSourceError, match="unreadable PDF"):
+        ia_sources.pdf_text(b"%PDF-1.4\n1 0 obj << /Broken >>\n%%EOF")
+
+
+def test_a_legacy_cache_whose_rsb_text_held_an_opinion_is_cleaned(tmp_path):
+    client, _ = serve(multipart_routes())
+    cache_ia("widgets", IA_CELEX, None, root=tmp_path, client=client)
+    directory = tmp_path / "widgets"
+    manifest = json.loads((directory / "manifest.json").read_text())
+    manifest["rsb_status"] = "opinion found in Cellar"  # the old layout: rsb.txt = the opinion
+    (directory / "manifest.json").write_text(json.dumps(manifest))
+    (directory / "rsb.txt").write_text("An old copy of the opinion.")
+    good, _ = rsb_client(sparql([WORK]), {WORK: httpx.Response(200, content=OPINION_PDF)})
+    cached = ia_sources.refresh_rsb("widgets", "SEC(2099) 7", root=tmp_path, client=good)
+    assert "old copy" not in cached.rsb_text and "costs for small widget makers" in cached.rsb_text
+    assert cached.rsb_status == "opinion found in Cellar (pi_com PDF)"
