@@ -20,9 +20,9 @@ nothing).
 | 3 | Read the reference-check review page, mark who is right | owner | about 5 min |
 | 4 | Publish the golden cases; then the calibration sitting | owner, then 2 classmates | 5 min, then about 20 min each |
 | 5 | Holdout: tie-break, spot-check 3 items a draft, import | owner | about 20 min |
-| 6 | Sign the promotion policy | owner | 5 min |
+| 6 | Sign the promotion policy (**done 2026-10-12**) | owner | 5 min |
 | 7 | R34 noise run and MDD report | owner starts it | 10 min plus run time |
-| 8 | Cost reference: run the check, record the FTE basis | owner | 5 min |
+| 8 | Cost reference: run the check, record the FTE basis (**done 2026-10-12**) | owner | 5 min |
 
 Order: 0, 1, 2, 3, 4; the calibration in 4 needs the published cases and the API key (the gate
 calibrates the API grader, and the published cases give it 13 cases instead of 2); 5 needs a
@@ -198,5 +198,9 @@ FTE (Annex 3, Table 5); pass `annex3_table5` for the second. Then commit the fil
 
 - **The 2026-11-20 route:** `womm evolve cycle` prints `route: new-expert` or `route:
   prompt-only` with the reason, applying the runbook's rule.
-- **R37 reference answers** (`evals/diff_regression/demo_penalties_amended.yaml`): v1.1. They
-  are monitoring only and gate nothing; when written, still by hand, never LLM-drafted.
+- **R37 reference answers** (`evals/diff_regression/demo_penalties_amended.yaml`): LLM-drafted
+  2026-10-12 on `feat/eu-cost` (monitoring only, gate nothing); every quote is machine-checked
+  against the article texts.
+- **Holdout tie-break:** done 2026-10-12. The 8 drafts in the integration worktree's
+  `.cache/drafts/` are settled (75 items ruled, none left for a person); only the spot check of
+  24 items remains, after a ROBUST reference check.
