@@ -340,15 +340,15 @@ def test_spot_check_asks_only_the_seeded_stratified_sample(tmp_path, settled):
     assert expected == [i.item_id for i in verify.spot_sample(draft)], "the sample is seeded"
 
 
-def test_spot_check_with_more_than_one_disagreement_is_refused(tmp_path, settled, capsys):
+def test_spot_check_with_any_disagreement_is_refused(tmp_path, settled, capsys):
     draft = verify.load_holdout_draft(settled)
     kept = [i.item_id for i in verify.spot_sample(draft) if i.review.decision != "llm_dropped"]
-    ask, say, _ = _session(lambda iid: ["r", "wrong"] if iid in kept[:2] else _agree(iid))
+    ask, say, _ = _session(lambda iid: ["r", "wrong"] if iid in kept[:1] else _agree(iid))
     argv = _spot_argv(tmp_path, settled, _reference_round(tmp_path))
     assert verify.main(argv, interactive=True, ask=ask, say=say) == 2
     err = capsys.readouterr().err
     n = verify.SPOT_SAMPLE
-    assert f"disagreed with the tool on 2 of {n} sampled items {sorted(kept[:2])}" in err
+    assert f"disagreed with the tool on 1 of {n} sampled items {sorted(kept[:1])}" in err
     assert "without --spot-check" in err
     assert not (tmp_path / "cache" / "handoff").exists()
 
@@ -358,8 +358,8 @@ def test_spot_check_writes_a_handoff_the_importer_accepts(tmp_path, settled, mon
     sample = verify.spot_sample(draft)
     dropped = next(i.item_id for i in sample if i.review.decision == "llm_dropped")
     kept = next(i.item_id for i in sample if i.review.decision == "auto_accepted")
-    # One disagreement is allowed: rejecting a kept item. Rejecting a dropped item agrees.
-    answers = {kept: ["r", "not in the IA"], dropped: ["r", "duplicate"]}
+    # No disagreement is allowed: the kept item is verified; rejecting a dropped item agrees.
+    answers = {kept: ["v", ""], dropped: ["r", "duplicate"]}
     ask, say, shown = _session(lambda iid: answers.get(iid) or _agree(iid))
     round_dir = _reference_round(tmp_path, wrong=2)  # 10%: at the limit, still robust
     assert verify.main(_spot_argv(tmp_path, settled, round_dir), interactive=True, ask=ask,
@@ -370,11 +370,11 @@ def test_spot_check_writes_a_handoff_the_importer_accepts(tmp_path, settled, mon
     assert handoff["spot_check"] == {
         "sample_size": verify.SPOT_SAMPLE, "seed": verify.spot_seed_for(CASE),
         "items": sorted(shown),
-        "disagreements": [kept], "reference_check": "2026-10-01-abcd1234",
+        "disagreements": [], "reference_check": "2026-10-01-abcd1234",
     }  # fmt: skip
     case = GoldenCase.model_validate(handoff["case"])
     by_id = {e.expected_id: e for e in case.expected_impacts}
-    assert kept not in by_id
+    assert by_id[kept].provenance == "human_verified"
     e05 = "human_verified" if "c90_e05" in shown else "llm_tiebroken"
     assert by_id["c90_e05"].provenance == e05
     unsampled = next(i.item_id for i in draft.expected_impacts if i.item_id not in shown)

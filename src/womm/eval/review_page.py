@@ -25,6 +25,16 @@ def _pct(x: float | None) -> str:
     return "n/a" if x is None else f"{x:.0%}" if x in (0, 1) else f"{x:.1%}"
 
 
+def _interval(result: dict) -> str:
+    ci = result.get("agreement_raw_ci95")
+    if not ci:
+        return ""
+    return (
+        f" With this few pairs the true raw figure could be anywhere from {_pct(ci[0])} to "
+        f"{_pct(ci[1])} (95%): context only, the gate uses the measured figure."
+    )
+
+
 def _cards_by_id(directory: Path) -> dict[str, dict]:
     try:
         pages = hosted_labels.read_pages(directory)
@@ -140,12 +150,27 @@ def calibration(
     verdicts = _judge_verdicts(key)
     agreement = result["agreement"]
     blank = any(a["blank"] for a in result["annotators"].values())
+    problems = []
+    if not blank and agreement is not None:
+        from womm.eval import judge_calibration as jc
+        from womm.evolve import promotion as pm
+
+        problems = pm.calibration_problems(
+            pm.JudgeCalibration(**jc.calibration_record(result, "review"))
+        )
     if blank:
         state, tag, headline, meaning, nxt = (
             "wait", "Not finished", "Some pairs have no answer yet",
             "A result needs every pair answered by everyone.",
             ["Wait until everyone has sent, then <code>womm calibrate fetch</code> and "
              "<code>score</code> again."])  # fmt: skip
+    elif problems:
+        state, tag, headline, meaning, nxt = (
+            "fail", "Does not count", "The people's answers are not a clear enough reference",
+            "Before the grader can be judged, the people must mostly agree with each other: "
+            + "; ".join(problems) + ".",
+            ["Read the pairs where the two people split (below, \"unsure\") and sharpen the "
+             "rule's wording, then calibrate again with new pairs (a new seed)."])  # fmt: skip
     elif agreement is not None and agreement >= minimum:
         state, tag, headline, meaning, nxt = (
             "pass", "Passed", "The grader agrees with people well enough to be trusted",
@@ -163,14 +188,15 @@ def calibration(
         {"label": "Grader agrees with people", "value": _pct(agreement),
          "good": None if agreement is None else agreement >= minimum,
          "explain": f"Over the pairs where the people's majority is clear; the lower of the raw "
-                    f"and the natural-rate figure. Needs {_pct(minimum)}."},
+                    f"and the natural-rate figure. Needs {_pct(minimum)}.{_interval(result)}"},
         {"label": "People agree with each other", "value": _pct(inter),
-         "good": None if inter is None else inter >= 0.8,
+         "good": None if inter is None else inter >= 0.8,  # promotion.CALIBRATION_MIN_INTER
          "explain": "If this is low, the rule itself is unclear: fix the wording before trusting "
                     "any grader result."},
         {"label": "Pairs with a clear answer", "value": f"{result['pairs_resolved']} of {result['pairs_sampled']}",
          "good": None,
-         "explain": f"{result['excluded']} left out: both said can't tell, or the people split."},
+         "explain": f"{result['excluded']} left out: both said can't tell, or the people split. "
+                    "At least 24 are needed for the result to count."},
         {"label": "Grader too generous", "value": str(result["confusion"]["judge_covered_human_not"]),
          "good": None, "explain": "Pairs the grader counted as found that people did not."},
         {"label": "Grader too strict", "value": str(result["confusion"]["judge_missed_human_covered"]),

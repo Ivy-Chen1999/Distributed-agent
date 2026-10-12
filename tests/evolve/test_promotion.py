@@ -24,7 +24,11 @@ from ..eval.test_holdout import CLEAN, _sealed
 from ..eval.test_holdout_resume import ProgressStore
 from ..graph.conftest import fake_sv
 
-POLICY = yaml.safe_load((REPO_ROOT / "evals" / "promotion_policy.yaml").read_text())
+# The committed policy's values, unsigned: each test signs (SIGNED) where it needs to.
+POLICY = yaml.safe_load((REPO_ROOT / "evals" / "promotion_policy.yaml").read_text()) | {
+    "signed_by": None,
+    "signed_on": None,
+}
 
 
 def policy(**changes) -> pm.PromotionPolicy:
@@ -45,12 +49,13 @@ def versions(backend="fake"):
     return (api(cand), api(base)) if backend == "api" else (cand, base)
 
 
-def records(jv, agreement=0.9, noise=True, mdd=0.05) -> pm.PromotionRecords:
+def records(jv, agreement=0.9, noise=True, mdd=0.05, **calibration) -> pm.PromotionRecords:
     data = {"judge_calibrations": [], "formal_noise_runs": [], "mdd_reports": []}
     if agreement is not None:
         data["judge_calibrations"].append({"judge_version": jv, "agreement": agreement,
                                            "pairs": 30, "annotators": ["a", "b"],
-                                           "recorded_on": "2026-10-20"})  # fmt: skip
+                                           "inter_annotator_agreement": 0.9,
+                                           "recorded_on": "2026-10-20"} | calibration)  # fmt: skip
     if noise:
         data["formal_noise_runs"].append({"system_version": "sv_x", "judge_version": jv,
                                           "split": "val", "repetitions": 6,
@@ -89,9 +94,9 @@ def decide(c, mode="statistical", deployable=True, **kw):
 # ----------------------------------------------------------------------------- policy
 
 
-def test_the_committed_policy_holds_the_plan_defaults_and_is_unsigned():
+def test_the_committed_policy_holds_the_plan_defaults_and_is_signed():
     p, sha = pm.load_policy()
-    assert p.primary_metric == "coverage" and not p.signed
+    assert p.primary_metric == "coverage" and p.signed  # pre-registered 2026-10-12
     assert p.guards["grounding"].max_drop == 0.02
     assert p.guards["omissions_addressed"].max_drop_noise_sd == 1.0
     assert (p.holdout_budget.per_cycle, p.holdout_budget.total) == (1, 6)
@@ -206,6 +211,9 @@ async def test_dev_mode_on_the_sealed_holdout_needs_a_signed_committed_policy(kw
         ({"recs": pm.PromotionRecords()}, "no coverage-judge calibration"),
         ({"recs": "low"}, "80%, below 85%"),
         ({"recs": "no_noise"}, "R34 formal noise run"),
+        ({"recs": "few_pairs"}, "only 20 pairs with a clear human answer"),
+        ({"recs": "people_split"}, "agree with each other on 70%, below 80%"),
+        ({"recs": "one_person"}, "one annotator only"),
     ],
 )
 async def test_formal_modes_refuse_before_any_holdout_run(kw, message):
@@ -215,6 +223,12 @@ async def test_formal_modes_refuse_before_any_holdout_run(kw, message):
         kw["recs"] = records(jv, agreement=0.8)
     elif kw.get("recs") == "no_noise":
         kw["recs"] = records(jv, noise=False)
+    elif kw.get("recs") == "few_pairs":
+        kw["recs"] = records(jv, pairs=20)
+    elif kw.get("recs") == "people_split":
+        kw["recs"] = records(jv, inter_annotator_agreement=0.7)
+    elif kw.get("recs") == "one_person":
+        kw["recs"] = records(jv, annotators=["a"], inter_annotator_agreement=None)
     store = GateStore([])
     with pytest.raises(pm.GateRefused, match=message):
         await _preflight(cand, base, store=store, **kw)

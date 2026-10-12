@@ -434,6 +434,16 @@ def _kappa(a: list[bool], b: list[bool]) -> float | None:
     return None if pe >= 1 else (po - pe) / (1 - pe)
 
 
+def wilson_interval(k: int, n: int, z: float = 1.96) -> tuple[float, float] | None:
+    """Two-sided 95% Wilson interval of ``k`` agreements in ``n`` pairs; None without pairs."""
+    if not n:
+        return None
+    p, z2 = k / n, z * z
+    centre = (p + z2 / (2 * n)) / (1 + z2 / n)
+    spread = z * (p * (1 - p) / n + z2 / (4 * n * n)) ** 0.5 / (1 + z2 / n)
+    return max(0.0, centre - spread), min(1.0, centre + spread)
+
+
 def _mean(values: list[float]) -> float | None:
     return sum(values) / len(values) if values else None
 
@@ -496,6 +506,8 @@ def score(key: dict[str, Any], answers: dict[str, dict[str, str | None]]) -> dic
         "excluded": len(judge) - len(resolved),
         "annotators": per_annotator,
         "agreement_raw": raw,
+        # How far the raw figure could be off with this few pairs: context, not the gate.
+        "agreement_raw_ci95": wilson_interval(sum(agree.values()), len(agree)),
         "agreement_natural": natural,
         "agreement_by_stratum": by_stratum,
         "natural_covered_rate": p,
@@ -557,8 +569,10 @@ def format_result(result: dict[str, Any]) -> str:
         lines.append(f"  {name}: agreement {pct(a['agreement'])} over {a['labeled']} labeled "
                      f"({a['unsure']} unsure, {a['blank']} blank)")  # fmt: skip
     s = result["agreement_by_stratum"]
+    ci95 = result.get("agreement_raw_ci95")
+    ci = f" (95% interval {pct(ci95[0])} to {pct(ci95[1])})" if ci95 else ""
     lines += [
-        f"judge vs majority: raw {pct(result['agreement_raw'])}; judge-covered stratum "
+        f"judge vs majority: raw {pct(result['agreement_raw'])}{ci}; judge-covered stratum "
         f"{pct(s['judge_covered'])}, judge-missed stratum {pct(s['judge_missed'])}",
         f"natural-rate agreement {pct(result['agreement_natural'])} (judge covered rate "
         f"{result['natural_covered_rate']:.1%})",

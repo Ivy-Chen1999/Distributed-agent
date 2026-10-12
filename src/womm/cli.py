@@ -793,6 +793,10 @@ async def cmd_calibrate_score(args: argparse.Namespace) -> int:
         raise UsageError(str(exc)) from None
     result = jc.score(key, answers)
     text = jc.format_result(result)
+    if result["agreement"] is not None and not jc.record_problems(result):
+        record = pm.JudgeCalibration(**jc.calibration_record(result, "check"))
+        if problems := pm.calibration_problems(record):
+            text += "\ndoes not count for promotion: " + "; ".join(problems)
     page = review_page.calibration(directory, key, result, answers, jc.read_notes(directory),
                                    minimum=pm.CALIBRATION_MIN)  # fmt: skip
     text += f"\nreview page (private, keep it local): {page}"
@@ -1266,7 +1270,8 @@ def _add_calibration_parsers(sub: Any, common: argparse.ArgumentParser) -> None:
     p_sample.add_argument("--n", type=int, default=30, help="pairs to draw (default 30)")
     p_sample.add_argument("--seed", type=int, required=True)
     p_sample.add_argument("--annotator", action="append",
-                          help="annotator name; one sheet each (repeatable)")  # fmt: skip
+                          help="annotator's name, what they sign in with (case does not "
+                               "matter); one sheet each (repeatable)")  # fmt: skip
     p_sample.add_argument("--out", required=True, help="e.g. .cache/calibration/<name>/")
     p_sample.add_argument("--golden-dir", default=str(GOLDEN_DIR), help=argparse.SUPPRESS)
     for name, text in (("upload", "host the labelling pages on the deployed app"),

@@ -3,8 +3,11 @@ holdout run, the sealed audit reader, and the R37 check without reference answer
 
 import asyncio
 
+import yaml
+
 from womm import cli
 from womm.config import REPO_ROOT
+from womm.evolve import promotion as pm
 
 from .test_promotion import _rows
 
@@ -32,7 +35,7 @@ async def _archive_api_pair(database_url):
 
 
 def test_promote_cli_refuses_an_unsigned_formal_gate_before_any_backend(
-    database_url, holdout_url, monkeypatch, capsys
+    database_url, holdout_url, monkeypatch, capsys, tmp_path
 ):
     child, api_seed = asyncio.run(_archive_api_pair(database_url))
     monkeypatch.setenv("DATABASE_URL", database_url)
@@ -43,7 +46,13 @@ def test_promote_cli_refuses_an_unsigned_formal_gate_before_any_backend(
 
     monkeypatch.setattr(cli, "prepare_backends", no_backends)
     argv = ["evolve", "promote", child.version_id, "--incumbent", api_seed.version_id]
+    # The committed policy is signed; the next precondition, a judge calibration, is missing.
     assert cli.main(argv) == cli.EXIT_USAGE
+    assert "no coverage-judge calibration" in capsys.readouterr().err
+    unsigned = tmp_path / "policy.yaml"
+    unsigned.write_text(yaml.safe_dump(pm.load_policy()[0].model_dump(mode="json")
+                                       | {"signed_by": None, "signed_on": None}))  # fmt: skip
+    assert cli.main([*argv, "--policy", str(unsigned)]) == cli.EXIT_USAGE
     assert "not signed" in capsys.readouterr().err
     assert _rows(holdout_url, "SELECT count(*) FROM holdout.compare_audit") == [(0,)]
     assert cli.main([*argv[:2], "sv_unknown", *argv[3:]]) == cli.EXIT_USAGE

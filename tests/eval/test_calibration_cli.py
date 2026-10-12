@@ -55,13 +55,15 @@ def test_calibrate_sample_then_score_and_record(fixture, tmp_path, capsys):
                    str(records)])  # fmt: skip
     assert rc == cli.EXIT_OK, capsys.readouterr().err
     text = capsys.readouterr().out
-    assert "gate agreement" in text and "recorded in" in text
+    assert "gate agreement" in text and "recorded in" in text and "95% interval" in text
+    # Recorded for the audit, but 3 clear pairs and people agreeing on 75% do not count.
+    assert "does not count for promotion: only 3 pairs" in text and "below 80%" in text
     calib = pm.load_records(records).judge_calibrations[-1]
     assert calib.judge_version == key["judge_version"] and calib.annotators == ["ann", "bob"]
     assert calib.pairs == 3 and calib.agreement == 1.0  # the tied pair is excluded
     assert calib.excluded == 1
     review = (out / "review.html").read_text()
-    assert "Grader check: review" in review and "__DATA__" not in review
+    assert "Grader check: review" in review and "Does not count" in review
 
 
 def test_score_refuses_to_record_blank_labels(tmp_path, capsys):
