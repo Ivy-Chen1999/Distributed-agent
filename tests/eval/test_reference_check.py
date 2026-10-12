@@ -336,3 +336,23 @@ def test_the_hosted_page_starts_empty_and_signs_in():
     for tag in ("<script>", "</script>", "<body>", "</body>", "</style>", 'id="welcome"'):
         assert page.count(tag) == 1, tag
     assert page.rstrip().endswith("</html>")
+
+
+def test_a_card_for_an_rsb_item_shows_the_opinion_around_its_quote():
+    """Plan 2026-10-12-001 U2: RSB-anchored items get context like IA-anchored ones."""
+    from .draft_factory import draft_dict, omission, to_draft
+
+    data = draft_dict("train")
+    rsb = omission(9) | {"source": "rsb", "ia_anchor": "small widget makers are not costed"}
+    rsb["anchor"] = {"status": "verified", "against": "rsb"}
+    data["important_omissions"].append(rsb)
+    draft = to_draft(data)
+    it = rc.Item(draft.case_id, draft.fixture, "c90_o09", "judges_accepted", True)
+    opinion = "The Board notes that small widget makers are not costed in the report at all."
+    with_rsb = rc.card("x1", it, {draft.case_id: draft}, {draft.fixture: "IA text"}, set(),
+                       {draft.fixture: opinion})  # fmt: skip
+    assert with_rsb["source"] == "scrutiny board opinion"
+    assert with_rsb["passage"]["quote"] == "small widget makers are not costed"
+    assert with_rsb["passage"]["before"].startswith("The Board notes")
+    without = rc.card("x1", it, {draft.case_id: draft}, {draft.fixture: "IA text"}, set())
+    assert without["passage"] is None and without["quote"] == "small widget makers are not costed"

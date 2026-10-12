@@ -200,13 +200,15 @@ def card(
     drafts: dict[str, GoldenDraft],
     ia_texts: dict[str, str | None],
     sampled: set[str],
+    rsb_texts: dict[str, str | None] | None = None,
 ) -> dict[str, Any]:
     """What the labeling page shows for one item: never the tool's decision or reasons.
-    ``sampled`` holds the item ids of this case that are in the sample."""
+    ``sampled`` holds the item ids of this case that are in the sample. An item anchored on the
+    RSB opinion shows the opinion's text around its quote, from ``rsb_texts``."""
     draft = drafts[it.case_id]
     item = next(i for i in draft.items() if i.item_id == it.item_id)
-    text = ia_texts.get(draft.fixture)
     on_ia = item.anchor.against == "ia"
+    text = (ia_texts if on_ia else (rsb_texts or {})).get(draft.fixture)
     return {
         "id": item_id,
         "case": draft.case_id,
@@ -216,7 +218,7 @@ def card(
         "source": "report" if on_ia else "scrutiny board opinion",
         "section": item.ia_section,
         "quote": item.ia_anchor,
-        "passage": _passage(item.ia_anchor, text, CONTEXT_CHARS) if text and on_ia else None,
+        "passage": _passage(item.ia_anchor, text, CONTEXT_CHARS) if text else None,
         "others": _others(draft, sampled),
     }
 
@@ -304,15 +306,17 @@ def write_sample(
     in_sample: dict[str, set[str]] = defaultdict(set)
     for it in sample + reserve:
         in_sample[it.case_id].add(it.item_id)
-    ia_texts = {}
+    ia_texts, rsb_texts = {}, {}
     for fixture in sorted({d.fixture for d in drafts}):
         cached = ia_sources.load_cached_ia(fixture, ia_root)
         ia_texts[fixture] = cached.full_text if cached else None
+        rsb_texts[fixture] = cached.rsb_text if cached else None
     out_dir.mkdir(parents=True, exist_ok=True)
     pages, held = {}, {}
     for name in annotators:
         mine = [i for i in ids if keyed[i].annotator == name]
-        cards = {i: card(i, keyed[i], by_case, ia_texts, in_sample[keyed[i].case_id]) for i in mine}
+        cards = {i: card(i, keyed[i], by_case, ia_texts, in_sample[keyed[i].case_id], rsb_texts)
+                 for i in mine}  # fmt: skip
         pages[name] = [cards[i] for i in mine if keyed[i].stage == 1]
         held[name] = [cards[i] for i in mine if keyed[i].stage == 2]
         page = render_page(name, pages[name], sample=sample_id, send_to=send_to)

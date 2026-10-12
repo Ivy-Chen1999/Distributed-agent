@@ -163,6 +163,8 @@ async def run(args: argparse.Namespace, backends: dict[str, LLMBackend] | None =
     path = write_draft(draft, args.out_dir)
     s = draft.stats
     print(f"{args.case} ({args.split}) -> {path}")
+    # A case drafted without its expert opinion says so: no silent fallback (plan 2026-10-12-001).
+    print(f"RSB opinion: {draft.provenance.rsb_status or 'none'}")
     print(
         f"items: {s.items} (impacts {s.expected_impacts}, omissions {s.important_omissions}, "
         f"possibly missing {s.possibly_missing}); anchors verified {s.anchors_verified}/{s.items}"
