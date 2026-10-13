@@ -1,5 +1,9 @@
 # Golden-case review guide
 
+> **Teammates: you do not need this page.** It is the owner's reference for the review PRs.
+> To understand the system start at [docs/guide](../guide/README.md); the only task for you is
+> the labelling page sent to you directly. Nobody reviews these PRs by hand.
+
 First review? Read the one-page [reviewer quickstart](reviewer-quickstart.md) first; this guide
 holds the full rules.
 
@@ -13,8 +17,8 @@ holds the full rules.
 >
 > The judges and the tie-break use a different model from the drafter (a config that does not is
 > refused). Before the first tie-broken drafts are published, a **one-time reference check**
-> (`scripts/reference_check.py`, `womm.eval.reference_check`) has two people label 30 items
-> each, blind and each their own: kept by the judges, kept by the tie-break, dropped by it. The
+> (`scripts/reference_check.py`, `womm.eval.reference_check`) has two people label 20 items
+> each (plus a reserve of 10), blind and each their own: kept by the judges, kept by the tie-break, dropped by it. The
 > spot checks stay optional only if the tool's error rate against the people is at most 10%
 > ("not sure" counts as an error); otherwise the prompts are fixed and the drafts redone.
 

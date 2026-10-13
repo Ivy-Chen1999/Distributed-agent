@@ -1,5 +1,9 @@
 # Golden-case review: quickstart
 
+> **Teammates: you do not need this page.** It is the owner's reference for the review PRs.
+> To understand the system start at [docs/guide](../guide/README.md); the only task for you is
+> the labelling page sent to you directly. Nobody reviews these PRs by hand.
+
 A 5-minute read before your first review. The full rules are in the
 [golden-review guide](golden-review-guide.md).
 
@@ -16,7 +20,7 @@ judges and the tie-break judge kept) are **optional spot checks**: if you have t
 below; a decision you make there counts towards the measured error rate, and a proposal whose
 error rate passes 10% goes back to full human review. People are needed for two blind labeling
 tasks instead, done once in the same sitting: the reference check (`scripts/reference_check.py`,
-30 items each, about 15 minutes: does each belong in the reference answer?) and the judge
+20 items each plus a reserve of 10, about 15 minutes: does each belong in the reference answer?) and the judge
 calibration
 (`womm calibrate`).
 
