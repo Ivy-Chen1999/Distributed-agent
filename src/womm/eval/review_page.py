@@ -79,6 +79,9 @@ def reference_check(
     }[result["verdict"]]  # fmt: skip
     state, tag, headline, meaning, nxt = verdict
     bound = result["upper_bound_95"]
+    if result.get("borderline"):
+        meaning += (f" It is borderline: with this many items the true error rate could still be "
+                    f"{_pct(bound)}, so say so wherever the key is used.")  # fmt: skip
     numbers = [
         {"label": "Tool error rate", "value": _pct(result["error"]),
          "good": result["error"] <= limit,
@@ -91,6 +94,11 @@ def reference_check(
          "explain": "Each person had their own items, a third each of: kept by the three judges, "
                     "kept by the tie-break, dropped by the tie-break."},
     ]  # fmt: skip
+    if (shared := result.get("overlap")) is not None:
+        numbers.append({"label": "People agree with each other",
+                        "value": f"{shared['agree']} of {shared['pairs']}", "good": None,
+                        "explain": "Items both people labelled. Context only: when people often "
+                                   "differ, a disagreement with the tool may be the person's slip."})  # fmt: skip
     groups = {
         "judges_accepted": ("Kept by the three judges", "the drafting judges"),
         "tiebreak_kept": ("Kept by the tie-break", "the tie-break prompt"),

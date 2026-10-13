@@ -10,7 +10,7 @@ import sys
 import pytest
 
 from womm.config import REPO_ROOT
-from womm.eval import hosted_labels
+from womm.eval import hosted_labels, review_page
 from womm.eval import reference_check as rc
 from womm.eval.drafting import GoldenDraft, load_draft, write_draft
 
@@ -417,3 +417,57 @@ def test_a_companion_without_its_case_cannot_be_sampled(tmp_path):
         rc.write_sample(tmp_path / "x", [], n=3, seed=1, annotators=["ana"], companions=[comp])
     with pytest.raises(rc.ReferenceCheckError, match="checked on their own"):
         rc.write_sample(tmp_path / "y", [tiebroken(), comp], n=3, seed=1, annotators=["ana"])
+
+
+def test_shared_items_measure_the_people_and_never_count_in_the_gate(tmp_path):
+    out = tmp_path / "check"
+    rc.write_sample(out, [tiebroken("case_90_a"), tiebroken("case_91_b")], n=3, seed=1,
+                    annotators=["ana", "bo"], ia_root=tmp_path, extra=0, overlap=2)  # fmt: skip
+    key = json.loads((out / rc.KEY_FILE).read_text())
+    shared = key["overlap"]
+    assert len(shared) == 2 and not set(shared) & set(key["items"])
+    for rid, it in shared.items():  # each copy goes to the other person, same item, blind
+        orig = key["items"][it["overlap_of"]]
+        assert it["annotator"] != orig["annotator"]
+        assert (it["case_id"], it["item_id"]) == (orig["case_id"], orig["item_id"])
+        page = page_data(out / f"label_{it['annotator']}.html")
+        assert rid in {c["id"] for c in page["items"]}
+        assert "overlap" not in json.dumps(page)
+    truth = {i: "keep" if it["tool_kept"] else "drop" for i, it in key["items"].items()}
+    a, b = sorted(shared)
+    labels = truth | {a: truth[shared[a]["overlap_of"]],
+                      b: "unsure"}  # fmt: skip
+    res = rc.score(key, labels)
+    assert res["items"] == 6 and res["error"] == 0 and res["robust"]
+    assert res["overlap"] == {"pairs": 2, "agree": 1, "disagree": [b]}
+    text = rc.format_result(res, key)
+    assert "people agree with each other on 1 of 2 shared items" in text
+    page = review_page.reference_check(out, key, res, labels, {}, limit=rc.MAX_ERROR).read_text()
+    assert "People agree with each other" in page and "1 of 2" in page
+    for name in ("ana", "bo"):  # the answer files accept the shared items
+        mine = {
+            i: labels[i] for i, it in (key["items"] | shared).items() if it["annotator"] == name
+        }
+        answer_file(out / f"answers_{name}.yaml", key, name, mine)
+    got, _ = rc.read_answers(out, key)
+    assert rc.score(key, got)["overlap"]["agree"] == 1
+
+
+def test_without_shared_items_the_sample_is_unchanged(tmp_path):
+    kw = dict(n=3, seed=1, annotators=["ana", "bo"], ia_root=tmp_path, extra=2)
+    drafts = [tiebroken("case_90_a"), tiebroken("case_91_b")]
+    rc.write_sample(tmp_path / "a", drafts, **kw)
+    rc.write_sample(tmp_path / "b", drafts, overlap=0, **kw)
+    ka, kb = (json.loads((tmp_path / d / rc.KEY_FILE).read_text()) for d in "ab")
+    assert ka["items"] == kb["items"] and "overlap" not in ka
+    assert "overlap" not in rc.score(ka, {i: "keep" for i in ka["items"]})
+
+
+def test_a_pass_with_a_wide_worst_case_is_called_borderline():
+    key = _key([("judges_accepted", True)] * 60)
+    truth = {f"r{n}": "keep" for n in range(1, 61)}
+    five = truth | {f"r{n}": "drop" for n in range(1, 6)}
+    res = rc.score(key, five)
+    assert res["robust"] and res["borderline"]
+    assert "borderline" in rc.format_result(res, key)
+    assert not rc.score(key, truth)["borderline"]

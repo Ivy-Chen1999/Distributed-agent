@@ -33,7 +33,13 @@ or below ``MAX_ERROR`` (the same 10% that escalates a proposal to full review). 
 prompts, re-draft and check again. Every item must be answered before any verdict. Each wrong
 item is printed with the tool's own reason, and ``score`` writes ``review.html`` (local only: it
 holds the tool's decisions) to read them side by side. The one-sided 95% upper bound printed next
-to the rate says how far the true rate could be.
+to the rate says how far the true rate could be; a pass whose bound is above
+``BORDERLINE_BOUND`` is called borderline (context only, never the verdict).
+
+**Shared items (optional, ``overlap``).** A few first-round items are also given to every other
+annotator, under their own ids and mixed into their pages. Only the first copy counts in the gate;
+the copies measure how often the people agree with each other, which says how far a disagreement
+with the tool can be blamed on the tool.
 """
 
 from __future__ import annotations
@@ -67,6 +73,8 @@ KIND = "reference_check"
 README_FILE = "README.md"
 # One-sided 95% for the upper bound printed next to the error rate.
 Z_95 = 1.645
+# A pass whose 95% upper bound is above this is called borderline (1.5 times the limit).
+BORDERLINE_BOUND = 1.5 * MAX_ERROR
 SEND_TO = "the person who sent you this page"
 CONTEXT_CHARS = 600
 # ``why_missing`` is the recall step's own argument for a candidate: not shown, to stay blind.
@@ -88,6 +96,7 @@ class Item:
     tool_reason: str = ""
     annotator: str = ""
     stage: int = 1
+    overlap_of: str = ""
 
 
 def stratum(item: _DraftItem) -> str | None:
@@ -264,11 +273,14 @@ def write_sample(
     ia_root: Path | None = None,
     extra: int = 10,
     companions: list[GoldenDraft] | None = None,
+    overlap: int = 0,
 ) -> dict[str, Any]:
     """Draw ``n`` items per annotator, each annotator their own, plus a reserve of ``extra``
     each, and write the labeling pages and the private key. With ``companions`` (RSB companion
     drafts, plan 2026-10-12-001) the items are drawn from the companions only, and each case is
-    shown with its companion's omissions next to its own; ``drafts`` are then their cases."""
+    shown with its companion's omissions next to its own; ``drafts`` are then their cases.
+    ``overlap`` first-round items are also given to every other annotator (shared items,
+    outside the gate)."""
     if n < 3:
         raise ReferenceCheckError("--n must be at least 3")
     if not annotators or len(set(annotators)) != len(annotators):
@@ -298,6 +310,10 @@ def write_sample(
         raise ReferenceCheckError("no tool-decided item in the drafts")
     if extra < 0:
         raise ReferenceCheckError("--extra must not be negative")
+    if overlap < 0 or (overlap and len(annotators) < 2):
+        raise ReferenceCheckError(
+            "--overlap needs at least two annotators and must not be negative"
+        )
 
     def deal(drawn: list[Item], stage: int) -> list[Item]:
         # Deal in stratum order so each annotator gets about a third of each stratum.
@@ -311,13 +327,22 @@ def write_sample(
     rest = [i for i in pop if (i.case_id, i.item_id) not in taken]
     sample = deal(first, 1)
     reserve = deal(stratified_sample(rest, extra * len(annotators), seed + 1), 2) if extra else []
-    width = len(str(len(sample) + len(reserve)))
+    shared_from = random.Random(f"{seed}:overlap").sample(range(len(sample)),
+                                                          min(overlap, len(sample)))  # fmt: skip
+    copies = len(shared_from) * (len(annotators) - 1)
+    width = len(str(len(sample) + len(reserve) + copies))
     ids = [f"r{i + 1:0{width}d}" for i in range(len(sample) + len(reserve))]
     keyed = dict(zip(ids, sample + reserve, strict=True))
+    shared: dict[str, Item] = {}
+    for j in sorted(shared_from):
+        orig_id, orig = ids[j], sample[j]
+        for name in annotators:
+            if name != orig.annotator:
+                rid = f"r{len(ids) + len(shared) + 1:0{width}d}"
+                shared[rid] = replace(orig, annotator=name, overlap_of=orig_id)
     created = dt.date.today().isoformat()
-    digest = hashlib.sha1(json.dumps([asdict(i) for i in sample + reserve]).encode()).hexdigest()[
-        :8
-    ]
+    drawn = [asdict(i) for i in sample + reserve] + [asdict(i) for i in shared.values()]
+    digest = hashlib.sha1(json.dumps(drawn).encode()).hexdigest()[:8]
     sample_id = f"{created}-{digest}"
     by_case = {d.case_id: d for d in drafts}
     # Reserve items are hidden from "the case's other items" too: they may be shown later.
@@ -333,9 +358,14 @@ def write_sample(
     pages, held = {}, {}
     for name in annotators:
         mine = [i for i in ids if keyed[i].annotator == name]
-        cards = {i: card(i, keyed[i], by_case, ia_texts, in_sample[keyed[i].case_id], rsb_texts)
-                 for i in mine}  # fmt: skip
+        mine_shared = [i for i, it in shared.items() if it.annotator == name]
+        every = keyed | shared
+        cards = {i: card(i, every[i], by_case, ia_texts, in_sample[every[i].case_id], rsb_texts)
+                 for i in mine + mine_shared}  # fmt: skip
         pages[name] = [cards[i] for i in mine if keyed[i].stage == 1]
+        rng = random.Random(f"{seed}:overlap:{name}")
+        for i in mine_shared:  # mixed in, so nothing marks them
+            pages[name].insert(rng.randint(0, len(pages[name])), cards[i])
         held[name] = [cards[i] for i in mine if keyed[i].stage == 2]
         page = render_page(name, pages[name], sample=sample_id, send_to=send_to)
         (out_dir / f"label_{name}.html").write_text(page, encoding="utf-8")
@@ -353,6 +383,8 @@ def write_sample(
         "items": {iid: asdict(it) for iid, it in keyed.items() if it.stage == 1},
         "reserve": {iid: asdict(it) for iid, it in keyed.items() if it.stage == 2},
     }
+    if shared:
+        key["overlap"] = {iid: asdict(it) for iid, it in shared.items()}
     (out_dir / KEY_FILE).write_text(json.dumps(key, indent=2), encoding="utf-8")
     (out_dir / README_FILE).write_text(_readme(annotators), encoding="utf-8")
     return {
@@ -361,6 +393,7 @@ def write_sample(
         "items": len(sample),
         "reserve": len(reserve),
         "per_annotator": {a: sum(i.annotator == a for i in sample) for a in annotators},
+        "shared": len(shared),
         "by_stratum": {s: sum(i.stratum == s for i in sample) for s in STRATA},
         "cases": len({i.case_id for i in sample}),
         "population": len(pop),
@@ -449,7 +482,8 @@ def _read_file(path: Path, key: dict[str, Any]) -> tuple[str, dict[str, str | No
     name = str(data.get("annotator") or path.stem.removeprefix("answers_"))
     if name not in key["annotators"]:
         raise ReferenceCheckError(f"{path.name}: {name} is not an annotator of this sample")
-    mine = {iid for iid, it in key["items"].items() if it["annotator"] == name}
+    on_page = key["items"] | key.get("overlap", {})
+    mine = {iid for iid, it in on_page.items() if it["annotator"] == name}
     labels: dict[str, str | None] = {}
     notes: dict[str, str] = {}
     for row in rows:
@@ -516,18 +550,27 @@ def score(key: dict[str, Any], labels: dict[str, str | None]) -> dict[str, Any]:
         verdict = "robust" if not errors else "extend"
     else:
         verdict = "robust" if error <= MAX_ERROR else "not_robust"
-    return {
+    bound = upper_bound(len(errors), len(items))
+    result = {
         "items": len(items),
         "blank": blank,
         "unsure": unsure,
         "wrong": wrong,
         "error": error,
         "error_by_stratum": by_stratum,
-        "upper_bound_95": upper_bound(len(errors), len(items)),
+        "upper_bound_95": bound,
         "verdict": verdict,
         "robust": verdict == "robust",
+        "borderline": verdict == "robust" and bound > BORDERLINE_BOUND,
         "first_look": first_look,
     }
+    if shared := key.get("overlap"):
+        answered = [i for i, it in shared.items()
+                    if labels.get(i) and labels.get(it["overlap_of"])]  # fmt: skip
+        disagree = sorted(i for i in answered if labels[i] != labels[shared[i]["overlap_of"]])
+        result["overlap"] = {"pairs": len(answered), "agree": len(answered) - len(disagree),
+                             "disagree": disagree}  # fmt: skip
+    return result
 
 
 def format_result(
@@ -549,6 +592,13 @@ def format_result(
         "not sure counts as an error",
         "by stratum: " + ", ".join(f"{k} {pct(v)}" for k, v in result["error_by_stratum"].items()),
     ]
+    if (shared := result.get("overlap")) is not None:
+        lines.append(f"people agree with each other on {shared['agree']} of {shared['pairs']} "
+                     "shared items (context only, not in the gate)")  # fmt: skip
+        for iid in shared["disagree"]:
+            it = key["overlap"][iid]
+            lines.append(f"  people differ: {iid} and {it['overlap_of']} = {it['case_id']} "
+                         f"{it['item_id']}")  # fmt: skip
     for iid in result["wrong"]:
         lines.append(f"  wrong: {name(iid)}")
         if reason := key["items"][iid].get("tool_reason"):
@@ -565,6 +615,9 @@ def format_result(
                      "then score again")  # fmt: skip
     elif verdict == "robust":
         lines.append("ROBUST: the reference answers can be published; spot checks stay optional")
+        if result.get("borderline"):
+            lines.append(f"  borderline: the 95% upper bound is above {BORDERLINE_BOUND:.0%}; "
+                         "say so when the key is used")  # fmt: skip
     elif verdict == "extend":
         lines.append("NOT YET: errors in the first round; send the reserve with `extend` "
                      "(each annotator gets their extra items), then score again")  # fmt: skip
