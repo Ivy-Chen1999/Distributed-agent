@@ -18,7 +18,6 @@ notes: >-
   (option 3+, Art 69). The IA gives no separate figure for the risk management system (Art 9);
   Annex 4 counts risk assessment and risk testing under the data cost item, which is why E01
   cites Art 9 as well as Art 10.
-  Removed on 2026-10-13 (c01_e04, c01_e10, c01_o03): items resting on the IA's own economic estimates rather than on the provisions, which no system reading only the law can state (the derivability rule the drafted cases apply).
 expected_impacts:
   - expected_id: c01_e01
     affected_actor: Providers (suppliers) of high-risk AI systems
@@ -63,6 +62,21 @@ expected_impacts:
       - ai_act/high_risk/transparency_information
     ia_section: SWD(2021) 84 Part 1 §6.1.3 (Table 8); Part 2 Annex 4
     category: administrative_burden
+  - expected_id: c01_e04
+    affected_actor: Providers (suppliers) of high-risk AI systems following standard business procedures
+    mechanism: >-
+      Cumulative one-off cost of meeting the requirements for each new high-risk AI system,
+      reduced by measures firms would take anyway (the business-as-usual factor, roughly one
+      third) and a learning curve.
+    impact: >-
+      Theoretical maximum of about EUR 10 000 per AI application, adjusted to about two thirds,
+      i.e. on average EUR 6 000-7 000 per application by 2025, roughly 4-5% of an assumed
+      EUR 170 000 development cost; the share is much smaller when AI is embedded in hardware.
+    provision_keys:
+      - ai_act/high_risk/compliance_with_requirements
+      - ai_act/high_risk/provider_obligations
+    ia_section: SWD(2021) 84 Part 1 §6.1.3; Part 2 Annex 3 (Table 5) and Annex 4
+    category: compliance_cost
   - expected_id: c01_e05
     affected_actor: Providers of high-risk AI systems that do not follow state-of-the-art business procedures
     mechanism: >-
@@ -136,6 +150,21 @@ expected_impacts:
       - ai_act/high_risk/conformity_assessment
     ia_section: SWD(2021) 84 Part 1 §6.1.3 (verification costs, Table 9)
     category: compliance_cost
+  - expected_id: c01_e10
+    affected_actor: Providers of high-risk AI systems in the EU (aggregate)
+    mechanism: >-
+      Requirements apply only to high-risk applications, estimated at 5-15% of all AI
+      applications, against a maximum of about EUR 3 billion if all AI investment (upper
+      estimate EUR 65 billion in 2025) bore 4-5% compliance costs.
+    impact: >-
+      Maximum aggregate compliance and administrative costs of EUR 100-500 million by 2025,
+      likely lower in practice because firms supplying high-risk applications would take
+      above-average precautions (e.g. data representativeness) regardless of the law.
+    provision_keys:
+      - ai_act/high_risk/compliance_with_requirements
+      - ai_act/high_risk/provider_obligations
+    ia_section: SWD(2021) 84 Part 1 §6.1.3 (Table 9)
+    category: compliance_cost
 important_omissions:
   - omission_id: c01_o01
     description: >-
@@ -160,6 +189,18 @@ important_omissions:
     provision_keys:
       - ai_act/high_risk/human_oversight
     source: SWD(2021) 84 Part 1 §6.1.3 (Table 8b, Table 9 note); Part 2 Annex 4
+    category: compliance_cost
+  - omission_id: c01_o03
+    description: >-
+      Estimates are theoretical maxima: costs are zero for requirements a provider already
+      meets, business-as-usual practices cut them by about one third, and robustness/accuracy
+      costs arise only for providers not following state-of-the-art procedures.
+    provision_keys:
+      - ai_act/high_risk/compliance_with_requirements
+      - ai_act/high_risk/accuracy_robustness_cybersecurity
+    source: >-
+      SWD(2021) 84 Part 1 §6.1.3; Part 2 Annex 4 (business-as-usual factor, deviations from the
+      support study), added in response to the RSB second-submission request on cost methodology
     category: compliance_cost
   - omission_id: c01_o04
     description: >-

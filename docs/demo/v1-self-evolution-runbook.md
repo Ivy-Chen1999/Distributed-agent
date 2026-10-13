@@ -96,14 +96,15 @@ at its first precondition: "the prompt stage needs at least one train and one va
   "uncategorised". They have categories since 2026-10-13 (the drafting category guide, assigned
   by the assistant), so the cycle can group their misses.
 - What the rehearsal's AI Act misses are (coverage 0.60 and 0.71; 8 items missed in both runs):
-  four rest on the IA's own economics, not on the law (the business-as-usual factor, the EUR
-  100-500 million aggregate, the "theoretical maxima" caveat, the sandbox capital study), so no
-  system reading only the law can state them; the drafted cases screen such items with the
-  derivability judge, these hand-written ones never had it. They were removed on 2026-10-13
-  (owner's decision), so later AI Act scores are not comparable with earlier ones. The other four are real gaps the
-  cycle should learn: a cost one actor avoids because another must build something (in-built
-  logs), linking two duties (QMS audited by the notified body), the net effect of several
-  support measures, and an explicit limit (sandboxes grant no exemptions).
+  four lean on the IA's own economics (the business-as-usual factor, the EUR 100-500 million
+  aggregate, the "theoretical maxima" caveat, the sandbox capital study). The drafting
+  derivability judge, run on 2026-10-13 on the hand-written items, found the mechanism of three
+  of them in the provisions (only the figures are the IA's), so they stay; c02_e05 (sandboxes
+  easing access to investors) has no basis in the provisions and was removed. The other four
+  misses are real gaps the cycle should learn: a cost one actor avoids because another must
+  build something (in-built logs), linking two duties (QMS audited by the notified body), the
+  net effect of several support measures, and an explicit limit (sandboxes grant no exemptions).
+  The judge also moved c02_e03 to compliance_cost; every other item passed both judges.
 - The topology stage needs a pattern with owner none in 2+ proposals: impossible with the AI Act
   alone, possible with the 12 laws of the published cases.
 - Budget several hours on `claude_code` for a cycle: 4 full runs took about 50 minutes.
