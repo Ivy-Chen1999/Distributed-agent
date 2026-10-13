@@ -100,6 +100,7 @@ class Item:
     annotator: str = ""
     stage: int = 1
     overlap_of: str = ""
+    check: str = "reference"
 
 
 def stratum(item: _DraftItem) -> str | None:
@@ -278,13 +279,17 @@ def write_sample(
     companions: list[GoldenDraft] | None = None,
     overlap: int = 0,
     disputed_only: bool = False,
+    with_companions: list[GoldenDraft] | None = None,
 ) -> dict[str, Any]:
     """Draw ``n`` items per annotator, each annotator their own, plus a reserve of ``extra``
     each, and write the labeling pages and the private key. With ``companions`` (RSB companion
     drafts, plan 2026-10-12-001) the items are drawn from the companions only, and each case is
     shown with its companion's omissions next to its own; ``drafts`` are then their cases.
     ``overlap`` first-round items are also given to every other annotator (shared items,
-    outside the gate). ``disputed_only`` keeps the items the tie-break ruled on (``DISPUTED``)."""
+    outside the gate). ``disputed_only`` keeps the items the tie-break ruled on (``DISPUTED``).
+    ``with_companions`` puts the companion check on the same pages: the case sample is drawn
+    exactly as without it, and the companions' disputed items are added (``check:
+    "companion"``), split between the annotators and scored on their own (``part``)."""
     if n < 3:
         raise ReferenceCheckError("--n must be at least 3")
     if not annotators or len(set(annotators)) != len(annotators):
@@ -294,14 +299,25 @@ def write_sample(
             raise ReferenceCheckError(f"annotator name {name!r}: letters, digits, - and _ only")
     if (out_dir / KEY_FILE).exists():
         raise ReferenceCheckError(f"{out_dir / KEY_FILE} exists; pick a new --out directory")
+    if companions is not None and with_companions is not None:
+        raise ReferenceCheckError("give companions= or with_companions=, not both")
+    added: list[Item] = []
+    if with_companions is not None:
+        if any(d.companion is not None for d in drafts):
+            raise ReferenceCheckError("companion drafts go in with_companions=")
+        added = [replace(i, check="companion") for i in population(with_companions)
+                 if i.stratum in DISPUTED]  # fmt: skip
+        companions_shown = with_companions
     if companions is not None:
+        companions_shown = companions
+    if companions is not None or with_companions is not None:
         by_id = {d.case_id: d for d in drafts if d.companion is None}
-        orphans = sorted({c.case_id for c in companions} - set(by_id))
-        if orphans or any(c.companion is None for c in companions):
+        orphans = sorted({c.case_id for c in companions_shown} - set(by_id))
+        if orphans or any(c.companion is None for c in companions_shown):
             raise ReferenceCheckError(f"companions need their case drafts: {orphans}")
-        pop = population(companions)
+        pop = population(companions) if companions is not None else population(list(by_id.values()))
         merged = dict(by_id)
-        for c in companions:
+        for c in companions_shown:
             case = merged[c.case_id]
             both = [*case.important_omissions, *c.important_omissions]
             merged[c.case_id] = case.model_copy(update={"important_omissions": both})
@@ -333,27 +349,33 @@ def write_sample(
     rest = [i for i in pop if (i.case_id, i.item_id) not in taken]
     sample = deal(first, 1)
     reserve = deal(stratified_sample(rest, extra * len(annotators), seed + 1), 2) if extra else []
+    extra_items = deal(added, 3) if added else []
+    extra_items = [replace(i, stage=1) for i in extra_items]
     shared_from = random.Random(f"{seed}:overlap").sample(range(len(sample)),
                                                           min(overlap, len(sample)))  # fmt: skip
     copies = len(shared_from) * (len(annotators) - 1)
-    width = len(str(len(sample) + len(reserve) + copies))
+    width = len(str(len(sample) + len(reserve) + copies + len(extra_items)))
     ids = [f"r{i + 1:0{width}d}" for i in range(len(sample) + len(reserve))]
     keyed = dict(zip(ids, sample + reserve, strict=True))
+    for it in extra_items:  # numbered after the reserve, so the case sample keeps its ids
+        rid = f"r{len(keyed) + 1:0{width}d}"
+        keyed[rid] = it
     shared: dict[str, Item] = {}
     for j in sorted(shared_from):
         orig_id, orig = ids[j], sample[j]
         for name in annotators:
             if name != orig.annotator:
-                rid = f"r{len(ids) + len(shared) + 1:0{width}d}"
+                rid = f"r{len(keyed) + len(shared) + 1:0{width}d}"
                 shared[rid] = replace(orig, annotator=name, overlap_of=orig_id)
     created = dt.date.today().isoformat()
-    drawn = [asdict(i) for i in sample + reserve] + [asdict(i) for i in shared.values()]
+    drawn = [asdict(i) for i in sample + reserve + extra_items]
+    drawn += [asdict(i) for i in shared.values()]
     digest = hashlib.sha1(json.dumps(drawn).encode()).hexdigest()[:8]
     sample_id = f"{created}-{digest}"
     by_case = {d.case_id: d for d in drafts}
     # Reserve items are hidden from "the case's other items" too: they may be shown later.
     in_sample: dict[str, set[str]] = defaultdict(set)
-    for it in sample + reserve:
+    for it in sample + reserve + extra_items:
         in_sample[it.case_id].add(it.item_id)
     ia_texts, rsb_texts = {}, {}
     for fixture in sorted({d.fixture for d in drafts}):
@@ -364,11 +386,15 @@ def write_sample(
     pages, held = {}, {}
     for name in annotators:
         mine = [i for i in ids if keyed[i].annotator == name]
+        mine_added = [i for i in keyed if i not in ids and keyed[i].annotator == name]
         mine_shared = [i for i, it in shared.items() if it.annotator == name]
         every = keyed | shared
         cards = {i: card(i, every[i], by_case, ia_texts, in_sample[every[i].case_id], rsb_texts)
-                 for i in mine + mine_shared}  # fmt: skip
+                 for i in mine + mine_added + mine_shared}  # fmt: skip
         pages[name] = [cards[i] for i in mine if keyed[i].stage == 1]
+        rng = random.Random(f"{seed}:companion:{name}")
+        for i in mine_added:  # mixed in among the case sample
+            pages[name].insert(rng.randint(0, len(pages[name])), cards[i])
         rng = random.Random(f"{seed}:overlap:{name}")
         for i in mine_shared:  # mixed in, so nothing marks them
             pages[name].insert(rng.randint(0, len(pages[name])), cards[i])
@@ -401,6 +427,7 @@ def write_sample(
         "reserve": len(reserve),
         "per_annotator": {a: sum(i.annotator == a for i in sample) for a in annotators},
         "shared": len(shared),
+        "companion_items": {a: sum(i.annotator == a for i in extra_items) for a in annotators},
         "by_stratum": {s: sum(i.stratum == s for i in sample) for s in STRATA},
         "cases": len({i.case_id for i in sample}),
         "population": len(pop),
@@ -526,6 +553,20 @@ def read_answers(directory: Path, key: dict[str, Any]) -> tuple[dict, dict]:
     if missing := sorted(set(key["annotators"]) - seen):
         raise ReferenceCheckError(f"no answers yet from {', '.join(missing)}")
     return labels, notes
+
+
+def parts(key: dict[str, Any]) -> list[str]:
+    """The checks on these pages: ``reference``, then ``companion`` when it shares them."""
+    found = {it.get("check", "reference") for it in key["items"].values()}
+    return [c for c in ("reference", "companion") if c in found]
+
+
+def part(key: dict[str, Any], check: str) -> dict[str, Any]:
+    """The key of one check on shared pages, scored on its own. The reserve belongs to the
+    reference check; the companion check is a census with none."""
+    items = {i: it for i, it in key["items"].items() if it.get("check", "reference") == check}
+    reserve = key.get("reserve", {}) if check == "reference" else {}
+    return key | {"items": items, "reserve": reserve}
 
 
 def upper_bound(errors: int, n: int) -> float:

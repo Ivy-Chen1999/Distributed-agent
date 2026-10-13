@@ -39,6 +39,8 @@ from womm.eval.golden_review import (
     refuse_holdout_fixture,
 )
 
+PART_TITLES = {"reference": "Answer key check", "companion": "Expert (RSB) points check"}
+
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
@@ -58,6 +60,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
                         help="reserve items per annotator, sent only if the first round has an "
                              "error")  # fmt: skip
     sample.add_argument("--seed", type=int, default=1)
+    sample.add_argument("--with-companions", action="store_true",
+                        help="put the companion check on the same pages: the case sample as "
+                             "usual plus the companions' disputed points, scored on their own")  # fmt: skip
     sample.add_argument("--disputed-only", action="store_true",
                         help="only the items the tie-break ruled on (with --companions: the "
                              "points where the tool's judges disagreed)")  # fmt: skip
@@ -109,7 +114,13 @@ def main(argv: list[str] | None = None) -> int:
                 drafts.append(draft)
             companions = [d for d in drafts if d.companion is not None]
             cases = [d for d in drafts if d.companion is None]
-            if args.companions:
+            if args.with_companions:
+                out = rc.write_sample(args.out, cases, n=args.n, seed=args.seed,
+                                      annotators=args.annotators, send_to=args.send_to,
+                                      ia_root=args.ia_root, extra=args.extra,
+                                      overlap=args.overlap,
+                                      with_companions=companions)  # fmt: skip
+            elif args.companions:
                 # A census: every companion item, split evenly between the annotators.
                 items = sum(i.stratum in rc.DISPUTED or not args.disputed_only
                             for i in rc.population(companions))  # fmt: skip
@@ -139,11 +150,25 @@ def main(argv: list[str] | None = None) -> int:
             return extend(args)
         key = json.loads((args.dir / rc.KEY_FILE).read_text(encoding="utf-8"))
         labels, notes = rc.read_answers(args.dir, key)
-        result = rc.score(key, labels)
-        print(json.dumps(result, indent=2) if args.json else rc.format_result(result, key, notes))
-        page = review_page.reference_check(args.dir, key, result, labels, notes, limit=rc.MAX_ERROR)
-        print(f"review page (private, keep it local): {page}", file=sys.stderr)
-        return 0 if result["robust"] else 1
+        robust, results = True, {}
+        for check in rc.parts(key):
+            sub = rc.part(key, check)
+            result = rc.score(sub, labels)
+            results[check] = result
+            robust = robust and result["robust"]
+            if not args.json:
+                if len(rc.parts(key)) > 1:
+                    print(f"== {PART_TITLES[check]}")
+                print(rc.format_result(result, sub, notes))
+            file = review_page.FILE if check == "reference" else f"review_{check}.html"
+            page = review_page.reference_check(args.dir, sub, result, labels, notes,
+                                               limit=rc.MAX_ERROR, file=file,
+                                               title=f"{PART_TITLES[check]}: review")  # fmt: skip
+            print(f"review page (private, keep it local): {page}", file=sys.stderr)
+        if args.json:
+            one = results.get("reference") if list(results) == ["reference"] else results
+            print(json.dumps(one, indent=2))
+        return 0 if robust else 1
     except (FileNotFoundError, rc.ReferenceCheckError, ReviewError, httpx.HTTPError,
             hosted_labels.HostedLabelsError) as exc:  # fmt: skip
         print(f"error: {exc}", file=sys.stderr)

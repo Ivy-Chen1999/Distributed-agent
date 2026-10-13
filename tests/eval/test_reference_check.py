@@ -486,3 +486,47 @@ def test_a_disputed_only_sample_holds_only_what_the_tie_break_ruled(tmp_path):
         rc.write_sample(tmp_path / "c", [case], n=3, seed=1, annotators=["ana", "bo"],
                         ia_root=tmp_path, companions=[_companion_of(case, QUOTES)],
                         disputed_only=True)  # fmt: skip
+
+
+def _disputed_companion(case: GoldenDraft) -> GoldenDraft:
+    """A companion whose first omission the tie-break dropped (its judges disagreed)."""
+    comp = _companion_of(case, QUOTES)
+    ruled = next(i for i in case.items() if rc.stratum(i) == "tiebreak_dropped")
+    first, *rest = comp.important_omissions
+    first = first.model_copy(update={"tiebreak": ruled.tiebreak,
+                                     "review": ruled.review})  # fmt: skip
+    return comp.model_copy(update={"important_omissions": [first, *rest]})
+
+
+def test_the_companion_check_rides_on_the_same_pages_and_is_scored_apart(tmp_path, capsys):
+    case = tiebroken()
+    comp = _disputed_companion(case)
+    kw = dict(n=3, seed=1, annotators=["ana", "bo"], ia_root=tmp_path, extra=2)
+    rc.write_sample(tmp_path / "plain", [case], **kw)
+    rc.write_sample(tmp_path / "both", [case], with_companions=[comp], **kw)
+    plain, both = (json.loads((tmp_path / d / rc.KEY_FILE).read_text()) for d in ("plain", "both"))
+    added = {i: it for i, it in both["items"].items() if it["check"] == "companion"}
+    # The case sample is drawn exactly as without companions; only the disputed point is added.
+    assert {i: it | {"check": "reference"} for i, it in plain["items"].items()} == {
+        i: it for i, it in both["items"].items() if it["check"] == "reference"
+    }
+    assert both["reserve"].keys() == plain["reserve"].keys()
+    assert [it["item_id"] for it in added.values()] == [comp.important_omissions[0].omission_id]
+    [(rid, it)] = added.items()
+    page = page_data(tmp_path / "both" / f"label_{it['annotator']}.html")
+    assert rid in {c["id"] for c in page["items"]}
+    assert rc.parts(both) == ["reference", "companion"] and rc.parts(plain) == ["reference"]
+    assert rc.part(both, "companion")["reserve"] == {}
+    # Scored apart: a wrong companion label leaves the answer-key verdict alone.
+    truth = {i: "keep" if x["tool_kept"] else "drop" for i, x in both["items"].items()}
+    labels = truth | {rid: "keep"}
+    assert rc.score(rc.part(both, "reference"), labels)["verdict"] == "robust"
+    assert rc.score(rc.part(both, "companion"), labels)["wrong"] == [rid]
+    for name in ("ana", "bo"):
+        mine = {i: labels[i] for i, x in both["items"].items() if x["annotator"] == name}
+        answer_file(tmp_path / "both" / f"answers_{name}.yaml", both, name, mine)
+    capsys.readouterr()
+    assert script.main(["score", "--dir", str(tmp_path / "both")]) == 1
+    out = capsys.readouterr().out
+    assert "== Answer key check" in out and "== Expert (RSB) points check" in out
+    assert (tmp_path / "both" / "review_companion.html").exists()

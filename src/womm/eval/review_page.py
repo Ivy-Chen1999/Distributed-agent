@@ -43,15 +43,23 @@ def _cards_by_id(directory: Path) -> dict[str, dict]:
     return {c["id"]: c for cards in pages["annotators"].values() for c in cards}
 
 
-def _write(directory: Path, data: dict[str, Any]) -> Path:
+def _write(directory: Path, data: dict[str, Any], file: str = FILE) -> Path:
     blob = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
-    path = directory / FILE
+    path = directory / file
     path.write_text(TEMPLATE.read_text(encoding="utf-8").replace("__DATA__", blob), "utf-8")
     return path
 
 
 def reference_check(
-    directory: Path, key: dict, result: dict, labels: dict, notes: dict, *, limit: float
+    directory: Path,
+    key: dict,
+    result: dict,
+    labels: dict,
+    notes: dict,
+    *,
+    limit: float,
+    file: str = FILE,
+    title: str = "Answer key check: review",
 ) -> Path:
     cards = _cards_by_id(directory)
     items = key["items"]
@@ -126,11 +134,11 @@ def reference_check(
 
     out = [one(i, "disagree") for i in result["wrong"]]
     out += [one(i, "unsure") for i in result["unsure"]]
-    data = {"kind": "reference_check", "sample": key["sample"], "title": "Answer key check: review",
+    data = {"kind": "reference_check", "sample": key["sample"], "title": title,
             "verdict": {"state": state, "tag": tag, "headline": headline, "meaning": meaning,
                         "next": nxt},
             "numbers": numbers, "cards": out}  # fmt: skip
-    return _write(directory, data)
+    return _write(directory, data, file)
 
 
 def _judge_verdicts(key: dict) -> dict[str, dict]:
