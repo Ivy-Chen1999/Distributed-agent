@@ -18,7 +18,7 @@ nothing).
 | 1 | Merge the 11 train/val drafts | owner | 5 min |
 | 2 | Reference check (**live since 2026-10-11**, samuel and eetu) | 2 classmates | about 15 min each |
 | 3 | Read the reference-check review page, mark who is right | owner | about 5 min |
-| 3b | RSB companions: commit them to the review branches, then the classmates label all of them | owner, then 2 classmates | 10 min, then about 15 min each |
+| 3b | RSB companions: commit them to the review branches, then the classmates label the disputed ones | owner, then 2 classmates | 10 min, then about 5 min each |
 | 4 | Publish the golden cases; then the calibration sitting | owner, then 2 classmates | 5 min, then about 20 min each |
 | 5 | Holdout: spot-check 3 items a draft on a local page (tie-break **done 2026-10-12**), import | owner | about 20 min |
 | 6 | Sign the promotion policy (**done 2026-10-12**) | owner | 5 min |
@@ -124,15 +124,17 @@ done
 # check it, commit it (no new LLM call; same drafts, same result as the status report)
 cp .cache/rsb_companions/<case>.rsb.yaml evals/golden/drafts/
 uv run python scripts/review_draft.py evals/golden/drafts/<case>.rsb.yaml --check
-# the census: every companion point, split between the two classmates
+# the disputed points only (14: where the AI's judges disagreed), split between the two
 uv run python scripts/reference_check.py sample evals/golden/drafts/case_*.yaml \
-    --annotator samuel --annotator eetu --companions --overlap 3 --out .cache/reference_check/companions/
+    --annotator samuel --annotator eetu --companions --disputed-only --out .cache/reference_check/companions/
 uv run python scripts/reference_check.py upload --dir .cache/reference_check/companions/ --url https://<app>
 ```
 
-`--overlap 3` gives each classmate 3 of the other's points as well (about 2 minutes more): the
-score then says how often the two agree with each other, so a disagreement with the AI can be
-weighed. Those copies never count in the 10%. Score it like step 3. At most 10% wrong: the companions are published with their cases. More:
+People label only the points the tie-break ruled on (about 7 each, 5 minutes). The 17 points
+all three judges accepted are trusted on the strength of step 3, which measured exactly that
+stratum on a random sample: if step 3 found an error among the judges-accepted items, label
+those 17 too (run the same command without `--disputed-only`, new `--out`). Score it like
+step 3. At most 10% wrong: the companions are published with their cases. More:
 delete the companion files, fix the input, draft `--version rsb2` and check again.
 
 - Reference check ROBUST: go on to step 4. NOT ROBUST: fix the prompt the review page points
