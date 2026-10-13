@@ -99,7 +99,8 @@ at its first precondition: "the prompt stage needs at least one train and one va
   four rest on the IA's own economics, not on the law (the business-as-usual factor, the EUR
   100-500 million aggregate, the "theoretical maxima" caveat, the sandbox capital study), so no
   system reading only the law can state them; the drafted cases screen such items with the
-  derivability judge, these hand-written ones never had it. The other four are real gaps the
+  derivability judge, these hand-written ones never had it. They were removed on 2026-10-13
+  (owner's decision), so later AI Act scores are not comparable with earlier ones. The other four are real gaps the
   cycle should learn: a cost one actor avoids because another must build something (in-built
   logs), linking two duties (QMS audited by the notified body), the net effect of several
   support measures, and an explicit limit (sandboxes grant no exemptions).
