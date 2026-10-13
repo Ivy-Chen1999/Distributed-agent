@@ -16,9 +16,9 @@ nothing).
 |---|---|---|---|
 | 0 | One-off setup: push, deploy, tokens, API key, branch protection | owner | about 30 min |
 | 1 | Merge the 11 train/val drafts | owner | 5 min |
-| 2 | Reference check (**live since 2026-10-11**, samuel and eetu) | 2 classmates | about 15 min each |
+| 2 | Reference check with the disputed expert points (**live since 2026-10-13**, samuel and eetu) | 2 classmates | about 20 min each |
 | 3 | Read the reference-check review page, mark who is right | owner | about 5 min |
-| 3b | RSB companions: commit them to the review branches, then the classmates label the disputed ones | owner, then 2 classmates | 10 min, then about 5 min each |
+| 3b | RSB companions: commit them to the review branches (labelled in step 2) | owner | 10 min |
 | 4 | Publish the golden cases; then the calibration sitting | owner, then 2 classmates | 5 min, then about 20 min each |
 | 5 | Holdout: spot-check 3 items a draft on a local page (tie-break **done 2026-10-12**), import | owner | about 20 min |
 | 6 | Sign the promotion policy (**done 2026-10-12**) | owner | 5 min |
@@ -62,18 +62,22 @@ for n in $(seq 7 17); do gh pr ready $n && gh pr merge $n --merge; done
 git switch feat/v1-integration && git merge feat/golden-import
 ```
 
-## 2. The reference check (2 classmates, about 15 minutes each)
+## 2. The reference check (2 classmates, about 20 minutes each)
 
-**Done 2026-10-11:** drawn from the 11 drafts as they are on the `review/case-*` branches
-(copied to `.cache/reference_check/round1_drafts/`), seed 2 (the practice sample used seed 1),
-20 items each and a reserve of 10 each, and uploaded. Link to send to samuel and eetu:
-`https://womm-api-production.up.railway.app/label/2026-10-11-86dae710`. Do not send them the
-practice links. If a draft changes before publishing, draw a new check. How it was made:
+**Done 2026-10-13:** the 20 + 10 items per classmate drawn on 2026-10-11 from the 11 drafts as
+they are on the `review/case-*` branches (copied to `.cache/reference_check/round1_drafts/`),
+seed 2, plus, on the same pages, the 14 RSB companion points where the AI's judges disagreed
+(about 7 each, scored apart; `.cache/rsb_companions/`). One sitting, 27 points each. Link to
+send to samuel and eetu: `https://womm-api-production.up.railway.app/label/2026-10-13-db0f18f5`.
+Do not send the practice links or the superseded `2026-10-11-86dae710` (the same 20 + 10 without
+the expert points; never sent). If a draft changes before publishing, draw a new check. How it
+was made:
 
 ```
-uv run python scripts/reference_check.py sample .cache/reference_check/round1_drafts/case_*.yaml \
-    --annotator samuel --annotator eetu --n 20 --extra 10 --seed 2 --out .cache/reference_check/round1/
-uv run python scripts/reference_check.py upload --dir .cache/reference_check/round1/ --url https://<app>
+uv run python scripts/reference_check.py sample .cache/reference_check/round1_combined_drafts/*.yaml \
+    --annotator samuel --annotator eetu --n 20 --extra 10 --seed 2 --with-companions \
+    --out .cache/reference_check/round1_combined/
+uv run python scripts/reference_check.py upload --dir .cache/reference_check/round1_combined/ --url https://<app>
 ```
 
 `upload` prints the link. `--annotator` is each
@@ -86,7 +90,7 @@ go; they can stop and come back. Work alone, and don't discuss items until both 
 Progress is visible at `https://<app>/label/<sample>/admin` (asks for the admin token).
 
 **If the reference check finds an error in the first round,** `score` says NOT YET. Then run
-`uv run python scripts/reference_check.py extend --dir .cache/reference_check/round1/ --url https://<app>`
+`uv run python scripts/reference_check.py extend --dir .cache/reference_check/round1_combined/ --url https://<app>`
 and ask both to open the reference-check link again: 10 more items each, about 5 minutes.
 
 ## 3. Read the review page (owner, about 5 minutes)
@@ -94,11 +98,12 @@ and ask both to open the reference-check link again: 10 more items each, about 5
 When the admin page shows both as sent:
 
 ```
-uv run python scripts/reference_check.py fetch --dir .cache/reference_check/round1/ --url https://<app>
-uv run python scripts/reference_check.py score --dir .cache/reference_check/round1/
+uv run python scripts/reference_check.py fetch --dir .cache/reference_check/round1_combined/ --url https://<app>
+uv run python scripts/reference_check.py score --dir .cache/reference_check/round1_combined/
 ```
 
-`score` writes `review.html` in its directory: the verdict in plain words with what to do
+`score` scores the two parts apart (the answer key, then the expert points) and writes
+`review.html` and `review_companion.html` in its directory: the verdict in plain words with what to do
 next, and every item where the people and the AI disagree, side by side with the AI's own
 reason. Open it and mark who is right on each disagreement; the advice on the page updates.
 This replaces reading eval transcripts by hand. The pages hold the AI's decisions: keep them
@@ -124,17 +129,14 @@ done
 # check it, commit it (no new LLM call; same drafts, same result as the status report)
 cp .cache/rsb_companions/<case>.rsb.yaml evals/golden/drafts/
 uv run python scripts/review_draft.py evals/golden/drafts/<case>.rsb.yaml --check
-# the disputed points only (14: where the AI's judges disagreed), split between the two
-uv run python scripts/reference_check.py sample evals/golden/drafts/case_*.yaml \
-    --annotator samuel --annotator eetu --companions --disputed-only --out .cache/reference_check/companions/
-uv run python scripts/reference_check.py upload --dir .cache/reference_check/companions/ --url https://<app>
 ```
 
-People label only the points the tie-break ruled on (about 7 each, 5 minutes). The 17 points
-all three judges accepted are trusted on the strength of step 3, which measured exactly that
-stratum on a random sample: if step 3 found an error among the judges-accepted items, label
-those 17 too (run the same command without `--disputed-only`, new `--out`). Score it like
-step 3. At most 10% wrong: the companions are published with their cases. More:
+The disputed points were labelled in step 2; `score` there gave their verdict. The 17 points
+all three judges accepted rest on step 3's measurement of that stratum; only if step 3 found an
+error among the judges-accepted items, have them labelled too (`reference_check.py sample
+evals/golden/drafts/case_*.yaml --annotator samuel --annotator eetu --companions --out
+.cache/reference_check/companions/`, then upload). At most 10% wrong: the companions are
+published with their cases. More:
 delete the companion files, fix the input, draft `--version rsb2` and check again.
 
 - Reference check ROBUST: go on to step 4. NOT ROBUST: fix the prompt the review page points
@@ -175,7 +177,7 @@ owner only checks 3 items a draft (one per kind of decision), about 24 in all.
 
 ```
 uv run python scripts/tiebreak_golden_case.py .cache/drafts/<case>.yaml      # each draft
-uv run python scripts/holdout_review.py --reference-check .cache/reference_check/round1/ \
+uv run python scripts/holdout_review.py --reference-check .cache/reference_check/round1_combined/ \
     --reviewer "Chen Yuxin"     # opens a local page with every draft's 3 items, blind
 HOLDOUT_DATABASE_URL=... uv run python scripts/import_holdout_case.py .cache/holdout_import/<case>.yaml
 ```
