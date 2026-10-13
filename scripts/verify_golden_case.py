@@ -213,7 +213,7 @@ def robust_reference_check(directory: Path) -> str:
     try:
         key = json.loads((directory / rc.KEY_FILE).read_text(encoding="utf-8"))
         labels, _ = rc.read_answers(directory, key)
-        result = rc.score(key, labels)
+        result = rc.score(rc.part(key, "reference"), labels)  # companion points apart
     except (OSError, ValueError, KeyError, TypeError, AttributeError, ZeroDivisionError) as exc:
         raise VerifyError(f"cannot score the reference check in {directory}: {exc}") from None
     if not result["robust"]:

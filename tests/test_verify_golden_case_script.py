@@ -399,3 +399,28 @@ def test_reference_check_without_spot_check_is_refused(tmp_path, holdout, capsys
     argv = _argv(tmp_path, holdout, "--reference-check", str(tmp_path))
     assert verify.main(argv, interactive=True, ask=lambda _p: "q") == 2
     assert "goes with --spot-check" in capsys.readouterr().err
+
+
+def test_the_spot_check_gate_reads_the_answer_key_part_only(tmp_path):
+    """Companion points on the same pages are scored apart: a wrong one there never decides
+    whether the answer keys are robust, and a wrong answer-key item still does."""
+    directory = _reference_round(tmp_path)
+    key = json.loads((directory / rc.KEY_FILE).read_text())
+    for n in range(1, 4):
+        key["items"][f"c{n}"] = key["items"]["r01"] | {
+            "item_id": f"o{n}",
+            "stratum": "tiebreak_dropped",
+            "tool_kept": False,
+            "check": "companion",
+        }
+    (directory / rc.KEY_FILE).write_text(json.dumps(key))
+    answers = yaml.safe_load((directory / "answers_ana.yaml").read_text())
+    answers["answers"] += [{"item": f"c{n}", "label": "keep"} for n in range(1, 4)]
+    (directory / "answers_ana.yaml").write_text(yaml.safe_dump(answers))
+    assert verify.robust_reference_check(directory) == key["sample"]
+    answers["answers"][0]["label"] = "drop"
+    answers["answers"][1]["label"] = "drop"
+    answers["answers"][2]["label"] = "drop"
+    (directory / "answers_ana.yaml").write_text(yaml.safe_dump(answers))
+    with pytest.raises(verify.VerifyError, match="not ROBUST"):
+        verify.robust_reference_check(directory)
