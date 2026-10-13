@@ -471,3 +471,18 @@ def test_a_pass_with_a_wide_worst_case_is_called_borderline():
     assert res["robust"] and res["borderline"]
     assert "borderline" in rc.format_result(res, key)
     assert not rc.score(key, truth)["borderline"]
+
+
+def test_a_disputed_only_sample_holds_only_what_the_tie_break_ruled(tmp_path):
+    drafts = [tiebroken("case_90_a"), tiebroken("case_91_b")]
+    rc.write_sample(tmp_path / "d", drafts, n=3, seed=1, annotators=["ana", "bo"],
+                    ia_root=tmp_path, extra=0, disputed_only=True)  # fmt: skip
+    key = json.loads((tmp_path / "d" / rc.KEY_FILE).read_text())
+    assert key["disputed_only"] and key["items"]
+    assert {it["stratum"] for it in key["items"].values()} <= set(rc.DISPUTED)
+    # Companions the judges all accepted leave nothing disputed to label.
+    case = tiebroken()
+    with pytest.raises(rc.ReferenceCheckError, match="no tool-decided item"):
+        rc.write_sample(tmp_path / "c", [case], n=3, seed=1, annotators=["ana", "bo"],
+                        ia_root=tmp_path, companions=[_companion_of(case, QUOTES)],
+                        disputed_only=True)  # fmt: skip

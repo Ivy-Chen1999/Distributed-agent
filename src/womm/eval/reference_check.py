@@ -65,6 +65,9 @@ from womm.eval.golden_review import ESCALATION_RATE, KEPT_DECISIONS
 
 LABELS = ("keep", "drop", "unsure")
 STRATA = ("judges_accepted", "tiebreak_kept", "tiebreak_dropped")
+# Where the tool's own judges disagreed (the tie-break ruled). A disputed-only census labels
+# these alone: the judges-accepted stratum is calibrated by the random first check.
+DISPUTED = ("tiebreak_kept", "tiebreak_dropped")
 MAX_ERROR = ESCALATION_RATE
 PAGE_TEMPLATE = Path(__file__).with_name("labelling_page.html")
 KEY_FILE = "key.private.json"
@@ -274,13 +277,14 @@ def write_sample(
     extra: int = 10,
     companions: list[GoldenDraft] | None = None,
     overlap: int = 0,
+    disputed_only: bool = False,
 ) -> dict[str, Any]:
     """Draw ``n`` items per annotator, each annotator their own, plus a reserve of ``extra``
     each, and write the labeling pages and the private key. With ``companions`` (RSB companion
     drafts, plan 2026-10-12-001) the items are drawn from the companions only, and each case is
     shown with its companion's omissions next to its own; ``drafts`` are then their cases.
     ``overlap`` first-round items are also given to every other annotator (shared items,
-    outside the gate)."""
+    outside the gate). ``disputed_only`` keeps the items the tie-break ruled on (``DISPUTED``)."""
     if n < 3:
         raise ReferenceCheckError("--n must be at least 3")
     if not annotators or len(set(annotators)) != len(annotators):
@@ -306,6 +310,8 @@ def write_sample(
         if any(d.companion is not None for d in drafts):
             raise ReferenceCheckError("companion drafts are checked on their own (companions=)")
         pop = population(drafts)
+    if disputed_only:
+        pop = [i for i in pop if i.stratum in DISPUTED]
     if not pop:
         raise ReferenceCheckError("no tool-decided item in the drafts")
     if extra < 0:
@@ -380,6 +386,7 @@ def write_sample(
         "cases": sorted(by_case),
         "annotators": annotators,
         "population": len(pop),
+        "disputed_only": disputed_only,
         "items": {iid: asdict(it) for iid, it in keyed.items() if it.stage == 1},
         "reserve": {iid: asdict(it) for iid, it in keyed.items() if it.stage == 2},
     }
