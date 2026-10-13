@@ -256,7 +256,7 @@ async def test_reflective_records_never_carry_analyst_marks(env):
         )).fetchone()  # fmt: skip
     human = FailureEvent(
         kind="analyst_missing_impact", case_id=CASE.case_id, fixture=CASE.fixture,
-        split="train", item_id="human:k", category="sme_specific", owner="none",
+        split="train", item_id="human:k", category="zz_analyst_marker", owner="none",
         run_id=row["run_id"], repetition=row["repetition"], system_version=row["system_version"],
         judge_version=row["judge_version"], git_sha=row["git_sha"], detail={"impact": "x"},
     )  # fmt: skip
@@ -267,7 +267,7 @@ async def test_reflective_records_never_carry_analyst_marks(env):
     assert "human" in {p["source"] for p in patterns}  # stored and visible to people
     data = await asyncio.to_thread(a.make_reflective_dataset, seed, out, ["expert:fiscal"])
     text = json.dumps(data)
-    assert data["expert:fiscal"] and "analyst_" not in text and "sme_specific" not in text
+    assert data["expert:fiscal"] and "analyst_" not in text and "zz_analyst_marker" not in text
 
 
 # ---------------------------------------------------------------- (c)+(d) proposals as U2 edits

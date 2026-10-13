@@ -92,8 +92,17 @@ minutes), failures and `diffcheck` (R37 coverage 0.917 over 3 runs) all worked. 
 at its first precondition: "the prompt stage needs at least one train and one val case". So:
 
 - The cycle needs the published practice cases (3 of the 11 are val).
-- The two hand-written AI Act cases carry no item categories, so their failure patterns are
-  "uncategorised"; the published cases have categories.
+- The two hand-written AI Act cases had no item categories, so their failure patterns were
+  "uncategorised". They have categories since 2026-10-13 (the drafting category guide, assigned
+  by the assistant), so the cycle can group their misses.
+- What the rehearsal's AI Act misses are (coverage 0.60 and 0.71; 8 items missed in both runs):
+  four rest on the IA's own economics, not on the law (the business-as-usual factor, the EUR
+  100-500 million aggregate, the "theoretical maxima" caveat, the sandbox capital study), so no
+  system reading only the law can state them; the drafted cases screen such items with the
+  derivability judge, these hand-written ones never had it. The other four are real gaps the
+  cycle should learn: a cost one actor avoids because another must build something (in-built
+  logs), linking two duties (QMS audited by the notified body), the net effect of several
+  support measures, and an explicit limit (sandboxes grant no exemptions).
 - The topology stage needs a pattern with owner none in 2+ proposals: impossible with the AI Act
   alone, possible with the 12 laws of the published cases.
 - Budget several hours on `claude_code` for a cycle: 4 full runs took about 50 minutes.
