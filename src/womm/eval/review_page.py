@@ -70,9 +70,9 @@ def reference_check(
                    "trusted without anyone reviewing each item.",
                    ["Publish the golden cases (<code>scripts/publish_golden_cases.py</code>) and record "
                     "the result in the human-steps file."]),
-        "extend": ("wait", "Not decided yet", "Errors in the first round: send the reserve",
-                   "The check stops early only with no error at all. With some, it needs the extra "
-                   "items to tell a few slips from a real problem.",
+        "extend": ("wait", "Not decided yet", "Borderline first round: send the reserve",
+                   "Too many errors to pass on the first round alone, too few to fail: the extra "
+                   "items tell a few slips from a real problem.",
                    ["Run <code>scripts/reference_check.py extend --dir &lt;this dir&gt; --url &lt;app&gt;</code> "
                     "and ask both people to open their link again.",
                     "Then <code>fetch</code> and <code>score</code> again."]),

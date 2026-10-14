@@ -26,13 +26,15 @@ decision or reasons; those stay in ``key.private.json``.
 
 **Gate, in two looks.** Each item gets ``keep``, ``drop`` or ``unsure``. The tool's error rate is
 the share of items where the person's keep/drop differs from the tool, with ``unsure`` counted as
-an error so the hard items do not drop out. After the first round the check stops early only if
-there is no error at all (0 in 40 keeps the 95% upper bound near 6%, under the limit); any error
-sends the reserve out (``extend``), and over all items the reference answers count as robust at
-or below ``MAX_ERROR`` (the same 10% that escalates a proposal to full review). Above it, fix the
-prompts, re-draft and check again. Every item must be answered before any verdict. Each wrong
-item is printed with the tool's own reason, and ``score`` writes ``review.html`` (local only: it
-holds the tool's decisions) to read them side by side. The one-sided 95% upper bound printed next
+an error so the hard items do not drop out. Over all items the reference answers count as robust
+at or below ``MAX_ERROR`` (the same 10% that escalates a proposal to full review). The first round
+decides alone when more items could not change the outcome's strength: it passes when its 95%
+upper bound is no wider than that of the worst pass the full check allows (0 to 3 errors in 40),
+and fails when the errors would stay above the limit even if every reserve item agreed (7 or
+more in 40 against 60). Only in between does the reserve go out (``extend``). Above the limit,
+fix the prompts, re-draft and check again. Every item must be answered before any verdict. Each
+wrong item is printed with the tool's own reason, and ``score`` writes ``review.html`` (local
+only: it holds the tool's decisions) to read them side by side. The one-sided 95% upper bound printed next
 to the rate says how far the true rate could be; a pass whose bound is above
 ``BORDERLINE_BOUND`` is called borderline (context only, never the verdict).
 
@@ -48,6 +50,7 @@ import datetime as dt
 import hashlib
 import html
 import json
+import math
 import random
 import re
 import unicodedata
@@ -577,6 +580,19 @@ def upper_bound(errors: int, n: int) -> float:
     return min(1.0, (centre + spread) / (1 + z2 / n))
 
 
+def first_look_verdict(errors: int, n: int, reserve: int) -> str:
+    """The first round's verdict: ``robust`` with no error, or when its worst case is no wider
+    than the worst pass of the full check; ``not_robust`` when no reserve answers could bring
+    the rate under the limit; otherwise ``extend`` (the reserve goes out)."""
+    full = n + reserve
+    worst_full_pass = upper_bound(math.floor(MAX_ERROR * full + 1e-9), full)
+    if errors == 0 or upper_bound(errors, n) <= worst_full_pass:
+        return "robust"
+    if errors / full > MAX_ERROR:
+        return "not_robust"
+    return "extend"
+
+
 def score(key: dict[str, Any], labels: dict[str, str | None]) -> dict[str, Any]:
     """The tool's error rate against the people's labels (see the module docstring)."""
     items = key["items"]
@@ -594,8 +610,7 @@ def score(key: dict[str, Any], labels: dict[str, str | None]) -> dict[str, Any]:
     if blank:
         verdict = "incomplete"
     elif first_look:
-        # Early stop only with no error at all; otherwise the reserve goes out.
-        verdict = "robust" if not errors else "extend"
+        verdict = first_look_verdict(len(errors), len(items), len(key["reserve"]))
     else:
         verdict = "robust" if error <= MAX_ERROR else "not_robust"
     bound = upper_bound(len(errors), len(items))
@@ -667,7 +682,8 @@ def format_result(
             lines.append(f"  borderline: the 95% upper bound is above {BORDERLINE_BOUND:.0%}; "
                          "say so when the key is used")  # fmt: skip
     elif verdict == "extend":
-        lines.append("NOT YET: errors in the first round; send the reserve with `extend` "
+        lines.append("NOT YET: too many errors to pass on the first round alone, too few to fail; "
+                     "send the reserve with `extend` "
                      "(each annotator gets their extra items), then score again")  # fmt: skip
     else:
         lines.append(
