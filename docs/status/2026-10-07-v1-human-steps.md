@@ -232,7 +232,7 @@ The val split has 3 cases, so 6 repetitions are 18 case runs: about $7 to $9 and
 time, about 2 hours.
 
 ```
-uv run womm eval --split val --repetitions 6 --formal
+uv run womm eval --system-version system_versions/v1.0-unscoped-api.yaml --split val --repetitions 6 --formal
 uv run womm noise report --report <that report> --holdout-cases 8 --holdout-proposals 8 --record
 git commit evals/promotion_records.yaml
 ```
