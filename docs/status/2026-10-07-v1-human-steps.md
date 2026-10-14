@@ -72,26 +72,29 @@ faithfully. Drawn decisions resting on what that question cannot judge are taken
 in the key (`.cache/reference_check/decision_basis.private.json`: a repeat of a kept item,
 verified by code; not following from the articles; a kind the rules exclude). The reserve is
 on the pages already, so it is one sitting: 30 and 29 points (46 answer-key points, 13 companion
-points, scored apart); nobody is asked again. Each board point is judged on one line naming the
-effect or risk (`.cache/reference_check/board_concerns.json`, written from the point's own words);
-the point's text is shown as the AI's reasoning, context only. People are scored against the AI's
+points, scored apart); nobody is asked again. Each card marks what to judge: every board point on one
+line naming the effect or risk, and the report points that mix in the law's duties on their claim
+with those duties taken out (`.cache/reference_check/judge_lines.json`, written from the points' own
+words); the rest of the point is grey context. People are scored against the AI's
 answer to the same question on the same card (`rejudge`, done before any answer: the tie-break's
 model with the page's rules, blind to the golden decision); the golden decision stays in the key
-and on the review page. It differs from the golden decision on 18 of 59 items, mostly answer-key
-points that add a detail the shown passage does not give. Link to send to samuel and eetu:
-`https://womm-api-production.up.railway.app/label/2026-10-14-96254d61`. Do not send the practice
+and on the review page. It differs from the golden decision on 21 of 59 items, mostly answer-key
+points that add a detail the shown passage does not give. A pass therefore says people and the AI
+read sources alike, not that the key is right: read the review page's "Where the answer key and
+the page verdict differ" before publishing. Link to send to samuel and eetu:
+`https://womm-api-production.up.railway.app/label/2026-10-14-75af237c`. Do not send the practice
 links or the superseded `2026-10-11-86dae710`, `2026-10-13-db0f18f5`, `2026-10-14-db0f18f5`,
-`2026-10-14-fca7564c`, `2026-10-14-3b23c3b9` (never sent). If a draft changes before publishing, draw a new check. How it was made:
+`2026-10-14-fca7564c`, `2026-10-14-3b23c3b9`, `2026-10-14-96254d61` (never sent). If a draft changes before publishing, draw a new check. How it was made:
 
 ```
 uv run python scripts/reference_check.py sample .cache/reference_check/round1_v3_drafts/*.yaml \
     --annotator samuel --annotator eetu --n 20 --extra 10 --seed 2 --with-companions \
     --decision-basis .cache/reference_check/decision_basis.private.json \
-    --board-concerns .cache/reference_check/board_concerns.json \
-    --out .cache/reference_check/round1_v5/
-uv run python scripts/reference_check.py extend --dir .cache/reference_check/round1_v5/
-uv run python scripts/reference_check.py rejudge --dir .cache/reference_check/round1_v5/
-uv run python scripts/reference_check.py upload --dir .cache/reference_check/round1_v5/ --url https://<app>
+    --judge-lines .cache/reference_check/judge_lines.json \
+    --out .cache/reference_check/round1_v6/
+uv run python scripts/reference_check.py extend --dir .cache/reference_check/round1_v6/
+uv run python scripts/reference_check.py rejudge --dir .cache/reference_check/round1_v6/
+uv run python scripts/reference_check.py upload --dir .cache/reference_check/round1_v6/ --url https://<app>
 ```
 
 `upload` prints the link. `--annotator` is each
@@ -110,8 +113,8 @@ Progress is visible at `https://<app>/label/<sample>/admin` (asks for the admin 
 When the admin page shows both as sent:
 
 ```
-uv run python scripts/reference_check.py fetch --dir .cache/reference_check/round1_v5/ --url https://<app>
-uv run python scripts/reference_check.py score --dir .cache/reference_check/round1_v5/
+uv run python scripts/reference_check.py fetch --dir .cache/reference_check/round1_v6/ --url https://<app>
+uv run python scripts/reference_check.py score --dir .cache/reference_check/round1_v6/
 ```
 
 `score` scores the two parts apart (the answer key, then the expert points) and writes
@@ -189,7 +192,7 @@ owner only checks 3 items a draft (one per kind of decision), about 24 in all.
 
 ```
 uv run python scripts/tiebreak_golden_case.py .cache/drafts/<case>.yaml      # each draft
-uv run python scripts/holdout_review.py --reference-check .cache/reference_check/round1_v5/ \
+uv run python scripts/holdout_review.py --reference-check .cache/reference_check/round1_v6/ \
     --reviewer "Chen Yuxin"     # opens a local page with every draft's 3 items, blind
 HOLDOUT_DATABASE_URL=... uv run python scripts/import_holdout_case.py .cache/holdout_import/<case>.yaml
 ```
