@@ -23,6 +23,22 @@ sealed holdout.
   seed failures by hand to trigger the topology stage.
 - Path A is a rehearsal of the code path on synthetic cases with scripted model outputs. It is
   never evidence that the system improves. Say so whenever it is shown.
+- Name the work plainly. The system **drafts the impacts list of an impact assessment from the
+  proposal text**; it does not draft impact assessments or compare policy options. The cycle is
+  **automated prompt and config optimization with a sealed holdout gate**; show the literal diff
+  (`womm evolve show <candidate>`).
+- Say how the answer keys were made: **AI-drafted, read-checked by two people, owner-ruled on
+  the differences, holdout spot-checked** (3 items per draft). The judge was calibrated on the
+  incumbent's output, and the judge and the system under test are the same model
+  (`gpt-6.1-sol`).
+- A weak-mode pass is **"not rejected (directional)"**. Quote the A/A null pass rate that
+  `womm noise report` prints: how often the incumbent passes against itself.
+
+### Claims the demo never makes
+
+- "The system improved" or "statistically shown", for any weak-mode or dev-mode decision.
+- "Human-verified" or "expert-validated" answer keys.
+- "Drafts impact assessments" or "approaches official IAs".
 
 ## Path A: scripted rehearsal (no human input, no api key)
 
@@ -159,18 +175,34 @@ Before the first formal comparison, a person must also:
    Holdout reports and non-public cases are refused. The gate needs at least 85%; below that,
    fix the judge rubric and recalibrate (also after any change of the judge prompt or model,
    which changes `judge_version`).
-3. Run the R34 formal noise run and record it with its minimum-detectable-delta reports:
+3. Run the R34 formal noise run (3 repetitions, extended by 3 when the stop rule says so) and
+   record it with its minimum-detectable-delta reports:
 
    ```bash
-   uv run womm eval --split val --repetitions 6 --formal \
+   uv run womm eval --split val --repetitions 3 --formal \
        --system-version system_versions/v1.0-unscoped-api.yaml     # api key, clean tree
-   # Holdout counts from the sealed store's import log (a person passes them in).
-   uv run womm noise report --report runs/eval_<formal>.json \
-       --holdout-cases 8 --holdout-proposals 8
-   uv run womm noise report --report runs/eval_<formal>.json \
+   # Holdout counts from the sealed store's import log (a person passes them in). --record
+   # applies the stop rule and records the attempt whatever it says.
+   uv run womm noise report --report runs/eval_<first>.json \
        --holdout-cases 8 --holdout-proposals 8 --record
+   git add evals/promotion_records.yaml && git commit -m "chore: record R34 attempt"
+   # Only when it printed "next step: extend": 3 more at the same git sha, then pool both.
+   git checkout <the first run's git sha>
+   uv run womm eval --split val --repetitions 3 --formal \
+       --system-version system_versions/v1.0-unscoped-api.yaml
+   uv run womm noise report --report runs/eval_<first>.json --report runs/eval_<second>.json \
+       --holdout-cases 8 --holdout-proposals 8 --record
+   # If that sha can no longer be checked out cleanly: one fresh run of 6 (a fallback) instead.
    git add evals/promotion_records.yaml && git commit -m "chore: record R34 noise run and MDD"
    ```
+
+   The stop rule (pre-registered): the 80% chi-square interval of the pooled coverage SD lies
+   entirely above or below the SD at which the MDD equals `expected_gain` (for the policy's
+   `repetitions.min` and the holdout counts): stop; otherwise extend once. It reads the
+   incumbent's noise only. Every attempt goes to `noise_attempts`; a second first run for the
+   same judge, a missing extension, or changed stop-rule inputs are refused, and the gate refuses
+   a broken chain. A pooled run whose halves differ by more than the first half's SD is recorded
+   with `batch_shift`, which the gate notes.
 
    `--record` refuses a report that is not a formal api run (`claude_code` or dev noise runs
    print but never record). The MDD uses the signed policy's `repetitions`, two-sided alpha
@@ -271,6 +303,21 @@ was not shown. Path A still demonstrates the new-expert mechanics, labelled as a
 rehearsal.
 
 ## After a decision
+
+What each reason and note means (pre-registered 2026-10-14, before any comparison):
+
+| Reason or note | Means | Does not mean |
+|---|---|---|
+| `coverage_ci_not_above_zero` | Statistical mode: the 95% CI of the coverage gain reaches 0 | The candidate is worse |
+| `coverage_below_weak_bar` | Weak or dev mode: the coverage gain is not above 1 SE of the paired mean | The candidate is worse; with 8 cases a real gain can miss the bar |
+| `coverage_noise_unavailable` | Weak or dev mode: no run-to-run noise to set the bar (too few repetitions scored) | Anything about the candidate |
+| `grounding_regression` | Mean grounding dropped by more than 0.02 | Citations are wrong (grounding checks that a quote exists) |
+| `omissions_addressed_regression` | RSB omissions addressed dropped by more than one noise SD | The candidate covers less overall |
+| `precision_regression` | The share of dossier impacts matched to an expected impact dropped by more than one noise SD | The extra impacts are wrong (the key is incomplete) |
+| `inconclusive` | The comparison aborted (rate limit or a missing score); no budget used | A rejection on the merits |
+| note `judge-sensitive: impact_count/impact_chars rose ...` | The candidate writes over 25% more; possible judge gaming; report-only | A rejection |
+| note `batch shift` | The R34 halves differ; the noise SD may mix day-to-day variation | The gate is invalid |
+| note `weak bar: ...` | The bar the weak decision used | Statistical evidence |
 
 - `promoted` in dev mode: nothing is deployed. Present it as directional.
 - `promoted` in a formal mode: a person records it in `system_versions/PROMOTIONS.md` and
