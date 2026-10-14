@@ -208,7 +208,7 @@ These are listed again in the final report. Each has a proposed default, and the
 1. **Primary metric.** Default: coverage is the primary metric, and omissions and grounding are regression guards (AE4 shape). The alternative is a weighted composite.
 2. **Tolerances and holdout budget.** Default: grounding may drop at most 0.02, omissions at most one pooled noise SD; one holdout comparison per cycle and 6 in total for v1.
 3. **Aggregate decision summary in the main database** for page 4 (amends the golden plan and origin R28's wording, see Key Technical Decisions). Default until confirmed: off (`publish_summary: false`), so the golden plan's rule holds, and page 4 shows the holdout panel only through a local command. Turning it on lets the Railway page show the holdout aggregates.
-4. **Demo without an API key.** If no key exists by about 2026-11-13, is a dev-mode (`claude_code`) cycle with the weak threshold, labelled dev-only, acceptable for the demo?
+4. **Demo without an API key.** If no key exists by about 2026-11-13, is a dev-mode (`claude_code`) cycle with the weak threshold, labelled dev-only, acceptable for the demo? **Resolved 2026-10-14:** the OpenAI key exists; formal modes run on the api twins (models pinned in `system_versions/PROMOTIONS.md`).
 5. **R31 in v1 or v1.1.** Default: v1.1, unless U1–U10 finish by about 2026-11-20.
 
 ### Deferred to Implementation
@@ -711,7 +711,7 @@ Never cut U6 or U7's preconditions.
 
 | Risk | Mitigation |
 |---|---|
-| **No API key (R34 dependency).** Without the api backend there is no formal noise run, so statistical and weak modes are unavailable | The gate runs in dev mode on `claude_code`, labelled "dev-only, not deployable", with the weak rule. The demo states this. Formal modes switch on as soon as a key and the R34 run exist, with no code change. User decision 4 sets the cut-off date |
+| **No API key (R34 dependency).** Without the api backend there is no formal noise run, so statistical and weak modes are unavailable | The gate runs in dev mode on `claude_code`, labelled "dev-only, not deployable", with the weak rule. The demo states this. Formal modes switch on as soon as a key and the R34 run exist, with no code change. User decision 4 sets the cut-off date. **Resolved 2026-10-14:** the key exists |
 | The holdout cannot resolve the gain (8 cases, noise about 0.1) | The weak mode is pre-registered, the golden plan's MDD report chooses it before any result is seen, and the label is shown everywhere |
 | Adaptive overfitting of the holdout through repeated comparisons | One comparison per cycle, 6 for v1, and the Planner never sees outcomes (U6) |
 | No persistent `owner = none` pattern appears, so no new expert is proposed | The R30 fallback to a prompt-level cycle is decided by 2026-11-20. The topology trigger is reported honestly, never forced by hand-seeding failures |

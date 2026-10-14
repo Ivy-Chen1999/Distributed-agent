@@ -14,7 +14,7 @@ nothing).
 
 | # | Step | Who | Time |
 |---|---|---|---|
-| 0 | One-off setup: push, deploy, tokens, API key, branch protection | owner | about 30 min |
+| 0 | One-off setup: push, deploy, tokens, API key (**key done 2026-10-14**), branch protection | owner | about 30 min |
 | 1 | Merge the 11 train/val drafts | owner | 5 min |
 | 2 | Reference check with the disputed expert points (**live since 2026-10-14**, samuel and eetu) | 2 classmates | about 20 min each |
 | 3 | Read the reference-check review page, mark who is right | owner | about 5 min |
@@ -40,8 +40,8 @@ passed reference check; 6 before any holdout comparison; 7 and 8 any time after 
 (annotator names `classmate1`, `classmate2`): reference check `/label/2026-10-10-2ecc6be6`,
 calibration `/label/2026-10-10-50346b5f`; admin pages at `/label/<sample>/admin`. **Caveat:** a
 push to `main` redeploys `main`, which has no labelling pages yet: merge `feat/v1-integration`
-into `main` first (the pages and saved answers then stay). Still to do below: push, API key,
-branch protection.
+into `main` first (the pages and saved answers then stay). Still to do below: push and branch
+protection; the API key is done (2026-10-14, below).
 
 - Push every branch (normal push). Merge `feat/v1-integration` into `main`; Railway deploys
   `main`.
@@ -49,7 +49,11 @@ branch protection.
   same value in the local `.env`. Check that `https://<app>/label/x` answers 404 (not the
   console).
 - API key, for step 7 and formal gates: set a monthly spend limit in the provider console first,
-  then put the key in the local `.env` only.
+  then put the key in the local `.env` only. **Done 2026-10-14:** the OpenAI key is in the local
+  `.env`. The api versions are pinned (on `feat/v1-integration`, `system_versions/PROMOTIONS.md`):
+  the Planner on `gpt-6-luna`, every other role on `gpt-6.1-sol`, reasoning effort `medium`.
+  A live run of `case_02` on `v0.3-api` passed: about $0.35 and 7 minutes a case run, judge call
+  not included.
 - GitHub, Settings, Branches, `main`: require a pull request and "Require review from Code
   Owners".
 
@@ -166,6 +170,9 @@ uv run python scripts/publish_golden_cases.py
 
 Commit the published cases. Then the calibration (needs the OpenAI key in `.env`): one train
 eval run with the API incumbent, 30 pairs that both classmates label, about 20 minutes each.
+The train eval is about 10 case runs, so about $4 to $5 at the pinned prices. The judge
+calibrated here is `gpt-6.1-sol` at effort `medium`; changing either afterwards means a new
+calibration sitting.
 
 ```
 uv run womm eval --system-version system_versions/v0.3-api.yaml --split train --local
@@ -220,6 +227,9 @@ git commit evals/promotion_policy.yaml
 Never change the file after a comparison; every decision records its sha256.
 
 ## 7. R34 noise run and MDD (owner starts it)
+
+The val split has 3 cases, so 6 repetitions are 18 case runs: about $7 to $9 and, one case at a
+time, about 2 hours.
 
 ```
 uv run womm eval --split val --repetitions 6 --formal
