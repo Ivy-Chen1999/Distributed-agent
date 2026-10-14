@@ -16,7 +16,7 @@ nothing).
 |---|---|---|---|
 | 0 | One-off setup: push, deploy, tokens, API key, branch protection | owner | about 30 min |
 | 1 | Merge the 11 train/val drafts | owner | 5 min |
-| 2 | Reference check with the disputed expert points (**live since 2026-10-13**, samuel and eetu) | 2 classmates | about 25 min each |
+| 2 | Reference check with the disputed expert points (**live since 2026-10-14**, samuel and eetu) | 2 classmates | about 20 min each |
 | 3 | Read the reference-check review page, mark who is right | owner | about 5 min |
 | 3b | RSB companions: commit them to the review branches (labelled in step 2) | owner | 10 min |
 | 4 | Publish the golden cases; then the calibration sitting | owner, then 2 classmates | 5 min, then about 20 min each |
@@ -62,25 +62,28 @@ for n in $(seq 7 17); do gh pr ready $n && gh pr merge $n --merge; done
 git switch feat/v1-integration && git merge feat/golden-import
 ```
 
-## 2. The reference check (2 classmates, about 25 minutes each)
+## 2. The reference check (2 classmates, about 20 minutes each)
 
-**Done 2026-10-13:** the 20 + 10 items per classmate drawn on 2026-10-11 from the 11 drafts as
-they are on the `review/case-*` branches (copied to `.cache/reference_check/round1_drafts/`),
-seed 2, plus, on the same pages, the 14 RSB companion points where the AI's judges disagreed
-(about 7 each, scored apart; `.cache/rsb_companions/`). The reserve was moved onto the pages
-before anyone started (`extend`, locally before the upload, 2026-10-14), so it is one sitting, 37 points each, decided on
-all 60 answer-key points at once; nobody is asked again. Link to
-send to samuel and eetu: `https://womm-api-production.up.railway.app/label/2026-10-14-db0f18f5`.
-Do not send the practice links or the superseded `2026-10-11-86dae710` and `2026-10-13-db0f18f5` (the same items with the
-older page wording; never sent) (the same 20 + 10 without
-the expert points; never sent). If a draft changes before publishing, draw a new check. How it
-was made:
+**Done 2026-10-14:** from the 11 drafts as they are on the `review/case-*` branches (copied to
+`.cache/reference_check/round1_drafts/`), seed 2, 20 + 10 items per classmate drawn exactly as on
+2026-10-11, plus the RSB companion points the tie-break ruled on (re-ruled on 2026-10-14 with the
+companion rule; `.cache/rsb_companions_v2/`). People judge one thing: did the AI read its source
+faithfully. Drawn decisions resting on what that question cannot judge are taken out and listed
+in the key (`.cache/reference_check/decision_basis.private.json`: a repeat of a kept item,
+verified by code; not following from the articles; a kind the rules exclude). The reserve is
+on the pages already, so it is one sitting: 30 and 29 points (46 answer-key points, 13 companion
+points, scored apart); nobody is asked again. Link to send to samuel and eetu:
+`https://womm-api-production.up.railway.app/label/2026-10-14-fca7564c`. Do not send the practice
+links or the superseded `2026-10-11-86dae710`, `2026-10-13-db0f18f5`, `2026-10-14-db0f18f5`
+(never sent). If a draft changes before publishing, draw a new check. How it was made:
 
 ```
-uv run python scripts/reference_check.py sample .cache/reference_check/round1_combined_drafts/*.yaml \
+uv run python scripts/reference_check.py sample .cache/reference_check/round1_v3_drafts/*.yaml \
     --annotator samuel --annotator eetu --n 20 --extra 10 --seed 2 --with-companions \
-    --out .cache/reference_check/round1_v2/
-uv run python scripts/reference_check.py upload --dir .cache/reference_check/round1_v2/ --url https://<app>
+    --decision-basis .cache/reference_check/decision_basis.private.json \
+    --out .cache/reference_check/round1_v3/
+uv run python scripts/reference_check.py extend --dir .cache/reference_check/round1_v3/
+uv run python scripts/reference_check.py upload --dir .cache/reference_check/round1_v3/ --url https://<app>
 ```
 
 `upload` prints the link. `--annotator` is each
@@ -99,8 +102,8 @@ Progress is visible at `https://<app>/label/<sample>/admin` (asks for the admin 
 When the admin page shows both as sent:
 
 ```
-uv run python scripts/reference_check.py fetch --dir .cache/reference_check/round1_v2/ --url https://<app>
-uv run python scripts/reference_check.py score --dir .cache/reference_check/round1_v2/
+uv run python scripts/reference_check.py fetch --dir .cache/reference_check/round1_v3/ --url https://<app>
+uv run python scripts/reference_check.py score --dir .cache/reference_check/round1_v3/
 ```
 
 `score` scores the two parts apart (the answer key, then the expert points) and writes
@@ -117,7 +120,7 @@ local, never send them. Record the reference check here:
 ## 3b. RSB companions (after a ROBUST reference check)
 
 The RSB opinions were fetched on 2026-10-12 (15 of 23 laws) and a companion draft of RSB
-omissions was drafted for each of the 11 practice cases (31 points, 18 kept by the AI checks;
+omissions was drafted for each of the 11 practice cases (31 points; 26 kept after the 2026-10-14 re-ruling with the companion rule, 18 before;
 `docs/status/2026-10-12-rsb-companions.md`). They are drafted locally and not committed until
 the reference check passes. Then, on the integration branch:
 
@@ -126,9 +129,9 @@ the reference check passes. Then, on the integration branch:
 for b in $(git branch --list 'review/case-*' --format='%(refname:short)'); do
   git switch $b && git merge --no-edit feat/v1-integration && git switch -
 done
-# on each branch: copy the companion drafted on 2026-10-12 (kept in .cache/rsb_companions/),
+# on each branch: copy the companion re-ruled on 2026-10-14 (kept in .cache/rsb_companions_v2/),
 # check it, commit it (no new LLM call; same drafts, same result as the status report)
-cp .cache/rsb_companions/<case>.rsb.yaml evals/golden/drafts/
+cp .cache/rsb_companions_v2/<case>.rsb.yaml evals/golden/drafts/
 uv run python scripts/review_draft.py evals/golden/drafts/<case>.rsb.yaml --check
 ```
 
@@ -178,7 +181,7 @@ owner only checks 3 items a draft (one per kind of decision), about 24 in all.
 
 ```
 uv run python scripts/tiebreak_golden_case.py .cache/drafts/<case>.yaml      # each draft
-uv run python scripts/holdout_review.py --reference-check .cache/reference_check/round1_v2/ \
+uv run python scripts/holdout_review.py --reference-check .cache/reference_check/round1_v3/ \
     --reviewer "Chen Yuxin"     # opens a local page with every draft's 3 items, blind
 HOLDOUT_DATABASE_URL=... uv run python scripts/import_holdout_case.py .cache/holdout_import/<case>.yaml
 ```
