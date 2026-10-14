@@ -1,10 +1,17 @@
-# WOMM v1: the steps that need a person — 2026-10-07 (revised 2026-10-10)
+# WOMM v1: the steps that need a person — 2026-10-07 (revised 2026-10-14)
 
-Everything else in v1 is automated. People are needed in two places only, because there an
-LLM is being checked and another LLM cannot be the reference: is the AI-made answer key right
-(the reference check), and does the AI grader judge like people do (the calibration). Both are
-one classmate sitting on the deployed app. The rest of this page is the owner's: permissions,
-one signature, and commands that run unattended. Commands refer to `feat/v1-integration`.
+Everything else in v1 is automated. People are needed where an LLM is being checked and another
+LLM cannot be the reference: did the AI read its sources faithfully (the reference check; it does
+not show that the answer key is right, see step 3), does the AI judge score like people do (the
+calibration), and is the holdout key sound (the owner's spot check, step 5). The first two are a
+sitting by the two classmates on the deployed app; the third stays with the owner. The rest of
+this page is the owner's: permissions, one signature, and commands that run unattended. Commands
+refer to `feat/v1-integration`, except step 8 (`feat/eu-cost`).
+
+Data boundary: the holdout store and the step 5 page stay on the owner's machine. The api versions
+run on OpenAI, so a formal holdout comparison sends holdout proposal text and answer-key items to
+the OpenAI API (system roles and judge). Committed files (`evals/promotion_records.yaml`, this page)
+carry aggregate holdout numbers and counts only, never holdout case ids, proposal names or key text.
 
 Revised 2026-10-10 to the least human work: the holdout is settled by the same tool chain as
 train/val and only spot-checked; transcript reading is replaced by the review pages that
@@ -17,17 +24,24 @@ nothing).
 | 0 | One-off setup: push, deploy, tokens, API key (**key done 2026-10-14**), branch protection | owner | about 30 min |
 | 1 | Merge the 11 train/val drafts | owner | 5 min |
 | 2 | Reference check with the disputed expert points (**live since 2026-10-14**, samuel and eetu) | 2 classmates | about 20 min each |
-| 3 | Read the reference-check review page, mark who is right | owner | about 5 min |
-| 3b | RSB companions: commit them to the review branches (labelled in step 2) | owner | 10 min |
+| 3 | Read the reference-check review page, mark who is right, rule on the 21 key differences | owner | about 45 min |
+| 3b | RSB companions: commit them on `feat/v1-integration` before step 4 (labelled in step 2) | owner | 10 min |
 | 4 | Publish the golden cases; then the calibration sitting | owner, then 2 classmates | 5 min, then about 20 min each |
 | 5 | Holdout: spot-check 3 items a draft on a local page (tie-break **done 2026-10-12**), import | owner | about 20 min |
 | 6 | Sign the promotion policy (**done 2026-10-12**) | owner | 5 min |
-| 7 | R34 noise run and MDD report | owner starts it | 10 min plus run time |
+| 7 | R34 noise run and MDD report (after the calibration passes and step 5) | owner starts it | 10 min plus about 2 h |
 | 8 | Cost reference: run the check, record the FTE basis (**done 2026-10-12**) | owner | 5 min |
 
-Order: 0, 1, 2, 3, 4; the calibration in 4 needs the published cases and the API key (the gate
-calibrates the API grader, and the published cases give it 13 cases instead of 2); 5 needs a
-passed reference check; 6 before any holdout comparison; 7 and 8 any time after 0.
+Order: 0, 1, 2, 3, 3b, 4, 5, 7; then the first holdout comparison. The calibration in 4 needs the
+published cases and the API key (the gate calibrates the API judge, and the published cases give
+it 13 cases instead of 2). 5 needs a passed reference check. 7 needs the published val cases (step
+4), a recorded calibration (a judge-prompt fix after a failed calibration changes the judge id,
+and R34 records are looked up by judge id) and step 5's holdout count. 6 and 7 come before any
+holdout comparison; 8 any time after 0.
+
+Cut-off: the reference check and the calibration each get at most one retry, and both pass by
+2026-11-06. If either still fails then, the demo cycle runs with the existing key and judge, and
+the gate decision is labelled with the failed check by name.
 
 ---
 
@@ -48,11 +62,19 @@ protection; the API key is done (2026-10-14, below).
 - Railway service variables: `WOMM_LABEL_ADMIN_TOKEN`, at least 16 random characters. Put the
   same value in the local `.env`. Check that `https://<app>/label/x` answers 404 (not the
   console).
-- API key, for step 7 and formal gates: set a monthly spend limit in the provider console first,
+- API key, for step 4 and formal gates: set a monthly spend limit in the provider console first,
   then put the key in the local `.env` only. **Done 2026-10-14:** the OpenAI key is in the local
   `.env`. The api versions are pinned (on `feat/v1-integration`, `system_versions/PROMOTIONS.md`):
   every role on `gpt-6.1-sol`, reasoning effort `medium`. A live run of `case_02` on `v0.3-api`
-  passed: about $0.35 and 7 minutes a case run, judge call not included.
+  passed: about $0.35 and 7 minutes a case run, judge call not included (measured with the
+  Planner still on `gpt-6-luna`; about a cent more on sol).
+- Still to do for the key: a monthly limit of at least $60 (R34 plus one holdout comparison with
+  headroom; a limit hit mid-run returns 429 and aborts the run after its spend), checked before
+  step 7 and each comparison; the account's API data settings checked and noted here (no training
+  on API data; zero retention if offered). The key is never set on Railway: the deployed
+  `womm-api` makes no model calls. Rotate it if `.env` or a run report is ever shared.
+- Tier: every formal run (step 4 calibration eval, R34, holdout comparisons) uses the standard
+  tier. Flex is not wired in: the code has no tier setting, and a 429 aborts the whole eval.
 - GitHub, Settings, Branches, `main`: require a pull request and "Require review from Code
   Owners".
 
@@ -67,8 +89,8 @@ git switch feat/v1-integration && git merge feat/golden-import
 
 ## 2. The reference check (2 classmates, about 20 minutes each)
 
-**Done 2026-10-14:** from the 11 drafts as they are on the `review/case-*` branches (copied to
-`.cache/reference_check/round1_drafts/`), seed 2, 20 + 10 items per classmate drawn exactly as on
+**Done 2026-10-14:** from the 11 drafts as they are on the `review/case-*` branches (copied with
+their companions to `.cache/reference_check/round1_v3_drafts/`), seed 2, 20 + 10 items per classmate drawn exactly as on
 2026-10-11, plus the RSB companion points the tie-break ruled on (re-ruled on 2026-10-14 with the
 companion rule; `.cache/rsb_companions_v2/`). People judge one thing: did the AI read its source
 faithfully. Drawn decisions resting on what that question cannot judge are taken out and listed
@@ -111,7 +133,7 @@ Progress is visible at `https://<app>/label/<sample>/admin` (asks for the admin 
 
 **No second round:** the reserve is already on the pages, so `score` decides on all items.
 
-## 3. Read the review page (owner, about 5 minutes)
+## 3. Read the review page (owner, about 45 minutes)
 
 When the admin page shows both as sent:
 
@@ -127,26 +149,34 @@ reason. Open it and mark who is right on each disagreement; the advice on the pa
 This replaces reading eval transcripts by hand. The pages hold the AI's decisions: keep them
 local, never send them. Record the reference check here:
 
-| Date | Sample id | Error | 95% bound | Verdict |
-|---|---|---|---|---|
-| | | | | |
+| Date | Sample id | Error | 95% bound | Verdict | Key errors in the 21 differences |
+|---|---|---|---|---|---|
+| | | | | | |
+
+Then read "Where the answer key and the page verdict differ" (21 of 59 items) and rule on each
+against the source: key wrong, or AI answer wrong. Count the items ruled key wrong. Up to 10% of
+the answer-key points (the companions' bound): fix those items, then publish. More: the key is
+not ready; fix the drafting input and settle the drafts again before step 4. Record the count in
+the table; the demo then says the key was "read-checked by two people, owner-ruled on the
+differences", nothing stronger.
 
 ## 3b. RSB companions (after a ROBUST reference check)
 
 The RSB opinions were fetched on 2026-10-12 (15 of 23 laws) and a companion draft of RSB
-omissions was drafted for each of the 11 practice cases (31 points; 26 kept after the 2026-10-14 re-ruling with the companion rule, 18 before;
+omissions was drafted for each of the 11 train/val cases (31 points; 26 kept after the 2026-10-14 re-ruling with the companion rule, 18 before;
 `docs/status/2026-10-12-rsb-companions.md`). They are drafted locally and not committed until
-the reference check passes. Then, on the integration branch:
+the reference check passes. Then, on `feat/v1-integration` after step 1's merge and before step
+4 (the review branches are already merged in step 1, so commits there never reach the published
+cases; `publish_golden_cases.py` publishes a case without its companion and refuses a companion
+that arrives later):
 
 ```
-# merge the companion code into each review branch, then commit its companion
-for b in $(git branch --list 'review/case-*' --format='%(refname:short)'); do
-  git switch $b && git merge --no-edit feat/v1-integration && git switch -
-done
-# on each branch: copy the companion re-ruled on 2026-10-14 (kept in .cache/rsb_companions_v2/),
-# check it, commit it (no new LLM call; same drafts, same result as the status report)
+# copy each companion re-ruled on 2026-10-14 (kept in .cache/rsb_companions_v2/), check it,
+# commit it (no new LLM call; same drafts, same result as the status report)
+git switch feat/v1-integration
 cp .cache/rsb_companions_v2/<case>.rsb.yaml evals/golden/drafts/
 uv run python scripts/review_draft.py evals/golden/drafts/<case>.rsb.yaml --check
+git add evals/golden/drafts/*.rsb.yaml && git commit -m "feat: RSB companions for the 11 train/val cases"
 ```
 
 The disputed points were labelled in step 2; `score` there gave their verdict. The 17 points
@@ -163,19 +193,24 @@ delete the companion files, fix the input, draft `--version rsb2` and check agai
 ## 4. Publish the golden cases, then the calibration sitting
 
 ```
-uv run python scripts/oracle_check.py evals/golden/drafts/case_*.yaml   # each case's own answer must score full
+# case drafts only (a companion holds omissions only and fails as a case); the api judge
+uv run python scripts/oracle_check.py --system-version system_versions/v1.0-unscoped-api.yaml \
+    $(ls evals/golden/drafts/case_*.yaml | grep -v '\.rsb\.yaml$')
 uv run python scripts/publish_golden_cases.py
+uv run python scripts/oracle_check.py --system-version system_versions/v1.0-unscoped-api.yaml   # published cases, companions included
 ```
 
 Commit the published cases. Then the calibration (needs the OpenAI key in `.env`): one train
-eval run with the API incumbent, 30 pairs that both classmates label, about 20 minutes each.
-The train eval is about 10 case runs, so about $4 to $5 at the pinned prices. The judge
-calibrated here is `gpt-6.1-sol` at effort `medium`; changing either afterwards means a new
-calibration sitting.
+eval run with the api incumbent of the gate (`v1.0-unscoped-api`, the outputs the judge will
+grade), 30 pairs that both classmates label, about 20 minutes each. The train eval is about 10
+case runs, so about $4 to $5 at the pinned prices, judge calls included. The judge calibrated
+here is `gpt-6.1-sol` at effort `medium` (decided 2026-10-14, kept although it is the same model
+as the system under test; see step 6 for the cross-family check); changing either afterwards
+means a new calibration sitting.
 
 ```
-uv run womm eval --system-version system_versions/v0.3-api.yaml --split train --local
-uv run womm calibrate sample --sv system_versions/v0.3-api.yaml --report runs/<that report> \
+uv run womm eval --system-version system_versions/v1.0-unscoped-api.yaml --split train --local
+uv run womm calibrate sample --sv system_versions/v1.0-unscoped-api.yaml --report runs/<that report> \
     --n 30 --seed 1 --annotator samuel --annotator eetu --out .cache/calibration/round1/
 uv run womm calibrate upload --dir .cache/calibration/round1/ --url https://<app>
 # when both have sent:
@@ -185,20 +220,30 @@ git commit evals/promotion_records.yaml
 ```
 
 - Calibration counts only when the two classmates agree with each other on at least 80% of the
-  pairs and at least 24 of the 30 have a clear answer; then the grader must agree with them on
-  at least 85%. Passed: recorded, and the statistical and weak gates can run. People below 80%:
-  the rule is unclear; sharpen its wording from the split pairs on the review page, then a new
-  seed. Grader below 85%: fix the coverage judge's prompt, then a new seed.
+  pairs and at least 24 of the 30 have a clear answer; then the judge must agree with them on
+  at least 85%. Passed: recorded, and the statistical and weak gates can run once step 7 is
+  recorded. People below 80%: the rule is unclear; sharpen its wording from the split pairs on
+  the review page, then a new seed. Judge below 85%: fix the coverage judge's prompt, then a new
+  seed. One retry only (cut-off above). With 30 pairs, a judge whose true agreement is 85% passes
+  about half the time (90%: about 4 in 5); a failed sitting is noted in this page with its score.
 
 ## 5. Holdout (owner only, about 20 minutes)
 
-The holdout never leaves the owner's machine, so this cannot go to classmates. It needs a
-ROBUST reference check (step 3): the same tool chain then settles the holdout drafts, and the
-owner only checks 3 items a draft (one per kind of decision), about 24 in all.
+The holdout store and this page stay on the owner's machine, so this cannot go to classmates
+(formal comparisons later send holdout text to OpenAI; see the data boundary at the top). It
+needs a ROBUST reference check (step 3): the same tool chain then settles the holdout drafts, and
+the owner only checks 3 items a draft (one per kind of decision), about 24 in all. The spot check
+stays human: no model replaces it, because the system under test and the judge run on the same
+model. The 2026-10-12 tie-break rulings count only if step 3 is ROBUST; after a NOT ROBUST
+result, settle the drafts again and re-run `tiebreak_golden_case.py` before this step.
+
+Run in the integration worktree (the 8 drafts are in its `.cache/drafts/`; the reference check
+is in the main checkout's `.cache/`). Not imported yet (checked 2026-10-14: 8 drafts, empty
+`.cache/holdout_import/`).
 
 ```
-uv run python scripts/tiebreak_golden_case.py .cache/drafts/<case>.yaml      # each draft
-uv run python scripts/holdout_review.py --reference-check .cache/reference_check/round1_v6/ \
+uv run python scripts/holdout_review.py \
+    --reference-check /Users/yuxin.chen/Distributed-agent/.cache/reference_check/round1_v6/ \
     --reviewer "Chen Yuxin"     # opens a local page with every draft's 3 items, blind
 HOLDOUT_DATABASE_URL=... uv run python scripts/import_holdout_case.py .cache/holdout_import/<case>.yaml
 ```
@@ -209,8 +254,8 @@ acceptable for the holdout.
 
 Any disagreement with the tool on a draft refuses the spot check (the same rule as the
 reference check's early stop; the holdout is newer material than train/val); then run
-`holdout_review.py ... --full <case_id>` for that draft (every item, same page). Done: `.cache/drafts/` is empty
-and the holdout store reports 8 cases from 8 proposals.
+`holdout_review.py ... --full <case_id>` for that draft (every item, same page). The step is done
+when `.cache/drafts/` is empty and the holdout store reports 8 cases from 8 proposals.
 
 ## 6. Sign the promotion policy (owner)
 
@@ -225,10 +270,25 @@ git commit evals/promotion_policy.yaml
 
 Never change the file after a comparison; every decision records its sha256.
 
+**Decided 2026-10-14, before any comparison** (pre-registered here; the policy file is unchanged):
+
+- `repetitions` stays 3. At about 0.1 noise per case, 8 cases and 3 repetitions give an MDD of
+  about 0.09, so the gate will most likely run in weak mode (mean delta above 0 plus guards),
+  where a candidate with no real effect passes about half the time. The demo says so.
+- At most 2 formal holdout comparisons in the demo; the second only for the prompt-only fallback
+  candidate. A rejection by the gate is shown as a valid end of the cycle.
+- Before spending a comparison, the chosen candidate's api twin runs once on val (about $3), so a
+  gain found on the Claude subscription is confirmed under the GPT model and judge.
+- After each comparison, report-only checks (they gate nothing): the coverage delta re-scored by a
+  Claude judge (`claude_code`, subscription) on the same saved runs, and the mean impact count per
+  dossier of both arms. Disagreeing signs or an inflated impact count label the decision
+  "judge-sensitive". To build before the first comparison.
+
 ## 7. R34 noise run and MDD (owner starts it)
 
-The val split has 3 cases, so 6 repetitions are 18 case runs: about $7 to $9 and, one case at a
-time, about 2 hours.
+After the calibration is recorded and after step 5 (the val cases exist only once step 4 has
+published them). The val split has 3 cases, so 6 repetitions are 18 case runs: about $7 to $9,
+judge calls included, and, one case at a time, about 2 hours. Standard tier.
 
 ```
 uv run womm eval --system-version system_versions/v1.0-unscoped-api.yaml --split val --repetitions 6 --formal
@@ -236,7 +296,10 @@ uv run womm noise report --report <that report> --holdout-cases 8 --holdout-prop
 git commit evals/promotion_records.yaml
 ```
 
-If the MDD is above `expected_gain`, the gate uses the weak threshold, and the demo says so.
+If the MDD is above `expected_gain`, the gate uses the weak threshold, and the demo says so. An
+MDD at or below `expected_gain` is necessary, not sufficient: it covers run-to-run noise only, not
+how a gain varies between cases, so with an MDD near 0.08 statistical mode is still likely to
+reject a real 0.08 gain.
 
 ## 8. Cost reference (owner, on `feat/eu-cost`)
 
