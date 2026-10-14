@@ -30,13 +30,13 @@ an error so the hard items do not drop out. Over all items the reference answers
 at or below ``MAX_ERROR`` (the same 10% that escalates a proposal to full review). The first round
 decides alone when more items could not change the outcome's strength: it passes when its 95%
 upper bound is no wider than that of the worst pass the full check allows (0 to 3 errors in 40),
-and fails when the errors would stay above the limit even if every reserve item agreed (7 or
-more in 40 against 60). Only in between does the reserve go out (``extend``). Above the limit,
-fix the prompts, re-draft and check again. Every item must be answered before any verdict. Each
-wrong item is printed with the tool's own reason, and ``score`` writes ``review.html`` (local
-only: it holds the tool's decisions) to read them side by side. The one-sided 95% upper bound printed next
-to the rate says how far the true rate could be; a pass whose bound is above
-``BORDERLINE_BOUND`` is called borderline (context only, never the verdict).
+and fails when the errors would stay above the limit even if every reserve item agreed (7 or more
+in 40 against 60). Only in between does the reserve go out (``extend``). Above the limit, fix the
+prompts, re-draft and check again. Every item must be answered before any verdict. Each wrong item
+is printed with the tool's own reason, and ``score`` writes ``review.html`` (local only: it holds
+the tool's decisions) to read them side by side. The one-sided 95% upper bound printed next to the
+rate says how far the true rate could be; a pass whose bound is above ``BORDERLINE_BOUND`` is
+called borderline (context only, never the verdict).
 
 **Shared items (optional, ``overlap``).** A few first-round items are also given to every other
 annotator, under their own ids and mixed into their pages. Only the first copy counts in the gate;
