@@ -16,7 +16,7 @@ nothing).
 |---|---|---|---|
 | 0 | One-off setup: push, deploy, tokens, API key, branch protection | owner | about 30 min |
 | 1 | Merge the 11 train/val drafts | owner | 5 min |
-| 2 | Reference check with the disputed expert points (**live since 2026-10-13**, samuel and eetu) | 2 classmates | about 20 min each |
+| 2 | Reference check with the disputed expert points (**live since 2026-10-13**, samuel and eetu) | 2 classmates | about 25 min each |
 | 3 | Read the reference-check review page, mark who is right | owner | about 5 min |
 | 3b | RSB companions: commit them to the review branches (labelled in step 2) | owner | 10 min |
 | 4 | Publish the golden cases; then the calibration sitting | owner, then 2 classmates | 5 min, then about 20 min each |
@@ -62,12 +62,14 @@ for n in $(seq 7 17); do gh pr ready $n && gh pr merge $n --merge; done
 git switch feat/v1-integration && git merge feat/golden-import
 ```
 
-## 2. The reference check (2 classmates, about 20 minutes each)
+## 2. The reference check (2 classmates, about 25 minutes each)
 
 **Done 2026-10-13:** the 20 + 10 items per classmate drawn on 2026-10-11 from the 11 drafts as
 they are on the `review/case-*` branches (copied to `.cache/reference_check/round1_drafts/`),
 seed 2, plus, on the same pages, the 14 RSB companion points where the AI's judges disagreed
-(about 7 each, scored apart; `.cache/rsb_companions/`). One sitting, 27 points each. Link to
+(about 7 each, scored apart; `.cache/rsb_companions/`). The reserve was moved onto the pages
+before anyone started (`extend`, 2026-10-14), so it is one sitting, 37 points each, decided on
+all 60 answer-key points at once; nobody is asked again. Link to
 send to samuel and eetu: `https://womm-api-production.up.railway.app/label/2026-10-13-db0f18f5`.
 Do not send the practice links or the superseded `2026-10-11-86dae710` (the same 20 + 10 without
 the expert points; never sent). If a draft changes before publishing, draw a new check. How it
@@ -89,9 +91,7 @@ guide on the first item, answer every item, press "Finish & send". Answers are s
 go; they can stop and come back. Work alone, and don't discuss items until both have sent.
 Progress is visible at `https://<app>/label/<sample>/admin` (asks for the admin token).
 
-**If the reference check finds an error in the first round,** `score` says NOT YET. Then run
-`uv run python scripts/reference_check.py extend --dir .cache/reference_check/round1_combined/ --url https://<app>`
-and ask both to open the reference-check link again: 10 more items each, about 5 minutes.
+**No second round:** the reserve is already on the pages, so `score` decides on all items.
 
 ## 3. Read the review page (owner, about 5 minutes)
 
