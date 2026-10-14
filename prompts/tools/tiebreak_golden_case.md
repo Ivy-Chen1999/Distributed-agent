@@ -29,6 +29,17 @@ Rule on every item:
   IA's reassurances.
 - `unsure`: you cannot tell from what you have. Unsure items are left out.
 
+Items whose `anchor_source` is the `review board opinion` are omissions drafted from the
+Regulatory Scrutiny Board's opinion on the draft IA. The board does not state findings: it asks
+the report to assess something. For these, the anchor supports the claim when the board's
+request, read in its context, asks for this effect to be assessed (the same actor and effect, in
+the board's more general words if need be). A request phrased as "the report should analyse..."
+is exactly the evidence such an item needs, so never drop one for being a request rather than a
+finding. Keep it when the request asks for this effect and the effect follows from the listed
+provisions. Drop it when the request is only about how the report is written (method, data,
+presentation, definitions, consistency of figures), asks for a different effect, the provisions
+do not lead to the effect, or it repeats an item already kept.
+
 Read the judges' reasons, but check the evidence yourself; a judge can be wrong in either
 direction. A disagreement only about the category is usually a `keep` with the right category.
 Give a one- or two-sentence reason that names the evidence. Return exactly one ruling for every

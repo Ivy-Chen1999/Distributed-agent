@@ -130,6 +130,8 @@ def tiebreak_input(
                 "provision_keys": item.provision_keys,
                 "proposed_category": item.category,
                 "ia_section": item.ia_section,
+                "anchor_source": "impact assessment" if item.anchor.against == "ia"
+                else "review board opinion",
                 "anchor_quote": item.ia_anchor,
                 "anchor_in_context": context or "(context not available; rely on the quote)",
                 "judges": {
