@@ -118,11 +118,11 @@ class Review:
             rsb_texts[fixture] = cached.rsb_text if cached else None
         cards = []
         for case_id, items in self.asked.items():
-            draft, asked = by_case[case_id], {i.item_id for i in items}
+            draft = by_case[case_id]
             for item in items:
                 it = rc.Item(case_id, draft.fixture, item.item_id, rc.stratum(item) or "",
                              item.review.decision in KEPT_DECISIONS)  # fmt: skip
-                cards.append(rc.card(item.item_id, it, by_case, texts, asked, rsb_texts))
+                cards.append(rc.card(item.item_id, it, by_case, texts, rsb_texts))
         ids = [c["id"] for c in cards]
         if len(set(ids)) != len(ids):
             raise verify.VerifyError("two drafts share an item id; review them one at a time")

@@ -19,10 +19,9 @@ third from each stratum (``judges_accepted``, ``tiebreak_kept``, ``tiebreak_drop
 fill in when one runs short), round-robin over cases so no case dominates. A reserve of
 ``extra`` more per annotator (10 by default), drawn the same way from the rest, is kept back.
 
-**Blind labeling.** The page shows each item's claim, its quote and the IA text around it, and
-the case's other kept items that are not in the sample (to spot repeats; a sampled item never
-appears there, or its presence would give away the tool's decision). It never shows the tool's
-decision or reasons; those stay in ``key.private.json``.
+**Blind labeling.** The page shows each item's claim, its quote with the source text around it,
+and the text of the articles the claim names. It never shows the tool's decision or reasons;
+those stay in ``key.private.json``. Spotting repeats is left to the tie-break.
 
 **Gate, in two looks.** Each item gets ``keep``, ``drop`` or ``unsure``. The tool's error rate is
 the share of items where the person's keep/drop differs from the tool, with ``unsure`` counted as
@@ -73,6 +72,10 @@ STRATA = ("judges_accepted", "tiebreak_kept", "tiebreak_dropped")
 # Where the tool's own judges disagreed (the tie-break ruled). A disputed-only census labels
 # these alone: the judges-accepted stratum is calibrated by the random first check.
 DISPUTED = ("tiebreak_kept", "tiebreak_dropped")
+# Decisions people are not asked to judge, because the page asks only whether the AI read its
+# source faithfully: a drop for repeating a kept item (checked by code against the item it
+# names), for not following from the articles, or for a kind the rules exclude.
+OUT_OF_SCOPE = ("duplicate", "law", "rule")
 MAX_ERROR = ESCALATION_RATE
 PAGE_TEMPLATE = Path(__file__).with_name("labelling_page.html")
 KEY_FILE = "key.private.json"
@@ -179,18 +182,6 @@ def stratified_sample(items: list[Item], n: int, seed: int) -> list[Item]:
 # ----------------------------------------------------------------------------- writing
 
 
-def _others(draft: GoldenDraft, sampled: set[str]) -> list[str]:
-    """The case's kept items outside the sample: whether a sampled item was kept stays hidden."""
-    out = []
-    for other in draft.items():
-        if other.item_id in sampled or other.review.decision not in KEPT_DECISIONS:
-            continue
-        actor = getattr(other, "affected_actor", "")
-        what = getattr(other, "mechanism", None) or getattr(other, "description", "")
-        out.append(f"{actor}: {what}" if actor else what)
-    return out
-
-
 def _passage(quote: str, text: str, chars: int) -> dict[str, str] | None:
     """The IA text around the quote's first segment, case kept, split into before / quote /
     after so the page can highlight the quote; None when the quote is not found."""
@@ -240,12 +231,11 @@ def card(
     it: Item,
     drafts: dict[str, GoldenDraft],
     ia_texts: dict[str, str | None],
-    sampled: set[str],
     rsb_texts: dict[str, str | None] | None = None,
 ) -> dict[str, Any]:
     """What the labeling page shows for one item: never the tool's decision or reasons.
-    ``sampled`` holds the item ids of this case that are in the sample. An item anchored on the
-    RSB opinion shows the opinion's text around its quote, from ``rsb_texts``."""
+    An item anchored on the RSB opinion shows the opinion's text around its quote, from
+    ``rsb_texts``; the articles the item names are shown in their own tabs."""
     draft = drafts[it.case_id]
     item = next(i for i in draft.items() if i.item_id == it.item_id)
     on_ia = item.anchor.against == "ia"
@@ -261,7 +251,6 @@ def card(
         "quote": item.ia_anchor,
         "passage": _passage(item.ia_anchor, text, CONTEXT_CHARS) if text else None,
         "articles": _articles(draft, item.provision_keys),
-        "others": _others(draft, sampled),
     }
 
 
@@ -309,6 +298,7 @@ def write_sample(
     overlap: int = 0,
     disputed_only: bool = False,
     with_companions: list[GoldenDraft] | None = None,
+    out_of_scope: dict[str, dict] | None = None,
 ) -> dict[str, Any]:
     """Draw ``n`` items per annotator, each annotator their own, plus a reserve of ``extra``
     each, and write the labeling pages and the private key. With ``companions`` (RSB companion
@@ -318,7 +308,9 @@ def write_sample(
     outside the gate). ``disputed_only`` keeps the items the tie-break ruled on (``DISPUTED``).
     ``with_companions`` puts the companion check on the same pages: the case sample is drawn
     exactly as without it, and the companions' disputed items are added (``check:
-    "companion"``), split between the annotators and scored on their own (``part``)."""
+    "companion"``), split between the annotators and scored on their own (``part``).
+    ``out_of_scope`` ("<case>/<item>" -> ``{"basis": ...}``) names decisions people are not asked
+    to judge (``OUT_OF_SCOPE``): they are drawn as usual, then taken out and listed in the key."""
     if n < 3:
         raise ReferenceCheckError("--n must be at least 3")
     if not annotators or len(set(annotators)) != len(annotators):
@@ -373,11 +365,21 @@ def write_sample(
         random.Random(f"{seed}:{stage}").shuffle(dealt)
         return dealt
 
+    scope = out_of_scope or {}
+
+    def outside(it: Item) -> bool:
+        return scope.get(f"{it.case_id}/{it.item_id}", {}).get("basis") in OUT_OF_SCOPE
+
     first = stratified_sample(pop, n * len(annotators), seed)
     taken = {(i.case_id, i.item_id) for i in first}
     rest = [i for i in pop if (i.case_id, i.item_id) not in taken]
     sample = deal(first, 1)
     reserve = deal(stratified_sample(rest, extra * len(annotators), seed + 1), 2) if extra else []
+    # A random sample of every decision, restricted to those people can judge, stays random.
+    taken_out = [i for i in sample + reserve + added if outside(i)]
+    sample = [i for i in sample if not outside(i)]
+    reserve = [i for i in reserve if not outside(i)]
+    added = [i for i in added if not outside(i)]
     extra_items = deal(added, 3) if added else []
     extra_items = [replace(i, stage=1) for i in extra_items]
     shared_from = random.Random(f"{seed}:overlap").sample(range(len(sample)),
@@ -402,10 +404,6 @@ def write_sample(
     digest = hashlib.sha1(json.dumps(drawn).encode()).hexdigest()[:8]
     sample_id = f"{created}-{digest}"
     by_case = {d.case_id: d for d in drafts}
-    # Reserve items are hidden from "the case's other items" too: they may be shown later.
-    in_sample: dict[str, set[str]] = defaultdict(set)
-    for it in sample + reserve + extra_items:
-        in_sample[it.case_id].add(it.item_id)
     ia_texts, rsb_texts = {}, {}
     for fixture in sorted({d.fixture for d in drafts}):
         cached = ia_sources.load_cached_ia(fixture, ia_root)
@@ -418,7 +416,7 @@ def write_sample(
         mine_added = [i for i in keyed if i not in ids and keyed[i].annotator == name]
         mine_shared = [i for i, it in shared.items() if it.annotator == name]
         every = keyed | shared
-        cards = {i: card(i, every[i], by_case, ia_texts, in_sample[every[i].case_id], rsb_texts)
+        cards = {i: card(i, every[i], by_case, ia_texts, rsb_texts)
                  for i in mine + mine_added + mine_shared}  # fmt: skip
         pages[name] = [cards[i] for i in mine if keyed[i].stage == 1]
         rng = random.Random(f"{seed}:companion:{name}")
@@ -442,6 +440,7 @@ def write_sample(
         "annotators": annotators,
         "population": len(pop),
         "disputed_only": disputed_only,
+        "out_of_scope": [asdict(i) | scope[f"{i.case_id}/{i.item_id}"] for i in taken_out],
         "items": {iid: asdict(it) for iid, it in keyed.items() if it.stage == 1},
         "reserve": {iid: asdict(it) for iid, it in keyed.items() if it.stage == 2},
     }
@@ -455,6 +454,7 @@ def write_sample(
         "items": len(sample),
         "reserve": len(reserve),
         "per_annotator": {a: sum(i.annotator == a for i in sample) for a in annotators},
+        "out_of_scope": len(taken_out),
         "shared": len(shared),
         "companion_items": {a: sum(i.annotator == a for i in extra_items) for a in annotators},
         "by_stratum": {s: sum(i.stratum == s for i in sample) for s in STRATA},

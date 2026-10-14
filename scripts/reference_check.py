@@ -60,6 +60,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
                         help="reserve items per annotator, sent only if the first round has an "
                              "error")  # fmt: skip
     sample.add_argument("--seed", type=int, default=1)
+    sample.add_argument("--decision-basis", type=Path, default=None,
+                        help="private JSON naming the decisions people do not judge "
+                             "(duplicate, law, rule)")  # fmt: skip
     sample.add_argument("--with-companions", action="store_true",
                         help="put the companion check on the same pages: the case sample as "
                              "usual plus the companions' disputed points, scored on their own")  # fmt: skip
@@ -114,12 +117,16 @@ def main(argv: list[str] | None = None) -> int:
                 drafts.append(draft)
             companions = [d for d in drafts if d.companion is not None]
             cases = [d for d in drafts if d.companion is None]
+            basis = None
+            if args.decision_basis:
+                basis = json.loads(args.decision_basis.read_text(encoding="utf-8"))
             if args.with_companions:
                 out = rc.write_sample(args.out, cases, n=args.n, seed=args.seed,
                                       annotators=args.annotators, send_to=args.send_to,
                                       ia_root=args.ia_root, extra=args.extra,
                                       overlap=args.overlap,
-                                      with_companions=companions)  # fmt: skip
+                                      with_companions=companions,
+                                      out_of_scope=basis)  # fmt: skip
             elif args.companions:
                 # A census: every companion item, split evenly between the annotators.
                 items = sum(i.stratum in rc.DISPUTED or not args.disputed_only

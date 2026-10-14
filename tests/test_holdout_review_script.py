@@ -61,7 +61,7 @@ def test_the_page_asks_the_seeded_sample_blind(tmp_path, settled):
     assert len(review.cards) == verify.SPOT_SAMPLE
     for c in review.cards:
         assert not LEAKS & c.keys() and c["case"] == CASE
-        assert not any(o.startswith(c["id"]) for o in c["others"])
+        assert c["articles"] == []  # a holdout scenario is not in the public fixture
 
 
 def test_answers_are_checked_and_kept_across_restarts(tmp_path, settled):

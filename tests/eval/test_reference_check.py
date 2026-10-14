@@ -118,15 +118,6 @@ def test_the_pages_are_blind_and_each_annotator_gets_their_own_items(tmp_path):
         rc.write_sample(tmp_path / "x", drafts, n=3, seed=1, annotators=["ana", "ana"])
 
 
-def test_a_sampled_item_never_shows_among_the_others():
-    """Otherwise a kept sampled item would appear on its sibling's page, a dropped one not."""
-    draft = tiebroken("case_90_a")
-    kept = [i.item_id for i in draft.items() if i.review.decision in rc.KEPT_DECISIONS]
-    everything = rc._others(draft, set())
-    assert len(everything) == len(kept)
-    assert len(rc._others(draft, {kept[0], "c90_m01"})) == len(kept) - 1
-
-
 def _key(rows: list[tuple[str, bool]], annotators=("ana", "bo")) -> dict:
     items = {f"r{n}": {"case_id": "c", "fixture": "f", "item_id": f"i{n}", "stratum": s,
                        "tool_kept": k, "tool_reason": "",
@@ -264,7 +255,7 @@ def test_a_clean_first_round_stops_early_and_the_reserve_stays_hidden(tmp_path):
     assert len(key["reserve"]) == 4 and not set(key["reserve"]) & set(key["items"])
     shown = {c["id"] for cards in pages["annotators"].values() for c in cards}
     assert shown == set(key["items"])
-    for name in ("ana", "bo"):  # the reserve is not on any page, and not among "others"
+    for name in ("ana", "bo"):  # the reserve is not on any page
         page = (out / f"label_{name}.html").read_text()
         assert not any(f'"id": "{r}"' in page for r in key["reserve"])
     labels = {i: "keep" if it["tool_kept"] else "drop" for i, it in key["items"].items()}
@@ -349,12 +340,12 @@ def test_a_card_for_an_rsb_item_shows_the_opinion_around_its_quote():
     draft = to_draft(data)
     it = rc.Item(draft.case_id, draft.fixture, "c90_o09", "judges_accepted", True)
     opinion = "The Board notes that small widget makers are not costed in the report at all."
-    with_rsb = rc.card("x1", it, {draft.case_id: draft}, {draft.fixture: "IA text"}, set(),
+    with_rsb = rc.card("x1", it, {draft.case_id: draft}, {draft.fixture: "IA text"},
                        {draft.fixture: opinion})  # fmt: skip
     assert with_rsb["source"] == "scrutiny board opinion"
     assert with_rsb["passage"]["quote"] == "small widget makers are not costed"
     assert with_rsb["passage"]["before"].startswith("The Board notes")
-    without = rc.card("x1", it, {draft.case_id: draft}, {draft.fixture: "IA text"}, set())
+    without = rc.card("x1", it, {draft.case_id: draft}, {draft.fixture: "IA text"})
     assert without["passage"] is None and without["quote"] == "small widget makers are not costed"
 
 
@@ -398,9 +389,8 @@ def test_companions_are_labelled_in_full_and_never_mixed_into_a_sample(tmp_path,
     assert sorted(it["item_id"] for it in key["items"].values()) == comp_ids
     assert {it["annotator"] for it in key["items"].values()} == {"ana", "bo"}
     assert not key.get("reserve")
-    # The page shows the case with its companion: the others include the case's kept points.
     cards = page_data(out / "label_ana.html")["items"]
-    assert cards and any("Actor 1" in o for o in cards[0]["others"])
+    assert cards and all(c["source"] == "scrutiny board opinion" for c in cards)
     # An ordinary sample leaves companions out and says so.
     capsys.readouterr()
     argv = ["sample", str(case_path), str(comp_path), *base, "--out", str(tmp_path / "s"),
@@ -544,9 +534,34 @@ def test_cards_carry_the_articles_and_the_first_card_is_from_the_report(tmp_path
             assert c["articles"] and all(a["label"].startswith("Article ") for a in c["articles"])
             assert all(a["text"].strip() for a in c["articles"])
     page = (tmp_path / "s" / "label_ana.html").read_text()
-    assert 'id="decide"' in page and "Is the board asking for this effect to be assessed?" in page
+    assert 'id="decide"' in page and "Is this what the board asked to be assessed?" in page
 
 
 def test_a_case_whose_scenario_is_not_public_shows_no_articles():
     draft = tiebroken().model_copy(update={"scenario_id": "eval_not_in_the_fixture"})
     assert rc._articles(draft, ["data_act/proposal/art/24"]) == []
+
+
+def test_decisions_people_cannot_judge_are_taken_out_and_listed(tmp_path):
+    case = tiebroken()
+    kw = dict(n=3, seed=1, annotators=["ana", "bo"], ia_root=tmp_path, extra=2)
+    rc.write_sample(tmp_path / "all", [case], **kw)
+    every = json.loads((tmp_path / "all" / rc.KEY_FILE).read_text())
+    drawn = list(every["items"].values()) + list(every["reserve"].values())
+    dropped = [it for it in drawn if it["stratum"] == "tiebreak_dropped"]
+    scope = {f"{it['case_id']}/{it['item_id']}": {"basis": "duplicate", "of": ["c90_e01"]}
+             for it in dropped}  # fmt: skip
+    res = rc.write_sample(tmp_path / "scoped", [case], out_of_scope=scope, **kw)
+    key = json.loads((tmp_path / "scoped" / rc.KEY_FILE).read_text())
+    left = list(key["items"].values()) + list(key["reserve"].values())
+    assert res["out_of_scope"] == len(dropped) and len(key["out_of_scope"]) == len(dropped)
+    assert all(o["basis"] == "duplicate" and o["of"] == ["c90_e01"] for o in key["out_of_scope"])
+    assert not any(it["stratum"] == "tiebreak_dropped" for it in left)
+    assert len(left) == len(drawn) - len(dropped)
+    pages = hosted_labels.read_pages(tmp_path / "scoped")["annotators"]
+    shown = {c["id"] for cards in pages.values() for c in cards}
+    assert shown == set(key["items"])
+    # A "text" basis stays with people.
+    keep = {k: {"basis": "text", "of": []} for k in scope}
+    rc.write_sample(tmp_path / "text", [case], out_of_scope=keep, **kw)
+    assert json.loads((tmp_path / "text" / rc.KEY_FILE).read_text())["out_of_scope"] == []

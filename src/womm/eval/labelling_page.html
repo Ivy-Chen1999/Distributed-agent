@@ -71,6 +71,8 @@ dl.claim div { border-left: 3px solid var(--ink); padding: 2px 0 2px 12px; }
 dl.claim dt { font-size: 12px; font-weight: 700; color: var(--grey); text-transform: uppercase;
   letter-spacing: .05em; }
 dl.claim dd { margin: 2px 0 0; font-size: 15px; line-height: 1.55; }
+dl.claim div.context { border-left-color: var(--bark); }
+dl.claim div.context dd { color: var(--grey); font-size: 14px; }
 .question { font-size: 17px; font-weight: 700; line-height: 1.35; }
 .tiles { display: flex; flex-direction: column; gap: 8px; }
 .tile { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 8px 14px;
@@ -89,21 +91,17 @@ textarea.note { border: 1px solid var(--ink); border-radius: 4px; padding: 10px 
   font-family: inherit; font-size: 15px; line-height: 1.5; resize: vertical; background: var(--bg); }
 textarea.note.need { border: 2px solid var(--amber); background: var(--amber-lt); }
 .hint { font-size: 13px; color: var(--grey); line-height: 1.5; }
+.srctabs { max-width: 760px; margin: 0 auto 10px; display: flex; gap: 6px; flex-wrap: wrap; }
+.srctab { border: 1px solid var(--ink); background: var(--bg); color: var(--ink); border-radius: 4px;
+  padding: 5px 10px; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.srctab.on { background: var(--ink); color: var(--bg); }
+.law-view { white-space: pre-wrap; }
+.artlink { border: none; background: none; padding: 0; font: inherit; color: inherit; cursor: pointer;
+  text-decoration: underline dotted; text-underline-offset: 3px; }
 .decide { border: 2px solid var(--ink); border-radius: 6px; padding: 12px 14px; font-size: 15px;
   line-height: 1.5; background: var(--paper); }
 .decide b { display: block; font-size: 12px; letter-spacing: .04em; text-transform: uppercase;
   margin-bottom: 4px; }
-.law-text { max-height: 320px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
-.law-text div { font-size: 14px; line-height: 1.55; white-space: pre-wrap; }
-.law-text b { display: block; margin-bottom: 2px; }
-details.others summary { cursor: pointer; list-style: none; display: flex; align-items: center; }
-details.others summary::-webkit-details-marker { display: none; }
-details.others summary::after { content: "▸"; color: var(--muted); margin-left: 8px; }
-details.others[open] summary::after { content: "▾"; }
-details.others ul { margin: 10px 0 0; padding: 0; list-style: none; display: flex;
-  flex-direction: column; gap: 8px; }
-details.others li { border-left: 3px solid var(--bark); padding: 2px 0 2px 10px; font-size: 13px;
-  line-height: 1.45; color: var(--grey); }
 
 /* bottom bar */
 .bottombar { flex-shrink: 0; min-height: 72px; display: flex; align-items: center; gap: 14px;
@@ -251,11 +249,13 @@ body[data-kind="reference_check"] [data-kind="calibration"] { display: none !imp
       <span class="tag soft" id="articles"></span>
     </div>
     <div class="doc-scroll" id="docPane">
+      <div class="srctabs" id="srcTabs" data-kind="reference_check"></div>
       <div class="page">
         <div class="page-head" id="srcTitle">The official report</div>
         <div class="page-sub" id="section"></div>
         <div class="passage" id="passage" data-kind="reference_check"></div>
-        <div class="legend" data-kind="reference_check"><i></i> highlighted: the sentence the point is based on</div>
+        <div class="passage law-view" id="lawView" data-kind="reference_check" hidden></div>
+        <div class="legend" id="legend" data-kind="reference_check"><i></i> highlighted: the sentence the point is based on</div>
         <div class="dossier" id="dossier" data-kind="calibration"></div>
       </div>
     </div>
@@ -278,7 +278,7 @@ body[data-kind="reference_check"] [data-kind="calibration"] { display: none !imp
       </div>
       <div class="tiles" data-kind="reference_check">
         <button class="tile keep" data-l="keep"><b>Yes, keep</b><span id="keepWhy">The report text supports the point.</span><kbd>Y</kbd></button>
-        <button class="tile drop" data-l="drop"><b>No, drop</b><span id="dropWhy">Background, an option not chosen, a vague remark, a wrong number, or a repeat.</span><kbd>N</kbd></button>
+        <button class="tile drop" data-l="drop"><b>No, drop</b><span id="dropWhy">Adds or changes a group, an effect or a number.</span><kbd>N</kbd></button>
         <button class="tile unsure" data-l="unsure"><b>Can't tell</b><span>Still unsure after reading carefully: add a note why.</span><kbd>C</kbd></button>
       </div>
     </div>
@@ -286,16 +286,6 @@ body[data-kind="reference_check"] [data-kind="calibration"] { display: none !imp
       <span class="block-head">Note <span class="muted">(needed for Can't tell, otherwise optional)</span></span>
       <textarea class="note" id="note" rows="2" placeholder="One line is enough"></textarea>
     </div>
-    <details class="block others" id="lawBlock" data-kind="reference_check">
-      <summary class="block-head">The law's articles this point names <span class="muted" id="lawCount"></span></summary>
-      <span class="hint">The text of the articles, as our AI reads them. Only for reference: the question is about the highlighted sentence.</span>
-      <div class="law-text" id="lawText"></div>
-    </details>
-    <details class="block others" id="othersBlock" data-kind="reference_check">
-      <summary class="block-head">Already in the key <span class="muted" id="othersCount"></span></summary>
-      <span class="hint">The other points the key has for this law. If the point above says the same thing as one of these, answer <b>No</b>.</span>
-      <ul id="others"></ul>
-    </details>
   </aside>
 </div>
 
@@ -337,13 +327,13 @@ body[data-kind="reference_check"] [data-kind="calibration"] { display: none !imp
         at a time. Each says who the law affects and how.</span></li>
       <li><span class="step-n">2</span><span>Read the <b>highlighted sentence</b> from the official
         report.</span></li>
-      <li><span class="step-n">3</span><span>Decide: <b>does that sentence back up the point?</b></span></li>
+      <li><span class="step-n">3</span><span>Decide: <b>is the point an accurate reading of that sentence?</b></span></li>
     </ol>
     <div class="rules">
-      <span class="pill keep">Yes, keep</span><span>The report says it.</span>
-      <span class="pill drop">No, drop</span><span>The report doesn't really say it. For example: it is
-        only background, it is about an option the EU did not pick, it is too vague, a number is
-        wrong, or the point repeats another one.</span>
+      <span class="pill keep">Yes, keep</span><span>The report says it, about that group.</span>
+      <span class="pill drop">No, drop</span><span>The point adds or changes something: another group, another
+        effect, a number the report doesn't give, or something the report only mentions as
+        background or as an option the EU did not pick.</span>
       <span class="pill unsure">Can't tell</span><span>You can't decide. Write a few words why.</span>
     </div>
     <details class="examples">
@@ -489,19 +479,40 @@ const CHECK = '<svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M
 const sentButton = (b, sent, idle) => { b.classList.toggle("sent", sent); b.innerHTML = sent ? CHECK + "Sent" : idle; };
 const el = (tag, cls, text) => { const e = document.createElement(tag);
   if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
-const NAMES = { affected_actor: "Who is affected", mechanism: "What the law makes them do",
+const NAMES = { affected_actor: "Who is affected", mechanism: "How (from the law; context, not judged)",
   impact: "What it means for them", description: "What a good assessment must cover" };
 // What to decide, per source of the highlighted sentence (reference check only).
 const ASK = {
-  report: { decide: "Read the highlighted sentence from the official report. Does it say what the point below says?",
-            question: "Does the report back this point up?",
-            keep: "The highlighted sentence says this.",
-            drop: "Background, an option not chosen, a vague remark, a wrong number, or a repeat." },
-  board: { decide: "This point comes from the EU review board's criticism of the report, not from the report itself. Is the board asking for this effect to be assessed?",
-           question: "Does the board ask for this effect to be assessed?",
-           keep: "The highlighted sentence asks the report to look at this effect (who is affected, and how).",
-           drop: "The sentence is only about how the report is written (method, definitions, presentation), or asks for something else." },
+  report: { decide: "Is the point below an accurate reading of the highlighted sentence and its context? Answer No if it adds or changes a group, an effect or a number the source does not support. The grey line comes from the law: it is context, not part of the question.",
+            question: "Is this an accurate reading of the report?",
+            keep: "Accurate: the source says this, about this group.",
+            drop: "Adds or changes something: another group, another effect, a number the source doesn't give, or what the report only mentions as background or an option not chosen." },
+  board: { decide: "The highlighted sentence is the EU review board asking the report to assess something. Does the point below express the effect or risk the board raised? It need not be proven: it must be what the board asked about, without adding a different concern.",
+           question: "Is this what the board asked to be assessed?",
+           keep: "Yes: it names the effect or risk the board raised (details from the law are fine).",
+           drop: "No: a different concern, or the board's sentence is only about how the report is written (method, data, presentation)." },
 };
+// "Article 26(2)", "Art 15", "Articles 5, 10": each number that has a tab becomes a link to it.
+function withArticleLinks(text, law) {
+  const tab = new Map(law.map((a, j) => [a.label.replace(/^Article /, ""), j + 1]));
+  if (!tab.size) return [text];
+  const out = []; let last = 0;
+  const re = /\b(Art(?:icles?|s?\.?))\s+((?:\d+[a-z]?(?:\(\d+\))*(?:,\s*|\s+and\s+)?)+)/g;
+  for (const m of text.matchAll(re)) {
+    out.push(text.slice(last, m.index), m[1] + " ");
+    const parts = m[2].split(/(\d+[a-z]?)/);
+    for (const part of parts) {
+      if (tab.has(part)) {
+        const b = el("button", "artlink", part);
+        b.onclick = () => { renderItem.view = tab.get(part); renderItem(); };
+        out.push(b);
+      } else out.push(part);
+    }
+    last = m.index + m[0].length;
+  }
+  out.push(text.slice(last));
+  return out;
+}
 let view = "welcome";
 let advance;
 
@@ -579,16 +590,17 @@ function renderItem() {
   const fields = cal ? it.expected : it.claim;
   // A fixed order: the server's JSON storage does not keep key order.
   const keys = Object.keys(NAMES).filter(k => k in fields).concat(Object.keys(fields).filter(k => !(k in NAMES)));
-  for (const k of keys) { const d = el("div"); d.append(el("dt", null, NAMES[k] || k), el("dd", null, fields[k])); claim.append(d); }
+  for (const k of keys) {
+    const d = el("div"), dd = el("dd");
+    dd.append(...(cal ? [fields[k]] : withArticleLinks(String(fields[k]), it.articles || [])));
+    if (!cal && k === "mechanism") d.className = "context";
+    d.append(el("dt", null, NAMES[k] || k), dd); claim.append(d);
+  }
   if (!cal) {
     const ask = ASK[it.source === "report" ? "report" : "board"];
     $("decide").replaceChildren(el("b", null, "What to decide"), ask.decide);
     $("questionRc").textContent = ask.question;
     $("keepWhy").textContent = ask.keep; $("dropWhy").textContent = ask.drop;
-    const law = it.articles || [];
-    $("lawBlock").hidden = !law.length; $("lawBlock").open = false;
-    $("lawCount").textContent = `(${law.length})`;
-    $("lawText").replaceChildren(...law.map(a => { const d = el("div"); d.append(el("b", null, a.label), a.text); return d; }));
   }
   if (cal) {
     $("srcTitle").textContent = "What our AI wrote";
@@ -610,12 +622,31 @@ function renderItem() {
       box.append(d);
     });
   } else {
-    $("srcTitle").textContent = it.source === "report" ? "The official report"
-      : "The EU review board's opinion on the report";
-    $("section").textContent = "Section: " + it.section;
-    const p = $("passage"); p.replaceChildren();
-    if (it.passage) p.append(it.passage.before, el("mark", null, it.passage.quote), it.passage.after);
-    else p.append(el("mark", null, it.quote));
+    // Tabs over the left pane: the source text first, then each article the point names.
+    if (renderItem.last !== it.id) renderItem.view = 0;
+    const law = it.articles || [];
+    const view = Math.min(renderItem.view || 0, law.length);
+    const tabs = [it.source === "report" ? "Official report" : "Review board's opinion", ...law.map(a => a.label)];
+    $("srcTabs").hidden = !law.length;
+    $("srcTabs").replaceChildren(...tabs.map((t, j) => {
+      const b = el("button", "srctab" + (j === view ? " on" : ""), t);
+      b.onclick = () => { renderItem.view = j; renderItem(); };
+      return b;
+    }));
+    const onSource = view === 0;
+    $("passage").hidden = !onSource; $("legend").hidden = !onSource; $("lawView").hidden = onSource;
+    if (onSource) {
+      $("srcTitle").textContent = it.source === "report" ? "The official report"
+        : "The EU review board's opinion on the report";
+      $("section").textContent = "Section: " + it.section;
+      const p = $("passage"); p.replaceChildren();
+      if (it.passage) p.append(it.passage.before, el("mark", null, it.passage.quote), it.passage.after);
+      else p.append(el("mark", null, it.quote));
+    } else {
+      $("srcTitle").textContent = "The law: " + law[view - 1].label;
+      $("section").textContent = "For reference only: your answer is about the highlighted sentence in the first tab.";
+      $("lawView").textContent = law[view - 1].text;
+    }
   }
   if (renderItem.last !== it.id) {  // a new point starts at the top of both panes
     const pane = $("docPane");
@@ -625,10 +656,6 @@ function renderItem() {
       pane.scrollTop = mark.getBoundingClientRect().top - pane.getBoundingClientRect().top - pane.clientHeight / 4;
     renderItem.last = it.id;
   }
-  const others = it.others || [];
-  $("othersCount").textContent = `(${others.length})`;
-  $("others").replaceChildren(...others.map(o => el("li", null, o)));
-  $("othersBlock").open = false;
   const a = state.answers[it.id] || {};
   document.querySelectorAll(".tile").forEach(b => {
     b.classList.toggle("on", b.dataset.l === a.label); b.setAttribute("aria-pressed", String(b.dataset.l === a.label)); });
@@ -725,11 +752,10 @@ async function signIn() {
 // ---------- spotlight guide (shown once, on the first point; "How it works" replays it) ----------
 const TOURS = {};
 TOURS.reference_check = [
-  { sel: "#pointBlock", title: "The point to check", text: "One entry of the answer key. Usually it says <b>who</b> is affected, <b>what the law makes them do</b> and <b>what it means for them</b>; some entries are a single statement instead. This is what you judge." },
+  { sel: "#pointBlock", title: "The point to check", text: "One entry of the answer key: <b>who</b> is affected and <b>what it means for them</b> (some entries are a single statement). The grey <b>How</b> line comes from the law: context only, not part of your answer." },
   { sel: "#docPane", title: "What the official report says", text: "The <b>highlighted</b> sentence is what the point is based on; the text around it is context. Read just enough to judge." },
-  { sel: "#answerBlock", title: "Your answer", text: "Does the report back the point up? <b>Yes</b> if the text supports it. <b>No</b> if it's background, an option not chosen, a vague remark, a wrong number, or a repeat. Keys: <b>Y</b>, <b>N</b>, <b>C</b>." },
+  { sel: "#answerBlock", title: "Your answer", text: "Is the point an accurate reading of the source? <b>Yes</b> if it says this. <b>No</b> if the point adds or changes a group, an effect or a number. Keys: <b>Y</b>, <b>N</b>, <b>C</b>." },
   { sel: "#noteBlock", title: "A short note", text: "Needed when you pick <b>Can't tell</b>, optional otherwise. One line is enough." },
-  { sel: "#othersBlock", title: "Already in the key", text: "Open this to see the law's other points. If this one repeats one of them, answer <b>No</b>." },
   { sel: "#progressBlock", title: "Your progress", text: "Jump to any point with the squares; answered ones are coloured. Use ← → to move." },
   { sel: "#finish", title: "Finish", text: "" },
 ];
