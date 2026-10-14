@@ -89,6 +89,13 @@ textarea.note { border: 1px solid var(--ink); border-radius: 4px; padding: 10px 
   font-family: inherit; font-size: 15px; line-height: 1.5; resize: vertical; background: var(--bg); }
 textarea.note.need { border: 2px solid var(--amber); background: var(--amber-lt); }
 .hint { font-size: 13px; color: var(--grey); line-height: 1.5; }
+.decide { border: 2px solid var(--ink); border-radius: 6px; padding: 12px 14px; font-size: 15px;
+  line-height: 1.5; background: var(--paper); }
+.decide b { display: block; font-size: 12px; letter-spacing: .04em; text-transform: uppercase;
+  margin-bottom: 4px; }
+.law-text { max-height: 320px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+.law-text div { font-size: 14px; line-height: 1.55; white-space: pre-wrap; }
+.law-text b { display: block; margin-bottom: 2px; }
 details.others summary { cursor: pointer; list-style: none; display: flex; align-items: center; }
 details.others summary::-webkit-details-marker { display: none; }
 details.others summary::after { content: "▸"; color: var(--muted); margin-left: 8px; }
@@ -255,13 +262,14 @@ body[data-kind="reference_check"] [data-kind="calibration"] { display: none !imp
   </section>
 
   <aside class="side-pane">
+    <div class="decide" id="decide" data-kind="reference_check"></div>
     <div class="block" id="pointBlock">
       <span class="block-head" data-kind="reference_check">The point to check</span>
       <span class="block-head" data-kind="calibration">The effect to look for</span>
       <dl class="claim" id="claim"></dl>
     </div>
     <div class="block" id="answerBlock">
-      <span class="question" data-kind="reference_check">Does the report back this point up?</span>
+      <span class="question" data-kind="reference_check" id="questionRc">Does the report back this point up?</span>
       <span class="question" data-kind="calibration">Does our AI's report cover this effect?</span>
       <div class="tiles" data-kind="calibration">
         <button class="tile keep" data-l="covered"><b>Yes, covered</b><span>An entry names the same group and the same way they are affected.</span><kbd>Y</kbd></button>
@@ -269,8 +277,8 @@ body[data-kind="reference_check"] [data-kind="calibration"] { display: none !imp
         <button class="tile unsure" data-l="unsure"><b>Can't tell</b><span>Still unsure after reading carefully: add a note why.</span><kbd>C</kbd></button>
       </div>
       <div class="tiles" data-kind="reference_check">
-        <button class="tile keep" data-l="keep"><b>Yes, keep</b><span>The report text supports the point.</span><kbd>Y</kbd></button>
-        <button class="tile drop" data-l="drop"><b>No, drop</b><span>Background, an option not chosen, a vague remark, a wrong number, or a repeat.</span><kbd>N</kbd></button>
+        <button class="tile keep" data-l="keep"><b>Yes, keep</b><span id="keepWhy">The report text supports the point.</span><kbd>Y</kbd></button>
+        <button class="tile drop" data-l="drop"><b>No, drop</b><span id="dropWhy">Background, an option not chosen, a vague remark, a wrong number, or a repeat.</span><kbd>N</kbd></button>
         <button class="tile unsure" data-l="unsure"><b>Can't tell</b><span>Still unsure after reading carefully: add a note why.</span><kbd>C</kbd></button>
       </div>
     </div>
@@ -278,6 +286,11 @@ body[data-kind="reference_check"] [data-kind="calibration"] { display: none !imp
       <span class="block-head">Note <span class="muted">(needed for Can't tell, otherwise optional)</span></span>
       <textarea class="note" id="note" rows="2" placeholder="One line is enough"></textarea>
     </div>
+    <details class="block others" id="lawBlock" data-kind="reference_check">
+      <summary class="block-head">The law's articles this point names <span class="muted" id="lawCount"></span></summary>
+      <span class="hint">The text of the articles, as our AI reads them. Only for reference: the question is about the highlighted sentence.</span>
+      <div class="law-text" id="lawText"></div>
+    </details>
     <details class="block others" id="othersBlock" data-kind="reference_check">
       <summary class="block-head">Already in the key <span class="muted" id="othersCount"></span></summary>
       <span class="hint">The other points the key has for this law. If the point above says the same thing as one of these, answer <b>No</b>.</span>
@@ -477,7 +490,18 @@ const sentButton = (b, sent, idle) => { b.classList.toggle("sent", sent); b.inne
 const el = (tag, cls, text) => { const e = document.createElement(tag);
   if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 const NAMES = { affected_actor: "Who is affected", mechanism: "What the law makes them do",
-  impact: "What it means for them", description: "The point" };
+  impact: "What it means for them", description: "What a good assessment must cover" };
+// What to decide, per source of the highlighted sentence (reference check only).
+const ASK = {
+  report: { decide: "Read the highlighted sentence from the official report. Does it say what the point below says?",
+            question: "Does the report back this point up?",
+            keep: "The highlighted sentence says this.",
+            drop: "Background, an option not chosen, a vague remark, a wrong number, or a repeat." },
+  board: { decide: "This point comes from the EU review board's criticism of the report, not from the report itself. Is the board asking for this effect to be assessed?",
+           question: "Does the board ask for this effect to be assessed?",
+           keep: "The highlighted sentence asks the report to look at this effect (who is affected, and how).",
+           drop: "The sentence is only about how the report is written (method, definitions, presentation), or asks for something else." },
+};
 let view = "welcome";
 let advance;
 
@@ -556,6 +580,16 @@ function renderItem() {
   // A fixed order: the server's JSON storage does not keep key order.
   const keys = Object.keys(NAMES).filter(k => k in fields).concat(Object.keys(fields).filter(k => !(k in NAMES)));
   for (const k of keys) { const d = el("div"); d.append(el("dt", null, NAMES[k] || k), el("dd", null, fields[k])); claim.append(d); }
+  if (!cal) {
+    const ask = ASK[it.source === "report" ? "report" : "board"];
+    $("decide").replaceChildren(el("b", null, "What to decide"), ask.decide);
+    $("questionRc").textContent = ask.question;
+    $("keepWhy").textContent = ask.keep; $("dropWhy").textContent = ask.drop;
+    const law = it.articles || [];
+    $("lawBlock").hidden = !law.length; $("lawBlock").open = false;
+    $("lawCount").textContent = `(${law.length})`;
+    $("lawText").replaceChildren(...law.map(a => { const d = el("div"); d.append(el("b", null, a.label), a.text); return d; }));
+  }
   if (cal) {
     $("srcTitle").textContent = "What our AI wrote";
     $("section").textContent = `Its report on this law: ${it.dossier.length} entries. Look for one that matches the effect to look for.`;

@@ -56,12 +56,14 @@ import re
 import unicodedata
 from collections import defaultdict
 from dataclasses import asdict, dataclass, replace
+from functools import cache
 from pathlib import Path
 from typing import Any
 
 import yaml
 
 from womm.citations import normalize
+from womm.data.fixtures import fixture_dir, load_fixture
 from womm.eval import hosted_labels, ia_sources
 from womm.eval.drafting import DraftCandidate, GoldenDraft, _DraftItem
 from womm.eval.golden_review import ESCALATION_RATE, KEPT_DECISIONS
@@ -83,6 +85,7 @@ Z_95 = 1.645
 BORDERLINE_BOUND = 1.5 * MAX_ERROR
 SEND_TO = "the person who sent you this page"
 CONTEXT_CHARS = 600
+ARTICLE_CHARS = 4000  # an article's text on a card, cut beyond this
 # ``why_missing`` is the recall step's own argument for a candidate: not shown, to stay blind.
 CLAIM_KEYS = ("affected_actor", "mechanism", "impact", "description")
 NAME_OK = re.compile(r"[A-Za-z0-9_-]{1,64}")
@@ -210,6 +213,28 @@ def _passage(quote: str, text: str, chars: int) -> dict[str, str] | None:
     }
 
 
+@cache
+def _fixture(name: str):
+    return load_fixture(fixture_dir(name))
+
+
+def _articles(draft: GoldenDraft, keys: list[str]) -> list[dict[str, str]]:
+    """The text of the articles ``keys`` name, in the version the case's scenario assesses; none
+    when the scenario is not in the public fixture (a holdout case)."""
+    try:
+        fixture = _fixture(draft.fixture)
+        version = fixture.version(fixture.scenario(draft.scenario_id).after_version)
+    except (KeyError, ValueError, OSError):
+        return []
+    wanted = set(keys)
+    out = []
+    for p in version.provisions:
+        if p.provision_key in wanted:
+            text = p.text if len(p.text) <= ARTICLE_CHARS else p.text[:ARTICLE_CHARS] + " ..."
+            out.append({"label": f"Article {p.article}", "text": text})
+    return out
+
+
 def card(
     item_id: str,
     it: Item,
@@ -235,6 +260,7 @@ def card(
         "section": item.ia_section,
         "quote": item.ia_anchor,
         "passage": _passage(item.ia_anchor, text, CONTEXT_CHARS) if text else None,
+        "articles": _articles(draft, item.provision_keys),
         "others": _others(draft, sampled),
     }
 
@@ -396,8 +422,8 @@ def write_sample(
                  for i in mine + mine_added + mine_shared}  # fmt: skip
         pages[name] = [cards[i] for i in mine if keyed[i].stage == 1]
         rng = random.Random(f"{seed}:companion:{name}")
-        for i in mine_added:  # mixed in among the case sample
-            pages[name].insert(rng.randint(0, len(pages[name])), cards[i])
+        for i in mine_added:  # mixed in among the case sample, never first (the guided one)
+            pages[name].insert(rng.randint(1, max(1, len(pages[name]))), cards[i])
         rng = random.Random(f"{seed}:overlap:{name}")
         for i in mine_shared:  # mixed in, so nothing marks them
             pages[name].insert(rng.randint(0, len(pages[name])), cards[i])

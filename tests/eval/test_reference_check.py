@@ -530,3 +530,23 @@ def test_the_companion_check_rides_on_the_same_pages_and_is_scored_apart(tmp_pat
     out = capsys.readouterr().out
     assert "== Answer key check" in out and "== Expert (RSB) points check" in out
     assert (tmp_path / "both" / "review_companion.html").exists()
+
+
+def test_cards_carry_the_articles_and_the_first_card_is_from_the_report(tmp_path):
+    case = tiebroken()
+    comp = _disputed_companion(case)
+    rc.write_sample(tmp_path / "s", [case], n=3, seed=1, annotators=["ana", "bo"],
+                    ia_root=tmp_path, extra=0, with_companions=[comp])  # fmt: skip
+    for name in ("ana", "bo"):
+        cards = page_data(tmp_path / "s" / f"label_{name}.html")["items"]
+        assert cards[0]["source"] == "report"  # the guided first point is an ordinary one
+        for c in cards:
+            assert c["articles"] and all(a["label"].startswith("Article ") for a in c["articles"])
+            assert all(a["text"].strip() for a in c["articles"])
+    page = (tmp_path / "s" / "label_ana.html").read_text()
+    assert 'id="decide"' in page and "Is the board asking for this effect to be assessed?" in page
+
+
+def test_a_case_whose_scenario_is_not_public_shows_no_articles():
+    draft = tiebroken().model_copy(update={"scenario_id": "eval_not_in_the_fixture"})
+    assert rc._articles(draft, ["data_act/proposal/art/24"]) == []
