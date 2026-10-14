@@ -68,18 +68,19 @@ git switch feat/v1-integration && git merge feat/golden-import
 they are on the `review/case-*` branches (copied to `.cache/reference_check/round1_drafts/`),
 seed 2, plus, on the same pages, the 14 RSB companion points where the AI's judges disagreed
 (about 7 each, scored apart; `.cache/rsb_companions/`). The reserve was moved onto the pages
-before anyone started (`extend`, 2026-10-14), so it is one sitting, 37 points each, decided on
+before anyone started (`extend`, locally before the upload, 2026-10-14), so it is one sitting, 37 points each, decided on
 all 60 answer-key points at once; nobody is asked again. Link to
-send to samuel and eetu: `https://womm-api-production.up.railway.app/label/2026-10-13-db0f18f5`.
-Do not send the practice links or the superseded `2026-10-11-86dae710` (the same 20 + 10 without
+send to samuel and eetu: `https://womm-api-production.up.railway.app/label/2026-10-14-db0f18f5`.
+Do not send the practice links or the superseded `2026-10-11-86dae710` and `2026-10-13-db0f18f5` (the same items with the
+older page wording; never sent) (the same 20 + 10 without
 the expert points; never sent). If a draft changes before publishing, draw a new check. How it
 was made:
 
 ```
 uv run python scripts/reference_check.py sample .cache/reference_check/round1_combined_drafts/*.yaml \
     --annotator samuel --annotator eetu --n 20 --extra 10 --seed 2 --with-companions \
-    --out .cache/reference_check/round1_combined/
-uv run python scripts/reference_check.py upload --dir .cache/reference_check/round1_combined/ --url https://<app>
+    --out .cache/reference_check/round1_v2/
+uv run python scripts/reference_check.py upload --dir .cache/reference_check/round1_v2/ --url https://<app>
 ```
 
 `upload` prints the link. `--annotator` is each
@@ -98,8 +99,8 @@ Progress is visible at `https://<app>/label/<sample>/admin` (asks for the admin 
 When the admin page shows both as sent:
 
 ```
-uv run python scripts/reference_check.py fetch --dir .cache/reference_check/round1_combined/ --url https://<app>
-uv run python scripts/reference_check.py score --dir .cache/reference_check/round1_combined/
+uv run python scripts/reference_check.py fetch --dir .cache/reference_check/round1_v2/ --url https://<app>
+uv run python scripts/reference_check.py score --dir .cache/reference_check/round1_v2/
 ```
 
 `score` scores the two parts apart (the answer key, then the expert points) and writes
@@ -177,7 +178,7 @@ owner only checks 3 items a draft (one per kind of decision), about 24 in all.
 
 ```
 uv run python scripts/tiebreak_golden_case.py .cache/drafts/<case>.yaml      # each draft
-uv run python scripts/holdout_review.py --reference-check .cache/reference_check/round1_combined/ \
+uv run python scripts/holdout_review.py --reference-check .cache/reference_check/round1_v2/ \
     --reviewer "Chen Yuxin"     # opens a local page with every draft's 3 items, blind
 HOLDOUT_DATABASE_URL=... uv run python scripts/import_holdout_case.py .cache/holdout_import/<case>.yaml
 ```
