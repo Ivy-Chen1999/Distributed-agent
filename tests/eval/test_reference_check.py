@@ -565,3 +565,37 @@ def test_decisions_people_cannot_judge_are_taken_out_and_listed(tmp_path):
     keep = {k: {"basis": "text", "of": []} for k in scope}
     rc.write_sample(tmp_path / "text", [case], out_of_scope=keep, **kw)
     assert json.loads((tmp_path / "text" / rc.KEY_FILE).read_text())["out_of_scope"] == []
+
+
+def test_a_board_point_is_judged_on_its_one_line_and_its_text_is_context(tmp_path):
+    case = tiebroken()
+    comp = _disputed_companion(case)
+    point = comp.important_omissions[0]
+    kw = dict(n=3, seed=1, annotators=["ana", "bo"], ia_root=tmp_path, extra=0,
+              with_companions=[comp])  # fmt: skip
+    with pytest.raises(rc.ReferenceCheckError, match="no line to judge for board points"):
+        rc.write_sample(tmp_path / "none", [case], board_concerns={}, **kw)
+    assert not (tmp_path / "none").exists()
+    line = "The effect on small widget resellers."
+    rc.write_sample(tmp_path / "s", [case],
+                    board_concerns={f"{case.case_id}/{point.omission_id}": line}, **kw)  # fmt: skip
+    cards = [
+        c for n in ("ana", "bo") for c in page_data(tmp_path / "s" / f"label_{n}.html")["items"]
+    ]
+    [board] = [c for c in cards if c["source"] != "report"]
+    assert board["claim"]["concern"] == line
+    assert board["claim"]["description"] == point.description
+    assert all("concern" not in c["claim"] for c in cards if c["source"] == "report")
+    page = (tmp_path / "s" / "label_ana.html").read_text()
+    assert "The AI's reasoning (context, not judged)" in page
+
+
+def test_other_wording_for_a_board_point_is_another_sample(tmp_path):
+    case = tiebroken()
+    comp = _disputed_companion(case)
+    key = f"{case.case_id}/{comp.important_omissions[0].omission_id}"
+    kw = dict(n=3, seed=1, annotators=["ana", "bo"], ia_root=tmp_path, extra=0,
+              with_companions=[comp])  # fmt: skip
+    a = rc.write_sample(tmp_path / "a", [case], board_concerns={key: "One line."}, **kw)
+    b = rc.write_sample(tmp_path / "b", [case], board_concerns={key: "Another line."}, **kw)
+    assert a["sample"] != b["sample"]

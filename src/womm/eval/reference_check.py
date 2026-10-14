@@ -232,6 +232,7 @@ def card(
     drafts: dict[str, GoldenDraft],
     ia_texts: dict[str, str | None],
     rsb_texts: dict[str, str | None] | None = None,
+    concern: str | None = None,
 ) -> dict[str, Any]:
     """What the labeling page shows for one item: never the tool's decision or reasons.
     An item anchored on the RSB opinion shows the opinion's text around its quote, from
@@ -245,7 +246,8 @@ def card(
         "case": draft.case_id,
         "fixture": draft.fixture,
         "provisions": item.provision_keys,
-        "claim": {k: getattr(item, k) for k in CLAIM_KEYS if hasattr(item, k)},
+        "claim": ({"concern": concern} if concern else {})
+        | {k: getattr(item, k) for k in CLAIM_KEYS if hasattr(item, k)},
         "source": "report" if on_ia else "scrutiny board opinion",
         "section": item.ia_section,
         "quote": item.ia_anchor,
@@ -299,6 +301,7 @@ def write_sample(
     disputed_only: bool = False,
     with_companions: list[GoldenDraft] | None = None,
     out_of_scope: dict[str, dict] | None = None,
+    board_concerns: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Draw ``n`` items per annotator, each annotator their own, plus a reserve of ``extra``
     each, and write the labeling pages and the private key. With ``companions`` (RSB companion
@@ -310,7 +313,9 @@ def write_sample(
     exactly as without it, and the companions' disputed items are added (``check:
     "companion"``), split between the annotators and scored on their own (``part``).
     ``out_of_scope`` ("<case>/<item>" -> ``{"basis": ...}``) names decisions people are not asked
-    to judge (``OUT_OF_SCOPE``): they are drawn as usual, then taken out and listed in the key."""
+    to judge (``OUT_OF_SCOPE``): they are drawn as usual, then taken out and listed in the key.
+    ``board_concerns`` ("<case>/<item>" -> one line) gives every board-anchored card the effect or
+    risk to judge; the item's own text is then shown as the AI's reasoning, context only."""
     if n < 3:
         raise ReferenceCheckError("--n must be at least 3")
     if not annotators or len(set(annotators)) != len(annotators):
@@ -401,6 +406,8 @@ def write_sample(
     created = dt.date.today().isoformat()
     drawn = [asdict(i) for i in sample + reserve + extra_items]
     drawn += [asdict(i) for i in shared.values()]
+    # What a card asks is part of the sample: a page with other wording is another sample.
+    drawn += sorted((board_concerns or {}).items())
     digest = hashlib.sha1(json.dumps(drawn).encode()).hexdigest()[:8]
     sample_id = f"{created}-{digest}"
     by_case = {d.case_id: d for d in drafts}
@@ -409,6 +416,16 @@ def write_sample(
         cached = ia_sources.load_cached_ia(fixture, ia_root)
         ia_texts[fixture] = cached.full_text if cached else None
         rsb_texts[fixture] = cached.rsb_text if cached else None
+    if board_concerns is not None:
+
+        def anchored_on_board(it: Item) -> bool:
+            item = next(i for i in by_case[it.case_id].items() if i.item_id == it.item_id)
+            return item.anchor.against != "ia"
+
+        on_board = [f"{it.case_id}/{it.item_id}" for it in {**keyed, **shared}.values()
+                    if anchored_on_board(it)]  # fmt: skip
+        if missing := sorted(k for k in on_board if not board_concerns.get(k)):
+            raise ReferenceCheckError(f"no line to judge for board points: {', '.join(missing)}")
     out_dir.mkdir(parents=True, exist_ok=True)
     pages, held = {}, {}
     for name in annotators:
@@ -416,7 +433,8 @@ def write_sample(
         mine_added = [i for i in keyed if i not in ids and keyed[i].annotator == name]
         mine_shared = [i for i, it in shared.items() if it.annotator == name]
         every = keyed | shared
-        cards = {i: card(i, every[i], by_case, ia_texts, rsb_texts)
+        cards = {i: card(i, every[i], by_case, ia_texts, rsb_texts,
+                         (board_concerns or {}).get(f"{every[i].case_id}/{every[i].item_id}"))
                  for i in mine + mine_added + mine_shared}  # fmt: skip
         pages[name] = [cards[i] for i in mine if keyed[i].stage == 1]
         rng = random.Random(f"{seed}:companion:{name}")
