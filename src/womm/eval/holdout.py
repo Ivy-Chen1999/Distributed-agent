@@ -407,6 +407,16 @@ class HoldoutStore:
             for r in rows
         ]
 
+    async def sealed_counts(self) -> tuple[int, int]:
+        """(cases, proposals) in the sealed store: counts only, for the gate's design check."""
+        async with await self._connect() as conn:
+            row = await (
+                await conn.execute(
+                    "SELECT count(*) AS n, count(DISTINCT fixture) AS k FROM holdout.cases"
+                )
+            ).fetchone()
+        return row["n"], row["k"]
+
     async def record_audit(
         self,
         result: HoldoutComparison,
@@ -614,6 +624,10 @@ class MetricDelta(StrictModel):
         f"least {MIN_PROPOSALS} proposals."
     )
     ci95_high: float | None
+    se: float | None = Field(
+        default=None,
+        description="Bootstrap SE of the mean delta (proposal clusters); null like the CI.",
+    )
     n_cases: int
 
 
@@ -735,8 +749,15 @@ def paired_cluster_bootstrap(
     diffs: dict[str, float], cluster_of: dict[str, str], n_boot: int, seed: int
 ) -> tuple[float | None, float | None, float | None]:
     """Mean paired difference and its 95% percentile CI, resampling whole proposals."""
+    return _bootstrap(diffs, cluster_of, n_boot, seed)[:3]
+
+
+def _bootstrap(
+    diffs: dict[str, float], cluster_of: dict[str, str], n_boot: int, seed: int
+) -> tuple[float | None, float | None, float | None, float | None]:
+    """``paired_cluster_bootstrap`` plus the bootstrap SE (SD of the resampled means)."""
     if not diffs:
-        return None, None, None
+        return None, None, None, None
     point = statistics.fmean(diffs.values())
     clusters: dict[str, list[float]] = {}
     for key, d in diffs.items():
@@ -750,7 +771,7 @@ def paired_cluster_bootstrap(
     stats.sort()
     lo = stats[int(0.025 * (n_boot - 1))]
     hi = stats[int(math.ceil(0.975 * (n_boot - 1)))]
-    return point, lo, hi
+    return point, lo, hi, statistics.pstdev(stats)
 
 
 async def compare(
@@ -770,6 +791,9 @@ async def compare(
     cycle_id: str | None = None,
     max_repetitions: int | None = None,
     expected_gain: float | None = None,
+    icc: float = 1.0,
+    alpha: float = 0.05,
+    power: float = 0.8,
 ) -> HoldoutComparison:
     """Run ``candidate`` and ``baseline`` on every sealed holdout case, ``repetitions`` times
     each, and return only aggregate deltas (R28 interface). Both are scored by the baseline's
@@ -792,8 +816,9 @@ async def compare(
     With ``max_repetitions`` (and ``expected_gain``) the repetitions are data-driven: after
     ``repetitions`` per case and arm, ``noise_report.comparison_extends`` reads the pooled
     within-case coverage SD over both arms and extends both arms to ``max_repetitions`` only
-    when that brings the MDD to ``expected_gain``. The decision is taken before any delta is
-    computed, so it cannot depend on how the candidate is doing (blinded re-estimation)."""
+    when that brings the MDD to ``expected_gain``, with the design (``icc``, ``alpha``, ``power``)
+    of the recorded MDD report. The decision is taken before any delta is computed, so it
+    cannot depend on how the candidate is doing (blinded re-estimation)."""
     if repetitions < 1:
         raise HoldoutError("repetitions must be at least 1")
     if max_repetitions is not None and expected_gain is None:
@@ -864,7 +889,7 @@ async def compare(
             decision = noise_report.comparison_extends(
                 _pooled_sd(both, "coverage"), r_min=repetitions, r_max=max_repetitions,
                 n_cases=len(cluster_of), n_proposals=len(set(cluster_of.values())),
-                expected_gain=expected_gain,
+                expected_gain=expected_gain, icc=icc, alpha=alpha, power=power,
             )  # fmt: skip
             rule = RepetitionRule(min=repetitions, max=max_repetitions,
                                   pooled_sd=decision["pooled_sd"],
@@ -941,10 +966,10 @@ def _summarise(
         paired = wanted & cand.keys() & base.keys()
         # Sorted: the bootstrap's resampling order must not depend on set iteration order.
         diffs = {} if aborted else {k: cand[k] - base[k] for k in sorted(paired)}
-        point, lo, hi = paired_cluster_bootstrap(diffs, cluster_of, n_boot, seed)
+        point, lo, hi, se = _bootstrap(diffs, cluster_of, n_boot, seed)
         if small or len(diffs) != len(wanted):
-            lo = hi = None  # a CI only over every sealed case, and only with enough proposals
-        deltas[metric] = MetricDelta(mean_delta=point, ci95_low=lo, ci95_high=hi,
+            lo = hi = se = None  # only over every sealed case, and only with enough proposals
+        deltas[metric] = MetricDelta(mean_delta=point, ci95_low=lo, ci95_high=hi, se=se,
                                      n_cases=len(diffs))  # fmt: skip
         noise[metric] = PooledNoise(
             candidate_sd=_pooled_sd(scores["candidate"], metric),

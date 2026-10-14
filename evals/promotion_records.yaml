@@ -43,7 +43,13 @@
 #   and restarted. One chain per judge: a first run of 3 repetitions (the stop rule), then at
 #   most one extension of 3 at the same git sha, pooled with it, or one fresh fallback run of 6
 #   when that sha can no longer be checked out cleanly. The gate refuses a broken chain.
+#
+# - formal_runs: every finished `womm eval --formal` run, appended by the eval itself
+#   (experiment or report name, git sha, judge, version, split, repetitions). Commit this file
+#   after each formal run: the next formal run refuses a dirty tree. A logged run that no
+#   noise_attempts entry reads blocks `womm noise report --record` and the gate.
 judge_calibrations: []
 formal_noise_runs: []
 mdd_reports: []
 noise_attempts: []
+formal_runs: []

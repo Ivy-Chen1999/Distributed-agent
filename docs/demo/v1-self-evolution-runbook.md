@@ -32,7 +32,8 @@ sealed holdout.
   incumbent's output, and the judge and the system under test are the same model
   (`gpt-6.1-sol`).
 - A weak-mode pass is **"not rejected (directional)"**. Quote the A/A null pass rate that
-  `womm noise report` prints: how often the incumbent passes against itself.
+  `womm noise report` prints, with its label: **lower bound: within-run noise only** (it splits
+  one version's runs, so it misses how a gain varies between cases).
 
 ### Claims the demo never makes
 
@@ -146,7 +147,8 @@ uv run womm evolve promote <chosen-api-twin> --incumbent sv_43cee2e14602   # v1.
 Before the first formal comparison, a person must also:
 
 1. Sign and commit the promotion policy (as in B), confirming primary metric, tolerances,
-   budget and `expected_gain`.
+   budget and `expected_gain`. `womm policy sign` refuses unless the policy's last `changelog`
+   entry is dated the day of signing: add one saying what is signed and why.
 2. Calibrate the coverage judge (golden-case plan, Revision 2026-10-04). The tools draw and
    score the pairs; people only label, then commit the record:
 
@@ -186,15 +188,23 @@ Before the first formal comparison, a person must also:
    uv run womm noise report --report runs/eval_<first>.json \
        --holdout-cases 8 --holdout-proposals 8 --record
    git add evals/promotion_records.yaml && git commit -m "chore: record R34 attempt"
-   # Only when it printed "next step: extend": 3 more at the same git sha, then pool both.
-   git checkout <the first run's git sha>
+   # Only when it printed "next step: extend": 3 more on the same code (commits since the first
+   # run may touch only evals/promotion_records.yaml), then pool both.
    uv run womm eval --split val --repetitions 3 --formal \
        --system-version system_versions/v1.0-unscoped-api.yaml
+   git add evals/promotion_records.yaml && git commit -m "chore: log formal run"
    uv run womm noise report --report runs/eval_<first>.json --report runs/eval_<second>.json \
        --holdout-cases 8 --holdout-proposals 8 --record
-   # If that sha can no longer be checked out cleanly: one fresh run of 6 (a fallback) instead.
+   # If the code has changed since the first run: one fresh run of 6 (a fallback) instead, same
+   # version, split and stop-rule inputs.
    git add evals/promotion_records.yaml && git commit -m "chore: record R34 noise run and MDD"
    ```
+
+   Every finished formal run appends itself to `formal_runs` in the records file: commit that
+   file after each formal run, because the next formal run refuses a dirty tree (`womm eval
+   --formal` checks the whole tree, the records file included). A logged run that no attempt
+   reads blocks `--record` and the gate. Without `--record` the stop rule is not shown at all.
+   `--record` refuses `--repetitions` other than the policy's `repetitions.min`.
 
    The stop rule (pre-registered): the 80% chi-square interval of the pooled coverage SD lies
    entirely above or below the SD at which the MDD equals `expected_gain` (for the policy's
@@ -209,8 +219,8 @@ Before the first formal comparison, a person must also:
    0.05 and power 0.8, Student-t quantiles with (proposals - 1) degrees of freedom, and a
    cluster-by-proposal design effect `1 + (cases/proposals - 1) * icc` (`--icc`, default 1.0,
    conservative); the formula is in `src/womm/eval/noise_report.py`. It covers run-to-run noise
-   only, so it is a lower bound. An MDD record for other repetitions than the policy's is
-   ignored by the gate.
+   only, so it is a lower bound. An MDD record for other repetitions than the policy's
+   `repetitions.min`, or for other holdout counts than the sealed store's, refuses the gate.
 4. Without an MDD report, or when its coverage MDD exceeds `expected_gain`, the gate runs in
    weak mode (directional).
 
@@ -309,7 +319,7 @@ What each reason and note means (pre-registered 2026-10-14, before any compariso
 | Reason or note | Means | Does not mean |
 |---|---|---|
 | `coverage_ci_not_above_zero` | Statistical mode: the 95% CI of the coverage gain reaches 0 | The candidate is worse |
-| `coverage_below_weak_bar` | Weak or dev mode: the coverage gain is not above 1 SE of the paired mean | The candidate is worse; with 8 cases a real gain can miss the bar |
+| `coverage_below_weak_bar` | Weak or dev mode: the coverage gain is not above 1 SE of the mean delta (the comparison's bootstrap SE; the within-run noise SE, noted, when too few proposals) | The candidate is worse; with 8 cases a real gain can miss the bar |
 | `coverage_noise_unavailable` | Weak or dev mode: no run-to-run noise to set the bar (too few repetitions scored) | Anything about the candidate |
 | `grounding_regression` | Mean grounding dropped by more than 0.02 | Citations are wrong (grounding checks that a quote exists) |
 | `omissions_addressed_regression` | RSB omissions addressed dropped by more than one noise SD | The candidate covers less overall |

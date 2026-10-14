@@ -168,7 +168,7 @@ class PromotionPolicy(StrictModel):
     guards: dict[Metric, Guard]
     formal_mode: Literal["statistical", "weak"]
     expected_gain: float = Field(gt=0)
-    weak_min_delta_se: float = Field(ge=0, description="Weak bar, in SEs of the paired mean.")
+    weak_min_delta_se: float = Field(gt=0, description="Weak bar, in SEs of the paired mean.")
     repetitions: Repetitions
     failure_policy: Literal["abort", "score_zero"]
     holdout_budget: HoldoutBudget
@@ -238,6 +238,24 @@ class FormalNoiseRun(StrictModel):
     )
 
 
+class FormalRun(StrictModel):
+    """Every finished ``womm eval --formal`` run, logged by the eval itself, so no formal run
+    can be dropped from the R34 chain unseen."""
+
+    experiment: str | None
+    report: str = Field(description="Report file name (the key when there is no experiment).")
+    git_sha: str | None
+    judge_version: str
+    system_version: str
+    split: Literal["train", "val"]
+    repetitions: int = Field(ge=1)
+    finished_at: str
+
+    @property
+    def run_key(self) -> str:
+        return self.experiment or self.report
+
+
 class NoiseAttempt(StrictModel):
     """Every formal R34 attempt, whatever its outcome, so a run that asked for an extension
     cannot be dropped and restarted. One chain per judge: a first run (stop rule applied), then
@@ -255,6 +273,7 @@ class NoiseAttempt(StrictModel):
         description="What the stop rule read: policy sha256, expected_gain, repetitions.min, "
         "holdout cases and proposals. An extension must match the first attempt's."
     )
+    run_keys: list[str] = Field(min_length=1, description="The formal runs this attempt read.")
     recorded_on: str
     batch_shift: bool = False
 
@@ -281,6 +300,7 @@ class PromotionRecords(StrictModel):
     formal_noise_runs: list[FormalNoiseRun] = Field(default_factory=list)
     mdd_reports: list[MddReport] = Field(default_factory=list)
     noise_attempts: list[NoiseAttempt] = Field(default_factory=list)
+    formal_runs: list[FormalRun] = Field(default_factory=list)
 
     def noise_chain(self, jv: str) -> list[NoiseAttempt]:
         return [a for a in self.noise_attempts if a.judge_version == jv]
@@ -299,7 +319,16 @@ class PromotionRecords(StrictModel):
                             "recorded: run the extension (or the fallback) first")  # fmt: skip
         if sum(a.kind in ("extension", "fallback") for a in chain) > 1:
             problems.append(f"more than one extension or fallback for judge {jv}")
+        if outside := self.formal_runs_outside_chain(jv):
+            problems.append(f"formal run(s) {', '.join(outside)} for judge {jv} are not part of "
+                            "the recorded R34 chain: every formal run is counted")  # fmt: skip
         return problems
+
+    def formal_runs_outside_chain(self, jv: str, also: tuple[str, ...] = ()) -> list[str]:
+        """Logged formal runs for ``jv`` that no attempt read (``also``: keys about to be)."""
+        keys = {k for a in self.noise_chain(jv) for k in a.run_keys} | set(also)
+        return [r.run_key for r in self.formal_runs
+                if r.judge_version == jv and r.run_key not in keys]  # fmt: skip
 
     def calibration(self, jv: str) -> JudgeCalibration | None:
         return next((c for c in reversed(self.judge_calibrations) if c.judge_version == jv), None)
@@ -342,7 +371,13 @@ def load_records(path: Path = RECORDS_PATH) -> PromotionRecords:
         raise GateRefused(f"{path} is invalid: {exc}") from None
 
 
-RECORD_KEYS = ("judge_calibrations", "formal_noise_runs", "mdd_reports", "noise_attempts")
+RECORD_KEYS = (
+    "judge_calibrations",
+    "formal_noise_runs",
+    "mdd_reports",
+    "noise_attempts",
+    "formal_runs",
+)
 
 
 def append_records(path: Path, key: str, items: list[dict[str, Any]]) -> None:
@@ -450,10 +485,10 @@ def choose_mode(
             deployable=True,
             notes=["weak mode: no minimum-detectable-delta report for this judge"],
         )
-    if mdd.repetitions is not None and mdd.repetitions != policy.repetitions.min:
-        return ModeChoice(mode="weak", deployable=True, notes=[
-            f"weak mode: the minimum-detectable-delta report is for {mdd.repetitions} "
-            f"repetitions, the policy starts at {policy.repetitions.min}"])  # fmt: skip
+    if mdd.repetitions != policy.repetitions.min:
+        raise GateRefused(f"the minimum-detectable-delta report is for {mdd.repetitions} "
+                          f"repetitions, the policy starts at {policy.repetitions.min}: record "
+                          "an MDD report for the policy's design")  # fmt: skip
     if mdd.mdd > policy.expected_gain:
         return ModeChoice(mode="weak", deployable=True, notes=[
             f"weak mode: the minimum detectable delta ({mdd.mdd:.3f}) exceeds the expected gain "
@@ -506,6 +541,14 @@ async def preflight(
             raise GateRefused(f"no R34 formal noise run on record for judge {jv}")
         if problems := records.noise_chain_problems(jv):
             raise GateRefused("; ".join(problems))
+        mdd = records.mdd(policy.primary_metric, jv)
+        if mdd is not None:
+            counts = await store.sealed_counts()
+            if (mdd.holdout_cases, mdd.holdout_proposals) != counts:
+                raise GateRefused(f"the MDD report is for {mdd.holdout_cases} holdout cases over "
+                                  f"{mdd.holdout_proposals} proposals; the sealed store holds "
+                                  f"{counts[0]} over {counts[1]}: record it for this "
+                                  "holdout")  # fmt: skip
         if noise_run.batch_shift:
             choice.notes.append("the R34 noise run has a batch shift between its two halves: "
                                 "its noise SD may mix day-to-day variation")  # fmt: skip
@@ -526,6 +569,7 @@ class DeltaSummary(StrictModel):
     mean_delta: float | None
     ci95_low: float | None
     ci95_high: float | None
+    se: float | None = Field(default=None, description="Bootstrap SE of the mean delta.")
     n_cases: int
     noise_sd: float | None = Field(description="The larger arm's pooled run-to-run SD.")
 
@@ -558,9 +602,17 @@ def _noise_sd(cmp: HoldoutComparison, metric: str) -> float | None:
     return max(values) if values else None
 
 
-def weak_bar_se(cmp: HoldoutComparison, metric: str) -> float | None:
-    """SE of the paired mean delta from the comparison's own per-arm noise:
-    sqrt(sd_c^2 / (r n) + sd_b^2 / (r n)) over ``n`` paired cases and ``r`` repetitions."""
+def weak_bar_se(cmp: HoldoutComparison, metric: str) -> tuple[float | None, str]:
+    """SE of the paired mean delta and where it came from: the comparison's bootstrap SE
+    (proposal clusters, between-case variation included) when it exists; otherwise, with too
+    few proposals, the within-run noise formula sqrt(sd_c^2 / (r n) + sd_b^2 / (r n))."""
+    delta = cmp.deltas.get(metric)
+    if delta is not None and delta.se is not None:
+        return delta.se, "bootstrap SE"
+    return _noise_se(cmp, metric), "within-run noise SE (no bootstrap SE: too few proposals)"
+
+
+def _noise_se(cmp: HoldoutComparison, metric: str) -> float | None:
     noise, delta = cmp.noise.get(metric), cmp.deltas.get(metric)
     if not noise or not delta or not delta.n_cases:
         return None
@@ -619,7 +671,7 @@ def decide(
             if not improved:
                 reasons.append(f"{policy.primary_metric}_ci_not_above_zero")
         else:
-            se = weak_bar_se(cmp, policy.primary_metric)
+            se, source = weak_bar_se(cmp, policy.primary_metric)
             if se is None:
                 improved = False
                 reasons.append(f"{policy.primary_metric}_noise_unavailable")
@@ -627,13 +679,12 @@ def decide(
                 bar = policy.weak_min_delta_se * se
                 improved = primary.mean_delta is not None and primary.mean_delta > bar
                 notes.append(f"weak bar: {policy.primary_metric} gain must exceed "
-                             f"{policy.weak_min_delta_se:g} SE = {bar:.3f}")  # fmt: skip
+                             f"{policy.weak_min_delta_se:g} x {source} = {bar:.3f}")  # fmt: skip
                 if not improved:
                     reasons.append(f"{policy.primary_metric}_below_weak_bar")
         for metric, guard in policy.guards.items():
             if metric not in cmp.deltas:
-                notes.append(f"{metric}: not in this comparison; guard not applicable")
-                continue
+                raise ValueError(f"the comparison has no {metric} delta for its {metric} guard")
             delta = cmp.deltas[metric].mean_delta
             if delta is None:
                 notes.append(f"{metric}: no case measures it; guard not applicable")
@@ -718,10 +769,13 @@ async def run_gate(
         )  # fmt: skip
     except holdout.BudgetRefused as exc:
         raise GateRefused(str(exc)) from None
+    mdd = records.mdd(policy.primary_metric, judge_version(incumbent))
+    design = {"icc": mdd.icc, "alpha": mdd.alpha, "power": mdd.power} if mdd else {}
+    design = {k: v for k, v in design.items() if v is not None}
     try:
         cmp = await holdout.compare(
             candidate, incumbent, policy.repetitions.min, store=store, backends=backends,
-            max_repetitions=policy.repetitions.max, expected_gain=policy.expected_gain,
+            max_repetitions=policy.repetitions.max, expected_gain=policy.expected_gain, **design,
             decisions=decisions, code=code, n_boot=policy.bootstrap.n_boot,
             seed=policy.bootstrap.seed, failure_policy=policy.failure_policy, checkpoint=True,
             gate_id=gate_id, cycle_id=cycle_id,

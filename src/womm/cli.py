@@ -236,6 +236,19 @@ async def cmd_eval(args: argparse.Namespace) -> int:
         except Exception as exc:  # noqa: BLE001
             info(f"warning: failure records not stored: {type(exc).__name__}: {exc}")
     path.write_text(report.to_json())  # now including the experiment name, if recorded
+    if args.formal and not report.aborted:
+        from womm.eval import noise_report as nr
+        from womm.evolve import promotion as pm
+
+        records = Path(args.records) if args.records else pm.RECORDS_PATH
+        try:
+            nr.log_formal_run(records, json.loads(report.to_json()), path,
+                              dt.datetime.now(dt.UTC).isoformat(timespec="seconds"))  # fmt: skip
+        except pm.GateRefused as exc:
+            info(f"error: the formal run was not logged in {records}: {exc}")
+            return EXIT_FAILED
+        info(f"logged the formal run in {records}; commit it before the next formal run "
+             "(a formal run refuses a dirty tree)")  # fmt: skip
 
     lines = [json.dumps(report.summary, indent=2) if report.summary else "ABORTED"]
     for s in report.scores:
@@ -832,8 +845,11 @@ async def cmd_policy_sign(args: argparse.Namespace) -> int:
     name = args.by.strip()
     if not name:
         raise UsageError("--by needs your name")
-    text = path.read_text(encoding="utf-8")
     on = dt.date.today().isoformat()
+    if policy.changelog[-1].date != on:
+        raise UsageError(f"the last changelog entry is dated {policy.changelog[-1].date}: add an "
+                         f"entry dated {on} saying what you sign and why, then sign")  # fmt: skip
+    text = path.read_text(encoding="utf-8")
     text, n_by = re.subn(r"^signed_by:.*$", f"signed_by: {json.dumps(name)}", text, count=1,
                          flags=re.M)  # fmt: skip
     text, n_on = re.subn(r"^signed_on:.*$", f'signed_on: "{on}"', text, count=1, flags=re.M)
@@ -870,7 +886,9 @@ async def cmd_noise_report(args: argparse.Namespace) -> int:
 
     if len(args.report) > 2:
         raise UsageError("at most two reports: a first R34 run and its extension")
-    reports = [read_report(Path(p)) for p in args.report]
+    paths = [Path(p) for p in args.report]
+    reports = [read_report(p) for p in paths]
+    keys = [nr.run_key(rep, path) for rep, path in zip(reports, paths, strict=True)]
     try:
         policy, policy_sha = pm.load_policy(Path(args.policy))
     except pm.GateRefused as exc:
@@ -890,7 +908,8 @@ async def cmd_noise_report(args: argparse.Namespace) -> int:
     run = result["noise_run"]
     inputs = {"policy_sha256": policy_sha, "expected_gain": policy.expected_gain,
               "repetitions_min": policy.repetitions.min, "holdout_cases": args.holdout_cases,
-              "holdout_proposals": args.holdout_proposals, "icc": args.icc}  # fmt: skip
+              "holdout_proposals": args.holdout_proposals, "icc": args.icc, "alpha": args.alpha,
+              "power": args.power}  # fmt: skip
     records = pm.load_records(Path(args.records)) if Path(args.records).exists() else None
     chain = records.noise_chain(run["judge_version"]) if records and run["judge_version"] else []
     first = next((a for a in chain if a.kind == "first"), None)
@@ -906,17 +925,21 @@ async def cmd_noise_report(args: argparse.Namespace) -> int:
             raise UsageError("no coverage noise: the stop rule needs two scored runs of a case")
         star = nr.sd_star(policy.expected_gain, repetitions=policy.repetitions.min,
                           n_cases=args.holdout_cases, n_proposals=args.holdout_proposals,
-                          icc=args.icc)  # fmt: skip
+                          icc=args.icc, alpha=args.alpha, power=args.power)  # fmt: skip
         rule = nr.r34_next_step(coverage["noise_sd"], coverage["dof"], star)
     else:
         rule = {"next_step": "final"}
-    result["stop_rule"] = rule if args.record else {k: v for k, v in rule.items()
-                                                     if k != "next_step"}  # fmt: skip
+    if args.record or rule["next_step"] == "final":
+        result["stop_rule"] = rule  # never previewed: reading it is an attempt
     result["attempt"] = {"kind": kind, "next_step": rule["next_step"]}
     result["batch_shift"] = shift
     result["null_pass_rate"] = nr.null_pass_rate(report["scores"],
                                                  bar_se=policy.weak_min_delta_se)  # fmt: skip
     text = nr.format_report(result, expected_gain=policy.expected_gain)
+    aa = result["null_pass_rate"]
+    if aa["rate"] is not None:
+        text += (f"\nA/A null pass rate of the weak bar: {aa['rate']:.0%} "
+                 f"({aa['label']})")  # fmt: skip
     if not args.record:
         result.pop("attempt")
         if run["repetitions"] and run["repetitions"] < nr.R34_MAX_REPETITIONS:
@@ -933,14 +956,22 @@ async def cmd_noise_report(args: argparse.Namespace) -> int:
     if args.record:
         if result["formal_problems"]:
             raise UsageError("not recorded: " + "; ".join(result["formal_problems"]))
-        _check_r34_chain(kind, chain, first, reports, inputs)
+        if repetitions != policy.repetitions.min:
+            raise UsageError(f"not recorded: --repetitions {repetitions} is not the policy's "
+                             f"repetitions.min ({policy.repetitions.min})")  # fmt: skip
+        _check_r34_chain(kind, chain, first, reports, inputs, keys, policy)
+        if records and (
+            outside := records.formal_runs_outside_chain(run["judge_version"], also=tuple(keys))
+        ):
+            raise UsageError(f"formal run(s) {', '.join(outside)} are not part of this R34 "
+                             "chain: every logged formal run is counted")  # fmt: skip
         on = dt.date.today().isoformat()
         attempt = {"judge_version": run["judge_version"], "system_version": run["system_version"],
                    "split": run["split"], "experiment": run["experiment"],
                    "git_sha": report["metadata"].get("git_sha"),
                    "repetitions": run["repetitions"], "kind": kind,
-                   "next_step": rule["next_step"], "stop_inputs": inputs, "recorded_on": on,
-                   "batch_shift": bool(shift and shift["flag"])}  # fmt: skip
+                   "next_step": rule["next_step"], "stop_inputs": inputs, "run_keys": keys,
+                   "recorded_on": on, "batch_shift": bool(shift and shift["flag"])}  # fmt: skip
         try:
             pm.append_records(Path(args.records), "noise_attempts", [attempt])
             recorded = {"noise_attempts": [attempt]}
@@ -965,29 +996,47 @@ async def cmd_noise_report(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
-def _check_r34_chain(kind: str, chain: list, first: Any, reports: list[dict],
-                     inputs: dict) -> None:  # fmt: skip
+def _check_r34_chain(kind: str, chain: list, first: Any, reports: list[dict], inputs: dict,
+                     keys: list[str], policy: Any) -> None:  # fmt: skip
     """Refuse an attempt that would break the one-chain-per-judge rule (see NoiseAttempt)."""
+    from womm.eval import noise_report as nr
+
     done_extra = any(a.kind in ("extension", "fallback") for a in chain)
+    used = {k for a in chain for k in a.run_keys}
     if kind == "first" and first is not None:
         raise UsageError(f"a first R34 attempt already exists for this judge "
                          f"({first.experiment}, {first.recorded_on}): extend it or record a "
                          "fallback run; it is never restarted")  # fmt: skip
-    if kind in ("extension", "fallback"):
-        if first is None or first.next_step != "extend":
-            raise UsageError(f"an {kind} needs a recorded first attempt that asked to extend")
-        if done_extra:
-            raise UsageError("this chain already has its extension or fallback")
-    if kind == "extension":
-        meta = reports[0]["metadata"]
-        if meta.get("langsmith_experiment") != first.experiment or (
-            meta.get("git_sha") != first.git_sha
-        ):
-            raise UsageError("the first report is not the recorded first attempt (experiment "
-                             "and git sha must match)")  # fmt: skip
-        if inputs != first.stop_inputs:
-            raise UsageError(f"the stop-rule inputs differ from the first attempt's "
-                             f"({first.stop_inputs}); fixed once run 1 is seen")  # fmt: skip
+    if kind == "first":
+        return
+    if first is None or first.next_step != "extend":
+        raise UsageError(f"an {kind} needs a recorded first attempt that asked to extend")
+    if done_extra:
+        raise UsageError("this chain already has its extension or fallback")
+    new = reports[-1]
+    meta = new["metadata"]
+    for field in ("system_version", "split"):
+        if new.get(field, meta.get(field)) != getattr(first, field):
+            raise UsageError(f"the {kind} has another {field} than the first attempt")
+    if inputs != first.stop_inputs:
+        raise UsageError(f"the stop-rule inputs differ from the first attempt's "
+                         f"({first.stop_inputs}); fixed once run 1 is seen")  # fmt: skip
+    if problems := nr.formal_problems(new):
+        raise UsageError(f"the {kind} is not a clean formal run: " + "; ".join(problems))
+    if kind == "extension" and (not meta.get("langsmith_experiment") or keys[1] == keys[0]):
+        raise UsageError("the extension needs its own experiment: the two runs must differ")
+    if keys[-1] in used:
+        raise UsageError(f"the {kind} run {keys[-1]} is already part of the chain")
+    if kind == "fallback":
+        return
+    head = reports[0]["metadata"]
+    if keys[0] != first.run_keys[0] or head.get("git_sha") != first.git_sha:
+        raise UsageError("the first report is not the recorded first attempt (experiment "
+                         "and git sha must match)")  # fmt: skip
+    want = policy.repetitions.max - policy.repetitions.min
+    if meta.get("repetitions") != want:
+        raise UsageError(f"the extension must be {want} repetitions, got "
+                         f"{meta.get('repetitions')}")  # fmt: skip
 
 
 def _sv_path(value: str) -> Path:
@@ -1241,6 +1290,7 @@ def build_parser() -> argparse.ArgumentParser:
         "api backend only, clean tree",
     )
     p_eval.add_argument("--local", action="store_true", help="do not record in LangSmith")
+    p_eval.add_argument("--records", default=None, help=argparse.SUPPRESS)
     p_eval.add_argument("--skip-self-check", action="store_true", help="dev only")
     p_eval.add_argument("--decider", choices=["jev", "stub"], help="override the router decider")
     sub.add_parser(

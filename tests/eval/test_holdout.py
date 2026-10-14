@@ -189,6 +189,9 @@ class MemoryStore(holdout.HoldoutStore):
         self.audits.append((result, git_sha))
         return len(self.audits)
 
+    async def sealed_counts(self):
+        return len(self.sealed), len({c.fixture for c, _ in self.sealed})
+
 
 def _sealed(roots, proposals=hf.PROPOSALS):
     out = []
@@ -478,14 +481,18 @@ def _spy_rule(monkeypatch, extend: bool):
         return {"extend": extend, "pooled_sd": sd, "min": kw["r_min"], "max": kw["r_max"],
                 "mdd_at_min": 0.1, "mdd_at_max": 0.07}  # fmt: skip
 
-    real_boot = holdout.paired_cluster_bootstrap
+    real_boot = holdout._bootstrap
 
     def boot(*a, **k):
         calls.append(("bootstrap", None))
         return real_boot(*a, **k)
 
-    monkeypatch.setattr(noise_report, "comparison_extends", rule)
-    monkeypatch.setattr(holdout, "paired_cluster_bootstrap", boot)
+    def rule_with_kw(sd, **kw):
+        calls.append(("kw", kw))
+        return rule(sd, **kw)
+
+    monkeypatch.setattr(noise_report, "comparison_extends", rule_with_kw)
+    monkeypatch.setattr(holdout, "_bootstrap", boot)
     return calls
 
 
@@ -500,9 +507,32 @@ async def test_compare_extends_on_noise_only_before_any_delta(roots, monkeypatch
     assert result.scored_runs == {"candidate": 5 * used, "baseline": 5 * used}
     assert result.repetition_rule.extended is extend
     assert (result.repetition_rule.min, result.repetition_rule.max) == (3, 6)
-    kinds = [k for k, _ in calls]
+    kinds = [k for k, _ in calls if k != "kw"]
     assert kinds[0] == "rule" and kinds.count("rule") == 1, "decided once, before any bootstrap"
-    assert calls[0][1] == 0.0  # pooled over both arms of a deterministic fake: no noise
+    assert next(v for k, v in calls if k == "rule") == 0.0  # deterministic fake: no noise
+    kw = next(v for k, v in calls if k == "kw")
+    assert (kw["icc"], kw["alpha"], kw["power"]) == (1.0, 0.05, 0.8)
+
+
+async def test_compare_passes_the_recorded_design_to_the_repetition_rule(roots, monkeypatch):
+    calls = _spy_rule(monkeypatch, False)
+    store = MemoryStore(_sealed(roots, hf.FIVE_PROPOSALS))
+    await _compare(store, reps=3, backends=hf.compare_backends(runs_per_version=5 * 3),
+                   max_repetitions=6, expected_gain=0.08, icc=0.5, alpha=0.1,
+                   power=0.9)  # fmt: skip
+    kw = next(v for k, v in calls if k == "kw")
+    assert (kw["icc"], kw["alpha"], kw["power"]) == (0.5, 0.1, 0.9)
+
+
+async def test_deltas_carry_the_bootstrap_se_only_with_enough_proposals(roots):
+    five = await _compare(MemoryStore(_sealed(roots, hf.FIVE_PROPOSALS)))
+    assert five.deltas["coverage"].se == pytest.approx(0.0)  # deterministic: every draw equal
+    two = await _compare(MemoryStore(_sealed(roots)))
+    assert two.deltas["coverage"].se is None  # insufficient proposals: like the CI
+
+
+async def test_memory_store_counts_cases_and_proposals(roots):
+    assert await MemoryStore(_sealed(roots, hf.FIVE_PROPOSALS)).sealed_counts() == (5, 5)
 
 
 async def test_compare_needs_expected_gain_with_max_repetitions(roots):

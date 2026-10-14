@@ -63,15 +63,17 @@ def records(jv, agreement=0.9, noise=True, mdd=0.05, **calibration) -> pm.Promot
                                           "recorded_on": "2026-10-21"})  # fmt: skip
     if mdd is not None:
         data["mdd_reports"].append({"metric": "coverage", "judge_version": jv, "mdd": mdd,
-                                    "recorded_on": "2026-10-21"})  # fmt: skip
+                                    "recorded_on": "2026-10-21", "repetitions": 3,
+                                    "holdout_cases": 8, "holdout_proposals": 8,
+                                    "icc": 1.0, "alpha": 0.05, "power": 0.8})  # fmt: skip
     return pm.PromotionRecords.model_validate(data)
 
 
 def cmp(coverage=(0.08, 0.02, 0.14), grounding=(0.0, None, None), omissions=(0.0, None, None),
         noise=0.1, flags=(), aborted=False, n_proposals=5, precision=(0.0, None, None),
-        impacts=(10.0, 10.0)) -> HoldoutComparison:  # fmt: skip
-    def delta(t):
-        return MetricDelta(mean_delta=t[0], ci95_low=t[1], ci95_high=t[2], n_cases=8)
+        impacts=(10.0, 10.0), se=None, drop=()) -> HoldoutComparison:  # fmt: skip
+    def delta(t, s=None):
+        return MetricDelta(mean_delta=t[0], ci95_low=t[1], ci95_high=t[2], se=s, n_cases=8)
 
     return HoldoutComparison(
         candidate_version="sv_cand", baseline_version="sv_inc", judge_version="sv_inc",
@@ -79,8 +81,9 @@ def cmp(coverage=(0.08, 0.02, 0.14), grounding=(0.0, None, None), omissions=(0.0
         scored_runs={"candidate": 24, "baseline": 24}, errored_runs={"candidate": 0, "baseline": 0},
         aborted=aborted, failure_policy="abort", missing_cases={"candidate": 0, "baseline": 0},
         flags=list(flags),
-        deltas={"coverage": delta(coverage), "grounding": delta(grounding),
-                "omissions_addressed": delta(omissions), "precision": delta(precision)},
+        deltas={k: v for k, v in {"coverage": delta(coverage, se), "grounding": delta(grounding),
+                "omissions_addressed": delta(omissions), "precision": delta(precision)}.items()
+                if k not in drop},
         noise={m: PooledNoise(candidate_sd=noise, baseline_sd=None if noise is None else noise / 2)
                for m in ("coverage", "grounding", "omissions_addressed", "precision")},
         bootstrap={},
@@ -163,9 +166,11 @@ def test_formal_mode_comes_from_the_mdd_report_before_any_result():
 class GateStore(ProgressStore):
     """ProgressStore plus the gate's bookkeeping, in memory."""
 
-    def __init__(self, sealed, progress=None, used=(0, 0), aborts=0, crash_after=None):
+    def __init__(self, sealed, progress=None, used=(0, 0), aborts=0, crash_after=None,
+                 counts=None):  # fmt: skip
         super().__init__(sealed, progress, crash_after=crash_after)
         self.used, self.aborts, self.decisions = used, aborts, {}
+        self.counts = counts
         self.compared = 0
         self.reserved, self.released = [], []
 
@@ -184,6 +189,12 @@ class GateStore(ProgressStore):
     async def budget_used(self, cycle_id):
         return self.used
 
+    async def sealed_counts(self):
+        if self.counts is not None:
+            return self.counts
+        # An empty preflight store stands for the 8-case holdout the records() MDD describes.
+        return (8, 8) if not self.sealed else await super().sealed_counts()
+
     async def prior_aborts(self, candidate_version, baseline_version):
         return self.aborts
 
@@ -193,7 +204,7 @@ class GateStore(ProgressStore):
 
 async def _preflight(cand, base, p=None, recs=None, committed=True, store=None):
     return await pm.preflight(p or policy(**SIGNED), recs or records(judge_version(base)), cand,
-                              base, store=store or GateStore([]), cycle_id="c1",
+                              base, store=store or GateStore([], counts=(8, 8)), cycle_id="c1",
                               policy_committed=committed)  # fmt: skip
 
 
@@ -621,7 +632,7 @@ def _attempt(jv, kind="first", step="stop", experiment="e1", **kw):
     return {"judge_version": jv, "system_version": "sv_x", "split": "val",
             "experiment": experiment, "git_sha": "abc", "repetitions": 3, "kind": kind,
             "next_step": step, "stop_inputs": {"expected_gain": 0.08},
-            "recorded_on": "2026-10-21"} | kw  # fmt: skip
+            "run_keys": [experiment], "recorded_on": "2026-10-21"} | kw  # fmt: skip
 
 
 @pytest.mark.parametrize(("attempts", "message"), [
@@ -647,11 +658,112 @@ async def test_a_batch_shift_on_the_r34_run_is_noted():
 
 
 def test_the_sign_summary_lists_every_rule(tmp_path, capsys):
+    import datetime as dt
+
     from womm import cli
 
     path = tmp_path / "policy.yaml"
-    path.write_text(yaml.safe_dump(POLICY))
+    entry = {"date": dt.date.today().isoformat(), "change": "signed", "reason": "test"}
+    path.write_text(yaml.safe_dump(POLICY | {"changelog": [*POLICY["changelog"], entry]}))
     assert cli.main(["policy", "sign", "--by", "jdoe", "--policy", str(path)]) == cli.EXIT_OK
     out = capsys.readouterr().out
     for text in ("precision", "weak bar", "repetitions: 3 to 6"):
         assert text in out
+
+
+# ----------------------------------------------------------------------------- review fixes
+
+
+def test_the_weak_bar_uses_the_bootstrap_se_when_there_is_one():
+    d = decide(cmp(coverage=(0.04, None, None), se=0.05), mode="weak")  # formula SE ~0.023
+    assert d.reasons == ["coverage_below_weak_bar"]
+    assert any("bootstrap SE" in n for n in d.notes)
+    fallback = decide(cmp(coverage=(0.04, None, None)), mode="weak")
+    assert fallback.decision == "promoted"
+    assert any("within-run noise" in n for n in fallback.notes)
+
+
+def test_weak_bar_must_be_positive():
+    with pytest.raises(ValueError):
+        policy(weak_min_delta_se=0)
+
+
+def test_a_guard_metric_missing_from_the_comparison_raises():
+    with pytest.raises(ValueError, match="precision"):
+        decide(cmp(drop=("precision",)))
+
+
+async def test_an_mdd_report_for_other_repetitions_refuses_the_gate():
+    cand, base = versions("api")
+    recs = records(judge_version(base))
+    recs.mdd_reports[0].repetitions = 6
+    with pytest.raises(pm.GateRefused, match="repetitions"):
+        await _preflight(cand, base, recs=recs)
+
+
+@pytest.mark.parametrize("counts", [(9, 8), (8, 7)])
+async def test_an_mdd_report_for_another_holdout_refuses_the_gate(counts):
+    cand, base = versions("api")
+    with pytest.raises(pm.GateRefused, match="holdout"):
+        await _preflight(cand, base, store=GateStore([], counts=counts))
+
+
+async def test_an_mdd_report_without_holdout_counts_refuses_the_gate():
+    cand, base = versions("api")
+    recs = records(judge_version(base))
+    recs.mdd_reports[0].holdout_cases = None
+    with pytest.raises(pm.GateRefused, match="holdout"):
+        await _preflight(cand, base, recs=recs)
+
+
+async def test_a_formal_run_outside_the_r34_chain_refuses_the_gate():
+    cand, base = versions("api")
+    jv = judge_version(base)
+    recs = records(jv)
+    recs.noise_attempts = [pm.NoiseAttempt.model_validate(_attempt(jv))]
+    recs.formal_runs = [pm.FormalRun.model_validate(
+        {"experiment": "e9", "report": "eval_9.json", "git_sha": "abc", "judge_version": jv,
+         "system_version": "sv_x", "split": "val", "repetitions": 3,
+         "finished_at": "2026-10-21T10:00:00"})]  # fmt: skip
+    with pytest.raises(pm.GateRefused, match="not part of"):
+        await _preflight(cand, base, recs=recs)
+    recs.formal_runs[0].experiment = "e1"
+    await _preflight(cand, base, recs=recs)
+
+
+async def test_the_gate_runs_the_repetition_rule_with_the_mdd_design(monkeypatch):
+    cand, base = versions("api")
+    recs = records(judge_version(base))
+    recs.mdd_reports[0].icc, recs.mdd_reports[0].alpha, recs.mdd_reports[0].power = 0.5, 0.1, 0.9
+    seen = {}
+
+    async def fake_compare(*a, **kw):
+        seen.update(kw)
+        return cmp()
+
+    monkeypatch.setattr(pm.holdout, "compare", fake_compare)
+    await pm.run_gate(
+        candidate=cand, incumbent=base, policy=policy(**SIGNED), policy_sha256="sha",
+        records=recs, store=GateStore([], counts=(8, 8)), backends={},
+        decisions=StubDecisionService(), code=CLEAN, cycle_id="c1", policy_committed=True,
+    )  # fmt: skip
+    assert (seen["icc"], seen["alpha"], seen["power"]) == (0.5, 0.1, 0.9)
+    assert (seen["max_repetitions"], seen["expected_gain"]) == (6, 0.08)
+
+
+def test_signing_needs_a_changelog_entry_dated_today(tmp_path, capsys):
+    import datetime as dt
+
+    from womm import cli
+
+    path = tmp_path / "policy.yaml"
+    old = POLICY | {"changelog": [*POLICY["changelog"][:-1],
+                                  POLICY["changelog"][-1] | {"date": "2000-01-01"}]}  # fmt: skip
+    path.write_text(yaml.safe_dump(old))
+    assert cli.main(["policy", "sign", "--by", "jdoe", "--policy", str(path)]) == cli.EXIT_USAGE
+    assert "changelog" in capsys.readouterr().err
+    today = POLICY | {"changelog": [*POLICY["changelog"],
+                                    {"date": dt.date.today().isoformat(), "change": "signed",
+                                     "reason": "test"}]}  # fmt: skip
+    path.write_text(yaml.safe_dump(today))
+    assert cli.main(["policy", "sign", "--by", "jdoe", "--policy", str(path)]) == cli.EXIT_OK

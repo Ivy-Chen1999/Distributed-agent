@@ -156,3 +156,13 @@ def test_null_pass_rate_of_the_weak_bar():
     assert 0.3 < zero_bar["rate"] < 0.7  # a version against itself: about half above 0
     assert high_bar["rate"] < zero_bar["rate"]
     assert nr.null_pass_rate(report["scores"], bar_se=1.0) == high_bar  # seeded
+
+
+def test_same_code_allows_commits_that_touch_only_the_records_file(monkeypatch):
+    monkeypatch.setattr(nr, "_changed_files", lambda a, b: ["evals/promotion_records.yaml"])
+    assert nr.same_code("abc", "def") is True
+    monkeypatch.setattr(nr, "_changed_files", lambda a, b: ["src/womm/cli.py"])
+    assert nr.same_code("abc", "def") is False
+    monkeypatch.setattr(nr, "_changed_files", lambda a, b: None)  # git failed
+    assert nr.same_code("abc", "def") is False
+    assert nr.same_code("abc", "abc") is True and nr.same_code(None, "abc") is False

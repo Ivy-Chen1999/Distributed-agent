@@ -98,6 +98,14 @@ async def test_import_is_idempotent_and_stores_case_scenario_and_ia_ids(roots, h
     assert sum(counts.values()) == len(bundle.case.expected_impacts)
 
 
+async def test_sealed_counts_are_cases_and_proposals(roots, holdout_url):
+    store = holdout.HoldoutStore(holdout_url)
+    await store.migrate()
+    assert await store.sealed_counts() == (0, 0)
+    await store.import_case(_bundle(roots))
+    assert await store.sealed_counts() == (1, 1)
+
+
 async def test_a_changed_ia_record_is_not_unchanged(roots, holdout_url):
     """P3-2: 'unchanged' needs the IA record to match too, not only the case and scenario."""
     store = holdout.HoldoutStore(holdout_url)

@@ -47,12 +47,12 @@ def test_an_invalid_record_is_not_written(records_file):
     assert records_file.read_text() == before
 
 
-def test_an_mdd_report_for_other_repetitions_is_not_used():
+def test_an_mdd_report_for_other_repetitions_is_refused():
     cand, base = versions("api")
     jv = judge_version(base)
     recs = records(jv, mdd=0.05)
     recs.mdd_reports[0].repetitions = 6
-    choice = pm.choose_mode(policy(), recs, cand, base)  # the policy runs 3
-    assert choice.mode == "weak" and "6 repetitions" in choice.notes[0]
+    with pytest.raises(pm.GateRefused, match="6 repetitions"):  # the policy starts at 3
+        pm.choose_mode(policy(), recs, cand, base)
     recs.mdd_reports[0].repetitions = 3
     assert pm.choose_mode(policy(), recs, cand, base).mode == "statistical"

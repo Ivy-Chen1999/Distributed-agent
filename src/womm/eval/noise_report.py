@@ -32,8 +32,11 @@ from __future__ import annotations
 import math
 import random
 import statistics
+import subprocess
+from pathlib import Path
 from typing import Any
 
+from womm.config import REPO_ROOT
 from womm.eval.holdout import MIN_PROPOSALS
 from womm.eval.run_eval import FORMAL_MIN_REPETITIONS, FORMAL_RUN_KIND, report_judge_versions
 
@@ -114,6 +117,9 @@ def mdd(
 # ----------------------------------------------------------------------------- data-driven runs
 
 R34_MAX_REPETITIONS = 6
+# The A/A rate splits one version's runs, so it sees within-run noise only, not how a gain varies
+# between cases: the real null pass rate of the gate is at least this.
+NULL_RATE_LABEL = "lower bound: within-run noise only"
 STOP_RULE_LEVEL = 0.8
 
 
@@ -168,11 +174,13 @@ def sd_interval(sd: float, dof: int, level: float = STOP_RULE_LEVEL) -> tuple[fl
 
 
 def sd_star(
-    expected_gain: float, *, repetitions: int, n_cases: int, n_proposals: int, icc: float = 1.0
-) -> float:
+    expected_gain: float, *, repetitions: int, n_cases: int, n_proposals: int, icc: float = 1.0,
+    alpha: float = 0.05, power: float = 0.8,
+) -> float:  # fmt: skip
     """The coverage noise SD at which the MDD equals ``expected_gain`` (the MDD is linear in
     the SD)."""
-    unit = mdd(1.0, repetitions=repetitions, n_cases=n_cases, n_proposals=n_proposals, icc=icc)
+    unit = mdd(1.0, repetitions=repetitions, n_cases=n_cases, n_proposals=n_proposals, icc=icc,
+               alpha=alpha, power=power)  # fmt: skip
     return expected_gain / unit["mdd"]
 
 
@@ -189,7 +197,7 @@ def r34_next_step(
 
 def comparison_extends(
     sd: float | None, *, r_min: int, r_max: int, n_cases: int, n_proposals: int,
-    expected_gain: float, icc: float = 1.0,
+    expected_gain: float, icc: float = 1.0, alpha: float = 0.05, power: float = 0.8,
 ) -> dict[str, Any]:  # fmt: skip
     """Blinded re-estimation for a holdout comparison: extend from ``r_min`` to ``r_max`` only
     when the MDD at ``r_min`` exceeds ``expected_gain`` and the MDD at ``r_max`` does not. ``sd``
@@ -198,7 +206,8 @@ def comparison_extends(
                            "mdd_at_min": None, "mdd_at_max": None}  # fmt: skip
     if sd is None or r_max <= r_min or n_proposals < 2 or n_cases < n_proposals:
         return out
-    design = {"n_cases": n_cases, "n_proposals": n_proposals, "icc": icc}
+    design = {"n_cases": n_cases, "n_proposals": n_proposals, "icc": icc, "alpha": alpha,
+              "power": power}  # fmt: skip
     at_min = mdd(sd, repetitions=r_min, **design)["mdd"]
     at_max = mdd(sd, repetitions=r_max, **design)["mdd"]
     out |= {"mdd_at_min": at_min, "mdd_at_max": at_max,
@@ -206,12 +215,52 @@ def comparison_extends(
     return out
 
 
-IDENTITY = ("system_version", "git_sha", "split")
+IDENTITY = ("system_version", "split")
+# Commits that touch only this file do not change the code: the records file is committed
+# after every formal run (the next formal run refuses a dirty tree).
+RECORDS_FILE = "evals/promotion_records.yaml"
+
+
+def _changed_files(sha_a: str, sha_b: str) -> list[str] | None:
+    try:
+        out = subprocess.run(["git", "diff", "--name-only", sha_a, sha_b], cwd=REPO_ROOT,
+                             capture_output=True, text=True, timeout=10, check=True)  # fmt: skip
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return [line for line in out.stdout.splitlines() if line.strip()]
+
+
+def same_code(sha_a: str | None, sha_b: str | None) -> bool:
+    """Same git sha, or two shas whose difference is only the records file."""
+    if not sha_a or not sha_b:
+        return False
+    if sha_a == sha_b:
+        return True
+    changed = _changed_files(sha_a, sha_b)
+    return changed is not None and set(changed) <= {RECORDS_FILE}
+
+
+def run_key(report: dict[str, Any], path: Path) -> str:
+    """A formal run's identity: its LangSmith experiment, else its report file name."""
+    return report["metadata"].get("langsmith_experiment") or path.name
+
+
+def log_formal_run(records: Path, report: dict[str, Any], path: Path, finished_at: str) -> None:
+    """Append a finished ``womm eval --formal`` run to the records' ``formal_runs``."""
+    from womm.evolve import promotion as pm
+
+    meta, jvs = report["metadata"], sorted(report_judge_versions(report))
+    entry = {"experiment": meta.get("langsmith_experiment"), "report": path.name,
+             "git_sha": meta.get("git_sha"), "judge_version": jvs[0] if jvs else None,
+             "system_version": report["system_version"], "split": meta.get("split"),
+             "repetitions": meta.get("repetitions"), "finished_at": finished_at}  # fmt: skip
+    pm.append_records(records, "formal_runs", [entry])
 
 
 def pool_reports(reports: list[dict[str, Any]]) -> dict[str, Any]:
     """One report from several formal runs of the same version, judge, code and split: scores
-    concatenated, repetitions summed, experiment names joined."""
+    concatenated, repetitions summed, experiment names joined. Code is the same when the git
+    shas are equal or differ only by the records file (``same_code``)."""
     first = reports[0]
     for other in reports[1:]:
         for field in IDENTITY:
@@ -219,6 +268,10 @@ def pool_reports(reports: list[dict[str, Any]]) -> dict[str, Any]:
             b = other["metadata"].get(field, other.get(field))
             if a != b:
                 raise ValueError(f"cannot pool runs with different {field}: {a} vs {b}")
+        a, b = first["metadata"].get("git_sha"), other["metadata"].get("git_sha")
+        if a != b and not same_code(a, b):
+            raise ValueError(f"cannot pool runs with different git_sha: {a} vs {b} change "
+                             f"more than {RECORDS_FILE}")  # fmt: skip
         if report_judge_versions(other) != report_judge_versions(first):
             raise ValueError("cannot pool runs with different judge versions")
     meta = dict(first["metadata"])
@@ -268,7 +321,7 @@ def null_pass_rate(
             by_case.setdefault(s["case_id"], []).append(float(s[metric]))
     usable = [v for v in by_case.values() if len(v) >= 2]
     if not usable:
-        return {"rate": None, "draws": 0, "half": None, "cases": 0}
+        return {"rate": None, "draws": 0, "half": None, "cases": 0, "label": NULL_RATE_LABEL}
     half = min(len(v) for v in usable) // 2
     sd = pooled_noise(scores, metric)["sd"] or 0.0
     se = math.sqrt(2 * sd**2 / (half * len(usable)))
@@ -281,7 +334,7 @@ def null_pass_rate(
             diffs.append(statistics.fmean(picked[:half]) - statistics.fmean(picked[half:]))
         above += statistics.fmean(diffs) > bar_se * se
     return {"rate": above / draws, "draws": draws, "half": half, "cases": len(usable),
-            "bar_se": bar_se, "se": se}  # fmt: skip
+            "bar_se": bar_se, "se": se, "label": NULL_RATE_LABEL}  # fmt: skip
 
 
 def formal_problems(report: dict[str, Any]) -> list[str]:

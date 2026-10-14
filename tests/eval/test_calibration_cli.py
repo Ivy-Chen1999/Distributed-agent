@@ -141,17 +141,30 @@ def test_r34_first_run_extends_then_the_pooled_run_is_recorded(tmp_path, capsys)
     records = _records(tmp_path)
     first = _formal_file(tmp_path, "first.json", 3)
     args = [*R34_ARGS, "--records", str(records)]
-    # without --record the stop rule is not shown: every attempt that reads it is recorded
+    # without --record no part of the stop rule is shown: every attempt that reads it is recorded
     assert cli.main([*args, "--report", str(first), "--json"]) == cli.EXIT_OK
-    assert "next_step" not in json.loads(capsys.readouterr().out)["stop_rule"]
+    assert "stop_rule" not in json.loads(capsys.readouterr().out)
 
     assert cli.main([*args, "--report", str(first), "--record", "--json"]) == cli.EXIT_OK
     out = json.loads(capsys.readouterr().out)
     assert out["stop_rule"]["next_step"] == "extend"  # SD 0.1 over 6 dof straddles about 0.085
     assert out["null_pass_rate"]["rate"] is not None
+    assert out["null_pass_rate"]["label"] == "lower bound: within-run noise only"
     loaded = pm.load_records(records)
     assert [a.next_step for a in loaded.noise_attempts] == ["extend"]
     assert loaded.formal_noise_runs == [] and loaded.mdd_reports == []
+    inputs = loaded.noise_attempts[0].stop_inputs
+    assert (inputs["alpha"], inputs["power"]) == (0.05, 0.8)
+    assert loaded.noise_attempts[0].run_keys == ["womm-x-val-formal-1234"]
+
+    # the same report twice, or a second run of the wrong size, is no extension
+    assert cli.main([*args, "--report", str(first), "--report", str(first), "--record"]) == (
+        cli.EXIT_USAGE)  # fmt: skip
+    assert "differ" in capsys.readouterr().err
+    big = _formal_file(tmp_path, "big.json", 6, experiment="womm-x-val-formal-6666")
+    assert cli.main([*args, "--report", str(first), "--report", str(big), "--record"]) == (
+        cli.EXIT_USAGE)  # fmt: skip
+    assert "3 repetitions" in capsys.readouterr().err
 
     again = _formal_file(tmp_path, "again.json", 3, experiment="womm-x-val-formal-9999")
     assert cli.main([*args, "--report", str(again), "--record"]) == cli.EXIT_USAGE
@@ -172,6 +185,8 @@ def test_r34_first_run_extends_then_the_pooled_run_is_recorded(tmp_path, capsys)
     assert run.repetitions == 6 and run.experiment == (
         "womm-x-val-formal-1234, womm-x-val-formal-5678")  # fmt: skip
     assert [a.kind for a in loaded.noise_attempts] == ["first", "extension"]
+    assert loaded.noise_attempts[1].run_keys == ["womm-x-val-formal-1234",
+                                                 "womm-x-val-formal-5678"]  # fmt: skip
     assert loaded.noise_chain_problems(run.judge_version) == []
 
 
@@ -189,3 +204,54 @@ def test_r34_fallback_run_of_six_after_an_unfinished_extension(tmp_path, capsys)
     loaded = pm.load_records(records)
     assert [a.kind for a in loaded.noise_attempts] == ["first", "fallback"]
     assert loaded.formal_noise_runs[0].repetitions == 6
+
+
+def test_r34_record_refuses_another_design_or_an_unlogged_chain(tmp_path, capsys):
+    records = _records(tmp_path)
+    args = [*R34_ARGS, "--records", str(records)]
+    first = _formal_file(tmp_path, "first.json", 3)
+    rc = cli.main([*args, "--report", str(first), "--record", "--repetitions", "6"])
+    assert rc == cli.EXIT_USAGE and "repetitions" in capsys.readouterr().err
+    # a logged formal run that no attempt reads blocks recording
+    stray = pm.FormalRun(
+        experiment="womm-x-val-formal-0000",
+        report="eval_0.json",
+        git_sha="abc",
+        judge_version="jv_test0000001",
+        system_version="sv_test0000001",
+        split="val",
+        repetitions=3,
+        finished_at="2026-10-21T09:00:00",
+    )
+    pm.append_records(records, "formal_runs", [stray.model_dump()])
+    rc = cli.main([*args, "--report", str(first), "--record"])
+    assert rc == cli.EXIT_USAGE and "not part of" in capsys.readouterr().err
+
+
+def test_r34_fallback_must_match_the_first_run(tmp_path, capsys):
+    records = _records(tmp_path)
+    args = [*R34_ARGS, "--records", str(records)]
+    assert cli.main([*args, "--report", str(_formal_file(tmp_path, "f.json", 3)),
+                     "--record"]) == cli.EXIT_OK  # fmt: skip
+    capsys.readouterr()
+    other = make_report(golden(3, split="val"), reps=6, metric=_metric, formal=True,
+                        backends=("api",), sv="sv_other")  # fmt: skip
+    other["metadata"] |= {"langsmith_experiment": "womm-x-val-formal-8888", "git_sha": "def"}
+    path = write_report(tmp_path / "other.json", other)
+    assert cli.main([*args, "--report", str(path), "--record"]) == cli.EXIT_USAGE
+    assert "system_version" in capsys.readouterr().err
+
+
+def test_formal_eval_runs_are_logged(tmp_path):
+    from womm.eval import noise_report as nr
+
+    records = _records(tmp_path)
+    report = make_report(golden(3, split="val"), reps=3, metric=_metric, formal=True,
+                         backends=("api",))  # fmt: skip
+    report["metadata"]["git_sha"] = "abc"
+    nr.log_formal_run(records, report, tmp_path / "eval_x.json", "2026-10-21T09:00:00")
+    run = pm.load_records(records).formal_runs[0]
+    assert (run.run_key, run.repetitions, run.split) == ("womm-x-val-formal-1234", 3, "val")
+    report["metadata"]["langsmith_experiment"] = None
+    nr.log_formal_run(records, report, tmp_path / "eval_y.json", "2026-10-21T10:00:00")
+    assert pm.load_records(records).formal_runs[1].run_key == "eval_y.json"

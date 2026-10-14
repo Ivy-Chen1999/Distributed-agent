@@ -47,7 +47,9 @@ be re-signed until then; `evals/promotion_policy.yaml` header).
 
 - **Precision.** `precision = |distinct dossier impact_ids the judge matched to any expected
   impact| / |dossier impacts|`, from the judge's existing `ExpectedVerdict.impact_id` (no extra LLM
-  call). `None` when the run has no dossier or the judge failed. Added to the holdout `METRICS`, so
+  call). 0.0 for a quality failure (failed run or empty dossier), as coverage is, so such a run
+  never leaves a holdout case unscored; `None` when the judge failed. Added to the holdout
+  `METRICS`, so
   the comparison bootstraps its delta and pools its noise like the others; the guard is
   `precision: {max_drop_noise_sd: 1.0}`. Known limit: the answer key is incomplete, so a correct but
   unkeyed impact lowers precision too; both arms face the same key, so the paired delta is fair.
@@ -96,10 +98,11 @@ be re-signed until then; `evals/promotion_policy.yaml` header).
 ## Implementation units
 
 - **U1. Per-run measures.** `src/womm/eval/evaluators.py`: `CaseScore.precision`,
-  `impact_count`, `impact_chars`; set after the judge on scored runs; count and chars also on the
-  empty-dossier path (0); all `None` on errored runs (the base is built before the infra check, so
-  clear them there). Tests: matched ids counted once each; several expected impacts on one dossier
-  impact count once; no dossier / judge failure / errored give `None`.
+  `impact_count`, `impact_chars`; set after the judge on scored runs; on the quality-failure path
+  count and chars are 0 and precision is 0.0 (as coverage); all `None` on errored runs (the base
+  is built before the infra check, so clear them there); precision `None` on a judge failure.
+  Tests: matched ids counted once each; several expected impacts on one dossier impact count once;
+  a quality failure gives 0.0; judge failure and errored give `None`.
 - **U2. Comparison.** `src/womm/eval/holdout.py`: `precision` in `METRICS`;
   `HoldoutComparison.diagnostics: {impact_count, impact_chars: {candidate_mean, baseline_mean,
   n_cases}}` (required, means null when nothing is paired); the blinded stop rule in `compare`
@@ -149,3 +152,21 @@ be re-signed until then; `evals/promotion_policy.yaml` header).
 
 R34 $4 or $8; a comparison $22 at 3 repetitions or $44 at 6 (later comparisons about half). No
 new LLM calls for precision or diagnostics.
+
+## Revisions after code review (2026-10-14)
+
+- The weak bar uses the comparison's bootstrap SE of the mean coverage delta (proposal clusters);
+  the within-run noise formula is the fallback, noted, when too few proposals give no bootstrap
+  SE. The A/A rate is labelled "lower bound: within-run noise only".
+- Every finished `womm eval --formal` run is logged in `formal_runs`; a logged run that no R34
+  attempt reads blocks `noise report --record` and the gate. Commit the records file after each
+  formal run (the next one refuses a dirty tree). Pooling accepts two shas that differ only by
+  the records file.
+- An extension needs its own experiment, `repetitions.max - repetitions.min` repetitions and a
+  clean formal run; a fallback is checked like an extension (version, split, stop-rule inputs).
+  Stop-rule inputs include alpha and power; the comparison's repetition rule uses the recorded
+  MDD report's icc, alpha and power.
+- `--record` refuses a `--repetitions` other than `repetitions.min`; an MDD report for other
+  repetitions, or for other holdout counts than the sealed store's, refuses the gate.
+- `weak_min_delta_se` must be above 0; `womm policy sign` needs a changelog entry dated the day
+  of signing; a guard whose metric the comparison lacks raises.
