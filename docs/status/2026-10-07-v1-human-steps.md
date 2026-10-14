@@ -51,9 +51,8 @@ protection; the API key is done (2026-10-14, below).
 - API key, for step 7 and formal gates: set a monthly spend limit in the provider console first,
   then put the key in the local `.env` only. **Done 2026-10-14:** the OpenAI key is in the local
   `.env`. The api versions are pinned (on `feat/v1-integration`, `system_versions/PROMOTIONS.md`):
-  the Planner on `gpt-6-luna`, every other role on `gpt-6.1-sol`, reasoning effort `medium`.
-  A live run of `case_02` on `v0.3-api` passed: about $0.35 and 7 minutes a case run, judge call
-  not included.
+  every role on `gpt-6.1-sol`, reasoning effort `medium`. A live run of `case_02` on `v0.3-api`
+  passed: about $0.35 and 7 minutes a case run, judge call not included.
 - GitHub, Settings, Branches, `main`: require a pull request and "Require review from Code
   Owners".
 
