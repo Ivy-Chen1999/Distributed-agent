@@ -320,12 +320,13 @@ def demo_policy():
     """The committed policy, signed IN MEMORY by this harness for the synthetic holdout only,
     with the summary published so page 4 shows the decision. Never written to disk and never
     usable by ``womm evolve promote``."""
-    from womm.evolve.promotion import load_policy
+    from womm.evolve.promotion import Repetitions, load_policy
 
     policy, _ = load_policy()
     return policy.model_copy(update={
         "signed_by": "scripted demo harness (synthetic holdout only; not a pre-registration)",
-        "signed_on": "2026-10-06", "publish_summary": True, "repetitions": 2,
+        "signed_on": "2026-10-06", "publish_summary": True,
+        "repetitions": Repetitions(min=2, max=2),
     })  # fmt: skip
 
 

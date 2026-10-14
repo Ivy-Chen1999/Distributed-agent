@@ -59,8 +59,8 @@ def test_formal_problems_and_records():
     formal = make_report(golden(2, split="val"), reps=6, metric=_metric, formal=True,
                          backends=("api",))  # fmt: skip
     assert nr.formal_problems(formal) == []
-    few = make_report(golden(2), reps=3, metric=_metric, formal=True, backends=("api",))
-    assert any("fewer than 6" in p for p in nr.formal_problems(few))
+    few = make_report(golden(2), reps=2, metric=_metric, formal=True, backends=("api",))
+    assert any("fewer than 3" in p for p in nr.formal_problems(few))
     cc = make_report(golden(2), reps=6, metric=_metric, formal=True, backends=("claude_code",))
     assert any("api only" in p for p in nr.formal_problems(cc))
 

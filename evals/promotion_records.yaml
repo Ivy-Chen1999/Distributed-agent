@@ -18,8 +18,8 @@
 #       annotators: [name, name]
 #       recorded_on: YYYY-MM-DD
 #
-# - formal_noise_runs: the R34 formal noise run (`womm eval --split val --repetitions 6
-#   --formal` on the api backend). The statistical and weak modes need one for the gate's judge.
+# - formal_noise_runs: the R34 formal noise run (`womm eval --split val --repetitions 3
+#   --formal` on the api backend, extended to 6 when the stop rule says so). The statistical and weak modes need one for the gate's judge.
 #   `womm noise report --report <formal report> --holdout-cases N --holdout-proposals K
 #   --record` appends it together with the mdd_reports below.
 #     - system_version: sv_...
@@ -37,6 +37,13 @@
 #       judge_version: jv_...
 #       mdd: 0.07
 #       recorded_on: YYYY-MM-DD
+#
+# - noise_attempts: every formal R34 attempt, written by `womm noise report --record` whatever
+#   its outcome (stop, extend, final), so a run that asked for an extension cannot be dropped
+#   and restarted. One chain per judge: a first run of 3 repetitions (the stop rule), then at
+#   most one extension of 3 at the same git sha, pooled with it, or one fresh fallback run of 6
+#   when that sha can no longer be checked out cleanly. The gate refuses a broken chain.
 judge_calibrations: []
 formal_noise_runs: []
 mdd_reports: []
+noise_attempts: []

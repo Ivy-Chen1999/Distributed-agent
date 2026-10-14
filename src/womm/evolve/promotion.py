@@ -22,7 +22,10 @@ in ``tests/evolve/test_planner_boundary.py``); nothing Planner-side imports this
   is then reserved atomically in the holdout database (``holdout.budget_reservations``) before
   the comparison runs, and the cycle is the candidate's archived one (``gate_cycle_id``).
 - **Decision.** Statistical: the primary metric's CI95 lower bound above 0. Weak and dev: its
-  mean delta above 0. Every guard metric's mean delta at least minus its tolerance. An aborted
+  mean delta above ``weak_min_delta_se`` standard errors of the paired mean (from the
+  comparison's own noise). Every guard metric's mean delta at least minus its tolerance
+  (precision included). Impact count and text length are noted when they rise more than 25%,
+  never gated. An aborted
   comparison is rejected as ``inconclusive``, consumes no budget, and a repeated abort on the
   same pair is flagged for a human.
 - **Records.** The decision is written next to its comparison in the holdout audit
@@ -66,7 +69,9 @@ CALIBRATION_MIN = 0.85
 CALIBRATION_MIN_PAIRS = 24
 CALIBRATION_MIN_INTER = 0.80
 FORMAL_BACKEND = "api"
-Metric = Literal["coverage", "omissions_addressed", "grounding"]
+Metric = Literal["coverage", "omissions_addressed", "grounding", "precision"]
+# A diagnostic rise above this share is noted ("judge-sensitive"); it never gates.
+DIAGNOSTIC_RISE = 0.25
 Mode = Literal["statistical", "weak", "dev"]
 MODE_LABELS: dict[str, str] = {
     "statistical": "holdout, bootstrap CI",
@@ -123,6 +128,26 @@ class Guard(StrictModel):
         return self
 
 
+class Repetitions(StrictModel):
+    """Per holdout case and arm: ``min`` always, extended to ``max`` only when the pooled noise
+    of both arms says ``max`` can resolve ``expected_gain`` and ``min`` cannot."""
+
+    min: int = Field(ge=2, description="Two at least, so run-to-run noise is measured.")
+    max: int
+
+    @model_validator(mode="after")
+    def _max_not_below_min(self) -> Repetitions:
+        if self.max < self.min:
+            raise ValueError("repetitions: max must be at least min")
+        return self
+
+
+class ChangeEntry(StrictModel):
+    date: str
+    change: str
+    reason: str
+
+
 class HoldoutBudget(StrictModel):
     per_cycle: int = Field(ge=1)
     total: int = Field(ge=1)
@@ -143,16 +168,20 @@ class PromotionPolicy(StrictModel):
     guards: dict[Metric, Guard]
     formal_mode: Literal["statistical", "weak"]
     expected_gain: float = Field(gt=0)
-    repetitions: int = Field(ge=2, description="Two at least, so run-to-run noise is measured.")
+    weak_min_delta_se: float = Field(ge=0, description="Weak bar, in SEs of the paired mean.")
+    repetitions: Repetitions
     failure_policy: Literal["abort", "score_zero"]
     holdout_budget: HoldoutBudget
     publish_summary: bool
     bootstrap: Bootstrap
+    changelog: list[ChangeEntry] = Field(min_length=1)
 
     @model_validator(mode="after")
     def _primary_is_not_a_guard(self) -> PromotionPolicy:
         if self.primary_metric in self.guards:
             raise ValueError(f"{self.primary_metric} is the primary metric, not a guard")
+        if "precision" not in self.guards:
+            raise ValueError("a precision guard is required (coverage alone rewards listing)")
         return self
 
     @property
@@ -202,8 +231,32 @@ class FormalNoiseRun(StrictModel):
     judge_version: str
     split: Literal["train", "val"]
     repetitions: int = Field(ge=FORMAL_MIN_REPETITIONS)
-    experiment: str | None = None
+    experiment: str | None = Field(default=None, description="Pooled runs: names joined.")
     recorded_on: str
+    batch_shift: bool = Field(
+        default=False, description="Pooled halves differ beyond the first half's noise SD."
+    )
+
+
+class NoiseAttempt(StrictModel):
+    """Every formal R34 attempt, whatever its outcome, so a run that asked for an extension
+    cannot be dropped and restarted. One chain per judge: a first run (stop rule applied), then
+    at most one extension (pooled with it) or one fresh fallback run of the maximum."""
+
+    judge_version: str
+    system_version: str
+    split: Literal["train", "val"]
+    experiment: str | None
+    git_sha: str | None
+    repetitions: int = Field(ge=1)
+    kind: Literal["first", "extension", "fallback"]
+    next_step: Literal["stop", "extend", "final"]
+    stop_inputs: dict[str, Any] = Field(
+        description="What the stop rule read: policy sha256, expected_gain, repetitions.min, "
+        "holdout cases and proposals. An extension must match the first attempt's."
+    )
+    recorded_on: str
+    batch_shift: bool = False
 
 
 class MddReport(StrictModel):
@@ -227,6 +280,26 @@ class PromotionRecords(StrictModel):
     judge_calibrations: list[JudgeCalibration] = Field(default_factory=list)
     formal_noise_runs: list[FormalNoiseRun] = Field(default_factory=list)
     mdd_reports: list[MddReport] = Field(default_factory=list)
+    noise_attempts: list[NoiseAttempt] = Field(default_factory=list)
+
+    def noise_chain(self, jv: str) -> list[NoiseAttempt]:
+        return [a for a in self.noise_attempts if a.judge_version == jv]
+
+    def noise_chain_problems(self, jv: str) -> list[str]:
+        """Why the R34 attempts for ``jv`` do not form one whole chain (empty when they do)."""
+        chain = self.noise_chain(jv)
+        firsts = [a for a in chain if a.kind == "first"]
+        problems = []
+        if len(firsts) > 1:
+            problems.append(f"more than one first R34 attempt for judge {jv}: a run that asked "
+                            "for an extension cannot be dropped and restarted")  # fmt: skip
+        extended = any(a.kind in ("extension", "fallback") for a in chain)
+        if firsts and firsts[0].next_step == "extend" and not extended:
+            problems.append(f"the R34 run for judge {jv} asked for an extension that is not "
+                            "recorded: run the extension (or the fallback) first")  # fmt: skip
+        if sum(a.kind in ("extension", "fallback") for a in chain) > 1:
+            problems.append(f"more than one extension or fallback for judge {jv}")
+        return problems
 
     def calibration(self, jv: str) -> JudgeCalibration | None:
         return next((c for c in reversed(self.judge_calibrations) if c.judge_version == jv), None)
@@ -269,7 +342,7 @@ def load_records(path: Path = RECORDS_PATH) -> PromotionRecords:
         raise GateRefused(f"{path} is invalid: {exc}") from None
 
 
-RECORD_KEYS = ("judge_calibrations", "formal_noise_runs", "mdd_reports")
+RECORD_KEYS = ("judge_calibrations", "formal_noise_runs", "mdd_reports", "noise_attempts")
 
 
 def append_records(path: Path, key: str, items: list[dict[str, Any]]) -> None:
@@ -377,10 +450,10 @@ def choose_mode(
             deployable=True,
             notes=["weak mode: no minimum-detectable-delta report for this judge"],
         )
-    if mdd.repetitions is not None and mdd.repetitions != policy.repetitions:
+    if mdd.repetitions is not None and mdd.repetitions != policy.repetitions.min:
         return ModeChoice(mode="weak", deployable=True, notes=[
             f"weak mode: the minimum-detectable-delta report is for {mdd.repetitions} "
-            f"repetitions, the policy runs {policy.repetitions}"])  # fmt: skip
+            f"repetitions, the policy starts at {policy.repetitions.min}"])  # fmt: skip
     if mdd.mdd > policy.expected_gain:
         return ModeChoice(mode="weak", deployable=True, notes=[
             f"weak mode: the minimum detectable delta ({mdd.mdd:.3f}) exceeds the expected gain "
@@ -429,8 +502,13 @@ async def preflight(
         if problems := calibration_problems(calibration):
             raise GateRefused(f"the coverage-judge calibration for {jv} does not count: "
                               + "; ".join(problems))  # fmt: skip
-        if records.noise_run(jv) is None:
+        if (noise_run := records.noise_run(jv)) is None:
             raise GateRefused(f"no R34 formal noise run on record for judge {jv}")
+        if problems := records.noise_chain_problems(jv):
+            raise GateRefused("; ".join(problems))
+        if noise_run.batch_shift:
+            choice.notes.append("the R34 noise run has a batch shift between its two halves: "
+                                "its noise SD may mix day-to-day variation")  # fmt: skip
     total, in_cycle = await store.budget_used(cycle_id)
     if total >= policy.holdout_budget.total:
         raise GateRefused(f"the holdout budget is exhausted ({total} of "
@@ -480,6 +558,31 @@ def _noise_sd(cmp: HoldoutComparison, metric: str) -> float | None:
     return max(values) if values else None
 
 
+def weak_bar_se(cmp: HoldoutComparison, metric: str) -> float | None:
+    """SE of the paired mean delta from the comparison's own per-arm noise:
+    sqrt(sd_c^2 / (r n) + sd_b^2 / (r n)) over ``n`` paired cases and ``r`` repetitions."""
+    noise, delta = cmp.noise.get(metric), cmp.deltas.get(metric)
+    if not noise or not delta or not delta.n_cases:
+        return None
+    if noise.candidate_sd is None or noise.baseline_sd is None:
+        return None
+    rn = cmp.repetitions * delta.n_cases
+    return (noise.candidate_sd**2 / rn + noise.baseline_sd**2 / rn) ** 0.5
+
+
+def _diagnostic_notes(cmp: HoldoutComparison) -> list[str]:
+    notes = []
+    for name, d in cmp.diagnostics.items():
+        if d.candidate_mean is None or not d.baseline_mean:
+            continue
+        rise = d.candidate_mean / d.baseline_mean - 1
+        if rise > DIAGNOSTIC_RISE:
+            notes.append(f"judge-sensitive: {name} rose {rise:.0%} over the incumbent "
+                         f"({d.candidate_mean:.1f} vs {d.baseline_mean:.1f}); report-only, "
+                         "it does not gate")  # fmt: skip
+    return notes
+
+
 def decide(
     cmp: HoldoutComparison,
     policy: PromotionPolicy,
@@ -516,10 +619,21 @@ def decide(
             if not improved:
                 reasons.append(f"{policy.primary_metric}_ci_not_above_zero")
         else:
-            improved = primary.mean_delta is not None and primary.mean_delta > 0
-            if not improved:
-                reasons.append(f"{policy.primary_metric}_not_improved")
+            se = weak_bar_se(cmp, policy.primary_metric)
+            if se is None:
+                improved = False
+                reasons.append(f"{policy.primary_metric}_noise_unavailable")
+            else:
+                bar = policy.weak_min_delta_se * se
+                improved = primary.mean_delta is not None and primary.mean_delta > bar
+                notes.append(f"weak bar: {policy.primary_metric} gain must exceed "
+                             f"{policy.weak_min_delta_se:g} SE = {bar:.3f}")  # fmt: skip
+                if not improved:
+                    reasons.append(f"{policy.primary_metric}_below_weak_bar")
         for metric, guard in policy.guards.items():
+            if metric not in cmp.deltas:
+                notes.append(f"{metric}: not in this comparison; guard not applicable")
+                continue
             delta = cmp.deltas[metric].mean_delta
             if delta is None:
                 notes.append(f"{metric}: no case measures it; guard not applicable")
@@ -534,6 +648,7 @@ def decide(
                 allowed = guard.max_drop_noise_sd * sd
             if delta < -allowed - 1e-12:
                 reasons.append(f"{metric}_regression")
+        notes += _diagnostic_notes(cmp)
     decision = "promoted" if improved and not reasons else "rejected"
     return GateDecision(
         gate_id=gate_id, cycle_id=cycle_id, candidate_version=cmp.candidate_version,
@@ -605,7 +720,8 @@ async def run_gate(
         raise GateRefused(str(exc)) from None
     try:
         cmp = await holdout.compare(
-            candidate, incumbent, policy.repetitions, store=store, backends=backends,
+            candidate, incumbent, policy.repetitions.min, store=store, backends=backends,
+            max_repetitions=policy.repetitions.max, expected_gain=policy.expected_gain,
             decisions=decisions, code=code, n_boot=policy.bootstrap.n_boot,
             seed=policy.bootstrap.seed, failure_policy=policy.failure_policy, checkpoint=True,
             gate_id=gate_id, cycle_id=cycle_id,

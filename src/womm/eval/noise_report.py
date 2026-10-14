@@ -289,7 +289,7 @@ def formal_problems(report: dict[str, Any]) -> list[str]:
     meta = report["metadata"]
     problems = []
     if not meta.get("formal") or meta.get("run_kind") != FORMAL_RUN_KIND:
-        problems.append("not a formal run (`womm eval --split val --repetitions 6 --formal`)")
+        problems.append("not a formal run (`womm eval --split val --repetitions 3 --formal`)")
     if meta.get("backends") != ["api"]:
         problems.append(f"backends {meta.get('backends')}: a formal run is api only")
     if (meta.get("repetitions") or 1) < FORMAL_MIN_REPETITIONS:

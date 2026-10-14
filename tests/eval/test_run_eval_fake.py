@@ -163,8 +163,9 @@ def test_formal_run_refuses_non_api_backends():
 def test_formal_run_marks_the_r34_noise_run():
     meta = experiment_metadata(_api_sv(), CLEAN, False, 6, formal=True)
     assert meta["formal"] is True and meta["run_kind"] == "r34_noise"
-    with pytest.raises(BaselineRefused, match="at least 6 repetitions"):
-        experiment_metadata(_api_sv(), CLEAN, False, 3, formal=True)
+    assert experiment_metadata(_api_sv(), CLEAN, False, 3, formal=True)["formal"] is True
+    with pytest.raises(BaselineRefused, match="at least 3 repetitions"):
+        experiment_metadata(_api_sv(), CLEAN, False, 2, formal=True)
     with pytest.raises(BaselineRefused, match="dirty"):
         experiment_metadata(_api_sv(), CodeIdentity(git_sha="x", dirty=True), False, 6, formal=True)
 

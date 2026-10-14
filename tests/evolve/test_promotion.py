@@ -13,7 +13,7 @@ from womm.data import fixtures as fixtures_module
 from womm.decisions.stub import StubDecisionService
 from womm.eval import holdout
 from womm.eval.evaluators import judge_version
-from womm.eval.holdout import HoldoutComparison, MetricDelta, PooledNoise
+from womm.eval.holdout import DiagnosticMeans, HoldoutComparison, MetricDelta, PooledNoise
 from womm.evolve import promotion as pm
 from womm.evolve.planner_view import ALLOWED_TABLES, QUERIES, PlannerView
 from womm.models.run import CodeIdentity
@@ -36,6 +36,7 @@ def policy(**changes) -> pm.PromotionPolicy:
 
 
 SIGNED = {"signed_by": "jdoe", "signed_on": "2026-11-01"}
+TWO = {"min": 2, "max": 2}  # fixed repetitions for the small synthetic holdout
 
 
 def api(sv):
@@ -67,7 +68,8 @@ def records(jv, agreement=0.9, noise=True, mdd=0.05, **calibration) -> pm.Promot
 
 
 def cmp(coverage=(0.08, 0.02, 0.14), grounding=(0.0, None, None), omissions=(0.0, None, None),
-        noise=0.1, flags=(), aborted=False, n_proposals=5) -> HoldoutComparison:  # fmt: skip
+        noise=0.1, flags=(), aborted=False, n_proposals=5, precision=(0.0, None, None),
+        impacts=(10.0, 10.0)) -> HoldoutComparison:  # fmt: skip
     def delta(t):
         return MetricDelta(mean_delta=t[0], ci95_low=t[1], ci95_high=t[2], n_cases=8)
 
@@ -78,10 +80,13 @@ def cmp(coverage=(0.08, 0.02, 0.14), grounding=(0.0, None, None), omissions=(0.0
         aborted=aborted, failure_policy="abort", missing_cases={"candidate": 0, "baseline": 0},
         flags=list(flags),
         deltas={"coverage": delta(coverage), "grounding": delta(grounding),
-                "omissions_addressed": delta(omissions)},
+                "omissions_addressed": delta(omissions), "precision": delta(precision)},
         noise={m: PooledNoise(candidate_sd=noise, baseline_sd=None if noise is None else noise / 2)
-               for m in ("coverage", "grounding", "omissions_addressed")},
+               for m in ("coverage", "grounding", "omissions_addressed", "precision")},
         bootstrap={},
+        diagnostics={n: DiagnosticMeans(candidate_mean=impacts[0] * k,
+                                        baseline_mean=impacts[1] * k, n_cases=8)
+                     for n, k in (("impact_count", 1), ("impact_chars", 100))},
     )  # fmt: skip
 
 
@@ -94,9 +99,12 @@ def decide(c, mode="statistical", deployable=True, **kw):
 # ----------------------------------------------------------------------------- policy
 
 
-def test_the_committed_policy_holds_the_plan_defaults_and_is_signed():
+def test_the_committed_policy_holds_the_plan_defaults():
     p, sha = pm.load_policy()
-    assert p.primary_metric == "coverage" and p.signed  # pre-registered 2026-10-12
+    assert p.primary_metric == "coverage"  # re-signed by the owner after the 2026-10-14 changes
+    assert p.guards["precision"].max_drop_noise_sd == 1.0 and p.weak_min_delta_se == 1.0
+    assert (p.repetitions.min, p.repetitions.max) == (3, 6)
+    assert [c.date for c in p.changelog][:2] == ["2026-10-12", "2026-10-14"]
     assert p.guards["grounding"].max_drop == 0.02
     assert p.guards["omissions_addressed"].max_drop_noise_sd == 1.0
     assert (p.holdout_budget.per_cycle, p.holdout_budget.total) == (1, 6)
@@ -119,7 +127,13 @@ def test_policy_validation_rules(tmp_path):
     with pytest.raises(ValueError, match="exactly one"):
         policy(guards={"grounding": {"max_drop": 0.1, "max_drop_noise_sd": 1}})
     with pytest.raises(ValueError):
-        policy(repetitions=1)
+        policy(repetitions={"min": 1, "max": 6})
+    with pytest.raises(ValueError, match="max"):
+        policy(repetitions={"min": 4, "max": 3})
+    with pytest.raises(ValueError, match="precision"):
+        policy(guards={k: v for k, v in POLICY["guards"].items() if k != "precision"})
+    with pytest.raises(ValueError):
+        policy(changelog=[])
     with pytest.raises(pm.GateRefused, match="no promotion policy"):
         pm.load_policy(tmp_path / "missing.yaml")
 
@@ -315,7 +329,8 @@ def test_weak_mode_promotes_on_a_positive_mean_and_says_directional():
     d = decide(cmp(coverage=(0.04, None, None)), mode="weak")
     assert d.decision == "promoted" and d.mode == "weak"
     assert d.label == "promoted (weak threshold: directional)"
-    assert decide(cmp(coverage=(0.0, None, None)), mode="weak").reasons == ["coverage_not_improved"]
+    assert decide(cmp(coverage=(0.0, None, None)), mode="weak").reasons == [
+        "coverage_below_weak_bar"]  # fmt: skip
 
 
 def test_insufficient_proposals_downgrade_statistical_to_weak_and_record_it():
@@ -366,7 +381,7 @@ def _gate_backends(cand, n_runs):
 async def test_a_dev_gate_promotes_and_records_in_the_audit_only(roots):
     cand, base = versions("fake")
     store = GateStore(_sealed(roots))  # 2 proposals: insufficient for CIs
-    p = policy(repetitions=2, **SIGNED)
+    p = policy(repetitions=TWO, **SIGNED)
     d = await pm.run_gate(
         candidate=cand, incumbent=base, policy=p, policy_sha256="sha",
         records=pm.PromotionRecords(), store=store, backends=_gate_backends(cand, 4),
@@ -386,7 +401,7 @@ async def test_publish_summary_needs_a_database(roots):
     with pytest.raises(pm.GateRefused, match="no main database"):
         await pm.run_gate(
             candidate=cand, incumbent=base,
-            policy=policy(repetitions=2, publish_summary=True, **SIGNED), policy_sha256="sha",
+            policy=policy(repetitions=TWO, publish_summary=True, **SIGNED), policy_sha256="sha",
             records=pm.PromotionRecords(), store=store, backends=_gate_backends(cand, 4),
             decisions=StubDecisionService(), code=CLEAN, cycle_id="c1", policy_committed=True,
         )  # fmt: skip
@@ -419,7 +434,7 @@ async def test_gate_records_on_postgres(roots, db, database_url, holdout_url, pu
     cand, base = versions("fake")
     d = await pm.run_gate(
         candidate=cand, incumbent=base,
-        policy=policy(repetitions=2, publish_summary=publish, **SIGNED), policy_sha256="sha",
+        policy=policy(repetitions=TWO, publish_summary=publish, **SIGNED), policy_sha256="sha",
         records=pm.PromotionRecords(), store=store, backends=_gate_backends(cand, 4),
         decisions=StubDecisionService(), code=CodeIdentity(git_sha="abc", dirty=False),
         cycle_id="c1", policy_committed=True,
@@ -459,7 +474,7 @@ def test_an_r37_error_is_shown_and_never_changes_the_decision():
 
 def _signed_gate(cand, base, store, **kw):
     return pm.run_gate(
-        candidate=cand, incumbent=base, policy=kw.pop("p", policy(repetitions=2, **SIGNED)),
+        candidate=cand, incumbent=base, policy=kw.pop("p", policy(repetitions=TWO, **SIGNED)),
         policy_sha256="sha", records=pm.PromotionRecords(), store=store,
         backends=_gate_backends(cand, 4), decisions=StubDecisionService(), code=CLEAN,
         cycle_id="c1", policy_committed=True, **kw,
@@ -485,7 +500,7 @@ async def test_a_summary_that_fails_after_the_decision_still_returns_the_decisio
 
     cand, base = versions("fake")
     store = GateStore(_sealed(roots))
-    p = policy(repetitions=2, publish_summary=True, **SIGNED)
+    p = policy(repetitions={"min": 2, "max": 2}, publish_summary=True, **SIGNED)
     with pytest.raises(pm.SummaryNotRecorded, match="main database down") as info:
         await _signed_gate(cand, base, store, p=p, summary_db=BrokenDb())
     decision = info.value.decision
@@ -560,3 +575,83 @@ async def test_a_recorded_decision_converts_its_reservation(roots, holdout_url):
     assert await store.budget_used("c1") == (1, 1)
     with pytest.raises(pm.GateRefused, match="already used its 1"):
         await _signed_gate(cand, base, store)
+
+
+# ----------------------------------------------------------------------------- 2026-10-14 rules
+
+
+def _se(noise=0.1, reps=3, n=8):
+    return (noise**2 / (reps * n) + (noise / 2) ** 2 / (reps * n)) ** 0.5
+
+
+def test_weak_mode_needs_a_gain_above_one_standard_error():
+    se = _se()  # cmp(): candidate SD 0.1, baseline SD 0.05, 3 repetitions, 8 cases
+    below = decide(cmp(coverage=(se * 0.9, None, None)), mode="weak")
+    assert below.decision == "rejected" and below.reasons == ["coverage_below_weak_bar"]
+    above = decide(cmp(coverage=(se * 1.1, None, None)), mode="weak")
+    assert above.decision == "promoted"
+    assert any("weak bar" in n for n in above.notes)
+    dev = decide(cmp(coverage=(se * 0.9, None, None)), mode="dev", deployable=False)
+    assert dev.reasons == ["coverage_below_weak_bar"]
+    none = decide(cmp(coverage=(0.2, None, None), noise=None), mode="weak")
+    assert none.reasons[0] == "coverage_noise_unavailable"
+
+
+def test_ae4_shape_precision_regression_rejects():
+    d = decide(cmp(precision=(-0.15, None, None)))  # noise SD 0.1 (larger arm)
+    assert d.decision == "rejected" and d.reasons == ["precision_regression"]
+    assert decide(cmp(precision=(-0.05, None, None))).decision == "promoted"
+
+
+def test_impact_diagnostics_are_noted_not_gated():
+    d = decide(cmp(impacts=(13.0, 10.0)))
+    assert d.decision == "promoted"
+    assert any("impact_count" in n and "judge-sensitive" in n for n in d.notes)
+    assert not any("judge-sensitive" in n for n in decide(cmp(impacts=(12.0, 10.0))).notes)
+
+
+def test_choose_mode_reads_the_mdd_for_the_minimum_repetitions():
+    cand, base = versions("api")
+    recs = records(judge_version(base), mdd=0.05)
+    recs.mdd_reports[0].repetitions = 3
+    assert pm.choose_mode(policy(), recs, cand, base).mode == "statistical"
+
+
+def _attempt(jv, kind="first", step="stop", experiment="e1", **kw):
+    return {"judge_version": jv, "system_version": "sv_x", "split": "val",
+            "experiment": experiment, "git_sha": "abc", "repetitions": 3, "kind": kind,
+            "next_step": step, "stop_inputs": {"expected_gain": 0.08},
+            "recorded_on": "2026-10-21"} | kw  # fmt: skip
+
+
+@pytest.mark.parametrize(("attempts", "message"), [
+    ([_attempt("JV"), _attempt("JV", experiment="e2")], "more than one first"),
+    ([_attempt("JV", step="extend")], "extension"),
+])  # fmt: skip
+async def test_the_r34_chain_must_be_whole_and_single(attempts, message):
+    cand, base = versions("api")
+    jv = judge_version(base)
+    recs = records(jv)
+    recs.noise_attempts = [pm.NoiseAttempt.model_validate(a | {"judge_version": jv})
+                           for a in attempts]  # fmt: skip
+    with pytest.raises(pm.GateRefused, match=message):
+        await _preflight(cand, base, recs=recs)
+
+
+async def test_a_batch_shift_on_the_r34_run_is_noted():
+    cand, base = versions("api")
+    recs = records(judge_version(base))
+    recs.formal_noise_runs[0].batch_shift = True
+    choice = await _preflight(cand, base, recs=recs)
+    assert any("batch shift" in n for n in choice.notes)
+
+
+def test_the_sign_summary_lists_every_rule(tmp_path, capsys):
+    from womm import cli
+
+    path = tmp_path / "policy.yaml"
+    path.write_text(yaml.safe_dump(POLICY))
+    assert cli.main(["policy", "sign", "--by", "jdoe", "--policy", str(path)]) == cli.EXIT_OK
+    out = capsys.readouterr().out
+    for text in ("precision", "weak bar", "repetitions: 3 to 6"):
+        assert text in out

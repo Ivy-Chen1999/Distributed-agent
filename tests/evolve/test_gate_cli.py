@@ -46,8 +46,12 @@ def test_promote_cli_refuses_an_unsigned_formal_gate_before_any_backend(
 
     monkeypatch.setattr(cli, "prepare_backends", no_backends)
     argv = ["evolve", "promote", child.version_id, "--incumbent", api_seed.version_id]
-    # The committed policy is signed; the next precondition, a judge calibration, is missing.
-    assert cli.main(argv) == cli.EXIT_USAGE
+    # A signed, committed policy; the next precondition, a judge calibration, is missing.
+    signed = tmp_path / "signed.yaml"
+    data = pm.load_policy()[0].model_dump(mode="json")
+    signed.write_text(yaml.safe_dump(data | {"signed_by": "jdoe", "signed_on": "2026-11-01"}))
+    monkeypatch.setattr(pm, "files_committed", lambda *_a, **_k: True)
+    assert cli.main([*argv, "--policy", str(signed)]) == cli.EXIT_USAGE
     assert "no coverage-judge calibration" in capsys.readouterr().err
     unsigned = tmp_path / "policy.yaml"
     unsigned.write_text(yaml.safe_dump(pm.load_policy()[0].model_dump(mode="json")

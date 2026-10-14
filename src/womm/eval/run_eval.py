@@ -4,7 +4,8 @@ Local mode writes a JSON report only. With LangSmith configured, the same run is
 experiment (dataset synced from evals/golden) tagged with the system version, backends and split.
 Reports carry ``split`` (one split, or ``mixed``) and a summary per split.
 
-A ``formal`` run is the R34 noise run (``womm eval --split val --repetitions 6 --formal``): it is
+A ``formal`` run is the R34 noise run (``womm eval --split val --repetitions 3 --formal``,
+extended by 3 more when the stop rule in ``womm.eval.noise_report`` says so): it is
 the only kind that refuses non-api backends, and it needs one split, at least
 ``FORMAL_MIN_REPETITIONS`` repetitions and a clean working tree. A ``--baseline`` on the
 claude_code backend is still allowed and keeps its ``smoke`` tag.
@@ -48,7 +49,7 @@ from womm.models.run import CodeIdentity, RunResult
 from womm.models.system_version import SystemVersion
 
 DATASET_NAME = "womm-golden-v0"
-FORMAL_MIN_REPETITIONS = 6
+FORMAL_MIN_REPETITIONS = 3  # R34's 3; the stop rule may extend it to 6 (noise_report)
 FORMAL_RUN_KIND = "r34_noise"
 
 

@@ -122,3 +122,70 @@ def test_noise_report_records_a_formal_run_and_refuses_a_dev_one(tmp_path, capsy
     cov = loaded.mdd("coverage", "jv_test0000001")
     assert cov is not None and cov.repetitions == 3 and cov.holdout_cases == 8
     assert cov.mdd == round(out["metrics"]["coverage"]["mdd"], 4)
+
+
+# ----------------------------------------------------------------------------- data-driven R34
+
+
+def _formal_file(tmp_path, name, reps, experiment="womm-x-val-formal-1234", sha="abc"):
+    report = make_report(golden(3, split="val"), reps=reps, metric=_metric, formal=True,
+                         backends=("api",))  # fmt: skip
+    report["metadata"] |= {"langsmith_experiment": experiment, "git_sha": sha}
+    return write_report(tmp_path / name, report)
+
+
+R34_ARGS = ["noise", "report", "--holdout-cases", "8", "--holdout-proposals", "8"]
+
+
+def test_r34_first_run_extends_then_the_pooled_run_is_recorded(tmp_path, capsys):
+    records = _records(tmp_path)
+    first = _formal_file(tmp_path, "first.json", 3)
+    args = [*R34_ARGS, "--records", str(records)]
+    # without --record the stop rule is not shown: every attempt that reads it is recorded
+    assert cli.main([*args, "--report", str(first), "--json"]) == cli.EXIT_OK
+    assert "next_step" not in json.loads(capsys.readouterr().out)["stop_rule"]
+
+    assert cli.main([*args, "--report", str(first), "--record", "--json"]) == cli.EXIT_OK
+    out = json.loads(capsys.readouterr().out)
+    assert out["stop_rule"]["next_step"] == "extend"  # SD 0.1 over 6 dof straddles about 0.085
+    assert out["null_pass_rate"]["rate"] is not None
+    loaded = pm.load_records(records)
+    assert [a.next_step for a in loaded.noise_attempts] == ["extend"]
+    assert loaded.formal_noise_runs == [] and loaded.mdd_reports == []
+
+    again = _formal_file(tmp_path, "again.json", 3, experiment="womm-x-val-formal-9999")
+    assert cli.main([*args, "--report", str(again), "--record"]) == cli.EXIT_USAGE
+    assert "already" in capsys.readouterr().err
+
+    second = _formal_file(tmp_path, "second.json", 3, experiment="womm-x-val-formal-5678")
+    changed = ["noise", "report", "--holdout-cases", "9", "--holdout-proposals", "8"]
+    rc = cli.main([*changed, "--records", str(records), "--report", str(first), "--report",
+                   str(second), "--record"])  # fmt: skip
+    assert rc == cli.EXIT_USAGE and "stop-rule inputs" in capsys.readouterr().err
+
+    rc = cli.main([*args, "--report", str(first), "--report", str(second), "--record", "--json"])
+    assert rc == cli.EXIT_OK, capsys.readouterr().err
+    out = json.loads(capsys.readouterr().out)
+    assert out["attempt"] == {"kind": "extension", "next_step": "final"}
+    loaded = pm.load_records(records)
+    run = loaded.formal_noise_runs[0]
+    assert run.repetitions == 6 and run.experiment == (
+        "womm-x-val-formal-1234, womm-x-val-formal-5678")  # fmt: skip
+    assert [a.kind for a in loaded.noise_attempts] == ["first", "extension"]
+    assert loaded.noise_chain_problems(run.judge_version) == []
+
+
+def test_r34_fallback_run_of_six_after_an_unfinished_extension(tmp_path, capsys):
+    records = _records(tmp_path)
+    args = [*R34_ARGS, "--records", str(records)]
+    first = _formal_file(tmp_path, "first.json", 3)
+    assert cli.main([*args, "--report", str(first), "--record"]) == cli.EXIT_OK
+    capsys.readouterr()
+    fresh = _formal_file(tmp_path, "fresh.json", 6, experiment="womm-x-val-formal-7777",
+                         sha="def")  # fmt: skip
+    assert cli.main([*args, "--report", str(fresh), "--record", "--json"]) == cli.EXIT_OK
+    out = json.loads(capsys.readouterr().out)
+    assert out["attempt"] == {"kind": "fallback", "next_step": "final"}
+    loaded = pm.load_records(records)
+    assert [a.kind for a in loaded.noise_attempts] == ["first", "fallback"]
+    assert loaded.formal_noise_runs[0].repetitions == 6

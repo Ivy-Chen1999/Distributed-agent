@@ -65,7 +65,7 @@ examples:
   womm eval --case case_02_sme_impacts --local --json
   womm eval --split val --local
   womm eval --baseline
-  womm eval --split val --repetitions 6 --formal   # R34 noise run (api backend only)
+  womm eval --split val --repetitions 3 --formal   # R34 noise run (api only; may extend by 3)
   womm calibrate sample --sv sv_43cee2e14602 --report runs/eval_X.json --n 30 --seed 1 \
       --annotator alice --annotator bob --out .cache/calibration/2026-10
   womm calibrate upload --dir .cache/calibration/2026-10 --url https://<app>.up.railway.app
@@ -846,7 +846,11 @@ async def cmd_policy_sign(args: argparse.Namespace) -> int:
     summary = (f"signed {path} as {name} on {on}. What you signed:\n"
                f"  primary metric: {policy.primary_metric}; guards: {guards}\n"
                f"  formal mode: {policy.formal_mode}; expected gain: {policy.expected_gain}; "
-               f"repetitions: {policy.repetitions}\n"
+               f"weak bar: gain above {policy.weak_min_delta_se:g} SE; "
+               f"repetitions: {policy.repetitions.min} to {policy.repetitions.max} "
+               "(extended on the pooled noise only)\n"
+               f"  changelog: {len(policy.changelog)} entries, last "
+               f"{policy.changelog[-1].date}\n"
                f"  holdout budget: {policy.holdout_budget.per_cycle} per cycle, "
                f"{policy.holdout_budget.total} in total; "
                f"publish summary: {policy.publish_summary}\n"
@@ -856,44 +860,134 @@ async def cmd_policy_sign(args: argparse.Namespace) -> int:
 
 
 async def cmd_noise_report(args: argparse.Namespace) -> int:
-    """R34 run-to-run noise and the holdout MDD; --record appends both records."""
+    """R34 run-to-run noise and the holdout MDD. One report is a first run (the pre-registered
+    stop rule says stop or extend) or a fallback run of the maximum; two reports are a first
+    run and its extension, pooled. --record appends every formal attempt, and the noise run and
+    MDD records once the chain is final."""
     from womm.eval import noise_report as nr
     from womm.eval.run_eval import read_report
     from womm.evolve import promotion as pm
 
-    report = read_report(Path(args.report))
+    if len(args.report) > 2:
+        raise UsageError("at most two reports: a first R34 run and its extension")
+    reports = [read_report(Path(p)) for p in args.report]
     try:
-        policy, _ = pm.load_policy(Path(args.policy))
+        policy, policy_sha = pm.load_policy(Path(args.policy))
     except pm.GateRefused as exc:
         raise UsageError(str(exc)) from None
-    repetitions = args.repetitions or policy.repetitions
+    repetitions = args.repetitions or policy.repetitions.min
+    shift = None
     try:
+        report = nr.pool_reports(reports) if len(reports) == 2 else reports[0]
+        if len(reports) == 2:
+            shift = nr.batch_shift(reports[0], reports[1])
         result = nr.noise_report(
             report, repetitions=repetitions, n_cases=args.holdout_cases,
             n_proposals=args.holdout_proposals, icc=args.icc, alpha=args.alpha, power=args.power,
         )  # fmt: skip
     except ValueError as exc:
         raise UsageError(str(exc)) from None
+    run = result["noise_run"]
+    inputs = {"policy_sha256": policy_sha, "expected_gain": policy.expected_gain,
+              "repetitions_min": policy.repetitions.min, "holdout_cases": args.holdout_cases,
+              "holdout_proposals": args.holdout_proposals, "icc": args.icc}  # fmt: skip
+    records = pm.load_records(Path(args.records)) if Path(args.records).exists() else None
+    chain = records.noise_chain(run["judge_version"]) if records and run["judge_version"] else []
+    first = next((a for a in chain if a.kind == "first"), None)
+    if len(reports) == 2:
+        kind = "extension"
+    elif (run["repetitions"] or 0) >= nr.R34_MAX_REPETITIONS and first is not None:
+        kind = "fallback"
+    else:
+        kind = "first"
+    coverage = result["metrics"]["coverage"]
+    if kind == "first" and (run["repetitions"] or 0) < nr.R34_MAX_REPETITIONS:
+        if coverage["noise_sd"] is None:
+            raise UsageError("no coverage noise: the stop rule needs two scored runs of a case")
+        star = nr.sd_star(policy.expected_gain, repetitions=policy.repetitions.min,
+                          n_cases=args.holdout_cases, n_proposals=args.holdout_proposals,
+                          icc=args.icc)  # fmt: skip
+        rule = nr.r34_next_step(coverage["noise_sd"], coverage["dof"], star)
+    else:
+        rule = {"next_step": "final"}
+    result["stop_rule"] = rule if args.record else {k: v for k, v in rule.items()
+                                                     if k != "next_step"}  # fmt: skip
+    result["attempt"] = {"kind": kind, "next_step": rule["next_step"]}
+    result["batch_shift"] = shift
+    result["null_pass_rate"] = nr.null_pass_rate(report["scores"],
+                                                 bar_se=policy.weak_min_delta_se)  # fmt: skip
     text = nr.format_report(result, expected_gain=policy.expected_gain)
-    if repetitions != policy.repetitions:
-        text += (f"\nnote: {repetitions} repetitions, the policy runs {policy.repetitions}; the "
-                 "gate ignores an MDD report for other repetitions")  # fmt: skip
+    if not args.record:
+        result.pop("attempt")
+        if run["repetitions"] and run["repetitions"] < nr.R34_MAX_REPETITIONS:
+            text += ("\nnote: the stop rule is applied only with --record (every attempt that "
+                     "reads it is recorded, so it cannot be dropped and rerun)")  # fmt: skip
+    else:
+        text += f"\nR34 attempt: {kind}, next step: {rule['next_step']}"
+    if repetitions != policy.repetitions.min:
+        text += (f"\nnote: {repetitions} repetitions, the policy starts at "
+                 f"{policy.repetitions.min}; the gate ignores an MDD report for other "
+                 "repetitions")  # fmt: skip
     if not policy.signed:
         text += "\nnote: the promotion policy is not signed yet"
     if args.record:
         if result["formal_problems"]:
             raise UsageError("not recorded: " + "; ".join(result["formal_problems"]))
-        noise_run, mdds = nr.records_for(result, dt.date.today().isoformat())
+        _check_r34_chain(kind, chain, first, reports, inputs)
+        on = dt.date.today().isoformat()
+        attempt = {"judge_version": run["judge_version"], "system_version": run["system_version"],
+                   "split": run["split"], "experiment": run["experiment"],
+                   "git_sha": report["metadata"].get("git_sha"),
+                   "repetitions": run["repetitions"], "kind": kind,
+                   "next_step": rule["next_step"], "stop_inputs": inputs, "recorded_on": on,
+                   "batch_shift": bool(shift and shift["flag"])}  # fmt: skip
         try:
-            pm.append_records(Path(args.records), "formal_noise_runs", [noise_run])
-            if mdds:
-                pm.append_records(Path(args.records), "mdd_reports", mdds)
+            pm.append_records(Path(args.records), "noise_attempts", [attempt])
+            recorded = {"noise_attempts": [attempt]}
+            if rule["next_step"] != "extend":
+                noise_run, mdds = nr.records_for(result, on)
+                noise_run["batch_shift"] = attempt["batch_shift"]
+                pm.append_records(Path(args.records), "formal_noise_runs", [noise_run])
+                if mdds:
+                    pm.append_records(Path(args.records), "mdd_reports", mdds)
+                recorded |= {"formal_noise_runs": [noise_run], "mdd_reports": mdds}
         except pm.GateRefused as exc:
             raise UsageError(str(exc)) from None
-        result["recorded"] = {"formal_noise_runs": [noise_run], "mdd_reports": mdds}
-        text += f"\nrecorded 1 noise run and {len(mdds)} MDD report(s) in {args.records}; commit it"
+        result["recorded"] = recorded
+        if rule["next_step"] == "extend":
+            sha = attempt["git_sha"]
+            text += (f"\nrecorded the attempt in {args.records}; commit it, then run 3 more "
+                     f"repetitions at git sha {sha} and pass both reports")  # fmt: skip
+        else:
+            text += (f"\nrecorded 1 noise run and {len(recorded['mdd_reports'])} MDD report(s) "
+                     f"in {args.records}; commit it")  # fmt: skip
     emit(args, result, text)
     return EXIT_OK
+
+
+def _check_r34_chain(kind: str, chain: list, first: Any, reports: list[dict],
+                     inputs: dict) -> None:  # fmt: skip
+    """Refuse an attempt that would break the one-chain-per-judge rule (see NoiseAttempt)."""
+    done_extra = any(a.kind in ("extension", "fallback") for a in chain)
+    if kind == "first" and first is not None:
+        raise UsageError(f"a first R34 attempt already exists for this judge "
+                         f"({first.experiment}, {first.recorded_on}): extend it or record a "
+                         "fallback run; it is never restarted")  # fmt: skip
+    if kind in ("extension", "fallback"):
+        if first is None or first.next_step != "extend":
+            raise UsageError(f"an {kind} needs a recorded first attempt that asked to extend")
+        if done_extra:
+            raise UsageError("this chain already has its extension or fallback")
+    if kind == "extension":
+        meta = reports[0]["metadata"]
+        if meta.get("langsmith_experiment") != first.experiment or (
+            meta.get("git_sha") != first.git_sha
+        ):
+            raise UsageError("the first report is not the recorded first attempt (experiment "
+                             "and git sha must match)")  # fmt: skip
+        if inputs != first.stop_inputs:
+            raise UsageError(f"the stop-rule inputs differ from the first attempt's "
+                             f"({first.stop_inputs}); fixed once run 1 is seen")  # fmt: skip
 
 
 def _sv_path(value: str) -> Path:
@@ -1143,7 +1237,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_eval.add_argument(
         "--formal",
         action="store_true",
-        help="the R34 noise run: one --split, >= 6 repetitions, api backend only, clean tree",
+        help="the R34 noise run: one --split, >= 3 repetitions (the stop rule may ask for 3 more), "
+        "api backend only, clean tree",
     )
     p_eval.add_argument("--local", action="store_true", help="do not record in LangSmith")
     p_eval.add_argument("--skip-self-check", action="store_true", help="dev only")
@@ -1296,7 +1391,9 @@ def _add_calibration_parsers(sub: Any, common: argparse.ArgumentParser) -> None:
     noise = p_noise.add_subparsers(dest="noise_cmd", required=True)
     p_nrep = noise.add_parser("report", parents=[common],
                               help="noise SD and holdout MDD from a formal noise run")  # fmt: skip
-    p_nrep.add_argument("--report", required=True, help="the R34 formal eval report")
+    p_nrep.add_argument("--report", required=True, action="append",
+                        help="the R34 formal eval report; give it twice (first run, then its "
+                        "extension) to pool them")  # fmt: skip
     p_nrep.add_argument("--holdout-cases", type=int, required=True,
                         help="sealed holdout case count")  # fmt: skip
     p_nrep.add_argument("--holdout-proposals", type=int, required=True,
