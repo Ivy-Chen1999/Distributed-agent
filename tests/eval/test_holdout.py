@@ -448,3 +448,63 @@ def test_same_import_compares_the_ia_record_too(roots):
     assert not holdout._same_import(row | {"rsb_ref": "SEC(2099) 99"}, bundle)
     assert not holdout._same_import(row | {"ia_celex": None}, bundle)
     assert not holdout._same_import(row | {"body_sha256": "x"}, bundle)
+
+
+# ----------------------------------------------------------------------------- diagnostics
+
+
+async def test_compare_reports_precision_and_impact_diagnostics(roots):
+    store = MemoryStore(_sealed(roots, hf.FIVE_PROPOSALS))
+    result = await _compare(store)
+    assert result.deltas["precision"].mean_delta == pytest.approx(0.0)  # I1 matched on both
+    assert result.deltas["precision"].n_cases == 5
+    for name in ("impact_count", "impact_chars"):
+        d = result.diagnostics[name]
+        assert d.n_cases == 5 and d.candidate_mean is not None and d.baseline_mean is not None
+    assert result.diagnostics["impact_count"].candidate_mean == pytest.approx(1.0)
+    assert result.repetition_rule is None  # fixed repetitions: no rule applied
+
+
+# ----------------------------------------------------------------------------- repetitions
+
+
+def _spy_rule(monkeypatch, extend: bool):
+    from womm.eval import noise_report
+
+    calls = []
+
+    def rule(sd, **kw):
+        calls.append(("rule", sd))
+        return {"extend": extend, "pooled_sd": sd, "min": kw["r_min"], "max": kw["r_max"],
+                "mdd_at_min": 0.1, "mdd_at_max": 0.07}  # fmt: skip
+
+    real_boot = holdout.paired_cluster_bootstrap
+
+    def boot(*a, **k):
+        calls.append(("bootstrap", None))
+        return real_boot(*a, **k)
+
+    monkeypatch.setattr(noise_report, "comparison_extends", rule)
+    monkeypatch.setattr(holdout, "paired_cluster_bootstrap", boot)
+    return calls
+
+
+@pytest.mark.parametrize(("extend", "used"), [(True, 6), (False, 3)])
+async def test_compare_extends_on_noise_only_before_any_delta(roots, monkeypatch, extend, used):
+    calls = _spy_rule(monkeypatch, extend)
+    store = MemoryStore(_sealed(roots, hf.FIVE_PROPOSALS))
+    backends = hf.compare_backends(runs_per_version=5 * 6)
+    result = await _compare(store, reps=3, backends=backends, max_repetitions=6,
+                            expected_gain=0.08)  # fmt: skip
+    assert result.repetitions == used
+    assert result.scored_runs == {"candidate": 5 * used, "baseline": 5 * used}
+    assert result.repetition_rule.extended is extend
+    assert (result.repetition_rule.min, result.repetition_rule.max) == (3, 6)
+    kinds = [k for k, _ in calls]
+    assert kinds[0] == "rule" and kinds.count("rule") == 1, "decided once, before any bootstrap"
+    assert calls[0][1] == 0.0  # pooled over both arms of a deterministic fake: no noise
+
+
+async def test_compare_needs_expected_gain_with_max_repetitions(roots):
+    with pytest.raises(holdout.HoldoutError, match="expected_gain"):
+        await _compare(MemoryStore(_sealed(roots)), reps=3, max_repetitions=6)

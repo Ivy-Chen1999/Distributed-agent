@@ -241,8 +241,9 @@ async def test_measures_are_null_without_a_judge_or_when_errored():
     assert (score.precision, score.impact_count, score.impact_chars) == (None, None, None)
 
 
-async def test_empty_dossier_counts_zero_impacts_and_no_precision():
+async def test_empty_dossier_counts_zero_impacts_and_scores_zero_precision():
     fails = [ExpertFailure(agent=a, error_kind="schema_invalid", message="t") for a in "abc"]
     run = _run(status=RunStatus.failed, failures=fails, impacts=0)
     score, _ = await score_case(CASE, run, FakeBackend({}), ROLE, "p")
-    assert (score.impact_count, score.impact_chars, score.precision) == (0, 0, None)
+    # zero like coverage, so a quality failure never leaves a holdout case unscored
+    assert (score.impact_count, score.impact_chars, score.precision) == (0, 0, 0.0)

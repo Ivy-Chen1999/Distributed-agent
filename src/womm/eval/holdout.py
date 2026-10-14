@@ -74,7 +74,9 @@ MIGRATIONS_DIR = Path(__file__).parent / "holdout_migrations"
 PRIVATE_DIR = REPO_ROOT / "evals" / "private"
 SCENARIOS_PATH = PRIVATE_DIR / "holdout_scenarios.yaml"
 HANDOFF_FORMAT = "womm-holdout-handoff/1"
-METRICS = ("coverage", "omissions_addressed", "grounding")
+METRICS = ("coverage", "omissions_addressed", "grounding", "precision")
+# Reported, never gated or bootstrapped: a rise flags possible judge gaming (listing more).
+DIAGNOSTICS = ("impact_count", "impact_chars")
 # Fewer proposals than this and a proposal-clustered bootstrap CI means nothing: CIs are null.
 MIN_PROPOSALS = 5
 FAILURE_POLICIES = ("abort", "score_zero")
@@ -622,6 +624,26 @@ class PooledNoise(StrictModel):
     baseline_sd: float | None
 
 
+class DiagnosticMeans(StrictModel):
+    """Means over the cases paired on both sides (per-case means first); aggregates only."""
+
+    candidate_mean: float | None
+    baseline_mean: float | None
+    n_cases: int
+
+
+class RepetitionRule(StrictModel):
+    """The blinded repetition decision: taken from the pooled within-case coverage SD over both
+    arms after ``min`` repetitions, before any candidate-minus-baseline value exists."""
+
+    min: int
+    max: int
+    pooled_sd: float | None
+    mdd_at_min: float | None
+    mdd_at_max: float | None
+    extended: bool
+
+
 class HoldoutComparison(StrictModel):
     """Aggregates only: no case ids, scenario ids or per-case values, by construction."""
 
@@ -649,6 +671,12 @@ class HoldoutComparison(StrictModel):
     deltas: dict[str, MetricDelta]
     noise: dict[str, PooledNoise]
     bootstrap: dict[str, Any]
+    diagnostics: dict[str, DiagnosticMeans] = Field(
+        default_factory=dict, description="impact_count and impact_chars per arm (not gated)."
+    )
+    repetition_rule: RepetitionRule | None = Field(
+        default=None, description="Set when the repetitions were data-driven (min to max)."
+    )
 
 
 Backends = Mapping[str, LLMBackend]
@@ -740,6 +768,8 @@ async def compare(
     checkpoint: bool = False,
     gate_id: str | None = None,
     cycle_id: str | None = None,
+    max_repetitions: int | None = None,
+    expected_gain: float | None = None,
 ) -> HoldoutComparison:
     """Run ``candidate`` and ``baseline`` on every sealed holdout case, ``repetitions`` times
     each, and return only aggregate deltas (R28 interface). Both are scored by the baseline's
@@ -757,9 +787,17 @@ async def compare(
     claude_code version), internal case key, repetition) and
     reused: a restarted comparison re-runs only what was not finished, and a later comparison
     reuses the baseline's runs. Unscored runs are never checkpointed, so they are retried.
-    ``gate_id`` and ``cycle_id`` tag the audit row the gate records its decision on."""
+    ``gate_id`` and ``cycle_id`` tag the audit row the gate records its decision on.
+
+    With ``max_repetitions`` (and ``expected_gain``) the repetitions are data-driven: after
+    ``repetitions`` per case and arm, ``noise_report.comparison_extends`` reads the pooled
+    within-case coverage SD over both arms and extends both arms to ``max_repetitions`` only
+    when that brings the MDD to ``expected_gain``. The decision is taken before any delta is
+    computed, so it cannot depend on how the candidate is doing (blinded re-estimation)."""
     if repetitions < 1:
         raise HoldoutError("repetitions must be at least 1")
+    if max_repetitions is not None and expected_gain is None:
+        raise HoldoutError("data-driven repetitions (max_repetitions) need expected_gain")
     if failure_policy not in FAILURE_POLICIES:
         raise HoldoutError(f"failure_policy must be one of {FAILURE_POLICIES}")
     # Holdout material never reaches LangSmith: no traces, no datasets, no experiments.
@@ -785,39 +823,60 @@ async def compare(
             "coverage": set(cluster_of),
             "grounding": set(cluster_of),
             "omissions_addressed": {keys[c.case_id] for c, _ in sealed if c.important_omissions},
+            "precision": set(cluster_of),
         }
         scores: dict[str, list[CaseScore]] = {"candidate": [], "baseline": []}
-        aborted = False
-        for label, sv in (("candidate", candidate), ("baseline", baseline)):
-            sv_backends, sv_decisions = _per(backends, sv), _per(decisions, sv)
-            for case, _scenario in sealed:
-                key = keys[case.case_id]
-                for rep in range(1, repetitions + 1):
-                    if (cached := done.get((sv.version_id, key, rep))) is not None:
-                        scores[label].append(cached)
-                        continue
-                    run = await run_scenario(
-                        case.scenario_id, sv=sv, fixture=fixtures[case.fixture],
-                        backends=sv_backends, decisions=sv_decisions, code_identity=code,
-                        tags=["holdout"],
-                    )  # fmt: skip
-                    score, _ = await score_case(case, run, judge_backend, judge_role, judge_prompt)
-                    score = score.model_copy(update={"case_id": key})
-                    scores[label].append(score)
-                    if _hit_rate_limit(run, score):
-                        aborted = True
-                        break
-                    cv = cvs[sv.version_id]
-                    if checkpoint and cv is not None and score.outcome == "scored":
-                        await store.save_progress(sv.version_id, jv, cv, key, rep, score)
-                        done[(sv.version_id, key, rep)] = score
-                if aborted:
-                    break
-            if aborted:
-                break
+
+        async def run_reps(first: int, last: int) -> bool:
+            """Repetitions ``first..last`` of every case on both arms; True on a rate limit."""
+            for label, sv in (("candidate", candidate), ("baseline", baseline)):
+                sv_backends, sv_decisions = _per(backends, sv), _per(decisions, sv)
+                for case, _scenario in sealed:
+                    key = keys[case.case_id]
+                    for rep in range(first, last + 1):
+                        if (cached := done.get((sv.version_id, key, rep))) is not None:
+                            scores[label].append(cached)
+                            continue
+                        run = await run_scenario(
+                            case.scenario_id, sv=sv, fixture=fixtures[case.fixture],
+                            backends=sv_backends, decisions=sv_decisions, code_identity=code,
+                            tags=["holdout"],
+                        )  # fmt: skip
+                        score, _ = await score_case(case, run, judge_backend, judge_role,
+                                                    judge_prompt)  # fmt: skip
+                        score = score.model_copy(update={"case_id": key})
+                        scores[label].append(score)
+                        if _hit_rate_limit(run, score):
+                            return True
+                        cv = cvs[sv.version_id]
+                        if checkpoint and cv is not None and score.outcome == "scored":
+                            await store.save_progress(sv.version_id, jv, cv, key, rep, score)
+                            done[(sv.version_id, key, rep)] = score
+            return False
+
+        aborted = await run_reps(1, repetitions)
+        used, rule = repetitions, None
+        if max_repetitions is not None and not aborted:
+            from womm.eval import noise_report  # noise_report imports this module
+
+            both = [*scores["candidate"], *[s.model_copy(update={"case_id": "b" + s.case_id})
+                                            for s in scores["baseline"]]]  # fmt: skip
+            decision = noise_report.comparison_extends(
+                _pooled_sd(both, "coverage"), r_min=repetitions, r_max=max_repetitions,
+                n_cases=len(cluster_of), n_proposals=len(set(cluster_of.values())),
+                expected_gain=expected_gain,
+            )  # fmt: skip
+            rule = RepetitionRule(min=repetitions, max=max_repetitions,
+                                  pooled_sd=decision["pooled_sd"],
+                                  mdd_at_min=decision["mdd_at_min"],
+                                  mdd_at_max=decision["mdd_at_max"],
+                                  extended=decision["extend"])  # fmt: skip
+            if decision["extend"]:
+                aborted = await run_reps(repetitions + 1, max_repetitions)
+                used = max_repetitions
         result = _summarise(
-            candidate, baseline, repetitions, scores, cluster_of, aborted, n_boot, seed,
-            applies=applies, failure_policy=failure_policy,
+            candidate, baseline, used, scores, cluster_of, aborted, n_boot, seed,
+            applies=applies, failure_policy=failure_policy, repetition_rule=rule,
         )  # fmt: skip
         tags = {"gate_id": gate_id, "cycle_id": cycle_id} if gate_id else {}
         await store.record_audit(result, code.git_sha, **tags)
@@ -851,6 +910,7 @@ def _summarise(
     *,
     applies: dict[str, set[str]] | None = None,
     failure_policy: str = "abort",
+    repetition_rule: RepetitionRule | None = None,
 ) -> HoldoutComparison:
     applies = applies or {m: set(cluster_of) for m in METRICS}
     n_proposals = len(set(cluster_of.values()))
@@ -890,6 +950,15 @@ def _summarise(
             candidate_sd=_pooled_sd(scores["candidate"], metric),
             baseline_sd=_pooled_sd(scores["baseline"], metric),
         )
+    diagnostics = {}
+    for name in DIAGNOSTICS:
+        cand, base = _means(scores["candidate"], name), _means(scores["baseline"], name)
+        paired = sorted(cand.keys() & base.keys()) if not aborted else []
+        diagnostics[name] = DiagnosticMeans(
+            candidate_mean=statistics.fmean(cand[k] for k in paired) if paired else None,
+            baseline_mean=statistics.fmean(base[k] for k in paired) if paired else None,
+            n_cases=len(paired),
+        )
     return HoldoutComparison(
         candidate_version=candidate.version_id,
         baseline_version=baseline.version_id,
@@ -906,4 +975,6 @@ def _summarise(
         deltas=deltas,
         noise=noise,
         bootstrap={"n_boot": n_boot, "seed": seed, "cluster": "proposal", "ci": 0.95},
+        diagnostics=diagnostics,
+        repetition_rule=repetition_rule,
     )

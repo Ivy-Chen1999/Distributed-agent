@@ -75,3 +75,84 @@ def test_formal_problems_and_records():
     # omissions has no values; the others have noise
     assert {r.metric for r in reports} == {"coverage", "grounding"}
     assert all(r.repetitions == 3 and r.holdout_proposals == 4 for r in reports)
+
+
+# ----------------------------------------------------------------------------- data-driven R34
+
+
+@pytest.mark.parametrize(("p", "df", "want"), [
+    (0.10, 6, 2.2041), (0.90, 6, 10.6446), (0.10, 15, 8.5468), (0.90, 15, 22.3071),
+    (0.90, 1, 2.7055), (0.50, 2, 1.3863),
+])  # fmt: skip
+def test_chi2_quantiles(p, df, want):
+    assert nr.chi2_quantile(p, df) == pytest.approx(want, abs=1e-3)
+
+
+def test_sd_interval_and_sd_star():
+    lo, hi = nr.sd_interval(0.1, 6, level=0.8)
+    assert lo == pytest.approx(0.1 * math.sqrt(6 / 10.6446), rel=1e-3)
+    assert hi == pytest.approx(0.1 * math.sqrt(6 / 2.2041), rel=1e-3)
+    star = nr.sd_star(0.08, repetitions=3, n_cases=8, n_proposals=8)
+    assert nr.mdd(star, repetitions=3, n_cases=8, n_proposals=8)["mdd"] == pytest.approx(0.08)
+
+
+@pytest.mark.parametrize(("sd", "want"), [(0.04, "stop"), (0.2, "stop"), (0.09, "extend")])
+def test_r34_stop_rule(sd, want):
+    star = nr.sd_star(0.08, repetitions=3, n_cases=8, n_proposals=8)  # about 0.085
+    rule = nr.r34_next_step(sd, 6, star)
+    assert rule["next_step"] == want
+    assert rule["sd_star"] == star and rule["interval"][0] < sd < rule["interval"][1]
+
+
+def test_comparison_extends_only_when_the_extra_runs_can_reach_the_gain():
+    kw = {"r_min": 3, "r_max": 6, "n_cases": 8, "n_proposals": 8, "expected_gain": 0.08}
+    assert nr.comparison_extends(0.05, **kw)["extend"] is False  # 3 already resolves it
+    assert nr.comparison_extends(0.10, **kw)["extend"] is True  # 3 cannot, 6 can
+    assert nr.comparison_extends(0.30, **kw)["extend"] is False  # even 6 cannot
+    assert nr.comparison_extends(None, **kw)["extend"] is False
+    assert nr.comparison_extends(0.10, **kw | {"n_proposals": 1})["extend"] is False
+
+
+def _formal(reps, sha="abc", metric=_metric, **kw):
+    report = make_report(golden(3, split="val"), reps=reps, metric=metric, formal=True,
+                         backends=("api",), **kw)  # fmt: skip
+    report["metadata"]["git_sha"] = sha
+    return report
+
+
+def test_pooling_two_runs_sums_repetitions_and_checks_identity():
+    first, second = _formal(3), _formal(3)
+    second["metadata"]["langsmith_experiment"] = "womm-x-val-formal-5678"
+    pooled = nr.pool_reports([first, second])
+    assert pooled["metadata"]["repetitions"] == 6 and len(pooled["scores"]) == 18
+    assert pooled["metadata"]["langsmith_experiment"] == (
+        "womm-x-val-formal-1234, womm-x-val-formal-5678")  # fmt: skip
+    assert nr.formal_problems(pooled) == []
+    for field, value in (("git_sha", "zzz"), ("split", "train"), ("system_version", "sv_other")):
+        other = _formal(3)
+        other["metadata"][field] = value
+        if field == "system_version":
+            other["system_version"] = value
+        with pytest.raises(ValueError, match=field):
+            nr.pool_reports([first, other])
+
+
+def test_batch_shift_is_flagged_when_the_halves_differ_beyond_noise():
+    same = nr.batch_shift(_formal(3), _formal(3))
+    assert same["flag"] is False and same["shift"] == pytest.approx(0.0)
+
+    def shifted(case_id, metric, rep):
+        v = _metric(case_id, metric, rep)
+        return None if v is None else min(1.0, v + 0.3)
+
+    moved = nr.batch_shift(_formal(3), _formal(3, metric=shifted))
+    assert moved["flag"] is True and moved["shift"] > moved["first_sd"]
+
+
+def test_null_pass_rate_of_the_weak_bar():
+    report = _formal(6)
+    zero_bar = nr.null_pass_rate(report["scores"], bar_se=0.0)
+    high_bar = nr.null_pass_rate(report["scores"], bar_se=1.0)
+    assert 0.3 < zero_bar["rate"] < 0.7  # a version against itself: about half above 0
+    assert high_bar["rate"] < zero_bar["rate"]
+    assert nr.null_pass_rate(report["scores"], bar_se=1.0) == high_bar  # seeded

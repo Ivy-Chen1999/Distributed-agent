@@ -30,6 +30,7 @@ sealed store, and the noise run itself is train/val only.
 from __future__ import annotations
 
 import math
+import random
 import statistics
 from typing import Any
 
@@ -108,6 +109,179 @@ def mdd(
     t_alpha, t_power = t_quantile(1 - alpha / 2, df), t_quantile(power, df)
     return {"mdd": (t_alpha + t_power) * se, "se": se, "deff": deff, "df": df,
             "t_alpha": t_alpha, "t_power": t_power}  # fmt: skip
+
+
+# ----------------------------------------------------------------------------- data-driven runs
+
+R34_MAX_REPETITIONS = 6
+STOP_RULE_LEVEL = 0.8
+
+
+def _lower_gamma_regularised(a: float, x: float) -> float:
+    """P(a, x) by its series (x < a + 1) or continued fraction (Numerical Recipes 6.2)."""
+    if x <= 0:
+        return 0.0
+    ln_front = a * math.log(x) - x - math.lgamma(a)
+    if x < a + 1:
+        term = total = 1 / a
+        n = a
+        while abs(term) > abs(total) * 1e-15:
+            n += 1
+            term *= x / n
+            total += term
+        return total * math.exp(ln_front)
+    tiny = 1e-300
+    b, c, d = x + 1 - a, 1 / tiny, 1 / (x + 1 - a)
+    h = d
+    for i in range(1, 500):
+        an = -i * (i - a)
+        b += 2
+        d = an * d + b
+        d = tiny if abs(d) < tiny else d
+        c = b + an / c
+        c = tiny if abs(c) < tiny else c
+        d = 1 / d
+        h *= d * c
+        if abs(d * c - 1) < 1e-15:
+            break
+    return 1 - math.exp(ln_front) * h
+
+
+def chi2_quantile(p: float, df: int) -> float:
+    """Inverse chi-square CDF by bisection on the regularised lower incomplete gamma."""
+    if not 0 < p < 1 or df < 1:
+        raise ValueError("p in (0, 1) and df >= 1")
+    lo, hi = 0.0, float(df)
+    while _lower_gamma_regularised(df / 2, hi / 2) < p:
+        hi *= 2
+    while hi - lo > 1e-10 * max(1.0, hi):
+        mid = (lo + hi) / 2
+        lo, hi = (mid, hi) if _lower_gamma_regularised(df / 2, mid / 2) < p else (lo, mid)
+    return (lo + hi) / 2
+
+
+def sd_interval(sd: float, dof: int, level: float = STOP_RULE_LEVEL) -> tuple[float, float]:
+    """Two-sided ``level`` interval for a pooled SD with ``dof`` degrees of freedom."""
+    tail = (1 - level) / 2
+    return (sd * math.sqrt(dof / chi2_quantile(1 - tail, dof)),
+            sd * math.sqrt(dof / chi2_quantile(tail, dof)))  # fmt: skip
+
+
+def sd_star(
+    expected_gain: float, *, repetitions: int, n_cases: int, n_proposals: int, icc: float = 1.0
+) -> float:
+    """The coverage noise SD at which the MDD equals ``expected_gain`` (the MDD is linear in
+    the SD)."""
+    unit = mdd(1.0, repetitions=repetitions, n_cases=n_cases, n_proposals=n_proposals, icc=icc)
+    return expected_gain / unit["mdd"]
+
+
+def r34_next_step(
+    sd: float, dof: int, star: float, level: float = STOP_RULE_LEVEL
+) -> dict[str, Any]:
+    """The pre-registered R34 stop rule: stop when the SD interval lies on one side of
+    ``star``; otherwise extend. It reads the incumbent's noise only, never a candidate."""
+    lo, hi = sd_interval(sd, dof, level)
+    step = "stop" if lo > star or hi < star else "extend"
+    return {"next_step": step, "sd": sd, "dof": dof, "sd_star": star, "interval": [lo, hi],
+            "level": level}  # fmt: skip
+
+
+def comparison_extends(
+    sd: float | None, *, r_min: int, r_max: int, n_cases: int, n_proposals: int,
+    expected_gain: float, icc: float = 1.0,
+) -> dict[str, Any]:  # fmt: skip
+    """Blinded re-estimation for a holdout comparison: extend from ``r_min`` to ``r_max`` only
+    when the MDD at ``r_min`` exceeds ``expected_gain`` and the MDD at ``r_max`` does not. ``sd``
+    is the pooled within-case SD over both arms; no candidate-minus-baseline value is read."""
+    out: dict[str, Any] = {"extend": False, "pooled_sd": sd, "min": r_min, "max": r_max,
+                           "mdd_at_min": None, "mdd_at_max": None}  # fmt: skip
+    if sd is None or r_max <= r_min or n_proposals < 2 or n_cases < n_proposals:
+        return out
+    design = {"n_cases": n_cases, "n_proposals": n_proposals, "icc": icc}
+    at_min = mdd(sd, repetitions=r_min, **design)["mdd"]
+    at_max = mdd(sd, repetitions=r_max, **design)["mdd"]
+    out |= {"mdd_at_min": at_min, "mdd_at_max": at_max,
+            "extend": at_min > expected_gain and at_max <= expected_gain}  # fmt: skip
+    return out
+
+
+IDENTITY = ("system_version", "git_sha", "split")
+
+
+def pool_reports(reports: list[dict[str, Any]]) -> dict[str, Any]:
+    """One report from several formal runs of the same version, judge, code and split: scores
+    concatenated, repetitions summed, experiment names joined."""
+    first = reports[0]
+    for other in reports[1:]:
+        for field in IDENTITY:
+            a = first["metadata"].get(field, first.get(field))
+            b = other["metadata"].get(field, other.get(field))
+            if a != b:
+                raise ValueError(f"cannot pool runs with different {field}: {a} vs {b}")
+        if report_judge_versions(other) != report_judge_versions(first):
+            raise ValueError("cannot pool runs with different judge versions")
+    meta = dict(first["metadata"])
+    meta["repetitions"] = sum(r["metadata"].get("repetitions") or 0 for r in reports)
+    names = [r["metadata"].get("langsmith_experiment") for r in reports]
+    meta["langsmith_experiment"] = ", ".join(n for n in names if n) or None
+    meta["git_dirty"] = any(r["metadata"].get("git_dirty") for r in reports)
+    return first | {
+        "metadata": meta,
+        "aborted": next((r["aborted"] for r in reports if r.get("aborted")), None),
+        "scores": [s for r in reports for s in r["scores"]],
+        "case_runs": [c for r in reports for c in r.get("case_runs", [])],
+    }
+
+
+def _case_means(scores: list[dict[str, Any]], metric: str) -> dict[str, float]:
+    by_case: dict[str, list[float]] = {}
+    for s in scores:
+        if s.get("outcome") == "scored" and s.get(metric) is not None:
+            by_case.setdefault(s["case_id"], []).append(float(s[metric]))
+    return {k: statistics.fmean(v) for k, v in by_case.items()}
+
+
+def batch_shift(
+    first: dict[str, Any], second: dict[str, Any], metric: str = "coverage"
+) -> dict[str, Any]:
+    """Mean per-case difference between two runs, against the first run's pooled SD; a shift
+    above that SD is flagged (the two halves may not be one sample)."""
+    a, b = _case_means(first["scores"], metric), _case_means(second["scores"], metric)
+    common = sorted(a.keys() & b.keys())
+    shift = abs(statistics.fmean(b[k] - a[k] for k in common)) if common else None
+    first_sd = pooled_noise(first["scores"], metric)["sd"]
+    flag = shift is not None and first_sd is not None and shift > first_sd
+    return {"shift": shift, "first_sd": first_sd, "flag": flag}
+
+
+def null_pass_rate(
+    scores: list[dict[str, Any]], *, bar_se: float, metric: str = "coverage",
+    draws: int = 2000, seed: int = 0,
+) -> dict[str, Any]:  # fmt: skip
+    """A/A: split each case's runs at random into two halves of equal size (a version against
+    itself), and count how often the mean over cases of the half differences exceeds
+    ``bar_se`` x its SE (the weak bar). Seeded, so the figure is reproducible."""
+    by_case: dict[str, list[float]] = {}
+    for s in scores:
+        if s.get("outcome") == "scored" and s.get(metric) is not None:
+            by_case.setdefault(s["case_id"], []).append(float(s[metric]))
+    usable = [v for v in by_case.values() if len(v) >= 2]
+    if not usable:
+        return {"rate": None, "draws": 0, "half": None, "cases": 0}
+    half = min(len(v) for v in usable) // 2
+    sd = pooled_noise(scores, metric)["sd"] or 0.0
+    se = math.sqrt(2 * sd**2 / (half * len(usable)))
+    rng = random.Random(seed)
+    above = 0
+    for _ in range(draws):
+        diffs = []
+        for v in usable:
+            picked = rng.sample(v, 2 * half)
+            diffs.append(statistics.fmean(picked[:half]) - statistics.fmean(picked[half:]))
+        above += statistics.fmean(diffs) > bar_se * se
+    return {"rate": above / draws, "draws": draws, "half": half, "cases": len(usable),
+            "bar_se": bar_se, "se": se}  # fmt: skip
 
 
 def formal_problems(report: dict[str, Any]) -> list[str]:

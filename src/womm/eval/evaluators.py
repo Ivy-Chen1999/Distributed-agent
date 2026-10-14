@@ -64,7 +64,8 @@ class CaseScore(BaseModel):
     precision: float | None = Field(
         default=None,
         description="Share of dossier impacts the judge matched to an expected impact (each "
-        "impact once). None without a dossier impact or a complete judge verdict.",
+        "impact once). 0 for a quality failure (as coverage); None without a complete judge "
+        "verdict.",
     )
     impact_count: int | None = Field(default=None, description="Dossier impacts (diagnostic).")
     impact_chars: int | None = Field(
@@ -188,8 +189,9 @@ async def score_case(
                    "impact_chars": None}  # fmt: skip
         return base.model_copy(update=errored), None
     if run.status == RunStatus.failed or not run.dossier or not run.dossier.impacts:
-        # quality failure: nothing to cover
-        return base.model_copy(update={"coverage": 0.0, "omissions_addressed": 0.0}), None
+        # quality failure: nothing to cover, nothing matched
+        zero = {"coverage": 0.0, "omissions_addressed": 0.0, "precision": 0.0}
+        return base.model_copy(update=zero), None
 
     try:
         out, usage = await judge_backend.call(
