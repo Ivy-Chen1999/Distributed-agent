@@ -44,7 +44,7 @@ repeat what the impact assessment already says; that is for the people's check t
 - U5: once the live reference check scores ROBUST, the companion code is merged into each
   `review/case-*` branch and one companion file is committed per branch.
 - U4: the classmates label the 14 companion items the tie-break ruled on (about 7 each, blind)
-  on the same pages as the reference check (2026-10-13, sample `2026-10-14-3b23c3b9`, built with
+  on the same pages as the reference check (2026-10-13, sample `2026-10-14-96254d61`, built with
   `scripts/reference_check.py sample --with-companions`; the 20 + 10 reference items are the
   same as in `2026-10-11-86dae710`, which was never sent). The 17 judges-accepted items are
   trusted on the reference check's measurement of that stratum, and labelled too only if it
