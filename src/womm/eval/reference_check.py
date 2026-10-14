@@ -88,6 +88,22 @@ Z_95 = 1.645
 BORDERLINE_BOUND = 1.5 * MAX_ERROR
 SEND_TO = "the person who sent you this page"
 CONTEXT_CHARS = 600
+SENTENCE_REACH = 250  # how far a highlight may grow to reach whole sentences, each way
+SENTENCE_END = re.compile(r"[.;!?](?=\s|$)")
+TABLE_NEAR = 100  # a table separator this close to the quote: leave the highlight as it is
+ABBREVIATIONS = {
+    "e.g.",
+    "i.e.",
+    "ca.",
+    "cf.",
+    "etc.",
+    "no.",
+    "art.",
+    "arts.",
+    "para.",
+    "vs.",
+    "approx.",
+}
 ARTICLE_CHARS = 4000  # an article's text on a card, cut beyond this
 # ``why_missing`` is the recall step's own argument for a candidate: not shown, to stay blind.
 CLAIM_KEYS = ("affected_actor", "mechanism", "impact", "description")
@@ -196,12 +212,40 @@ def _passage(quote: str, text: str, chars: int) -> dict[str, str] | None:
         pos = low.find(first) if first else -1
     if pos < 0:
         return None
-    start, end = max(0, pos - chars), min(len(cased), pos + len(first) + chars)
+    # Highlight whole sentences: a quote cut mid-sentence is hard to read on its own. Not in a
+    # table, whose row breaks the PDF text no longer shows.
+    stop = pos + len(first)
+    if "|" not in cased[max(0, pos - TABLE_NEAR) : stop + TABLE_NEAR]:
+        back = cased[max(0, pos - SENTENCE_REACH) : pos]
+        cuts = [m.end() for m in SENTENCE_END.finditer(back) if _ends_sentence(back, m.start())]
+        if cuts:
+            pos = pos - len(back) + cuts[-1]
+        elif pos - len(back) == 0:
+            pos = 0
+        window = cased[stop : min(len(cased), stop + SENTENCE_REACH)]
+        ends = [
+            m.start() for m in SENTENCE_END.finditer(window) if _ends_sentence(window, m.start())
+        ]
+        stop = stop + ends[0] + 1 if ends else stop
+    start, end = max(0, pos - chars), min(len(cased), stop + chars)
     return {
-        "before": ("..." if start else "") + cased[start:pos],
-        "quote": cased[pos : pos + len(first)],
-        "after": cased[pos + len(first) : end] + ("..." if end < len(cased) else ""),
+        "before": _tidy(("..." if start else "") + cased[start:pos]),
+        "quote": _tidy(cased[pos:stop]).strip(),
+        "after": _tidy(cased[stop:end] + ("..." if end < len(cased) else "")),
     }
+
+
+def _ends_sentence(text: str, at: int) -> bool:
+    """Whether the stop at ``at`` ends a sentence: not the dot of "e.g.", "i.e.", "ca." etc."""
+    word = re.search(r"(\S+)$", text[: at + 1])
+    return not (word and word.group(1).casefold().lstrip("(") in ABBREVIATIONS)
+
+
+def _tidy(text: str) -> str:
+    """Table residue from the PDF (``| \\ | \\ |``) as one separator."""
+    text = re.sub(r"(?:\s*\|\s*\\)+\s*\|?", " | ", text)
+    text = re.sub(r"(?:\s*\|\s*){2,}", " | ", text)
+    return re.sub(r" {2,}", " ", text)
 
 
 @cache
@@ -406,10 +450,6 @@ def write_sample(
     created = dt.date.today().isoformat()
     drawn = [asdict(i) for i in sample + reserve + extra_items]
     drawn += [asdict(i) for i in shared.values()]
-    # What a card asks is part of the sample: a page with other wording is another sample.
-    drawn += sorted((board_concerns or {}).items())
-    digest = hashlib.sha1(json.dumps(drawn).encode()).hexdigest()[:8]
-    sample_id = f"{created}-{digest}"
     by_case = {d.case_id: d for d in drafts}
     ia_texts, rsb_texts = {}, {}
     for fixture in sorted({d.fixture for d in drafts}):
@@ -444,6 +484,10 @@ def write_sample(
         for i in mine_shared:  # mixed in, so nothing marks them
             pages[name].insert(rng.randint(0, len(pages[name])), cards[i])
         held[name] = [cards[i] for i in mine if keyed[i].stage == 2]
+    # What the cards show is part of the sample: other wording or text is another sample.
+    digest = hashlib.sha1(json.dumps([drawn, pages, held], sort_keys=True).encode()).hexdigest()[:8]
+    sample_id = f"{created}-{digest}"
+    for name in annotators:
         page = render_page(name, pages[name], sample=sample_id, send_to=send_to)
         (out_dir / f"label_{name}.html").write_text(page, encoding="utf-8")
     hosted_labels.write_pages(out_dir, kind=KIND, sample=sample_id, pages=pages, reserve=held)

@@ -6,6 +6,7 @@
     uv run python scripts/reference_check.py fetch --dir .cache/reference_check/round1 --url <app>
     uv run python scripts/reference_check.py score --dir .cache/reference_check/round1
     uv run python scripts/reference_check.py extend --dir .cache/reference_check/round1 --url <app>
+    uv run python scripts/reference_check.py rejudge --dir .cache/reference_check/round1
 
 Run ``sample`` on the tie-broken train/val drafts before they are published
 (scripts/publish_golden_cases.py deletes each draft it publishes). It draws ``--n`` items per
@@ -24,14 +25,17 @@ Exit codes: 0 done (score: robust), 1 score: not robust, 2 bad input.
 from __future__ import annotations
 
 import argparse
+import asyncio
+import importlib.util
 import json
 import sys
 from pathlib import Path
 
 import httpx
 
-from womm.eval import hosted_labels, review_page
+from womm.eval import fidelity, hosted_labels, review_page
 from womm.eval import reference_check as rc
+from womm.eval.drafting import DraftingError, load_drafting_config
 from womm.eval.golden_review import (
     HOLDOUT_REGISTRY,
     ReviewError,
@@ -102,6 +106,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     ext = sub.add_parser("extend", help="send the reserve items (after a first round with errors)")
     ext.add_argument("--dir", type=Path, required=True, help="the sample directory")
     ext.add_argument("--url", help="the app, when the pages are hosted")
+    judge = sub.add_parser("rejudge", help="the AI answers the page's own question on every card, "
+                           "before any answer exists (womm.eval.fidelity)")  # fmt: skip
+    judge.add_argument("--dir", type=Path, required=True, help="the sample directory")
+    judge.add_argument("--config", type=Path, default=None, help="drafting config")
+    judge.add_argument("--skip-self-check", action="store_true")
     score = sub.add_parser("score", help="compare the labels with the tool")
     score.add_argument("--dir", type=Path, required=True)
     score.add_argument("--json", action="store_true", help="print the result as JSON")
@@ -161,6 +170,8 @@ def main(argv: list[str] | None = None) -> int:
             return hosted(args)
         if args.command == "extend":
             return extend(args)
+        if args.command == "rejudge":
+            return rejudge(args)
         key = json.loads((args.dir / rc.KEY_FILE).read_text(encoding="utf-8"))
         labels, notes = rc.read_answers(args.dir, key)
         robust, results = True, {}
@@ -183,7 +194,7 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(one, indent=2))
         return 0 if robust else 1
     except (FileNotFoundError, rc.ReferenceCheckError, ReviewError, httpx.HTTPError,
-            hosted_labels.HostedLabelsError) as exc:  # fmt: skip
+            hosted_labels.HostedLabelsError, fidelity.FidelityError, DraftingError) as exc:  # fmt: skip
         print(f"error: {exc}", file=sys.stderr)
         return 2
 
@@ -202,6 +213,26 @@ def extend(args: argparse.Namespace, client: httpx.Client | None = None) -> int:
         else ("in their label_<name>.html; send each their new page")
     )
     print(f"extended: {counts}, {where}")
+    return 0
+
+
+def rejudge(args: argparse.Namespace, backends=None) -> int:
+    config = load_drafting_config(args.config) if args.config else load_drafting_config()
+    if backends is None:
+        spec = importlib.util.spec_from_file_location(
+            "draft_golden_case", Path(__file__).with_name("draft_golden_case.py")
+        )
+        draft_script = sys.modules.get("draft_golden_case")
+        if draft_script is None:
+            draft_script = importlib.util.module_from_spec(spec)
+            sys.modules["draft_golden_case"] = draft_script
+            spec.loader.exec_module(draft_script)
+        backends = asyncio.run(
+            draft_script.prepare_backends(config, skip_self_check=args.skip_self_check)
+        )
+    out = asyncio.run(fidelity.rejudge(args.dir, config, backends))
+    print(f"re-judged {out['items']} items on the page's question; differs from the answer key on "
+          f"{len(out['differs_from_golden'])}: {', '.join(out['differs_from_golden']) or 'none'}")  # fmt: skip
     return 0
 
 

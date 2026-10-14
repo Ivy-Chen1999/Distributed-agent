@@ -268,8 +268,9 @@ def test_a_clean_first_round_stops_early_and_the_reserve_stays_hidden(tmp_path):
 def test_the_passage_keeps_the_case_and_marks_the_quote():
     text = "Intro.  The Widget Providers would face   cost number 5 under the option. Rest."
     p = rc._passage("widget providers would face cost number 5 under the option", text, 10)
-    assert p["quote"] == "Widget Providers would face cost number 5 under the option"
-    assert p["before"].endswith("The ") and p["after"].startswith(". Rest")
+    # The highlight grows to the whole sentence, case kept.
+    assert p["quote"] == "The Widget Providers would face cost number 5 under the option."
+    assert p["before"].endswith("Intro.") and p["after"].startswith(" Rest")
     assert rc._passage("nowhere to be found in it", text, 10) is None
 
 
@@ -343,8 +344,8 @@ def test_a_card_for_an_rsb_item_shows_the_opinion_around_its_quote():
     with_rsb = rc.card("x1", it, {draft.case_id: draft}, {draft.fixture: "IA text"},
                        {draft.fixture: opinion})  # fmt: skip
     assert with_rsb["source"] == "scrutiny board opinion"
-    assert with_rsb["passage"]["quote"] == "small widget makers are not costed"
-    assert with_rsb["passage"]["before"].startswith("The Board notes")
+    assert with_rsb["passage"]["quote"] == opinion  # the whole sentence
+    assert with_rsb["passage"]["before"] == ""
     without = rc.card("x1", it, {draft.case_id: draft}, {draft.fixture: "IA text"})
     assert without["passage"] is None and without["quote"] == "small widget makers are not costed"
 
@@ -599,3 +600,16 @@ def test_other_wording_for_a_board_point_is_another_sample(tmp_path):
     a = rc.write_sample(tmp_path / "a", [case], board_concerns={key: "One line."}, **kw)
     b = rc.write_sample(tmp_path / "b", [case], board_concerns={key: "Another line."}, **kw)
     assert a["sample"] != b["sample"]
+
+
+def test_table_residue_is_tidied_and_a_cut_quote_reads_as_a_sentence():
+    text = "Costs: EUR 1. 7. Compliance officer | \\ | \\ | Very large platforms 1-5 FTEs. Next."
+    p = rc._passage("compliance officer | \\ | \\ | very large platforms", text, 20)
+    assert p["quote"] == "Compliance officer | Very large platforms"  # a table: not grown
+    assert "\\" not in p["before"] + p["after"]
+
+
+def test_an_abbreviation_does_not_end_the_highlighted_sentence():
+    text = "Before. It is already set up under EU law (e.g. the GDPR), which absorbs it. After."
+    p = rc._passage("already set up under eu law", text, 20)
+    assert p["quote"] == "It is already set up under EU law (e.g. the GDPR), which absorbs it."
