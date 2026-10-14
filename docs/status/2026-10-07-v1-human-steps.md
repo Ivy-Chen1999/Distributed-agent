@@ -270,31 +270,55 @@ git commit evals/promotion_policy.yaml
 
 Never change the file after a comparison; every decision records its sha256.
 
-**Decided 2026-10-14, before any comparison** (pre-registered here; the policy file is unchanged):
+**Decided 2026-10-14, before any comparison** (plan
+`docs/plans/2026-10-14-001-feat-precision-guard-and-adaptive-repetitions-plan.md` on
+`feat/v1-integration`; the policy gains the fields below, its signature is cleared, and the owner
+signs again (`womm policy sign`)):
 
-- `repetitions` stays 3. At about 0.1 noise per case, 8 cases and 3 repetitions give an MDD of
-  about 0.09, so the gate will most likely run in weak mode (mean delta above 0 plus guards),
-  where a candidate with no real effect passes about half the time. The demo says so.
+- Repetitions adapt to the data: each comparison runs 3 per case and arm, and extends both arms to
+  6 only when the pooled noise (never the difference between the arms) says 6 can resolve
+  `expected_gain` and 3 cannot. The decision records the repetitions used.
+- Weak mode promotes only when the coverage gain exceeds one standard error of the comparison's
+  own noise (`weak_min_delta_se: 1.0`), not merely 0. The R34 report states how often a version
+  compared against itself would clear that bar (the null pass rate); the demo quotes it.
+- Precision guard (binding): the share of dossier impacts the judge matched to an expected impact
+  may drop by at most one noise SD (`precision_regression`). Impact count and total impact text
+  are reported for both arms, with a note above +25%; they reject nothing.
 - At most 2 formal holdout comparisons in the demo; the second only for the prompt-only fallback
   candidate. A rejection by the gate is shown as a valid end of the cycle.
 - Before spending a comparison, the chosen candidate's api twin runs once on val (about $3), so a
   gain found on the Claude subscription is confirmed under the GPT model and judge.
-- After each comparison, report-only checks (they gate nothing): the coverage delta re-scored by a
-  Claude judge (`claude_code`, subscription) on the same saved runs, and the mean impact count per
-  dossier of both arms. Disagreeing signs or an inflated impact count label the decision
+- After each comparison, a report-only check: the coverage delta re-scored by a Claude judge
+  (`claude_code`, subscription) on the same saved runs; disagreeing signs label the decision
   "judge-sensitive". To build before the first comparison.
+- Not adopted: full human verification of every holdout item, and extra calibration pairs from the
+  candidate's output. The demo says the key is "AI-drafted, read-checked by two people,
+  owner-ruled on the differences, holdout spot-checked" and the judge "calibrated on the
+  incumbent's output". Every reason a decision can carry, and what it does not mean, is in the
+  runbook's reject-reason table.
 
 ## 7. R34 noise run and MDD (owner starts it)
 
 After the calibration is recorded and after step 5 (the val cases exist only once step 4 has
-published them). The val split has 3 cases, so 6 repetitions are 18 case runs: about $7 to $9,
-judge calls included, and, one case at a time, about 2 hours. Standard tier.
+published them). It starts at 3 repetitions (9 case runs, about $4, about 1 hour) and the report
+says `stop` or `extend`; on `extend`, 3 more at the same git sha (about $4 more), pooled. Every
+attempt is logged in `evals/promotion_records.yaml`, and only the first chain for a judge counts.
+Standard tier.
 
 ```
-uv run womm eval --system-version system_versions/v1.0-unscoped-api.yaml --split val --repetitions 6 --formal
-uv run womm noise report --report <that report> --holdout-cases 8 --holdout-proposals 8 --record
+uv run womm eval --system-version system_versions/v1.0-unscoped-api.yaml --split val --repetitions 3 --formal
+uv run womm noise report --report <first report> --holdout-cases 8 --holdout-proposals 8 --record
+# only if it says extend: same sha, clean tree
+git checkout <first report's git_sha>
+uv run womm eval --system-version system_versions/v1.0-unscoped-api.yaml --split val --repetitions 3 --formal
+git switch -
+uv run womm noise report --report <first report> --report <second report> \
+    --holdout-cases 8 --holdout-proposals 8 --record
 git commit evals/promotion_records.yaml
 ```
+
+If the first sha cannot be checked out cleanly, run one fresh 6-repetition run instead and record
+it on its own (it is logged as such).
 
 If the MDD is above `expected_gain`, the gate uses the weak threshold, and the demo says so. An
 MDD at or below `expected_gain` is necessary, not sufficient: it covers run-to-run noise only, not

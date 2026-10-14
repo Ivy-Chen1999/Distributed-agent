@@ -256,7 +256,7 @@ flowchart TB
 | Mode | When | Promote if | Labelled |
 |---|---|---|---|
 | Statistical | api backend; formal R34 run on record; no `insufficient_proposals`; MDD report says the gate can resolve the expected gain | primary-metric CI95 lower bound > 0, and each guard metric's mean delta ≥ −tolerance, and not `aborted` | "promoted (holdout, bootstrap CI)" |
-| Weak | api backend, but CIs are null or MDD exceeds the expected gain | primary mean delta > 0, and guards within tolerance, and not `aborted` | "promoted (weak threshold: directional)" |
+| Weak | api backend, but CIs are null or MDD exceeds the expected gain | primary mean delta > `weak_min_delta_se` x SE of the comparison's noise (amended 2026-10-14, plan 2026-10-14-001; was > 0), and guards within tolerance (precision added), and not `aborted` | "promoted (weak threshold: directional)" |
 | Dev | any role on `claude_code` | as Weak | "dev-only, not deployable" |
 
 **Cycle, step by step**
