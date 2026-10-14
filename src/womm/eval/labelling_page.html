@@ -794,7 +794,7 @@ async function signIn() {
 // ---------- spotlight guide (shown once, on the first point; "How it works" replays it) ----------
 const TOURS = {};
 TOURS.reference_check = [
-  { sel: "#pointBlock", title: "The point to check", text: "One entry of the answer key: <b>who</b> is affected and <b>what it means for them</b> (some entries are a single statement). The grey <b>How</b> line comes from the law: context only, not part of your answer." },
+  { sel: "#pointBlock", title: "The point to check", text: "One entry of the answer key. Judge the marked claim only. Ignore the grey background." },
   { sel: "#docPane", title: "What the official report says", text: "The <b>highlighted</b> sentence is what the point is based on; the text around it is context. Read just enough to judge." },
   { sel: "#answerBlock", title: "Your answer", text: "Does the source support the claim? <b>Yes</b> if every group, effect and amount is supported. <b>No</b> if the claim adds or changes something. <b>Can't tell</b> if you need more information: say what is missing. Keys: <b>Y</b>, <b>N</b>, <b>C</b>." },
   { sel: "#noteBlock", title: "A short note", text: "Needed when you pick <b>Can't tell</b>, optional otherwise. One line is enough." },
