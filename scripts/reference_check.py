@@ -67,8 +67,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     sample.add_argument("--decision-basis", type=Path, default=None,
                         help="private JSON naming the decisions people do not judge "
                              "(duplicate, law, rule)")  # fmt: skip
-    sample.add_argument("--board-concerns", type=Path, default=None,
-                        help="JSON: the one-line effect or risk to judge for each board point")  # fmt: skip
+    sample.add_argument("--judge-lines", type=Path, default=None,
+                        help="JSON: the one line to judge per card (every board point; report points "
+                             "that mix in the law's duties)")  # fmt: skip
     sample.add_argument("--with-companions", action="store_true",
                         help="put the companion check on the same pages: the case sample as "
                              "usual plus the companions' disputed points, scored on their own")  # fmt: skip
@@ -129,8 +130,8 @@ def main(argv: list[str] | None = None) -> int:
             companions = [d for d in drafts if d.companion is not None]
             cases = [d for d in drafts if d.companion is None]
             concerns = None
-            if args.board_concerns:
-                raw = json.loads(args.board_concerns.read_text(encoding="utf-8"))
+            if args.judge_lines:
+                raw = json.loads(args.judge_lines.read_text(encoding="utf-8"))
                 concerns = {k: v for k, v in raw.items() if not k.startswith("_")}
             basis = None
             if args.decision_basis:
@@ -141,7 +142,7 @@ def main(argv: list[str] | None = None) -> int:
                                       ia_root=args.ia_root, extra=args.extra,
                                       overlap=args.overlap,
                                       with_companions=companions,
-                                      out_of_scope=basis, board_concerns=concerns)  # fmt: skip
+                                      out_of_scope=basis, judge_lines=concerns)  # fmt: skip
             elif args.companions:
                 # A census: every companion item, split evenly between the annotators.
                 items = sum(i.stratum in rc.DISPUTED or not args.disputed_only

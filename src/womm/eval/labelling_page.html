@@ -100,6 +100,8 @@ textarea.note.need { border: 2px solid var(--amber); background: var(--amber-lt)
   text-decoration: underline dotted; text-underline-offset: 3px; }
 .decide { border: 2px solid var(--ink); border-radius: 6px; padding: 12px 14px; font-size: 15px;
   line-height: 1.5; background: var(--paper); }
+.decide .rule { margin: 8px 0 0; font-size: 14px; }
+.decide .terms { margin: 6px 0 0; font-size: 13px; color: var(--grey); }
 .decide b { display: block; font-size: 12px; letter-spacing: .04em; text-transform: uppercase;
   margin-bottom: 4px; }
 
@@ -489,15 +491,23 @@ const NAMES = { concern: "The effect or risk to judge", affected_actor: "Who is 
   impact: "What it means for them", description: "What a good assessment must cover" };
 // What to decide, per source of the highlighted sentence (reference check only).
 const ASK = {
-  report: { decide: "Is the point below an accurate reading of the highlighted sentence and its context? Answer No if it adds or changes a group, an effect or a number the source does not support.",
+  report: { decide: "Is the point below an accurate reading of the highlighted sentence and its context?",
             question: "Is this an accurate reading of the report?",
             keep: "Accurate: the source says this, about this group.",
             drop: "Adds or changes something: another group, another effect, a number the source doesn't give, or what the report only mentions as background or an option not chosen." },
-  board: { decide: "The highlighted sentence is the EU review board asking the report to assess something. Is the effect or risk below what the board asked about? It need not be proven. The grey reasoning is the AI's: context, not part of the question.",
+  board: { decide: "The highlighted sentence is the EU review board asking the report to assess something. Is the effect or risk below what the board asked about? It need not be proven.",
            question: "Is this what the board asked to be assessed?",
            keep: "Yes: it is the effect or risk the board raised.",
            drop: "No: a different concern, or the board's sentence is only about how the report is written (method, data, presentation)." },
 };
+// One rule for every card, so "only partly right" and "I could not tell" are not confused.
+const RULE = "Judge only what is marked to judge. If any group, effect or amount in it is not supported by the source shown, answer No. If the material is not enough to decide, answer Can't tell and say what is missing.";
+// Terms the reports use without explaining them.
+const TERMS = { FTE: "full-time equivalent: one person's working time", BaU: "business as usual: what firms would do or pay anyway",
+  NLF: "New Legislative Framework: the EU's existing product-safety laws", SME: "small or medium-sized enterprise",
+  RWE: "real-world evidence: data from actual use", HTA: "health technology assessment body",
+  ECN: "electronic communications network", VHCN: "very high capacity network (e.g. fibre)",
+  FTTH: "fibre to the home", capex: "capital expenditure: investment costs" };
 // "Article 26(2)", "Art 15", "Articles 5, 10": each number that has a tab becomes a link to it.
 function withArticleLinks(text, law) {
   const tab = new Map(law.map((a, j) => [a.label.replace(/^Article /, ""), j + 1]));
@@ -599,21 +609,41 @@ function renderItem() {
   const fields = cal ? it.expected : it.claim;
   // A fixed order: the server's JSON storage does not keep key order.
   const keys = Object.keys(NAMES).filter(k => k in fields).concat(Object.keys(fields).filter(k => !(k in NAMES)));
-  for (const k of keys) {
-    const d = el("div"), dd = el("dd");
-    dd.append(...(cal ? [fields[k]] : withArticleLinks(String(fields[k]), it.articles || [])));
-    const reasoning = k === "description" && "concern" in fields;  // a board point: its own text is the AI's reasoning
-    if (!cal && (k === "mechanism" || reasoning)) d.className = "context";
-    d.append(el("dt", null, reasoning ? "The AI's reasoning (context, not judged)" : NAMES[k] || k), dd); claim.append(d);
+  const board = !cal && it.source !== "report";
+  const law = it.articles || [];
+  const linked = text => cal ? [text] : withArticleLinks(String(text), law);
+  if (!cal && "concern" in fields) {
+    // One marked line to judge; the whole point below it is context.
+    const d = el("div"), dd = el("dd"); dd.append(...linked(fields.concern));
+    d.append(el("dt", null, board ? "The effect or risk to judge" : "The claim to judge"), dd); claim.append(d);
+    const rest = keys.filter(k => k !== "concern");
+    const g = el("div", "context"), gd = el("dd");
+    rest.forEach((k, j) => {
+      if (j) gd.append(el("br"));
+      if (rest.length > 1) gd.append(el("b", null, (NAMES[k] || k).replace(/ \(.*\)$/, "") + ": "));
+      gd.append(...linked(fields[k]));
+    });
+    g.append(el("dt", null, board ? "The AI's reasoning (context, not judged)" : "The full point (context, not judged)"), gd);
+    claim.append(g);
+  } else {
+    for (const k of keys) {
+      const d = el("div"), dd = el("dd"); dd.append(...linked(fields[k]));
+      if (!cal && k === "mechanism") d.className = "context";
+      d.append(el("dt", null, NAMES[k] || k), dd); claim.append(d);
+    }
   }
   if (!cal) {
-    const ask = ASK[it.source === "report" ? "report" : "board"];
-    // A single-statement point names the law's duties inline: those are not in the report.
-    const inline = it.source !== "report" ? ""
-      : "description" in it.claim
-        ? " Article numbers, deadlines and duties named from the law will not be in the report: don't count them. Judge the group, the effect and any figures."
-        : " The grey How line comes from the law: context, not part of the question.";
-    $("decide").replaceChildren(el("b", null, "What to decide"), ask.decide + inline);
+    const ask = ASK[board ? "board" : "report"];
+    const grey = "concern" in fields ? " The grey text is context, not part of the question."
+      : "mechanism" in fields ? " The grey How line comes from the law: context, not part of the question." : "";
+    const p = it.passage || {};
+    const shown = [it.quote, p.before, p.quote, p.after, ...Object.values(fields)].join(" ");
+    const table = / \| /.test((p.before || "") + (p.quote || "") + (p.after || ""))
+      ? " The source is a table pressed into text: | separates cells, — is an empty cell, and the first row of cells names the columns." : "";
+    const terms = Object.entries(TERMS).filter(([t]) => new RegExp("\\b" + t + "s?\\b").test(shown));
+    const box = $("decide"); box.replaceChildren(el("b", null, "What to decide"), ask.decide + grey + table);
+    box.append(el("p", "rule", RULE));
+    if (terms.length) box.append(el("p", "terms", "Terms: " + terms.map(([t, m]) => `${t} = ${m}`).join("; ") + "."));
     $("questionRc").textContent = ask.question;
     $("keepWhy").textContent = ask.keep; $("dropWhy").textContent = ask.drop;
   }

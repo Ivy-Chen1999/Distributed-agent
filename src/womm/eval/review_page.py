@@ -86,6 +86,21 @@ def reference_check(
                         "again."]),
     }[result["verdict"]]  # fmt: skip
     state, tag, headline, meaning, nxt = verdict
+    fidelity = key.get("comparison") == "fidelity"
+    if fidelity and result["verdict"] == "robust":
+        # People were compared with the AI's answer to the page's question, not with the key.
+        headline = "People and the AI read the sources the same way"
+        meaning = (
+            "On the page's question (is each point a faithful reading of its source), people "
+            "and the AI agree often enough to trust the AI's reading without a person. This "
+            "does not prove every point in the answer key is right: read the items below "
+            "where the answer key decided otherwise before publishing."
+        )
+        nxt = [
+            'Read "Where the answer key and the page verdict differ" and fix any point in the '
+            "key the page verdict shows to be unsupported.",
+            *nxt,
+        ]
     bound = result["upper_bound_95"]
     if result.get("borderline"):
         meaning += (f" It is borderline: with this many items the true error rate could still be "
@@ -134,6 +149,9 @@ def reference_check(
 
     out = [one(i, "disagree") for i in result["wrong"]]
     out += [one(i, "unsure") for i in result["unsure"]]
+    if fidelity:  # read-only: what the check cannot test
+        out += [one(i, "golden") for i, it in items.items() if it.get("golden_kept") is not None
+                and it["golden_kept"] != it["tool_kept"]]  # fmt: skip
     data = {"kind": "reference_check", "sample": key["sample"], "title": title,
             "verdict": {"state": state, "tag": tag, "headline": headline, "meaning": meaning,
                         "next": nxt},

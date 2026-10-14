@@ -575,11 +575,11 @@ def test_a_board_point_is_judged_on_its_one_line_and_its_text_is_context(tmp_pat
     kw = dict(n=3, seed=1, annotators=["ana", "bo"], ia_root=tmp_path, extra=0,
               with_companions=[comp])  # fmt: skip
     with pytest.raises(rc.ReferenceCheckError, match="no line to judge for board points"):
-        rc.write_sample(tmp_path / "none", [case], board_concerns={}, **kw)
+        rc.write_sample(tmp_path / "none", [case], judge_lines={}, **kw)
     assert not (tmp_path / "none").exists()
     line = "The effect on small widget resellers."
     rc.write_sample(tmp_path / "s", [case],
-                    board_concerns={f"{case.case_id}/{point.omission_id}": line}, **kw)  # fmt: skip
+                    judge_lines={f"{case.case_id}/{point.omission_id}": line}, **kw)  # fmt: skip
     cards = [
         c for n in ("ana", "bo") for c in page_data(tmp_path / "s" / f"label_{n}.html")["items"]
     ]
@@ -597,15 +597,16 @@ def test_other_wording_for_a_board_point_is_another_sample(tmp_path):
     key = f"{case.case_id}/{comp.important_omissions[0].omission_id}"
     kw = dict(n=3, seed=1, annotators=["ana", "bo"], ia_root=tmp_path, extra=0,
               with_companions=[comp])  # fmt: skip
-    a = rc.write_sample(tmp_path / "a", [case], board_concerns={key: "One line."}, **kw)
-    b = rc.write_sample(tmp_path / "b", [case], board_concerns={key: "Another line."}, **kw)
+    a = rc.write_sample(tmp_path / "a", [case], judge_lines={key: "One line."}, **kw)
+    b = rc.write_sample(tmp_path / "b", [case], judge_lines={key: "Another line."}, **kw)
     assert a["sample"] != b["sample"]
 
 
 def test_table_residue_is_tidied_and_a_cut_quote_reads_as_a_sentence():
     text = "Costs: EUR 1. 7. Compliance officer | \\ | \\ | Very large platforms 1-5 FTEs. Next."
     p = rc._passage("compliance officer | \\ | \\ | very large platforms", text, 20)
-    assert p["quote"] == "Compliance officer | Very large platforms"  # a table: not grown
+    # A table: not grown, and empty cells keep their place.
+    assert p["quote"] == "Compliance officer | — | — | Very large platforms"
     assert "\\" not in p["before"] + p["after"]
 
 

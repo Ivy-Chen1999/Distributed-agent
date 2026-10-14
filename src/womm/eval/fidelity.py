@@ -47,9 +47,11 @@ def card_input(card: dict[str, Any]) -> dict[str, Any]:
     """What the model sees for one card: what the person sees, split as the page splits it."""
     claim = card["claim"]
     board = card["source"] != "report"
-    if board:
-        point = {"effect_or_risk": claim.get("concern") or claim.get("description", "")}
-        context_only = {"ai_reasoning": claim.get("description", "")} if "concern" in claim else {}
+    if "concern" in claim:  # one marked line to judge; the whole point is context
+        point = {"effect_or_risk" if board else "claim_to_judge": claim["concern"]}
+        context_only = {k: v for k, v in claim.items() if k != "concern"}
+    elif board:
+        point, context_only = {"effect_or_risk": claim.get("description", "")}, {}
     else:
         point = {k: v for k, v in claim.items() if k not in CONTEXT_ONLY}
         context_only = {k: v for k, v in claim.items() if k in CONTEXT_ONLY}

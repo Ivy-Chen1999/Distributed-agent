@@ -242,9 +242,9 @@ def _ends_sentence(text: str, at: int) -> bool:
 
 
 def _tidy(text: str) -> str:
-    """Table residue from the PDF (``| \\ | \\ |``) as one separator."""
-    text = re.sub(r"(?:\s*\|\s*\\)+\s*\|?", " | ", text)
-    text = re.sub(r"(?:\s*\|\s*){2,}", " | ", text)
+    """Table residue from the PDF: a ``\\`` cell and an empty cell both show as ``—``, so every
+    column keeps its place."""
+    text = re.sub(r"\|\s*\\?\s*(?=\|)", "| — ", text)
     return re.sub(r" {2,}", " ", text)
 
 
@@ -345,7 +345,7 @@ def write_sample(
     disputed_only: bool = False,
     with_companions: list[GoldenDraft] | None = None,
     out_of_scope: dict[str, dict] | None = None,
-    board_concerns: dict[str, str] | None = None,
+    judge_lines: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Draw ``n`` items per annotator, each annotator their own, plus a reserve of ``extra``
     each, and write the labeling pages and the private key. With ``companions`` (RSB companion
@@ -358,8 +358,9 @@ def write_sample(
     "companion"``), split between the annotators and scored on their own (``part``).
     ``out_of_scope`` ("<case>/<item>" -> ``{"basis": ...}``) names decisions people are not asked
     to judge (``OUT_OF_SCOPE``): they are drawn as usual, then taken out and listed in the key.
-    ``board_concerns`` ("<case>/<item>" -> one line) gives every board-anchored card the effect or
-    risk to judge; the item's own text is then shown as the AI's reasoning, context only."""
+    ``judge_lines`` ("<case>/<item>" -> one line) names what a card asks people to judge: required
+    for every board-anchored card (the effect or risk the board raised), optional for a report card
+    whose point mixes in the law's duties. The item's own text is then shown as context only."""
     if n < 3:
         raise ReferenceCheckError("--n must be at least 3")
     if not annotators or len(set(annotators)) != len(annotators):
@@ -456,7 +457,7 @@ def write_sample(
         cached = ia_sources.load_cached_ia(fixture, ia_root)
         ia_texts[fixture] = cached.full_text if cached else None
         rsb_texts[fixture] = cached.rsb_text if cached else None
-    if board_concerns is not None:
+    if judge_lines is not None:
 
         def anchored_on_board(it: Item) -> bool:
             item = next(i for i in by_case[it.case_id].items() if i.item_id == it.item_id)
@@ -464,7 +465,7 @@ def write_sample(
 
         on_board = [f"{it.case_id}/{it.item_id}" for it in {**keyed, **shared}.values()
                     if anchored_on_board(it)]  # fmt: skip
-        if missing := sorted(k for k in on_board if not board_concerns.get(k)):
+        if missing := sorted(k for k in on_board if not judge_lines.get(k)):
             raise ReferenceCheckError(f"no line to judge for board points: {', '.join(missing)}")
     out_dir.mkdir(parents=True, exist_ok=True)
     pages, held = {}, {}
@@ -474,7 +475,7 @@ def write_sample(
         mine_shared = [i for i, it in shared.items() if it.annotator == name]
         every = keyed | shared
         cards = {i: card(i, every[i], by_case, ia_texts, rsb_texts,
-                         (board_concerns or {}).get(f"{every[i].case_id}/{every[i].item_id}"))
+                         (judge_lines or {}).get(f"{every[i].case_id}/{every[i].item_id}"))
                  for i in mine + mine_added + mine_shared}  # fmt: skip
         pages[name] = [cards[i] for i in mine if keyed[i].stage == 1]
         rng = random.Random(f"{seed}:companion:{name}")
@@ -765,7 +766,18 @@ def format_result(
         lines.append(f"INCOMPLETE: {len(result['blank'])} items have no label; finish them, "
                      "then score again")  # fmt: skip
     elif verdict == "robust":
-        lines.append("ROBUST: the reference answers can be published; spot checks stay optional")
+        if key.get("comparison") == "fidelity":
+            differ = [
+                i for i, it in key["items"].items()
+                if it.get("golden_kept") is not None and it["golden_kept"] != it["tool_kept"]
+            ]  # fmt: skip
+            lines.append("ROBUST: people and the AI read the sources the same way; this does not "
+                         f"prove the key: read the {len(differ)} item(s) where the answer key "
+                         "decided otherwise (review page) before publishing")  # fmt: skip
+        else:
+            lines.append(
+                "ROBUST: the reference answers can be published; spot checks stay optional"
+            )
         if result.get("borderline"):
             lines.append(f"  borderline: the 95% upper bound is above {BORDERLINE_BOUND:.0%}; "
                          "say so when the key is used")  # fmt: skip

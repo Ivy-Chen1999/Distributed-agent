@@ -102,6 +102,11 @@ dd { margin: 0; font-size: 14px; }
       <span class="tally" id="tally"></span></div>
     <div id="disagree" style="display:flex;flex-direction:column;gap:14px;margin-top:12px"></div>
   </section>
+  <section id="goldenSec" hidden>
+    <div class="section-head"><h2>Where the answer key and the page verdict differ</h2>
+      <span class="hint">Not part of the check: the answer key's decision rests on more than the page asks (the law, repeats, the whole text). Read these before publishing; a point the page verdict shows unsupported may need fixing in the key.</span></div>
+    <div id="golden" style="display:flex;flex-direction:column;gap:14px;margin-top:12px"></div>
+  </section>
   <section id="unsureSec">
     <div class="section-head"><h2>Marked "can't tell"</h2>
       <span class="hint">Often a sign the item or the rule is unclear.</span></div>
@@ -190,7 +195,7 @@ function render() {
   sec.className = "verdict " + v.state; sec.replaceChildren();
   sec.append(el("span", "tag", v.tag), el("h1", null, v.headline), el("p", null, v.meaning));
   const dis = DATA.cards.filter(c => c.section === "disagree");
-  const all = DATA.cards;
+  const all = DATA.cards.filter(c => c.section !== "golden");
   const t = { people: 0, ai: 0, unclear: 0 };
   all.forEach(c => { if (marks[c.id]) t[marks[c.id]]++; });
   let steps = [...v.next];
@@ -224,6 +229,9 @@ function render() {
   const u = DATA.cards.filter(c => c.section === "unsure");
   $("unsureSec").hidden = !u.length;
   $("unsure").replaceChildren(...u.map(c => card(c, true)));
+  const g = DATA.cards.filter(c => c.section === "golden");
+  $("goldenSec").hidden = !g.length;
+  $("golden").replaceChildren(...g.map(c => card(c, false)));
 }
 render();
 </script>

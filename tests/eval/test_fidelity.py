@@ -19,7 +19,7 @@ def _sample(tmp_path):
     line = {f"{case.case_id}/{comp.important_omissions[0].omission_id}": "The resellers' margin."}
     out = tmp_path / "s"
     rc.write_sample(out, [case], n=3, seed=1, annotators=["ana", "bo"], ia_root=tmp_path,
-                    extra=0, with_companions=[comp], board_concerns=line)  # fmt: skip
+                    extra=0, with_companions=[comp], judge_lines=line)  # fmt: skip
     return out
 
 
@@ -41,7 +41,7 @@ def test_the_model_sees_the_card_as_the_person_does_and_never_the_golden_decisio
     cards = json.loads(sent.split("## Cards\n\n", 1)[1])
     seen = next(c for c in cards if c["item_id"] == board["id"])
     assert seen["point"] == {"effect_or_risk": "The resellers' margin."}
-    assert seen["context_only"] == {"ai_reasoning": board["claim"]["description"]}
+    assert seen["context_only"] == {"description": board["claim"]["description"]}
     new = json.loads((out / rc.KEY_FILE).read_text())
     assert new["comparison"] == "fidelity"
     for i, it in new["items"].items():
@@ -59,3 +59,20 @@ def test_a_missing_verdict_writes_nothing(tmp_path):
     with pytest.raises(fidelity.FidelityError, match="no verdict for"):
         asyncio.run(fidelity.rejudge(out, config(), {"fake": fake}))
     assert (out / rc.KEY_FILE).read_text() == before
+
+
+def test_a_report_card_with_a_line_to_judge_is_judged_on_that_line():
+    card = {
+        "id": "r1",
+        "source": "report",
+        "section": "6",
+        "quote": "q",
+        "passage": None,
+        "claim": {
+            "concern": "Costs scale with notice volume.",
+            "description": "Costs scale with notices; the platform pays fees (Art 21).",
+        },
+    }
+    seen = fidelity.card_input(card)
+    assert seen["point"] == {"claim_to_judge": "Costs scale with notice volume."}
+    assert seen["context_only"] == {"description": card["claim"]["description"]}

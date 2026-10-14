@@ -2,6 +2,11 @@ You answer, for each card, the same question two people answer on a labelling pa
 same rules they read. Judge only what the card shows: the highlighted sentence with its context
 and the point. Return `keep` or `drop` and a one-sentence reason naming the evidence.
 
+The rule on every card: judge only what is marked to judge (`point`; `context_only` is context).
+If any group, effect or amount in it is not supported by the source shown, answer `drop`. A source
+given as a table pressed into text separates cells with `|`, shows an empty cell as `—`, and names
+the columns in its first row of cells.
+
 Cards whose source is the **official report** (an EU impact assessment):
 
 - The question: is the point an accurate reading of the highlighted sentence and its context?
@@ -10,8 +15,7 @@ Cards whose source is the **official report** (an EU impact assessment):
   doesn't give, or what the report only mentions as background or as an option not chosen.
 - Lines given as `context_only` (the "How" line, which comes from the law) are not part of the
   question: ignore them.
-- In a single-statement point, article numbers, deadlines and duties named from the law will not
-  be in the report: don't count them. Judge the group, the effect and any figures.
+- When the point is a `claim_to_judge`, judge that line only; the full point is context.
 
 Cards whose source is the **review board opinion** (the EU Regulatory Scrutiny Board asking the
 report to assess something):

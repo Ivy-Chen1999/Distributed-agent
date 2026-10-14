@@ -66,3 +66,28 @@ def test_wilson_interval():
     lo, hi = jc.wilson_interval(25, 28)
     assert 0.72 < lo < 0.74 and 0.96 < hi < 0.97
     assert jc.wilson_interval(10, 10)[1] == 1.0
+
+
+def test_a_fidelity_pass_says_what_it_proves_and_lists_where_the_key_differs(tmp_path):
+    from womm.eval import reference_check as rc
+
+    items = {f"r{n}": {"case_id": "c", "fixture": "f", "item_id": f"i{n}", "stratum":
+                       "judges_accepted", "tool_kept": True, "tool_reason": "page question: ok",
+                       "annotator": "ann", "golden_kept": True, "golden_reason": ""}
+             for n in range(1, 31)}  # fmt: skip
+    items["r1"]["golden_kept"] = False
+    key = {
+        "sample": "2026-10-14-x",
+        "annotators": ["ann"],
+        "items": items,
+        "comparison": "fidelity",
+    }
+    labels = {i: "keep" for i in items}
+    result = rc.score(key, labels)
+    path = review_page.reference_check(tmp_path, key, result, labels, {}, limit=rc.MAX_ERROR)
+    data = json.loads(re.search(r"const DATA = (\{.*?\});\n", path.read_text(), re.S)
+                      .group(1).replace("<\\/", "</"))  # fmt: skip
+    assert data["verdict"]["headline"] == "People and the AI read the sources the same way"
+    assert "does not prove every point in the answer key" in data["verdict"]["meaning"]
+    assert [c["id"] for c in data["cards"] if c["section"] == "golden"] == ["r1"]
+    assert "does not prove the key" in rc.format_result(result, key)
