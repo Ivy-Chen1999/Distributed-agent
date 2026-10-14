@@ -5,7 +5,7 @@ description: >
   role. The pre-registered scoped vs unscoped comparison runs on this twin and v1.0-scoped-api.
 planner:
   backend: api
-  model: openai:gpt-6-luna
+  model: openai:gpt-6.1-sol
   reasoning_effort: medium
   prompt: prompts/planner.md
   explore_prompt: prompts/v1/planner_explore.md

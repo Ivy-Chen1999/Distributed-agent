@@ -2,11 +2,11 @@ name: v0.3-api
 description: >
   Deployment twin of the promoted v0.3-candidate: same prompts, timeouts and router, every role on
   the api backend. Models pinned 2026-10-14 to OpenAI's snapshot ids (GPT-6 has no dated ids):
-  gpt-6-luna for the Planner, gpt-6.1-sol for every other role, reasoning effort medium. The
-  judge's model and effort must not change after calibration.
+  gpt-6.1-sol for every role, reasoning effort medium. The judge's model and effort must not
+  change after calibration.
 planner:
   backend: api
-  model: openai:gpt-6-luna
+  model: openai:gpt-6.1-sol
   reasoning_effort: medium
   prompt: prompts/planner.md
 synthesis:

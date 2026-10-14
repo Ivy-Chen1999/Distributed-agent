@@ -68,7 +68,6 @@ async def test_lineage_and_twins(db):
     for key, role in twin.spec.roles().items():  # the new workforce expert takes synthesis's
         want = seed.roles().get(key, seed.synthesis)
         assert (role.model, role.reasoning_effort) == (want.model, want.reasoning_effort)
-    assert twin.spec.planner.model != twin.spec.judge.model  # the cascade survives
     row = await archive.get(twin.version_id)
     assert (row["origin"], row["twin_of"]) == ("twin", grandchild.version_id)
     assert [r["version_id"] for r in await archive.lineage(twin.version_id)][-2:] == [

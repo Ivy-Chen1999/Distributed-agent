@@ -21,7 +21,7 @@ PINNED_IDS = {
     "v0.1-api.yaml": "sv_d4b62f8eabca",
     "v0.1-jev.yaml": "sv_3f5a7b41a35f",
     "v0.2-candidate.yaml": "sv_7ced81aab2d0",
-    "v0.3-api.yaml": "sv_40304d89c9e5",  # GPT-6 models pinned 2026-10-14
+    "v0.3-api.yaml": "sv_9bb77fcff011",  # GPT-6 models pinned 2026-10-14
     "v0.3-candidate.yaml": "sv_c28e04120c37",
 }
 # Files added together with or after data scopes; their ids are new. They are pinned too, so a
@@ -37,13 +37,13 @@ NEW_FILES = {
 # Cost-analysis candidates (EU cost plan U3): v1.0-unscoped and its api twin plus a cost role.
 COST_PINNED_IDS = {
     "v1.0-cost.yaml": "sv_1f12d8afd1e7",
-    "v1.0-cost-api.yaml": "sv_311aa5a33d5f",
+    "v1.0-cost-api.yaml": "sv_1bde34aae112",
 }
 NEW_PINNED_IDS = {
     "v1.0-scoped.yaml": "sv_735b080cf78a",
     "v1.0-unscoped.yaml": "sv_73c6a3fdd013",
-    "v1.0-scoped-api.yaml": "sv_19c5a3b406a8",
-    "v1.0-unscoped-api.yaml": "sv_e1c252be328b",
+    "v1.0-scoped-api.yaml": "sv_d5f294d7b5bd",
+    "v1.0-unscoped-api.yaml": "sv_43cee2e14602",
 }
 # api twins: the pre-registered scoped vs unscoped comparison runs on these.
 API_TWINS = {
