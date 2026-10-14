@@ -535,7 +535,7 @@ def test_cards_carry_the_articles_and_the_first_card_is_from_the_report(tmp_path
             assert c["articles"] and all(a["label"].startswith("Article ") for a in c["articles"])
             assert all(a["text"].strip() for a in c["articles"])
     page = (tmp_path / "s" / "label_ana.html").read_text()
-    assert 'id="decide"' in page and "Is this what the board asked to be assessed?" in page
+    assert 'id="decide"' in page and "Does the board ask for this effect or risk to be assessed?" in page
 
 
 def test_a_case_whose_scenario_is_not_public_shows_no_articles():

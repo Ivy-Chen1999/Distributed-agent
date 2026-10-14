@@ -100,8 +100,8 @@ textarea.note.need { border: 2px solid var(--amber); background: var(--amber-lt)
   text-decoration: underline dotted; text-underline-offset: 3px; }
 .decide { border: 2px solid var(--ink); border-radius: 6px; padding: 12px 14px; font-size: 15px;
   line-height: 1.5; background: var(--paper); }
-.decide .rule { margin: 8px 0 0; font-size: 14px; }
 .decide .terms { margin: 6px 0 0; font-size: 13px; color: var(--grey); }
+.decide b.q { font-size: 16px; text-transform: none; letter-spacing: 0; margin-bottom: 6px; }
 .decide b { display: block; font-size: 12px; letter-spacing: .04em; text-transform: uppercase;
   margin-bottom: 4px; }
 
@@ -271,7 +271,7 @@ body[data-kind="reference_check"] [data-kind="calibration"] { display: none !imp
       <dl class="claim" id="claim"></dl>
     </div>
     <div class="block" id="answerBlock">
-      <span class="question" data-kind="reference_check" id="questionRc">Does the report back this point up?</span>
+      <span class="question" data-kind="reference_check">Your answer</span>
       <span class="question" data-kind="calibration">Does our AI's report cover this effect?</span>
       <div class="tiles" data-kind="calibration">
         <button class="tile keep" data-l="covered"><b>Yes, covered</b><span>An entry names the same group and the same way they are affected.</span><kbd>Y</kbd></button>
@@ -279,9 +279,9 @@ body[data-kind="reference_check"] [data-kind="calibration"] { display: none !imp
         <button class="tile unsure" data-l="unsure"><b>Can't tell</b><span>Still unsure after reading carefully: add a note why.</span><kbd>C</kbd></button>
       </div>
       <div class="tiles" data-kind="reference_check">
-        <button class="tile keep" data-l="keep"><b>Yes, keep</b><span id="keepWhy">The report text supports the point.</span><kbd>Y</kbd></button>
-        <button class="tile drop" data-l="drop"><b>No, drop</b><span id="dropWhy">Adds or changes a group, an effect or a number.</span><kbd>N</kbd></button>
-        <button class="tile unsure" data-l="unsure"><b>Can't tell</b><span>Still unsure after reading carefully: add a note why.</span><kbd>C</kbd></button>
+        <button class="tile keep" data-l="keep"><b>Yes</b><span id="keepWhy">Every group, effect and amount in the claim is supported.</span><kbd>Y</kbd></button>
+        <button class="tile drop" data-l="drop"><b>No</b><span id="dropWhy">The claim adds or changes something the source does not support.</span><kbd>N</kbd></button>
+        <button class="tile unsure" data-l="unsure"><b>Can't tell</b><span id="unsureWhy">You need more information to decide. Briefly explain what is missing.</span><kbd>C</kbd></button>
       </div>
     </div>
     <div class="block" id="noteBlock">
@@ -332,11 +332,12 @@ body[data-kind="reference_check"] [data-kind="calibration"] { display: none !imp
       <li><span class="step-n">3</span><span>Decide: <b>is the point an accurate reading of that sentence?</b></span></li>
     </ol>
     <div class="rules">
-      <span class="pill keep">Yes, keep</span><span>The report says it, about that group.</span>
-      <span class="pill drop">No, drop</span><span>The point adds or changes something: another group, another
-        effect, a number the report doesn't give, or something the report only mentions as
-        background or as an option the EU did not pick.</span>
-      <span class="pill unsure">Can't tell</span><span>You can't decide. Write a few words why.</span>
+      <span class="pill keep">Yes</span><span>Every group, effect and amount in the claim is supported
+        by the source.</span>
+      <span class="pill drop">No</span><span>The claim adds or changes something the source does not
+        support, for example a number the report doesn't give, or an option the EU did not pick.</span>
+      <span class="pill unsure">Can't tell</span><span>You need more information to decide. Briefly
+        explain what is missing.</span>
     </div>
     <details class="examples">
       <summary>See three short examples</summary>
@@ -344,19 +345,19 @@ body[data-kind="reference_check"] [data-kind="calibration"] { display: none !imp
         <p><b>Point:</b> Online shops face one-off costs to adapt their systems to the labelling duty.</p>
         <p><b>Report:</b> "... <mark>online retailers will incur one-off costs to adapt their systems
           to the labelling obligation</mark> ..."</p>
-        <p class="ans keep">Yes, keep: same group, same effect, nothing added.</p>
+        <p class="ans keep">Yes: same group, same effect, nothing added.</p>
       </div>
       <div class="example">
         <p><b>Point:</b> Banks must hire more compliance staff.</p>
         <p><b>Report:</b> "... <mark>Option 3, which was not retained, would have required banks
           to</mark> appoint additional officers ..."</p>
-        <p class="ans drop">No, drop: that option was not chosen, so it is not an effect of the law.</p>
+        <p class="ans drop">No: that option was not chosen, so it is not an effect of the law.</p>
       </div>
       <div class="example">
         <p><b>Point:</b> Online shops face one-off costs of about EUR 5,000 to adapt their systems.</p>
         <p><b>Report:</b> "... <mark>online retailers will incur one-off costs to adapt their systems
           to the labelling obligation</mark> ..."</p>
-        <p class="ans drop">No, drop: the report gives no amount, so the EUR 5,000 is added.</p>
+        <p class="ans drop">No: the report gives no amount, so the EUR 5,000 is added.</p>
       </div>
     </details>
     </div>
@@ -491,17 +492,14 @@ const NAMES = { concern: "The effect or risk to judge", affected_actor: "Who is 
   impact: "What it means for them", description: "What a good assessment must cover" };
 // What to decide, per source of the highlighted sentence (reference check only).
 const ASK = {
-  report: { decide: "Is the point below an accurate reading of the highlighted sentence and its context?",
-            question: "Is this an accurate reading of the report?",
-            keep: "Accurate: the source says this, about this group.",
-            drop: "Adds or changes something: another group, another effect, a number the source doesn't give, or what the report only mentions as background or an option not chosen." },
-  board: { decide: "The highlighted sentence is the EU review board asking the report to assess something. Is the effect or risk below what the board asked about? It need not be proven.",
-           question: "Is this what the board asked to be assessed?",
-           keep: "Yes: it is the effect or risk the board raised.",
-           drop: "No: a different concern, or the board's sentence is only about how the report is written (method, data, presentation)." },
+  report: { question: "Does the source support the claim?",
+            keep: "Every group, effect and amount in the claim is supported.",
+            drop: "The claim adds or changes something the source does not support." },
+  board: { question: "Does the board ask for this effect or risk to be assessed?",
+           keep: "The board asks for this effect or risk to be assessed.",
+           drop: "A different concern, or the board's sentence is only about how the report is written." },
 };
-// One rule for every card, so "only partly right" and "I could not tell" are not confused.
-const RULE = "Judge only what is marked to judge. If any group, effect or amount in it is not supported by the source shown, answer No. If the material is not enough to decide, answer Can't tell and say what is missing.";
+const UNSURE = "You need more information to decide. Briefly explain what is missing.";
 // Terms the reports use without explaining them.
 const TERMS = { FTE: "full-time equivalent: one person's working time", BaU: "business as usual: what firms would do or pay anyway",
   NLF: "New Legislative Framework: the EU's existing product-safety laws", SME: "small or medium-sized enterprise",
@@ -634,18 +632,17 @@ function renderItem() {
   }
   if (!cal) {
     const ask = ASK[board ? "board" : "report"];
-    const grey = "concern" in fields ? " The grey text is context, not part of the question."
-      : "mechanism" in fields ? " The grey How line comes from the law: context, not part of the question." : "";
+    const grey = "concern" in fields || "mechanism" in fields ? " Ignore the grey background." : "";
     const p = it.passage || {};
     const shown = [it.quote, p.before, p.quote, p.after, ...Object.values(fields)].join(" ");
     const table = / \| /.test((p.before || "") + (p.quote || "") + (p.after || ""))
       ? " The source is a table pressed into text: | separates cells, — is an empty cell, and the first row of cells names the columns." : "";
     const terms = Object.entries(TERMS).filter(([t]) => new RegExp("\\b" + t + "s?\\b").test(shown));
-    const box = $("decide"); box.replaceChildren(el("b", null, "What to decide"), ask.decide + grey + table);
-    box.append(el("p", "rule", RULE));
+    const box = $("decide");
+    box.replaceChildren(el("b", "q", ask.question), "Read the highlighted text and its context." + grey + table);
     if (terms.length) box.append(el("p", "terms", "Terms: " + terms.map(([t, m]) => `${t} = ${m}`).join("; ") + "."));
-    $("questionRc").textContent = ask.question;
     $("keepWhy").textContent = ask.keep; $("dropWhy").textContent = ask.drop;
+    $("unsureWhy").textContent = UNSURE;
   }
   if (cal) {
     $("srcTitle").textContent = "What our AI wrote";
@@ -799,7 +796,7 @@ const TOURS = {};
 TOURS.reference_check = [
   { sel: "#pointBlock", title: "The point to check", text: "One entry of the answer key: <b>who</b> is affected and <b>what it means for them</b> (some entries are a single statement). The grey <b>How</b> line comes from the law: context only, not part of your answer." },
   { sel: "#docPane", title: "What the official report says", text: "The <b>highlighted</b> sentence is what the point is based on; the text around it is context. Read just enough to judge." },
-  { sel: "#answerBlock", title: "Your answer", text: "Is the point an accurate reading of the source? <b>Yes</b> if it says this. <b>No</b> if the point adds or changes a group, an effect or a number. Keys: <b>Y</b>, <b>N</b>, <b>C</b>." },
+  { sel: "#answerBlock", title: "Your answer", text: "Does the source support the claim? <b>Yes</b> if every group, effect and amount is supported. <b>No</b> if the claim adds or changes something. <b>Can't tell</b> if you need more information: say what is missing. Keys: <b>Y</b>, <b>N</b>, <b>C</b>." },
   { sel: "#noteBlock", title: "A short note", text: "Needed when you pick <b>Can't tell</b>, optional otherwise. One line is enough." },
   { sel: "#progressBlock", title: "Your progress", text: "Jump to any point with the squares; answered ones are coloured. Use ← → to move." },
   { sel: "#finish", title: "Finish", text: "" },
