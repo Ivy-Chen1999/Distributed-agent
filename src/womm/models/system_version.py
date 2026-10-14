@@ -18,6 +18,7 @@ from womm.models.base import StrictModel
 from womm.models.decisions import Decider, DecisionMode
 
 Backend = Literal["claude_code", "api", "fake"]
+ReasoningEffort = Literal["none", "low", "medium", "high", "xhigh", "max"]
 
 
 class RoleConfig(StrictModel):
@@ -26,6 +27,11 @@ class RoleConfig(StrictModel):
     prompt: str = Field(description="Prompt file path relative to the repo root.")
     timeout_s: float = 240.0
     max_retries: int = Field(default=2, ge=0)
+    reasoning_effort: ReasoningEffort | None = Field(
+        default=None,
+        description="api backend only: the provider's reasoning effort, pinned so a default "
+        "change cannot move results. None leaves the provider default.",
+    )
 
 
 class PlannerConfig(RoleConfig):
@@ -154,7 +160,8 @@ class SystemVersionSpec(StrictModel):
 
     def canonical_dump(self) -> dict:
         """The spec as hashed into version_id. Fields added after v0 (`scope`, `router_gloss`,
-        the Planner's `explore_prompt`, `retrieval`, `cost`) are dropped when None, so versions
+        the Planner's `explore_prompt`, `retrieval`, `cost`, a role's `reasoning_effort`) are
+        dropped when None, so versions
         that do not use them keep their ids. Nothing else is dropped: existing defaults are part
         of today's hashes."""
         data = self.model_dump(mode="json")
@@ -163,6 +170,13 @@ class SystemVersionSpec(StrictModel):
                 data.pop(optional, None)
         if data["planner"].get("explore_prompt") is None:
             data["planner"].pop("explore_prompt", None)
+        roles = [data["planner"], data["synthesis"], data["judge"]]
+        roles += [e["role"] for e in data["experts"]]
+        if data.get("cost") is not None:
+            roles.append(data["cost"])
+        for role in roles:
+            if role.get("reasoning_effort") is None:
+                role.pop("reasoning_effort", None)
         for expert in data["experts"]:
             for optional in ("scope", "router_gloss"):
                 if expert.get(optional) is None:

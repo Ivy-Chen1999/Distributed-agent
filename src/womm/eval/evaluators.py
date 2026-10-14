@@ -19,12 +19,14 @@ INFRA_ERRORS = {"auth", "rate_limit", "timeout"}
 
 
 def judge_version(sv: SystemVersion) -> str:
-    """The judge's identity: backend, model and prompt hash, nothing else of the version."""
+    """The judge's identity: backend, model, reasoning effort and prompt hash, nothing else of the
+    version."""
     judge = sv.spec.judge
-    blob = json.dumps(
-        {"backend": judge.backend, "model": judge.model,
-         "prompt": sv.prompt_hashes[judge.prompt]}, sort_keys=True,
-    )  # fmt: skip
+    identity = {"backend": judge.backend, "model": judge.model,
+                "prompt": sv.prompt_hashes[judge.prompt]}  # fmt: skip
+    if judge.reasoning_effort is not None:  # judges without it keep their ids
+        identity["reasoning_effort"] = judge.reasoning_effort
+    blob = json.dumps(identity, sort_keys=True)
     return f"jv_{hashlib.sha256(blob.encode()).hexdigest()[:12]}"
 
 

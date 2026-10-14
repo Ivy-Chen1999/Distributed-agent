@@ -124,7 +124,7 @@ Same as B, but the gate compares api twins:
 
 ```bash
 uv run womm evolve twin <chosen>        # archives the api twin in the candidate's cycle
-uv run womm evolve promote <chosen-api-twin> --incumbent sv_761d872bb18e   # v1.0-unscoped-api
+uv run womm evolve promote <chosen-api-twin> --incumbent sv_e1c252be328b   # v1.0-unscoped-api
 ```
 
 Before the first formal comparison, a person must also:
@@ -139,7 +139,7 @@ Before the first formal comparison, a person must also:
    uv run womm eval --split train --system-version system_versions/v1.0-unscoped-api.yaml
    uv run womm eval --split val   --system-version system_versions/v1.0-unscoped-api.yaml
    # b. Draw ~30 blind pairs, half judge-covered and half judge-missed, one sheet per annotator.
-   uv run womm calibrate sample --sv sv_761d872bb18e \
+   uv run womm calibrate sample --sv sv_e1c252be328b \
        --report runs/eval_<train>.json --report runs/eval_<val>.json \
        --n 30 --seed 20261007 --annotator alice --annotator bob \
        --out .cache/calibration/2026-10-jv/

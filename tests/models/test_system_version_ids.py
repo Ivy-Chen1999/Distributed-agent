@@ -58,8 +58,10 @@ def test_cost_versions_are_the_unscoped_base_plus_a_cost_role():
             spec.pop("name"), spec.pop("description")
         assert got.pop("cost") is not None and want.pop("cost") is None
         assert got == want
-        assert sv.spec.cost.backend == base.spec.planner.backend
-        assert sv.spec.cost.model == base.spec.planner.model
+        # the cost step reasons over duties: it runs on the synthesis model, not the Planner's
+        assert sv.spec.cost.backend == base.spec.synthesis.backend
+        assert sv.spec.cost.model == base.spec.synthesis.model
+        assert sv.spec.cost.reasoning_effort == base.spec.synthesis.reasoning_effort
 
 
 def test_derive_and_apply_diff_carry_the_cost_role_unchanged():

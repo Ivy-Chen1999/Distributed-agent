@@ -22,10 +22,10 @@ if TYPE_CHECKING:
     from womm.config import Settings
 
 
-def _default_factory(model: str, model_provider: str | None) -> Any:
+def _default_factory(model: str, model_provider: str | None, **kwargs: Any) -> Any:
     from langchain.chat_models import init_chat_model
 
-    return init_chat_model(model, model_provider=model_provider)
+    return init_chat_model(model, model_provider=model_provider, **kwargs)
 
 
 def classify_exception(exc: BaseException) -> ErrorKind:
@@ -54,17 +54,19 @@ class ApiBackend(LLMBackend):
         self,
         settings: Settings | None = None,
         model_provider: str | None = None,
-        model_factory: Callable[[str, str | None], Any] | None = None,
+        model_factory: Callable[..., Any] | None = None,
     ) -> None:
         self.settings = settings
         self.model_provider = model_provider
         self._factory = model_factory or _default_factory
-        self._models: dict[tuple[str, str], Any] = {}
+        self._models: dict[tuple[str, str | None, str], Any] = {}
 
-    def _structured(self, model: str, schema: type[BaseModel]) -> Any:
-        key = (model, f"{schema.__module__}.{schema.__qualname__}")
+    def _structured(self, role_cfg: RoleConfig, schema: type[BaseModel]) -> Any:
+        model, effort = role_cfg.model, role_cfg.reasoning_effort
+        key = (model, effort, f"{schema.__module__}.{schema.__qualname__}")
         if key not in self._models:
-            chat = self._factory(model, self.model_provider)
+            kwargs = {} if effort is None else {"reasoning_effort": effort}
+            chat = self._factory(model, self.model_provider, **kwargs)
             self._models[key] = chat.with_structured_output(schema, include_raw=True)
         return self._models[key]
 
@@ -77,7 +79,7 @@ class ApiBackend(LLMBackend):
         role_cfg: RoleConfig,
         agent: str | None,
     ) -> tuple[Any, CallUsage]:
-        runnable = self._structured(role_cfg.model, schema)
+        runnable = self._structured(role_cfg, schema)
         messages = [("system", system_prompt), ("human", user_content)]
         start = time.monotonic()
         try:

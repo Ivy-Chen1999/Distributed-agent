@@ -63,6 +63,12 @@ async def test_lineage_and_twins(db):
     ]  # fmt: skip
     twin = await archive_twin(archive, grandchild)
     assert {r.backend for r in twin.spec.roles().values()} == {"api"}
+    seed = load_system_version(REPO_ROOT / "system_versions" / "v1.0-unscoped-api.yaml",
+                               REPO_ROOT).spec  # fmt: skip
+    for key, role in twin.spec.roles().items():  # the new workforce expert takes synthesis's
+        want = seed.roles().get(key, seed.synthesis)
+        assert (role.model, role.reasoning_effort) == (want.model, want.reasoning_effort)
+    assert twin.spec.planner.model != twin.spec.judge.model  # the cascade survives
     row = await archive.get(twin.version_id)
     assert (row["origin"], row["twin_of"]) == ("twin", grandchild.version_id)
     assert [r["version_id"] for r in await archive.lineage(twin.version_id)][-2:] == [

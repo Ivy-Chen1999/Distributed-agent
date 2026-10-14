@@ -50,8 +50,8 @@ class FakeChatModel:
 def make(steps):
     created: dict[str, Any] = {}
 
-    def factory(model, provider):
-        created["model"], created["provider"] = model, provider
+    def factory(model, provider, **kwargs):
+        created["model"], created["provider"], created["kwargs"] = model, provider, kwargs
         created["chat"] = FakeChatModel(steps)
         return created["chat"]
 
@@ -80,6 +80,14 @@ async def test_structured_output_and_usage_from_raw_message():
     assert created["model"] == "openai:gpt-test"
     assert chat.schema is Out and chat.include_raw is True
     assert chat.structured.inputs[0] == [("system", "SYS"), ("human", "USER")]
+    assert created["kwargs"] == {}
+
+
+async def test_pinned_reasoning_effort_reaches_the_chat_model():
+    backend, created = make([raw(Out(value=1))])
+    cfg = CFG.model_copy(update={"reasoning_effort": "medium"})
+    await backend.call("judge", "SYS", "USER", Out, cfg, agent=None)
+    assert created["kwargs"] == {"reasoning_effort": "medium"}
 
 
 async def test_parsing_error_retries_then_schema_invalid():

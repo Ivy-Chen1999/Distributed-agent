@@ -239,6 +239,13 @@ def test_judge_version_ignores_everything_but_the_judge():
     assert a.version_id != b.version_id and judge_version(a) == judge_version(b)
 
 
+def test_judge_version_includes_a_pinned_reasoning_effort():
+    a = fake_sv()
+    judge = a.spec.judge.model_copy(update={"reasoning_effort": "medium"})
+    b = a.model_copy(update={"spec": a.spec.model_copy(update={"judge": judge})})
+    assert judge_version(a) != judge_version(b)
+
+
 async def test_evaluator_refuses_an_incomplete_batch(setup, tmp_path):
     """A halted batch must not reach GEPA as a set of missing (zero) scores."""
     sv, archive, store = setup

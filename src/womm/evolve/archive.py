@@ -20,13 +20,13 @@ from typing import Any, Literal
 from psycopg.types.json import Jsonb
 
 from womm.api.db import Database
+from womm.config import REPO_ROOT
 from womm.eval.evaluators import CaseScore
 from womm.evolve.edits import ConfigDiff, build_candidate, render_diff
 from womm.models.system_version import (
     SystemVersion,
     SystemVersionSpec,
     build_system_version_from_texts,
-    derive_system_version,
     load_system_version,
 )
 
@@ -198,9 +198,31 @@ async def archive_child(
     return child
 
 
+def api_twin(sv: SystemVersion, repo_root: Path = REPO_ROOT) -> SystemVersion:
+    """``sv`` with every role on ``api`` and the seed api twin's pinned model and reasoning
+    effort for that role, so a candidate's twin runs on the incumbent's models. A role the seed
+    lacks (a new expert, the cost step) takes the seed's synthesis model."""
+    seed = load_system_version(repo_root / "system_versions" / SEED_FILES[1], repo_root).spec
+    pinned = seed.roles()
+    data = sv.spec.model_dump()
+    roles = {"planner": data["planner"], "synthesis": data["synthesis"], "judge": data["judge"]}
+    roles.update({f"expert:{e['id']}": e["role"] for e in data["experts"]})
+    if data.get("cost") is not None:
+        roles["cost"] = data["cost"]
+    for key, role in roles.items():
+        src = pinned.get(key, seed.synthesis)
+        role.update(backend="api", model=src.model, reasoning_effort=src.reasoning_effort)
+    if data == sv.spec.model_dump():
+        return sv
+    data["name"] = f"{sv.spec.name}+overrides"
+    return build_system_version_from_texts(
+        SystemVersionSpec.model_validate(data), sv.prompts, source_path=sv.source_path
+    )
+
+
 async def archive_twin(archive: Archive, sv: SystemVersion, cycle_id: str | None = None):
-    """The api-backend twin of ``sv`` (every role on ``api``), archived with ``twin_of``."""
-    twin = derive_system_version(sv, Path("."), backends=dict.fromkeys(sv.spec.roles(), "api"))
+    """The api twin of ``sv`` (``api_twin``), archived with ``twin_of``."""
+    twin = api_twin(sv)
     await archive.archive(twin, origin="twin", twin_of=sv.version_id, cycle_id=cycle_id)
     return twin
 
