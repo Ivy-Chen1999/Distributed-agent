@@ -715,7 +715,8 @@ async def cmd_evolve_rescore(args: argparse.Namespace) -> int:
     data["page4"] = published
     text += (f"\npage 4: the cross-judge label is on gate {args.gate_id}'s published summary"
              if published else f"\npage 4: no published summary for gate {args.gate_id} "
-             "(publish_summary was off for it): nothing updated")  # fmt: skip
+             "(publish_summary off, or its summary insert failed: see `womm evolve show`): nothing "
+             "updated")  # fmt: skip
     emit(args, data, text)
     return EXIT_OK
 
