@@ -30,10 +30,16 @@ from womm.models.run import CodeIdentity, RunResult, RunStatus
 from .test_archive import BASE, PROVENANCE, _fiscal_edit
 
 SRC = Path(womm.__file__).parent
-# The one womm.evolve module allowed to reach the holdout: the promotion gate (U7).
-HOLDOUT_SIDE = frozenset({"promotion"})
+# The womm.evolve modules allowed to reach the holdout: the promotion gate (U7) and the
+# cross-family judge re-score of its comparisons (plan 2026-10-15-001).
+HOLDOUT_SIDE = frozenset({"promotion", "rescore"})
 # The IA cost check (EU cost plan U8) is scoring-side only: cost scores never reach the Planner.
-FORBIDDEN = ("womm.eval.holdout", "womm.evolve.promotion", "womm.eval.cost_check")
+FORBIDDEN = (
+    "womm.eval.holdout",
+    "womm.evolve.promotion",
+    "womm.evolve.rescore",
+    "womm.eval.cost_check",
+)
 DYNAMIC_IMPORTS = frozenset({"import_module", "__import__"})
 
 

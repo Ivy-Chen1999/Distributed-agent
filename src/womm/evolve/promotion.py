@@ -1,7 +1,8 @@
 """Promotion gate (U7; R28, R29, AE4): promote or reject a candidate on the sealed holdout.
 
-The only ``womm.evolve`` module allowed to import ``womm.eval.holdout`` (the import-graph test
-in ``tests/evolve/test_planner_boundary.py``); nothing Planner-side imports this module.
+With ``womm.evolve.rescore``, the only ``womm.evolve`` modules allowed to import
+``womm.eval.holdout`` (the import-graph test in ``tests/evolve/test_planner_boundary.py``);
+nothing Planner-side imports either.
 
 - **Pre-registered policy.** ``evals/promotion_policy.yaml`` fixes the primary metric, the
   guard tolerances, repetitions, ``failure_policy``, the formal mode, the holdout budget and

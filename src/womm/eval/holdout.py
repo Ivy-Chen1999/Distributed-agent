@@ -781,6 +781,12 @@ def _pooled_sd(scores: list[CaseScore], metric: str) -> float | None:
     return math.sqrt(ss / dof)
 
 
+async def sealed_by_key(store: HoldoutStore) -> dict[str, GoldenCase]:
+    """The sealed cases by internal case key, for the holdout-side re-score (never leaves the
+    holdout side)."""
+    return {case_key(case): case for case, _ in await store._sealed()}
+
+
 def case_key(case: GoldenCase) -> str:
     """A stable internal key for a sealed case: a hash of its whole body, so an edited case is
     a new key (its old checkpoints are never reused). Never leaves the holdout side."""
