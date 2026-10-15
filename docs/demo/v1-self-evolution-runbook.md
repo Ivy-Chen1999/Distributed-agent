@@ -312,6 +312,32 @@ candidate the same way, and the demo says that the new-expert route was attempte
 was not shown. Path A still demonstrates the new-expert mechanics, labelled as a scripted
 rehearsal.
 
+## Cross-judge check after each formal comparison
+
+Run it after every formal comparison, before the demo shows the decision (it gates nothing):
+
+```bash
+# Holdout side, HOLDOUT_DATABASE_URL set; the gate id is in `womm evolve promote`'s output.
+uv run womm evolve rescore <gate_id>          # default judge: system_versions/v1.0-unscoped.yaml
+uv run womm evolve show <candidate>           # the decision, then the cross-judge line
+```
+
+- It re-judges the comparison's stored runs (no system runs) with the coverage judge of another
+  model family: the claude_code judge, same prompt file. That is up to 96 judge calls on the
+  Claude subscription (no API spend), about 1-2 hours. Holdout dossiers and key items go to
+  Anthropic through the isolated CLI. A usage limit stops it; the same command resumes.
+- `cross-judge-sensitive`: the re-scored coverage delta has the opposite sign to the gate's, or
+  the gate promoted and the re-scored delta is at or below 0. The decision is unchanged; the
+  demo shows the label next to it. `agrees`: same direction. `inconclusive`: a case lacks a
+  re-scored value on some side under the gate's `failure_policy` (abort).
+- Claude agreeing is **weak evidence**: the dev cycle tuned the candidate against a Claude
+  judge, so the Claude re-score leans toward the candidate. **Disagreement is the useful
+  signal**: a gain that the GPT judge sees and the Claude judge does not depends on the judge.
+- `womm evolve show` prints `cross-judge check: not run` when it was skipped; the demo never
+  shows a formal decision with that line.
+- A second rescore of the same gate refuses; `--replace` keeps the old one as superseded.
+  Comparisons made before holdout migration 004 (runs not stored) cannot be re-scored.
+
 ## After a decision
 
 What each reason and note means (pre-registered 2026-10-14, before any comparison):
@@ -328,6 +354,7 @@ What each reason and note means (pre-registered 2026-10-14, before any compariso
 | `impact_count_unavailable` | No paired case has impact counts, so the drop guard cannot be checked (never skipped) | Anything about the candidate's quality |
 | `inconclusive` | The comparison aborted (rate limit or a missing score); no budget used | A rejection on the merits |
 | note `judge-sensitive: impact_count/impact_chars rose ...` | The candidate writes over 25% more; possible judge gaming; report-only | A rejection |
+| `cross-judge-sensitive` (from `womm evolve rescore`) | A judge of another model family re-scored the same runs and does not see the gain | The decision changed; it is report-only |
 | note `batch shift` | The R34 halves differ; the noise SD may mix day-to-day variation | The gate is invalid |
 | note `weak bar: ...` | The bar the weak decision used | Statistical evidence |
 
