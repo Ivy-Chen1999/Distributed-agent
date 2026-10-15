@@ -16,7 +16,8 @@ It runs the real code path end to end, with every LLM call scripted and no api k
    ``HOLDOUT_DATABASE_URL``. The policy is the committed one, signed in memory by this harness
    and publishing its summary, so page 4 shows the decision. Dev mode: a pass is labelled "not
    rejected" (never "promoted"), the label says "dev-only, not deployable" and the threshold
-   is directional.
+   is directional. The Workforce expert's own category gets the report-only target-category
+   note (one synthetic item per proposal: too few to read, so no numbers).
 5. **Page 4.** The archive and the summary are in ``DATABASE_URL``; the evolution page shows the
    lineage, the prompt child and the new-expert highlight.
 
@@ -410,6 +411,7 @@ async def run_scripted_demo(database_url: str, workdir: Path) -> DemoResult:
             decisions=StubDecisionService(), code=CODE, cycle_id=DEMO_CYCLE,
             policy_committed=True,  # in-memory policy for the synthetic holdout (see above)
             r37=await r37_record(archive, chosen.version_id, base.version_id), summary_db=db,
+            target_category=await pm.target_category(archive, chosen.version_id),
         )  # fmt: skip
     finally:
         await db.close()

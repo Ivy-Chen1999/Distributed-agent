@@ -358,6 +358,7 @@ What each reason and note means (pre-registered 2026-10-14, before any compariso
 | `cross-judge-sensitive` (from `womm evolve rescore`) | A judge of another model family re-scored the same runs and does not see the gain | The decision changed; it is report-only |
 | note `batch shift` | The R34 halves differ; the noise SD may mix day-to-day variation | The gate is invalid |
 | note `weak bar: ...` | The bar the weak decision used | Statistical evidence |
+| note `target category <category> (the new expert's pattern): covered c vs b of n ...` | A new-expert candidate only: over the holdout items of its target category, how many the judge marked covered per arm (mean over repetitions); with fewer than 3 items or a single proposal it says "too few holdout items to read" and prints no numbers; report-only | Evidence of a gain; it answers "where did it help", not "did it help" |
 
 - `not rejected (dev-only, ...)`: a dev-mode pass; nothing is deployed. Present it as
   directional.

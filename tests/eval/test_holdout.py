@@ -538,3 +538,72 @@ async def test_memory_store_counts_cases_and_proposals(roots):
 async def test_compare_needs_expected_gain_with_max_repetitions(roots):
     with pytest.raises(holdout.HoldoutError, match="expected_gain"):
         await _compare(MemoryStore(_sealed(roots)), reps=3, max_repetitions=6)
+
+
+# ----------------------------------------------------------------------------- target category
+
+
+async def test_compare_counts_the_target_category_per_arm(roots):
+    store = MemoryStore(_sealed(roots))
+    result = await _compare(store, target_category="sme_specific")
+    t = result.target_category
+    # Four sme_specific items per case; the fake judge covers all of a candidate dossier and
+    # only the first item of a baseline one, in every repetition.
+    assert (t.category, t.n_items, t.n_proposals) == ("sme_specific", 8, 2)
+    assert t.candidate_covered == pytest.approx(8.0)
+    assert t.baseline_covered == pytest.approx(2.0)
+    dumped = result.model_dump_json()
+    for case, _ in store.sealed:
+        assert case.case_id not in dumped and case.fixture not in dumped
+        assert not any(e.expected_id in dumped for e in case.expected_impacts)
+    assert set(t.model_dump()) == {"category", "n_items", "n_proposals", "candidate_covered",
+                                   "baseline_covered"}  # fmt: skip
+
+
+async def test_no_target_category_gives_none_and_an_absent_one_counts_zero(roots):
+    assert (await _compare(MemoryStore(_sealed(roots)))).target_category is None
+    absent = await _compare(MemoryStore(_sealed(roots)), target_category="workforce")
+    assert absent.target_category.n_items == 0 and absent.target_category.n_proposals == 0
+    assert absent.target_category.candidate_covered == 0.0
+
+
+async def test_an_aborted_comparison_has_no_target_category(roots):
+    store = MemoryStore(_sealed(roots, hf.FIVE_PROPOSALS))
+    result = await _compare(store, reps=1, backends=_backends_with_failed_candidate_case(5),
+                            target_category="sme_specific")  # fmt: skip
+    assert result.aborted and result.target_category is None
+
+
+def _score(key, outcome="scored", verdicts=None, judge_error=None):
+    from womm.eval.evaluators import ExpectedVerdict, JudgeOutput
+
+    judge = None
+    if verdicts is not None:
+        judge = JudgeOutput(expected=[ExpectedVerdict(expected_id=e, covered=c, impact_id=None,
+                                                      justification="j")
+                                      for e, c in verdicts], omissions=[])  # fmt: skip
+    cov = 0.0 if outcome == "scored" and judge is None and judge_error is None else None
+    return CaseScore(case_id=key, scenario_id="s", outcome=outcome, judge=judge,
+                     judge_error=judge_error, coverage=cov)  # fmt: skip
+
+
+def test_the_target_count_follows_the_coverage_counting_rule():
+    items = {("k1", "a"): "p1", ("k1", "b"): "p1", ("k2", "c"): "p2", ("k2", "d"): "p2"}
+    scores = {
+        "candidate": [
+            _score("k1", verdicts=[("a", True), ("b", True)]),
+            _score("k1"),  # quality failure: every item not covered
+            _score("k1", outcome="errored"),  # left out
+            _score("k2", verdicts=[("c", True)], judge_error="judge skipped ids"),  # d: no verdict
+            _score("k2", judge_error="judge failed"),  # left out
+        ],
+        "baseline": [
+            _score("k1", verdicts=[("a", False), ("b", True)]),
+            _score("k2", verdicts=[("c", False), ("d", True)]),
+        ],
+    }
+    t = holdout._target_count("cat", items, scores)
+    # a: 1/2 vs 0; b: 1/2 vs 1; c: 1 vs 0; d has no usable candidate run, so it is left out.
+    assert (t.n_items, t.n_proposals) == (3, 2)
+    assert t.candidate_covered == pytest.approx(2.0)
+    assert t.baseline_covered == pytest.approx(1.0)

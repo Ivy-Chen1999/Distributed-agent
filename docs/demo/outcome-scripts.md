@@ -28,7 +28,12 @@ Every outcome opens the same way, on page 4 (Evolution):
 - **Say:** "Directional only. With 8 proposals the interval cannot exclude zero, so the rule
   asks for a gain above one standard error, and a version compared with itself clears that bar
   about X% of the time. It is not made the default."
-- **Never:** "improved", "statistically shown", "promoted".
+- **If the candidate added an expert:** read the `target category` note: "The new expert's own
+  category: it covered c of n holdout items against the incumbent's b; that says where it
+  helped, not whether it helped." When the note says "too few holdout items to read", say only
+  that.
+- **Never:** "improved", "statistically shown", "promoted"; the target-category note as
+  evidence of a gain, and never any number from it when it says the count is too small.
 
 ## 3. `rejected` with `coverage_below_weak_bar` or `coverage_ci_not_above_zero`
 
@@ -36,7 +41,12 @@ Every outcome opens the same way, on page 4 (Evolution):
 - **Say:** "The gate did its job: the val gain did not hold up on proposals the cycle never
   saw, so the incumbent stays. With 8 cases a small real gain can miss the bar; this is 'not
   shown', not 'worse'. A self-evolving system that cannot fool its own gate is the point."
-- **Never:** run a second comparison or present another candidate's holdout result.
+- **If the candidate added an expert:** read the `target category` note: "The new expert's own
+  category: it covered c of n holdout items against the incumbent's b; the whole-dossier rule
+  still decides." When the note says "too few holdout items to read", say only that.
+- **Never:** run a second comparison or present another candidate's holdout result; quote the
+  target-category note as evidence of a gain the gate missed, or any number from it when it
+  says the count is too small.
 
 ## 4. `rejected` by a guard (`grounding_regression`, `precision_regression`, `omissions_addressed_regression`, `impact_count_drop`)
 

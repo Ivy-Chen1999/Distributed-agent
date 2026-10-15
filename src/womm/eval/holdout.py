@@ -787,6 +787,18 @@ class RepetitionRule(StrictModel):
     extended: bool
 
 
+class TargetCategoryCount(StrictModel):
+    """The holdout expected impacts of one category (the new expert's target pattern), per arm:
+    per item the share of repetitions the judge marked it covered, summed over the items paired
+    on both arms. Aggregates only; report-only, never gated."""
+
+    category: str
+    n_items: int
+    n_proposals: int
+    candidate_covered: float
+    baseline_covered: float
+
+
 class HoldoutComparison(StrictModel):
     """Aggregates only: no case ids, scenario ids or per-case values, by construction."""
 
@@ -822,6 +834,11 @@ class HoldoutComparison(StrictModel):
     repetition_rule: RepetitionRule | None = Field(
         default=None, description="Set when the repetitions were data-driven (min to max)."
     )
+    target_category: TargetCategoryCount | None = Field(
+        default=None,
+        description="Set when the gate names a target category and the comparison is not "
+        "aborted (report-only).",
+    )
 
 
 Backends = Mapping[str, LLMBackend]
@@ -853,6 +870,44 @@ def _pooled_sd(scores: list[CaseScore], metric: str) -> float | None:
         return None
     ss = sum(statistics.variance(v) * (len(v) - 1) for v in by_case.values() if len(v) > 1)
     return math.sqrt(ss / dof)
+
+
+def _target_count(
+    category: str, items: dict[tuple[str, str], str], scores: dict[str, list[CaseScore]]
+) -> TargetCategoryCount:
+    """Count ``items`` ((internal case key, expected id) -> proposal) per arm, as the coverage
+    metric does: a quality failure (scored, no judge verdict) covers nothing; an errored run, a
+    run with a judge error and an item without exactly one verdict are left out of that item's
+    repetitions. An item with no usable repetition on one arm is left out on both."""
+    by_case: dict[str, list[str]] = {}
+    for key, expected_id in items:
+        by_case.setdefault(key, []).append(expected_id)
+    shares: dict[str, dict[tuple[str, str], float]] = {}
+    for label, arm in scores.items():
+        reps: dict[tuple[str, str], list[bool]] = {}
+        for s in arm:
+            if s.outcome != "scored" or s.case_id not in by_case:
+                continue
+            if s.judge is None:
+                if s.judge_error is not None:
+                    continue  # the judge failed: no verdict, not a miss
+                verdicts = dict.fromkeys(by_case[s.case_id], False)  # quality failure
+            else:
+                ids = [v.expected_id for v in s.judge.expected]
+                verdicts = {v.expected_id: v.covered for v in s.judge.expected
+                            if ids.count(v.expected_id) == 1}  # fmt: skip
+            for expected_id in by_case[s.case_id]:
+                if expected_id in verdicts:
+                    reps.setdefault((s.case_id, expected_id), []).append(verdicts[expected_id])
+        shares[label] = {k: statistics.fmean(v) for k, v in reps.items()}
+    paired = shares.get("candidate", {}).keys() & shares.get("baseline", {}).keys()
+    return TargetCategoryCount(
+        category=category,
+        n_items=len(paired),
+        n_proposals=len({items[k] for k in paired}),
+        candidate_covered=sum(shares["candidate"][k] for k in paired),
+        baseline_covered=sum(shares["baseline"][k] for k in paired),
+    )
 
 
 async def sealed_by_key(store: HoldoutStore) -> dict[str, GoldenCase]:
@@ -931,6 +986,7 @@ async def compare(
     icc: float = 1.0,
     alpha: float = 0.05,
     power: float = 0.8,
+    target_category: str | None = None,
 ) -> HoldoutComparison:
     """Run ``candidate`` and ``baseline`` on every sealed holdout case, ``repetitions`` times
     each, and return only aggregate deltas (R28 interface). Both are scored by the baseline's
@@ -955,7 +1011,11 @@ async def compare(
     within-case coverage SD over both arms and extends both arms to ``max_repetitions`` only
     when that brings the MDD to ``expected_gain``, with the design (``icc``, ``alpha``, ``power``)
     of the recorded MDD report. The decision is taken before any delta is computed, so it
-    cannot depend on how the candidate is doing (blinded re-estimation)."""
+    cannot depend on how the candidate is doing (blinded re-estimation).
+
+    With ``target_category`` (the category of a new expert's target pattern) the result also
+    counts the holdout expected impacts of that category per arm (``TargetCategoryCount``;
+    report-only, aggregates only); an aborted comparison has none."""
     if repetitions < 1:
         raise HoldoutError("repetitions must be at least 1")
     if max_repetitions is not None and expected_gain is None:
@@ -1044,6 +1104,11 @@ async def compare(
             candidate, baseline, used, scores, cluster_of, aborted, n_boot, seed,
             applies=applies, failure_policy=failure_policy, repetition_rule=rule,
         )  # fmt: skip
+        if target_category is not None and not result.aborted:
+            items = {(keys[c.case_id], e.expected_id): c.fixture for c, _ in sealed
+                     for e in c.expected_impacts if e.category == target_category}  # fmt: skip
+            count = _target_count(target_category, items, scores)
+            result = result.model_copy(update={"target_category": count})
         tags: dict[str, Any] = {}
         if gate_id:
             tags = {"gate_id": gate_id, "cycle_id": cycle_id, "judge_version": jv,

@@ -35,6 +35,11 @@ def test_the_scripted_demo_proposes_a_new_expert_and_gates_it_in_dev_mode(databa
     assert d["label"] == "not rejected (dev-only, not deployable; weak threshold: directional)"
     assert "insufficient_proposals" in d["flags"]
     assert d["r37"]["status"] == "not_run"  # reference drafted; neither version diff-checked
+    # The new expert's own category: one synthetic workforce item per proposal, too thin to read.
+    assert (
+        f"target category {demo.CATEGORY} (the new expert's pattern): too few holdout items "
+        "to read (fewer than 3 items or a single proposal); report-only"
+    ) in d["notes"]
 
 
 def test_page_four_shows_the_lineage_with_the_new_expert(database_url, tmp_path):

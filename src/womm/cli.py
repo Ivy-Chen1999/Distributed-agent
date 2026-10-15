@@ -622,6 +622,8 @@ async def cmd_evolve_promote(args: argparse.Namespace) -> int:
             raise UsageError(f"promotion gate refused: {exc}") from None
         # Monitoring only: an unusable reference file is recorded as an error, never a block.
         r37 = await r37_record(archive, candidate.version_id, incumbent.version_id)
+        # Report-only: the new expert's category, read here and passed to the holdout side.
+        target = await pm.target_category(archive, candidate.version_id)
         await store.migrate()
         committed = pm.files_committed([Path(args.policy), Path(args.records)])
         try:  # refuse before preparing any backend; run_gate checks again
@@ -643,6 +645,7 @@ async def cmd_evolve_promote(args: argparse.Namespace) -> int:
                 decisions=lambda sv: make_decision_service(sv, settings),
                 code=code_identity(cli_version or other_cli), cycle_id=cycle_id,
                 policy_committed=committed, r37=r37, summary_db=db, resume=args.resume,
+                target_category=target,
             )  # fmt: skip
         except pm.GateRefused as exc:
             raise UsageError(f"promotion gate refused: {exc}") from None

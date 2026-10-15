@@ -60,6 +60,7 @@ from womm.eval import holdout
 from womm.eval.evaluators import judge_version
 from womm.eval.holdout import HoldoutComparison, HoldoutStore
 from womm.eval.run_eval import FORMAL_MIN_REPETITIONS
+from womm.evolve.failure_memory import UNCATEGORISED
 from womm.llm.base import LLMBackend
 from womm.models.base import StrictModel
 from womm.models.run import CodeIdentity
@@ -77,6 +78,8 @@ FORMAL_BACKEND = "api"
 Metric = Literal["coverage", "omissions_addressed", "grounding", "precision"]
 # A diagnostic rise above this share is noted ("judge-sensitive"); it never gates.
 DIAGNOSTIC_RISE = 0.25
+# Fewer target-category holdout items than this (or one proposal) and the note prints no numbers.
+TARGET_MIN_ITEMS = 3
 Mode = Literal["statistical", "weak", "dev"]
 MODE_LABELS: dict[str, str] = {
     "statistical": "holdout, bootstrap CI",
@@ -118,6 +121,22 @@ async def gate_cycle_id(archive: Any, candidate_id: str, requested: str | None) 
         raise GateRefused(f"--cycle-id {requested} is not the candidate's archived cycle "
                           f"({', '.join(cycles)}): one holdout budget per cycle")  # fmt: skip
     return requested
+
+
+async def target_category(archive: Any, candidate_id: str) -> str | None:
+    """The category of the candidate's archived topology target pattern (``kind/category/
+    owner``), or of the version its api twin was made from; None for a prompt-only or
+    unarchived candidate and for failure memory's ``uncategorised`` fallback. Read from the main
+    database by the caller and passed to the holdout side; the holdout never reads the
+    archive."""
+    row = await archive.get(candidate_id)
+    if row and row.get("diff") is None and row.get("twin_of"):
+        row = await archive.get(row["twin_of"])
+    pattern = ((row or {}).get("diff") or {}).get("target_pattern")
+    if not pattern:
+        return None
+    category = pattern.partition("/")[2].rpartition("/")[0]
+    return category if category and category != UNCATEGORISED else None
 
 
 # ----------------------------------------------------------------------------- policy
@@ -660,6 +679,21 @@ def _diagnostic_notes(cmp: HoldoutComparison) -> list[str]:
     return notes
 
 
+def _target_notes(cmp: HoldoutComparison) -> list[str]:
+    """The new expert's own category on the holdout (report-only). Too few items, or items from
+    a single proposal, print no numbers: they would be one proposal's values."""
+    t = cmp.target_category
+    if t is None:
+        return []
+    head = f"target category {t.category} (the new expert's pattern): "
+    if t.n_items < TARGET_MIN_ITEMS or t.n_proposals < 2:
+        return [head + "too few holdout items to read (fewer than 3 items or a single "
+                "proposal); report-only"]  # fmt: skip
+    return [head + f"covered {t.candidate_covered:.1f} vs {t.baseline_covered:.1f} of "
+            f"{t.n_items} holdout items in {t.n_proposals} proposals, mean over repetitions "
+            "(candidate vs incumbent); report-only, it does not gate"]  # fmt: skip
+
+
 def decide(
     cmp: HoldoutComparison,
     policy: PromotionPolicy,
@@ -726,6 +760,7 @@ def decide(
                 reasons.append(f"{metric}_regression")
         reasons += _impact_count_reasons(cmp, policy.impact_count_guard)
         notes += _diagnostic_notes(cmp)
+        notes += _target_notes(cmp)
     decision = "promoted" if improved and not reasons else "rejected"
     shown = WEAK_PASS if decision == "promoted" and mode != "statistical" else decision
     return GateDecision(
@@ -786,6 +821,7 @@ async def run_gate(
     r37: dict[str, Any] | None = None,
     summary_db: Database | None = None,
     resume: bool = False,
+    target_category: str | None = None,
 ) -> GateDecision:
     """Preconditions, a budget reservation, one resumable holdout comparison, the decision and
     its records.
@@ -793,7 +829,8 @@ async def run_gate(
     The reservation is taken atomically before the comparison (concurrent gates cannot
     overspend) and released when the comparison fails; recording the decision consumes it (or
     releases it for an aborted, inconclusive comparison). When the main-database summary fails
-    after the decision is recorded, SummaryNotRecorded carries the decision."""
+    after the decision is recorded, SummaryNotRecorded carries the decision. ``target_category``
+    (``target_category()``, read from the archive) adds a report-only note."""
     if policy.publish_summary and summary_db is None:
         raise GateRefused("publish_summary is on but no main database was given")
     choice = await preflight(policy, records, candidate, incumbent, store=store,
@@ -816,7 +853,7 @@ async def run_gate(
             max_repetitions=policy.repetitions.max, expected_gain=policy.expected_gain, **design,
             decisions=decisions, code=code, n_boot=policy.bootstrap.n_boot,
             seed=policy.bootstrap.seed, failure_policy=policy.failure_policy, checkpoint=True,
-            gate_id=gate_id, cycle_id=cycle_id,
+            gate_id=gate_id, cycle_id=cycle_id, target_category=target_category,
         )  # fmt: skip
         decision = decide(cmp, policy, choice, gate_id=gate_id, cycle_id=cycle_id,
                           policy_sha256=policy_sha256, git_sha=code.git_sha, prior_aborts=prior,

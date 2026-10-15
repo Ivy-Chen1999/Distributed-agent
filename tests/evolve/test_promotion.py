@@ -842,3 +842,62 @@ def test_the_impact_count_guard_is_required_and_a_ratio():
     with pytest.raises(ValueError):
         policy(impact_count_guard={"max_drop_ratio": 1.0})
     assert policy().impact_count_guard.max_drop_ratio == 0.25
+
+
+# ----------------------------------------------------------------------------- target category
+
+
+def _with_target(c, n_items=6, n_proposals=3, cand=4.5, base=3.0, category="workforce"):
+    t = holdout.TargetCategoryCount(category=category, n_items=n_items, n_proposals=n_proposals,
+                                    candidate_covered=cand, baseline_covered=base)  # fmt: skip
+    return c.model_copy(update={"target_category": t})
+
+
+def test_the_target_category_is_a_report_only_note():
+    plain, noted = decide(cmp()), decide(_with_target(cmp()))
+    assert noted.decision == plain.decision == "promoted" and noted.reasons == plain.reasons
+    assert noted.notes == [*plain.notes,
+                           "target category workforce (the new expert's pattern): covered 4.5 vs "
+                           "3.0 of 6 holdout items in 3 proposals, mean over repetitions "
+                           "(candidate vs incumbent); report-only, it does not gate"]  # fmt: skip
+    rejected = decide(_with_target(cmp(coverage=(0.0, -0.05, 0.05))))
+    assert rejected.decision == "rejected" and any("target category" in n for n in rejected.notes)
+
+
+@pytest.mark.parametrize("n_items, n_proposals", [(2, 2), (6, 1), (0, 0)])
+def test_a_thin_target_category_prints_no_numbers(n_items, n_proposals):
+    d = decide(_with_target(cmp(), n_items=n_items, n_proposals=n_proposals))
+    note = next(n for n in d.notes if n.startswith("target category"))
+    assert note == ("target category workforce (the new expert's pattern): too few holdout items "
+                    "to read (fewer than 3 items or a single proposal); report-only")  # fmt: skip
+
+
+def test_no_target_category_no_note():
+    assert not any("target category" in n for n in decide(cmp()).notes)
+
+
+def _arow(vid, diff=None, twin_of=None):
+    return {"version_id": vid, "cycle_id": "c", "twin_of": twin_of, "diff": diff}
+
+
+async def test_the_target_category_comes_from_the_archived_topology_diff():
+    topo = {"ops": [], "target_pattern": "missed_impact/social_environmental/none"}
+    archive = MemoryArchive(
+        _arow("sv_topo", topo), _arow("sv_twin", None, "sv_topo"),
+        _arow("sv_gepa", {"ops": [], "rendered": ""}),
+        _arow("sv_unc", {"ops": [], "target_pattern": "missed_impact/uncategorised/legal"}),
+    )  # fmt: skip
+    assert await pm.target_category(archive, "sv_topo") == "social_environmental"
+    assert await pm.target_category(archive, "sv_twin") == "social_environmental"
+    assert await pm.target_category(archive, "sv_gepa") is None, "a prompt-only candidate"
+    assert await pm.target_category(archive, "sv_unc") is None
+    assert await pm.target_category(archive, "sv_missing") is None
+
+
+async def test_the_gate_passes_the_target_category_to_the_comparison(roots):
+    cand, base = versions("fake")
+    d = await _signed_gate(cand, base, GateStore(_sealed(roots)), target_category="sme_specific")
+    assert d.decision == "promoted"
+    assert ("target category sme_specific (the new expert's pattern): covered 8.0 vs 2.0 of 8 "
+            "holdout items in 2 proposals, mean over repetitions (candidate vs incumbent); "
+            "report-only, it does not gate") in d.notes  # fmt: skip
