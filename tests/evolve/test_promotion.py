@@ -401,7 +401,9 @@ async def test_a_dev_gate_promotes_and_records_in_the_audit_only(roots):
     assert d.mode == "dev" and d.decision == "promoted" and not d.deployable
     assert store.decisions == {d.gate_id: d.model_dump(mode="json")}
     (result, sha, tags) = store.audits[0]
-    assert tags == {"gate_id": d.gate_id, "cycle_id": "c1"} and sha == "abc"
+    assert (tags["gate_id"], tags["cycle_id"], sha) == (d.gate_id, "c1", "abc")
+    assert tags["judge_version"] and set(tags["code_versions"]) == {cand.version_id,
+                                                                   base.version_id}  # fmt: skip
     assert len(store.progress) == 8, "every scored run is checkpointed"
     assert "insufficient_proposals" in d.flags
 

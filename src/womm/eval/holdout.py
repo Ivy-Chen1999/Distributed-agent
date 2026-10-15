@@ -77,6 +77,11 @@ HANDOFF_FORMAT = "womm-holdout-handoff/1"
 METRICS = ("coverage", "omissions_addressed", "grounding", "precision")
 # Reported, never gated or bootstrapped: a rise flags possible judge gaming (listing more).
 DIAGNOSTICS = ("impact_count", "impact_chars")
+# The part of a RunResult a checkpointed holdout run keeps for a re-score by another judge:
+# what the coverage judge reads and the run's identity; never retrievals or source texts.
+STORED_RUN_FIELDS = ("run_id", "scenario_id", "status", "system_version", "code_identity",
+                     "error", "synthesis_error", "failures", "decisions", "grounding",
+                     "dossier")  # fmt: skip
 # Fewer proposals than this and a proposal-clustered bootstrap CI means nothing: CIs are null.
 MIN_PROPOSALS = 5
 FAILURE_POLICIES = ("abort", "score_zero")
@@ -424,13 +429,15 @@ class HoldoutStore:
         *,
         gate_id: str | None = None,
         cycle_id: str | None = None,
+        judge_version: str | None = None,
+        code_versions: dict[str, str | None] | None = None,
     ) -> int:
         async with await self._connect() as conn:
             row = await (
                 await conn.execute(
                     "INSERT INTO holdout.compare_audit (candidate_version, baseline_version,"
-                    " repetitions, git_sha, result, gate_id, cycle_id)"
-                    " VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id",
+                    " repetitions, git_sha, result, gate_id, cycle_id, judge_version,"
+                    " code_versions) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
                     (
                         result.candidate_version,
                         result.baseline_version,
@@ -439,6 +446,8 @@ class HoldoutStore:
                         Jsonb(result.model_dump(mode="json")),
                         gate_id,
                         cycle_id,
+                        judge_version,
+                        Jsonb(code_versions) if code_versions is not None else None,
                     ),
                 )  # fmt: skip
             ).fetchone()
@@ -449,12 +458,14 @@ class HoldoutStore:
     async def load_progress(
         self, version_ids: list[str], judge_version: str, code_version: str
     ) -> dict[tuple[str, str, int], CaseScore]:
-        """Finished scored runs, by (version id, internal case key, repetition)."""
+        """Finished scored runs, by (version id, internal case key, repetition). A row saved
+        without its run (before migration 004) is not finished: it is re-run."""
         async with await self._connect() as conn:
             rows = await (
                 await conn.execute(
                     "SELECT version_id, case_key, repetition, score FROM holdout.compare_progress"
-                    " WHERE version_id = ANY(%s) AND judge_version = %s AND code_version = %s",
+                    " WHERE version_id = ANY(%s) AND judge_version = %s AND code_version = %s"
+                    " AND run IS NOT NULL",
                     (version_ids, judge_version, code_version),
                 )
             ).fetchall()
@@ -471,15 +482,61 @@ class HoldoutStore:
         case_key: str,
         repetition: int,
         score: CaseScore,
+        run: dict[str, Any] | None = None,
     ) -> None:
+        """Save a scored run. A row stored without its run gets the new score and run; a row
+        with a run is never overwritten."""
         async with await self._connect() as conn:
             await conn.execute(
                 "INSERT INTO holdout.compare_progress (version_id, judge_version, code_version,"
-                " case_key, repetition, score) VALUES (%s, %s, %s, %s, %s, %s)"
-                " ON CONFLICT DO NOTHING",
+                " case_key, repetition, score, run) VALUES (%s, %s, %s, %s, %s, %s, %s)"
+                " ON CONFLICT (version_id, judge_version, code_version, case_key, repetition)"
+                " DO UPDATE SET score = EXCLUDED.score, run = EXCLUDED.run"
+                " WHERE holdout.compare_progress.run IS NULL",
                 (version_id, judge_version, code_version, case_key, repetition,
-                 Jsonb(score.model_dump(mode="json"))),
+                 Jsonb(score.model_dump(mode="json")), Jsonb(run) if run is not None else None),
             )  # fmt: skip
+
+    async def record_compare_runs(
+        self, gate_id: str, rows: list[tuple[str, str, int]] | set[tuple[str, str, int]]
+    ) -> None:
+        """Which (version, internal case key, repetition) runs a gate comparison used."""
+        async with await self._connect() as conn, conn.cursor() as cur:
+            await cur.executemany(
+                "INSERT INTO holdout.compare_runs (gate_id, version_id, case_key, repetition)"
+                " VALUES (%s, %s, %s, %s) ON CONFLICT DO NOTHING",
+                [(gate_id, v, k, r) for v, k, r in sorted(rows)],
+            )
+
+    async def stored_runs(self, gate_id: str) -> dict[str, Any] | None:
+        """A gate comparison's audit row and the stored runs it used (repetition up to the
+        audit's repetitions), or None when the gate has no comparison. ``score`` is None for a
+        run that was never scored; ``run`` is None for one saved before runs were stored."""
+        async with await self._connect() as conn:
+            audit = await (
+                await conn.execute(
+                    "SELECT candidate_version, baseline_version, repetitions, judge_version,"
+                    " code_versions, result, decision FROM holdout.compare_audit"
+                    " WHERE gate_id = %s",
+                    (gate_id,),
+                )
+            ).fetchone()
+            if audit is None:
+                return None
+            rows = await (
+                await conn.execute(
+                    "SELECT r.version_id, r.case_key, r.repetition, p.score, p.run"
+                    " FROM holdout.compare_runs r JOIN holdout.compare_audit a USING (gate_id)"
+                    " LEFT JOIN holdout.compare_progress p ON p.version_id = r.version_id"
+                    " AND p.case_key = r.case_key AND p.repetition = r.repetition"
+                    " AND p.judge_version = a.judge_version"
+                    " AND p.code_version = a.code_versions ->> r.version_id"
+                    " WHERE r.gate_id = %s AND r.repetition <= a.repetitions"
+                    " ORDER BY r.version_id, r.case_key, r.repetition",
+                    (gate_id,),
+                )
+            ).fetchall()
+        return {"audit": dict(audit), "rows": [dict(r) for r in rows]}
 
     # ------------------------------------------------------------ promotion gate (U7)
 
@@ -851,6 +908,7 @@ async def compare(
             "precision": set(cluster_of),
         }
         scores: dict[str, list[CaseScore]] = {"candidate": [], "baseline": []}
+        used_runs: set[tuple[str, str, int]] = set()
 
         async def run_reps(first: int, last: int) -> bool:
             """Repetitions ``first..last`` of every case on both arms; True on a rate limit."""
@@ -859,6 +917,7 @@ async def compare(
                 for case, _scenario in sealed:
                     key = keys[case.case_id]
                     for rep in range(first, last + 1):
+                        used_runs.add((sv.version_id, key, rep))
                         if (cached := done.get((sv.version_id, key, rep))) is not None:
                             scores[label].append(cached)
                             continue
@@ -875,7 +934,9 @@ async def compare(
                             return True
                         cv = cvs[sv.version_id]
                         if checkpoint and cv is not None and score.outcome == "scored":
-                            await store.save_progress(sv.version_id, jv, cv, key, rep, score)
+                            stored = run.model_dump(mode="json", include=set(STORED_RUN_FIELDS))
+                            await store.save_progress(sv.version_id, jv, cv, key, rep, score,
+                                                      run=stored)  # fmt: skip
                             done[(sv.version_id, key, rep)] = score
             return False
 
@@ -903,7 +964,12 @@ async def compare(
             candidate, baseline, used, scores, cluster_of, aborted, n_boot, seed,
             applies=applies, failure_policy=failure_policy, repetition_rule=rule,
         )  # fmt: skip
-        tags = {"gate_id": gate_id, "cycle_id": cycle_id} if gate_id else {}
+        tags: dict[str, Any] = {}
+        if gate_id:
+            tags = {"gate_id": gate_id, "cycle_id": cycle_id, "judge_version": jv,
+                    "code_versions": cvs}  # fmt: skip
+            if checkpoint:
+                await store.record_compare_runs(gate_id, used_runs)
         await store.record_audit(result, code.git_sha, **tags)
     return result
 

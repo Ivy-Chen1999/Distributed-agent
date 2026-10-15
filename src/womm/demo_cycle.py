@@ -288,10 +288,15 @@ class ScriptedHoldoutStore:
         return {(v, k, r): s for (v, j, c, k, r), s in self.progress.items()
                 if v in version_ids and j == judge_version and c == code_version}  # fmt: skip
 
-    async def save_progress(self, version_id, judge_version, code_version, key, rep, score):
+    async def save_progress(self, version_id, judge_version, code_version, key, rep, score,
+                            run=None):  # fmt: skip
         self.progress[(version_id, judge_version, code_version, key, rep)] = score
 
-    async def record_audit(self, result, git_sha, *, gate_id=None, cycle_id=None) -> int:
+    async def record_compare_runs(self, gate_id, rows) -> None:
+        pass  # the scripted demo never re-scores
+
+    async def record_audit(self, result, git_sha, *, gate_id=None, cycle_id=None,
+                           judge_version=None, code_versions=None) -> int:  # fmt: skip
         self.audits.append({"result": result, "gate_id": gate_id, "cycle_id": cycle_id})
         return len(self.audits)
 

@@ -28,16 +28,23 @@ class ProgressStore(MemoryStore):
         self.progress = {} if progress is None else progress
         self.crash_after = crash_after
         self.loads = []
+        self.runs = {}
+        self.compare_runs = {}
 
     async def load_progress(self, version_ids, judge_version, code_version):
         self.loads.append((tuple(version_ids), judge_version, code_version))
         return {(v, k, r): s for (v, j, c, k, r), s in self.progress.items()
                 if v in version_ids and j == judge_version and c == code_version}  # fmt: skip
 
-    async def save_progress(self, version_id, judge_version, code_version, key, rep, score):
+    async def save_progress(self, version_id, judge_version, code_version, key, rep, score,
+                            run=None):  # fmt: skip
         if self.crash_after is not None and len(self.progress) >= self.crash_after:
             raise Crash("killed mid-comparison")
         self.progress[(version_id, judge_version, code_version, key, rep)] = score
+        self.runs[(version_id, judge_version, code_version, key, rep)] = run
+
+    async def record_compare_runs(self, gate_id, rows):
+        self.compare_runs.setdefault(gate_id, set()).update(rows)
 
     async def record_audit(self, result, git_sha, **tags):
         self.audits.append((result, git_sha, tags))
@@ -141,7 +148,29 @@ async def test_gate_tags_reach_the_audit_row(roots):
     cand, base = _versions()
     store = ProgressStore(sealed)
     await _run(store, cand, base, *_backends(4), gate_id="gate_1", cycle_id="cycle_a")
-    assert store.audits[0][2] == {"gate_id": "gate_1", "cycle_id": "cycle_a"}
+    tags = store.audits[0][2]
+    assert (tags["gate_id"], tags["cycle_id"]) == ("gate_1", "cycle_a")
+    assert tags["judge_version"].startswith("jv_")
+    assert set(tags["code_versions"]) == {cand.version_id, base.version_id}
+
+
+async def test_a_gate_comparison_records_its_runs_and_which_it_used(roots):
+    sealed = _sealed(roots)  # 2 cases
+    cand, base = _versions()
+    store = ProgressStore(sealed)
+    await _run(store, cand, base, *_backends(4), gate_id="gate_1")
+    used = store.compare_runs["gate_1"]
+    assert len(used) == 2 * 2 * 2  # arms x cases x repetitions, cached or fresh
+    assert {v for v, _k, _r in used} == {cand.version_id, base.version_id}
+    run = next(iter(store.runs.values()))
+    assert set(run) == set(holdout.STORED_RUN_FIELDS)
+    assert "retrievals" not in run and "citable_sources" not in run
+    # a later gate that reuses the incumbent's cached runs still lists them as used
+    other = ProgressStore(sealed, store.progress)
+    other.runs = store.runs
+    c, b = _backends(4)
+    await _run(other, cand, base, c, b, gate_id="gate_2")
+    assert other.compare_runs["gate_2"] == used
 
 
 async def test_without_checkpoint_nothing_is_saved(roots):

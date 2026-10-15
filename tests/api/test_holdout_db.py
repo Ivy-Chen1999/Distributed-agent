@@ -68,7 +68,12 @@ async def test_holdout_migrations_are_separate_from_the_api(database_url, holdou
         await api.close()
     assert _rows(database_url, "SELECT 1 FROM pg_namespace WHERE nspname = 'holdout'") == []
     store = holdout.HoldoutStore(holdout_url)
-    applied = ["001_holdout", "002_compare_progress", "003_budget_reservations"]
+    applied = [
+        "001_holdout",
+        "002_compare_progress",
+        "003_budget_reservations",
+        "004_compare_progress_run",
+    ]
     assert await store.migrate() == applied
     assert await store.migrate() == []
     assert _rows(holdout_url, "SELECT to_regclass('public.runs')") == [(None,)]
@@ -213,6 +218,48 @@ async def test_compare_on_the_store_writes_only_the_audit_table(roots, database_
     assert hf.SECRET_IMPACT not in dump
 
 
+async def test_a_gate_comparison_stores_its_runs_for_a_rescore(roots, holdout_url):
+    from womm.models.run import RunResult
+
+    store = holdout.HoldoutStore(holdout_url)
+    await store.migrate()
+    for name in hf.PROPOSALS:
+        await store.import_case(_bundle(roots, name))
+    cand, base = fake_sv(), fake_sv().model_copy(update={"version_id": "sv_base_x"})
+    backends = hf.compare_backends(runs_per_version=2)
+    code = CodeIdentity(git_sha="abc", dirty=False)
+    await holdout.compare(
+        cand, base, 1, store=store,
+        backends=lambda sv: backends["candidate"] if sv is cand else backends["baseline"],
+        decisions=StubDecisionService(), code=code, n_boot=50, checkpoint=True, gate_id="g1",
+    )  # fmt: skip
+    stored = await store.stored_runs("g1")
+    assert stored["audit"]["repetitions"] == 1 and stored["audit"]["judge_version"]
+    assert len(stored["rows"]) == 4
+    for row in stored["rows"]:
+        assert row["score"] is not None
+        RunResult.model_validate(row["run"])
+    assert await store.stored_runs("g_missing") is None
+
+    # A row saved before runs were stored: not reused by the cache, reported as run None,
+    # filled in by the next save, never overwritten once present.
+    _rows(holdout_url, "UPDATE holdout.compare_progress SET run = NULL WHERE version_id ="
+                       " 'sv_base_x' RETURNING 1")  # fmt: skip
+    stored = await store.stored_runs("g1")
+    assert sum(r["run"] is None for r in stored["rows"]) == 2
+    jv, cv = stored["audit"]["judge_version"], stored["audit"]["code_versions"]["sv_base_x"]
+    assert await store.load_progress(["sv_base_x"], jv, cv) == {}
+    row = next(r for r in stored["rows"] if r["version_id"] == "sv_base_x")
+    from womm.eval.evaluators import CaseScore
+
+    score = CaseScore.model_validate(row["score"])
+    await store.save_progress("sv_base_x", jv, cv, row["case_key"], 1, score, run={"x": 1})
+    await store.save_progress("sv_base_x", jv, cv, row["case_key"], 1, score, run={"x": 2})
+    again = {(r["case_key"], r["version_id"]): r["run"] for r in
+             (await store.stored_runs("g1"))["rows"]}  # fmt: skip
+    assert again[(row["case_key"], "sv_base_x")] == {"x": 1}
+
+
 def test_import_script_refuses_a_handoff_outside_the_cache(roots, monkeypatch, capsys):
     handoff = roots / "handoff.yaml"
     handoff.write_text(yaml.safe_dump(hf.handoff("prop_alpha")))
@@ -233,6 +280,9 @@ FROZEN_HOLDOUT_MIGRATIONS = {
     "003_budget_reservations.sql": (
         "f6f9c310fbedd22324d4e7317a7592f0009bcf90893a681dbeaf58f0730a3a2f"
     ),
+    "004_compare_progress_run.sql": (
+        "572a8f6c421ec0de2a959f3bb8f2a3312c6c28251a52a3fbf8519f78f903de60"
+    ),
 }
 
 
@@ -250,8 +300,8 @@ async def test_gate_bookkeeping_on_the_store(roots, holdout_url):
     store = holdout.HoldoutStore(holdout_url)
     await store.migrate()
     score = CaseScore(case_id="kabc", scenario_id="s", outcome="scored", coverage=0.5)
-    await store.save_progress("sv_a", "jv", "sha", "kabc", 1, score)
-    await store.save_progress("sv_a", "jv", "sha", "kabc", 1, score)  # idempotent
+    await store.save_progress("sv_a", "jv", "sha", "kabc", 1, score, run={"run_id": "r"})
+    await store.save_progress("sv_a", "jv", "sha", "kabc", 1, score, run={"run_id": "r"})
     assert await store.load_progress(["sv_a", "sv_b"], "jv", "sha") == {("sv_a", "kabc", 1): score}
     assert await store.load_progress(["sv_a"], "jv", "other") == {}
 
