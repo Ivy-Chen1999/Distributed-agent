@@ -301,24 +301,27 @@ signs again (`womm policy sign`)):
 
 After the calibration is recorded and after step 5 (the val cases exist only once step 4 has
 published them). It starts at 3 repetitions (9 case runs, about $4, about 1 hour) and the report
-says `stop` or `extend`; on `extend`, 3 more at the same git sha (about $4 more), pooled. Every
-attempt is logged in `evals/promotion_records.yaml`, and only the first chain for a judge counts.
-Standard tier.
+says `stop` or `extend`; on `extend`, 3 more (about $4 more), pooled with the first. Every formal
+run is logged in `evals/promotion_records.yaml` when it finishes; commit that file after each run
+(the next formal run refuses a dirty tree). Only the first chain for a judge counts, and the
+report shows the stop rule's numbers only when it records. Standard tier.
 
 ```
 uv run womm eval --system-version system_versions/v1.0-unscoped-api.yaml --split val --repetitions 3 --formal
+git commit evals/promotion_records.yaml -m "chore: formal R34 run logged"
 uv run womm noise report --report <first report> --holdout-cases 8 --holdout-proposals 8 --record
-# only if it says extend: same sha, clean tree
-git checkout <first report's git_sha>
+git commit evals/promotion_records.yaml -m "chore: R34 first attempt"
+# only if it says extend (same code; commits that touch only the records file are allowed)
 uv run womm eval --system-version system_versions/v1.0-unscoped-api.yaml --split val --repetitions 3 --formal
-git switch -
+git commit evals/promotion_records.yaml -m "chore: formal R34 run logged"
 uv run womm noise report --report <first report> --report <second report> \
     --holdout-cases 8 --holdout-proposals 8 --record
-git commit evals/promotion_records.yaml
+git commit evals/promotion_records.yaml -m "chore: R34 extension"
 ```
 
-If the first sha cannot be checked out cleanly, run one fresh 6-repetition run instead and record
-it on its own (it is logged as such).
+If the code changed between the two runs, run one fresh 6-repetition run instead and record it on
+its own (it is logged as such). Sign the policy before the first R34 run: the stop rule records
+the policy's hash, and a later policy change blocks the extension.
 
 If the MDD is above `expected_gain`, the gate uses the weak threshold, and the demo says so. An
 MDD at or below `expected_gain` is necessary, not sufficient: it covers run-to-run noise only, not
