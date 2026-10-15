@@ -14,8 +14,8 @@
 # The values below are the plan's proposed defaults for the user's open decisions (plan, Open
 # Questions, "Needs the User" 1-3). Change them before signing, never after a comparison.
 version: 1
-signed_by: null            # cleared 2026-10-14 for the changes below; the owner re-signs
-signed_on: null
+signed_by: "Chen Yuxin"
+signed_on: "2026-10-15"
 
 # Every change to this file before the first comparison, with its reason (newest last). Frozen
 # once a comparison has run.
