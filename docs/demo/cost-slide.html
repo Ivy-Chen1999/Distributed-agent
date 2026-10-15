@@ -88,7 +88,9 @@ td.r, th.r { text-align:right; font-variant-numeric:tabular-nums; white-space:no
     <h2>Safeguards</h2>
     <p>Every api call now records its list-price cost (2026-10-15 fix), so <code>--max-usd</code> on cost
       sweeps and the evolve budget are enforced on api runs; a model without a known price is refused
-      by any USD cap. The OpenAI account carries a monthly limit as the outer cap.</p>
+      by any USD cap. Eval reports also record the judge's tokens and cost per case
+      (<code>judge_cost_usd</code>), so the first formal run replaces the judge estimate above. The OpenAI
+      account carries a monthly limit as the outer cap.</p>
   </section>
 </div>
 <script>
