@@ -153,6 +153,10 @@ uv run womm evolve twin <chosen>        # archives the api twin in the candidate
 uv run womm evolve promote <chosen-api-twin> --incumbent sv_43cee2e14602   # v1.0-unscoped-api
 ```
 
+Freeze the branch from the first holdout comparison until the last one (and any `--resume`) is
+done: cached runs are keyed on the code version (git HEAD plus any uncommitted diff), so any
+commit, even to docs, re-runs the incumbent at full cost.
+
 Before the first formal comparison, a person must also:
 
 1. Sign and commit the promotion policy (as in B), confirming primary metric, tolerances,

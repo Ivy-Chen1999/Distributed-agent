@@ -815,7 +815,9 @@ class HoldoutComparison(StrictModel):
     noise: dict[str, PooledNoise]
     bootstrap: dict[str, Any]
     diagnostics: dict[str, DiagnosticMeans] = Field(
-        default_factory=dict, description="impact_count and impact_chars per arm (not gated)."
+        default_factory=dict,
+        description="impact_count and impact_chars per arm (the gate rejects an "
+        "impact-count drop above 25%; rises are notes only).",
     )
     repetition_rule: RepetitionRule | None = Field(
         default=None, description="Set when the repetitions were data-driven (min to max)."
