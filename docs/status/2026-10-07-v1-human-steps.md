@@ -41,8 +41,11 @@ and R34 records are looked up by judge id) and step 5's holdout count. 6 and 7 c
 holdout comparison; 8 any time after 0.
 
 Cut-off: the reference check and the calibration each get at most one retry, and both pass by
-2026-11-06. If either still fails then, the demo cycle runs with the existing key and judge, and
-the gate decision is labelled with the failed check by name.
+2026-11-06. If the reference check still fails, the demo cycle runs with the existing key and the
+decision names the failed check. If the calibration still fails, the code refuses the formal
+(api) gate, so the demo falls back to the dev gate on `claude_code` (owner 2026-10-15): the
+decision reads "dev-only, not deployable", the demo never says the holdout comparison tested
+the transfer to `gpt-6.1-sol`, and it names the failed calibration.
 
 ---
 
@@ -69,8 +72,8 @@ protection; the API key is done (2026-10-14, below).
   every role on `gpt-6.1-sol`, reasoning effort `medium`. A live run of `case_02` on `v0.3-api`
   passed: about $0.35 and 7 minutes a case run, judge call not included (measured with the
   Planner still on `gpt-6-luna`; about a cent more on sol).
-- Still to do for the key: a monthly limit of at least $60 (R34 plus one holdout comparison with
-  headroom; a limit hit mid-run returns 429 and aborts the run after its spend), checked before
+- Still to do for the key: a monthly limit of $100 (calibration with a retry, R34 with its
+  extension, the twin check and one holdout comparison at 6 repetitions come to about $70; a limit hit mid-run returns 429 and aborts the run after its spend), checked before
   step 7 and each comparison; the account's API data settings checked and noted here (no training
   on API data; zero retention if offered). The key is never set on Railway: the deployed
   `womm-api` makes no model calls. Rotate it if `.env` or a run report is ever shared.
@@ -290,8 +293,17 @@ signs again (`womm policy sign`); re-signed 2026-10-15):
   may drop by at most one noise SD (`precision_regression`). Impact count may drop by at most
   25% (`impact_count_drop`, binding; owner 2026-10-15). Rises in impact count or total impact
   text above 25% are noted only.
-- At most 2 formal holdout comparisons in the demo; the second only for the prompt-only fallback
-  candidate. A rejection by the gate is shown as a valid end of the cycle.
+- One formal holdout comparison in the demo (owner 2026-10-15). The candidate, including the
+  prompt-only fallback, is fixed before the gate; there is no second comparison after a
+  rejection, which would be a second look at the holdout. A rejection by the gate is shown as a
+  valid end of the cycle.
+- The decision summary is published to page 4 (`publish_summary: true`, re-signed 2026-10-15),
+  with the cross-judge label once `womm evolve rescore` has run. A weak or dev pass reads "not
+  rejected (directional)" and is never made the deployed default.
+- The dev cycle (`max_metric_calls: 40`, owner 2026-10-15) takes about 13 to 16 hours of case
+  runs on `claude_code`, over two days and several usage windows. Commit the R34 records before
+  it starts, and change nothing in the worktree (no commit, no edit) until it ends: replay
+  batches are pinned to the code version and a resumed worker refuses a changed tree.
 - Before spending a comparison, the chosen candidate's api twin runs once on val (about $3) as a
   sanity check that it works under the GPT model and judge. Three val cases cannot resolve the
   expected gain; the holdout comparison on `gpt-6.1-sol` is the transfer test.
