@@ -24,8 +24,9 @@ in ``tests/evolve/test_planner_boundary.py``); nothing Planner-side imports this
 - **Decision.** Statistical: the primary metric's CI95 lower bound above 0. Weak and dev: its
   mean delta above ``weak_min_delta_se`` standard errors of the paired mean (from the
   comparison's own noise). Every guard metric's mean delta at least minus its tolerance
-  (precision included). Impact count and text length are noted when they rise more than 25%,
-  never gated. An aborted
+  (precision included). The mean impact count may fall at most ``impact_count_guard`` below
+  the incumbent's (bundling); impact count and text length rises over 25% are noted, never
+  gated. An aborted
   comparison is rejected as ``inconclusive``, consumes no budget, and a repeated abort on the
   same pair is flagged for a human.
 - **Records.** The decision is written next to its comparison in the holdout audit
@@ -142,6 +143,14 @@ class Repetitions(StrictModel):
         return self
 
 
+class ImpactCountGuard(StrictModel):
+    """Binding against bundling: merging findings into a few broad impacts raises precision
+    while coverage holds, so the candidate's mean impact count may fall at most this share
+    below the incumbent's. Rises are noted only (a new expert adds impacts)."""
+
+    max_drop_ratio: float = Field(ge=0, lt=1)
+
+
 class ChangeEntry(StrictModel):
     date: str
     change: str
@@ -166,6 +175,7 @@ class PromotionPolicy(StrictModel):
     signed_on: str | None
     primary_metric: Metric
     guards: dict[Metric, Guard]
+    impact_count_guard: ImpactCountGuard
     formal_mode: Literal["statistical", "weak"]
     expected_gain: float = Field(gt=0)
     weak_min_delta_se: float = Field(gt=0, description="Weak bar, in SEs of the paired mean.")
@@ -622,6 +632,16 @@ def _noise_se(cmp: HoldoutComparison, metric: str) -> float | None:
     return (noise.candidate_sd**2 / rn + noise.baseline_sd**2 / rn) ** 0.5
 
 
+def _impact_count_reasons(cmp: HoldoutComparison, guard: ImpactCountGuard) -> list[str]:
+    """``impact_count_drop`` below baseline x (1 - max_drop_ratio); never a silent skip."""
+    d = cmp.diagnostics.get("impact_count")
+    if d is None or d.candidate_mean is None or d.baseline_mean is None or not d.n_cases:
+        return ["impact_count_unavailable"]
+    if d.candidate_mean < d.baseline_mean * (1 - guard.max_drop_ratio) - 1e-12:
+        return ["impact_count_drop"]
+    return []
+
+
 def _diagnostic_notes(cmp: HoldoutComparison) -> list[str]:
     notes = []
     for name, d in cmp.diagnostics.items():
@@ -699,6 +719,7 @@ def decide(
                 allowed = guard.max_drop_noise_sd * sd
             if delta < -allowed - 1e-12:
                 reasons.append(f"{metric}_regression")
+        reasons += _impact_count_reasons(cmp, policy.impact_count_guard)
         notes += _diagnostic_notes(cmp)
     decision = "promoted" if improved and not reasons else "rejected"
     return GateDecision(

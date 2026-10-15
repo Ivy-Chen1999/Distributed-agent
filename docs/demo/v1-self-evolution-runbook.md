@@ -324,6 +324,8 @@ What each reason and note means (pre-registered 2026-10-14, before any compariso
 | `grounding_regression` | Mean grounding dropped by more than 0.02 | Citations are wrong (grounding checks that a quote exists) |
 | `omissions_addressed_regression` | RSB omissions addressed dropped by more than one noise SD | The candidate covers less overall |
 | `precision_regression` | The share of dossier impacts matched to an expected impact dropped by more than one noise SD | The extra impacts are wrong (the key is incomplete) |
+| `impact_count_drop` | The candidate's mean impact count per dossier fell more than 25% below the incumbent's (bundling findings into a few broad impacts) | The candidate covers less; a rise is never a rejection |
+| `impact_count_unavailable` | No paired case has impact counts, so the drop guard cannot be checked (never skipped) | Anything about the candidate's quality |
 | `inconclusive` | The comparison aborted (rate limit or a missing score); no budget used | A rejection on the merits |
 | note `judge-sensitive: impact_count/impact_chars rose ...` | The candidate writes over 25% more; possible judge gaming; report-only | A rejection |
 | note `batch shift` | The R34 halves differ; the noise SD may mix day-to-day variation | The gate is invalid |

@@ -53,6 +53,12 @@ be re-signed until then; `evals/promotion_policy.yaml` header).
   the comparison bootstraps its delta and pools its noise like the others; the guard is
   `precision: {max_drop_noise_sd: 1.0}`. Known limit: the answer key is incomplete, so a correct but
   unkeyed impact lowers precision too; both arms face the same key, so the paired delta is fair.
+- **Impact-count drop guard (binding, owner decision 2026-10-15).** Bundling (merging findings
+  into a few broad impacts) raises precision while coverage holds, and a new expert only adds
+  impacts. The candidate's mean impact count per dossier (per-case means over paired cases) must
+  be at least the incumbent's x (1 - `impact_count_guard.max_drop_ratio`), 0.25; otherwise
+  `impact_count_drop`. No paired counts: `impact_count_unavailable` (never a silent skip). Rises
+  stay report-only.
 - **Report-only diagnostics.** `impact_count` and `impact_chars` (total characters of impact text)
   per run; the comparison reports both arms' means; the gate adds a note when either rises by more
   than 25%. Bundling (fewer, longer impacts) shows in `impact_chars`.
@@ -110,7 +116,9 @@ be re-signed until then; `evals/promotion_policy.yaml` header).
   `tests/api/test_holdout_db.py`.
 - **U3. Policy and gate.** `src/womm/evolve/promotion.py`: `Metric` gains `precision`; the new
   policy fields and validation; weak bar with SE from the comparison; reasons
-  `precision_regression`, `coverage_below_weak_bar`; notes for the 25% diagnostics and
+  `precision_regression`, `coverage_below_weak_bar`, `impact_count_drop`,
+  `impact_count_unavailable` (required `impact_count_guard: {max_drop_ratio}` in [0, 1), in the
+  sign summary); notes for the 25% diagnostics and
   `batch_shift`; refuse when the R34 chain rule is broken. `src/womm/cli.py`: sign summary.
   `evals/promotion_policy.yaml`: fields, changelog, signature cleared. Tests: AE4 shape for
   precision; weak bar passes above and rejects at or below; diagnostics note; policy without a field

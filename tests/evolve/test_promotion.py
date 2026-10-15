@@ -667,7 +667,12 @@ def test_the_sign_summary_lists_every_rule(tmp_path, capsys):
     path.write_text(yaml.safe_dump(POLICY | {"changelog": [*POLICY["changelog"], entry]}))
     assert cli.main(["policy", "sign", "--by", "jdoe", "--policy", str(path)]) == cli.EXIT_OK
     out = capsys.readouterr().out
-    for text in ("precision", "weak bar", "repetitions: 3 to 6"):
+    for text in (
+        "precision",
+        "weak bar",
+        "repetitions: 3 to 6",
+        "impact count may drop at most 25%",
+    ):
         assert text in out
 
 
@@ -767,3 +772,39 @@ def test_signing_needs_a_changelog_entry_dated_today(tmp_path, capsys):
                                      "reason": "test"}]}  # fmt: skip
     path.write_text(yaml.safe_dump(today))
     assert cli.main(["policy", "sign", "--by", "jdoe", "--policy", str(path)]) == cli.EXIT_OK
+
+
+# ----------------------------------------------------------------------------- impact-count drop
+
+
+def test_an_impact_count_drop_beyond_the_bound_rejects():
+    d = decide(cmp(impacts=(7.0, 10.0)))  # -30%, bound 25%
+    assert d.decision == "rejected" and d.reasons == ["impact_count_drop"]
+
+
+def test_an_impact_count_drop_within_the_bound_passes():
+    assert decide(cmp(impacts=(7.5, 10.0))).decision == "promoted"  # exactly -25%
+    assert decide(cmp(impacts=(8.0, 10.0))).decision == "promoted"
+
+
+def test_an_impact_count_rise_never_rejects():
+    d = decide(cmp(impacts=(20.0, 10.0)))
+    assert d.decision == "promoted" and any("judge-sensitive" in n for n in d.notes)
+
+
+def test_missing_impact_counts_reject():
+    c = cmp()
+    c.diagnostics["impact_count"] = DiagnosticMeans(candidate_mean=None, baseline_mean=None,
+                                                    n_cases=0)  # fmt: skip
+    assert decide(c).reasons == ["impact_count_unavailable"]
+    c.diagnostics.pop("impact_count")
+    assert decide(c).reasons == ["impact_count_unavailable"]
+
+
+def test_the_impact_count_guard_is_required_and_a_ratio():
+    with pytest.raises(ValueError):
+        pm.PromotionPolicy.model_validate({k: v for k, v in POLICY.items()
+                                           if k != "impact_count_guard"})  # fmt: skip
+    with pytest.raises(ValueError):
+        policy(impact_count_guard={"max_drop_ratio": 1.0})
+    assert policy().impact_count_guard.max_drop_ratio == 0.25

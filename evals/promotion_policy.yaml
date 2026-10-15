@@ -38,6 +38,12 @@ changelog:
       pooled noise says 6 can resolve expected_gain and 3 cannot."
     reason: "Owner decision 2026-10-14: every repetition count adapts to the data; the rule
       reads noise only, never a candidate-minus-incumbent value."
+  - date: "2026-10-15"
+    change: "Added the binding impact-count drop guard (max_drop_ratio 0.25,
+      impact_count_drop)."
+    reason: "Bundling: merging findings into a few broad impacts raises precision while
+      coverage holds; a new expert only adds impacts, so a large drop in impact count is not a
+      real improvement (owner decision 2026-10-15)."
 
 # Decision 1: coverage is the primary metric; omissions, grounding and precision are regression
 # guards.
@@ -49,6 +55,11 @@ guards:
     max_drop_noise_sd: 1.0    # at most one pooled run-to-run noise SD (larger arm's)
   precision:
     max_drop_noise_sd: 1.0    # share of dossier impacts matched to an expected impact
+
+# Against bundling: the candidate's mean impact count per dossier may fall at most this share
+# below the incumbent's (rises are only noted).
+impact_count_guard:
+  max_drop_ratio: 0.25
 
 # The formal mode registered before any result. 'statistical' still falls back to 'weak' when
 # the data cannot support it (no MDD report, MDD above expected_gain, null CIs or
