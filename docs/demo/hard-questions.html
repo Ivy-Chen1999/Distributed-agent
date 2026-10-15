@@ -50,11 +50,10 @@ section.box { background: var(--panel); border: 1px solid var(--rule); border-ra
   </header>
 
   <div class="strip" aria-label="Verdict counts">
-    <div class="tally"><span class="eyebrow">Fails today</span><b style="color:var(--fail)">3</b></div>
-    <div class="tally"><span class="eyebrow">Weak</span><b style="color:var(--weak)">7</b></div>
-    <div class="tally"><span class="eyebrow">Holds</span><b style="color:var(--ok)">0</b></div>
-    <div class="tally"><span class="eyebrow">Fixed</span><b style="color:var(--ok)">6 of 10</b></div>
-    <div class="tally"><span class="eyebrow">Answered by wording</span><b style="color:var(--ok)">4 of 10</b></div>
+    <div class="tally"><span class="eyebrow">Failed on 10-14</span><b style="color:var(--fail)">3</b></div>
+    <div class="tally"><span class="eyebrow">Weak on 10-14</span><b style="color:var(--weak)">7</b></div>
+    <div class="tally"><span class="eyebrow">Fixed by 10-15</span><b style="color:var(--ok)">6</b></div>
+    <div class="tally"><span class="eyebrow">Answered by wording</span><b style="color:var(--ok)">4</b></div>
   </div>
 
   <div id="list" style="display:grid;gap:12px"></div>
@@ -118,8 +117,8 @@ Q.forEach(([ask, now, v, fix, cost], i) => {
   const el = document.createElement("article"); el.className = "q";
   el.innerHTML = `<div class="n">${i + 1}</div><div class="body">
     <div class="ask"></div>
-    <div class="row"><span class="lab">Today</span><div><span class="pill ${v}">${v}</span> <span class="now"></span></div></div>
-    <div class="row"><span class="lab">Fix</span><div><span class="fix"></span> <span class="cost"></span></div></div>${DONE[i] ? '<div class="row"><span class="lab">Status</span><div><span class="pill fixed">${FIXED.has(i) ? "fixed" : "wording"}</span> <span class="done"></span></div></div>' : ''}</div>`;
+    <div class="row"><span class="lab">On 10-14</span><div><span class="pill ${v}">${v}</span> <span class="now"></span></div></div>
+    <div class="row"><span class="lab">Fix</span><div><span class="fix"></span> <span class="cost"></span></div></div>${DONE[i] ? '<div class="row"><span class="lab">Status</span><div><span class="pill fixed">' + (FIXED.has(i) ? "fixed" : "wording") + '</span> <span class="done"></span></div></div>' : ''}</div>`;
   el.querySelector(".ask").textContent = ask; el.querySelector(".now").textContent = now;
   el.querySelector(".fix").textContent = fix; if (DONE[i]) el.querySelector(".done").textContent = DONE[i]; el.querySelector(".cost").textContent = "· " + cost;
   list.append(el);

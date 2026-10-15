@@ -162,34 +162,15 @@ Before the first formal comparison, a person must also:
 1. Sign and commit the promotion policy (as in B), confirming primary metric, tolerances,
    budget and `expected_gain`. `womm policy sign` refuses unless the policy's last `changelog`
    entry is dated the day of signing: add one saying what is signed and why.
-2. Calibrate the coverage judge (golden-case plan, Revision 2026-10-04). The tools draw and
-   score the pairs; people only label, then commit the record:
-
-   ```bash
-   # a. Train/val eval reports scored by the gate's judge (the incumbent's), with run files.
-   uv run womm eval --split train --system-version system_versions/v1.0-unscoped-api.yaml
-   uv run womm eval --split val   --system-version system_versions/v1.0-unscoped-api.yaml
-   # b. Draw ~30 blind pairs, half judge-covered and half judge-missed, one sheet per annotator.
-   uv run womm calibrate sample --sv sv_43cee2e14602 \
-       --report runs/eval_<train>.json --report runs/eval_<val>.json \
-       --n 30 --seed 20261007 --annotator alice --annotator bob \
-       --out .cache/calibration/2026-10-jv/
-   # c. Send each annotator sheet_<name>.md and answers_<name>.yaml (never key.private.json).
-   #    They fill in label (covered | not_covered | unsure) and an optional note per pair id,
-   #    and return the answers file into the same directory.
-   # d. Score: per-annotator and majority agreement, Cohen's kappa, inter-annotator agreement.
-   uv run womm calibrate score --dir .cache/calibration/2026-10-jv/
-   # e. Append the aggregate judge_calibrations record, then commit it.
-   uv run womm calibrate score --dir .cache/calibration/2026-10-jv/ --record
-   git add evals/promotion_records.yaml && git commit -m "chore: record coverage-judge calibration"
-   ```
-
-   The sample is stratified by the judge's verdict so misses are well represented; agreement is
-   reported raw and reweighted to the judge's natural covered rate, and the recorded
-   `agreement` is the lower of the two. `unsure` labels and ties are excluded and counted.
-   Holdout reports and non-public cases are refused. The gate needs at least 85%; below that,
-   fix the judge rubric and recalibrate (also after any change of the judge prompt or model,
-   which changes `judge_version`).
+2. Calibrate the coverage judge. The commands, sample (train split of the incumbent api twin,
+   `--seed 1`, annotators samuel and eetu, hosted labelling page) and the cut-off are in the
+   human steps, step 4 (`docs/status/2026-10-07-v1-human-steps.md` on
+   `feat/provision-comparison`); that page is the one recipe. The rule the gate applies: at
+   least 24 pairs with a clear answer, two annotators agreeing on at least 80% of pairs, and the
+   judge agreeing with them on at least 85%, taken as the lower of the raw and the
+   natural-rate-reweighted figures. `unsure` labels and ties are excluded and counted. Holdout
+   reports and non-public cases are refused. A change of the judge prompt, model or effort
+   changes `judge_version` and needs a new calibration.
 3. Run the R34 formal noise run (3 repetitions, extended by 3 when the stop rule says so) and
    record it with its minimum-detectable-delta reports:
 

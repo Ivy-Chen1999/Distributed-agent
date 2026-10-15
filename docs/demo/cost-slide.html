@@ -45,7 +45,7 @@ td.r, th.r { text-align:right; font-variant-numeric:tabular-nums; white-space:no
     <div class="kpi"><span class="eyebrow">One case run, formal (sol)</span><b>~$0.45</b><span class="muted">$0.35 system + ~$0.10 judge · ~7 min</span></div>
     <div class="kpi"><span class="eyebrow">One case run, dev (Claude)</span><b>$1.17</b><span class="muted">median API-equivalent, n=35 · $0 on subscription</span></div>
     <div class="kpi"><span class="eyebrow">One holdout comparison</span><b>$22–44</b><span class="muted">8 cases × 2 arms × 3–6 reps</span></div>
-    <div class="kpi"><span class="eyebrow">Whole demo, API</span><b>$38–60</b><span class="muted">capped by the OpenAI monthly limit</span></div>
+    <div class="kpi"><span class="eyebrow">Whole demo, API</span><b>$34–87</b><span class="muted">$34–60 with one comparison; $87 with both and a calibration retry; set the OpenAI limit to $100</span></div>
   </div>
 
   <section class="box">
@@ -64,13 +64,14 @@ td.r, th.r { text-align:right; font-variant-numeric:tabular-nums; white-space:no
     <table>
       <thead><tr><th>Step</th><th>Why it must be on the API</th><th class="r">Cost</th></tr></thead>
       <tbody>
-        <tr><td>Step 4 train eval (calibration outputs)</td><td>the judge is calibrated on the api judge's own outputs</td><td class="r">~$5</td></tr>
+        <tr><td>Step 4 train eval (calibration outputs)</td><td>the incumbent's outputs, scored by the api judge, are what the judge is calibrated on</td><td class="r">~$5</td></tr>
         <tr><td>R34 noise run</td><td>noise of the system the gate compares</td><td class="r">$4–8</td></tr>
         <tr><td>Val check of the candidate's api twin</td><td>prompts tuned on Claude must hold on sol</td><td class="r">~$3</td></tr>
         <tr><td>Holdout comparison 1</td><td>the formal gate</td><td class="r">$22–44</td></tr>
         <tr><td>Holdout comparison 2 (only if the prompt-only fallback runs)</td><td>incumbent runs are reused</td><td class="r">~$11–22</td></tr>
         <tr><td>Cross-judge re-score</td><td>runs on Claude</td><td class="r">$0</td></tr>
         <tr><td>Evolution cycles</td><td>run on Claude</td><td class="r">$0</td></tr>
+        <tr><td>Calibration retry (only if the first fails)</td><td>new sample needs fresh api outputs</td><td class="r">~$5</td></tr>
       </tbody>
     </table>
   </section>
