@@ -125,17 +125,20 @@ async def gate_cycle_id(archive: Any, candidate_id: str, requested: str | None) 
 
 async def target_category(archive: Any, candidate_id: str) -> str | None:
     """The category of the candidate's archived topology target pattern (``kind/category/
-    owner``), or of the version its api twin was made from; None for a prompt-only or
-    unarchived candidate and for failure memory's ``uncategorised`` fallback. Read from the main
-    database by the caller and passed to the holdout side; the holdout never reads the
-    archive."""
+    owner``, or a mapping with ``category``), or of the version its api twin was made from; None
+    for a prompt-only or unarchived candidate and for failure memory's ``uncategorised``
+    fallback. Read from the main database by the caller and passed to the holdout side; the
+    holdout never reads the archive."""
     row = await archive.get(candidate_id)
     if row and row.get("diff") is None and row.get("twin_of"):
         row = await archive.get(row["twin_of"])
     pattern = ((row or {}).get("diff") or {}).get("target_pattern")
     if not pattern:
         return None
-    category = pattern.partition("/")[2].rpartition("/")[0]
+    if isinstance(pattern, Mapping):  # archived as fields (womm.api.e2e), not as its key
+        category = str(pattern.get("category") or "")
+    else:
+        category = pattern.partition("/")[2].rpartition("/")[0]
     return category if category and category != UNCATEGORISED else None
 
 

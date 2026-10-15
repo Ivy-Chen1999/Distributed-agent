@@ -886,11 +886,16 @@ async def test_the_target_category_comes_from_the_archived_topology_diff():
         _arow("sv_topo", topo), _arow("sv_twin", None, "sv_topo"),
         _arow("sv_gepa", {"ops": [], "rendered": ""}),
         _arow("sv_unc", {"ops": [], "target_pattern": "missed_impact/uncategorised/legal"}),
+        _arow("sv_fields", {"ops": [], "target_pattern": {"kind": "missed_impact",
+                                                          "category": "workforce",
+                                                          "owner": "none"}}),
     )  # fmt: skip
     assert await pm.target_category(archive, "sv_topo") == "social_environmental"
     assert await pm.target_category(archive, "sv_twin") == "social_environmental"
     assert await pm.target_category(archive, "sv_gepa") is None, "a prompt-only candidate"
     assert await pm.target_category(archive, "sv_unc") is None
+    # The form womm.api.e2e.seed_evolution archives (and page 4 reads) used to crash the gate.
+    assert await pm.target_category(archive, "sv_fields") == "workforce"
     assert await pm.target_category(archive, "sv_missing") is None
 
 
