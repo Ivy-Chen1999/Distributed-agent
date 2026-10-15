@@ -281,3 +281,21 @@ def test_eval_json_stdout_is_pure_json_with_langsmith(fake_version, tmp_path, ca
     out = capsys.readouterr()
     assert json.loads(out.out)["metadata"]["langsmith_experiment"] == "exp-x"
     assert "View the evaluation results" in out.err
+
+
+@pytest.mark.parametrize(("env", "extra"), [({}, []), ({"LANGSMITH_API_KEY": "k"}, ["--local"])])
+def test_eval_formal_refuses_without_langsmith_before_any_backend(tmp_path, capsys, monkeypatch,
+                                                                  env, extra):  # fmt: skip
+    """The R34 extension needs each formal run's own LangSmith experiment; a formal run that
+    cannot record one would be paid for and then block the extension."""
+    from womm.config import load_settings
+
+    async def must_not_run(*a, **k):
+        raise AssertionError("no backend or self-check before the refusal")
+
+    monkeypatch.setattr(cli, "prepare_backends", must_not_run)
+    monkeypatch.setattr(cli, "load_settings", lambda: load_settings(env))
+    api = str(cli.REPO_ROOT / "system_versions" / "v1.0-unscoped-api.yaml")
+    code = cli.main(["eval", "--system-version", api, "--split", "train", "--repetitions", "3",
+                     "--formal", "--runs-dir", str(tmp_path), *extra])  # fmt: skip
+    assert code == cli.EXIT_USAGE and "LangSmith" in capsys.readouterr().err

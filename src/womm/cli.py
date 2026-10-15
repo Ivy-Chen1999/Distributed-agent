@@ -200,6 +200,10 @@ async def cmd_eval(args: argparse.Namespace) -> int:
     if args.formal:
         check_formal(sv, args.repetitions)  # before any self-check or LLM spend
     settings = load_settings()
+    if args.formal and (args.local or not settings.langsmith_api_key):
+        # An R34 extension refuses a run without its own experiment; refuse before the spend.
+        raise UsageError("a formal run records a LangSmith experiment (an R34 extension needs one "
+                         "per run): set LANGSMITH_API_KEY and drop --local")  # fmt: skip
     decisions = make_decision_service(sv, settings)  # config errors before LLM spend
     backends, cli_version, _ = await prepare_backends(sv, skip_self_check=args.skip_self_check)
     report = await evaluate_cases(
@@ -229,6 +233,9 @@ async def cmd_eval(args: argparse.Namespace) -> int:
             info(f"LangSmith experiment: {name}")
         except Exception as exc:  # noqa: BLE001
             info(f"warning: LangSmith recording failed: {type(exc).__name__}: {exc}")
+    unrecorded = (
+        args.formal and not report.aborted and "langsmith_experiment" not in report.metadata
+    )
     if settings.database_url and not report.aborted:
         try:
             n = await persist_failures(report, settings.database_url)
@@ -263,6 +270,11 @@ async def cmd_eval(args: argparse.Namespace) -> int:
     emit(args, data, "\n".join(lines))
     if report.aborted:
         info(f"eval aborted: {report.aborted}")
+        return EXIT_FAILED
+    if unrecorded:  # logged above (it was paid for), but an R34 extension would refuse it
+        info("error: this formal run has no LangSmith experiment, so an R34 extension cannot "
+             "use it (each run needs its own); fix LangSmith before `womm noise report "
+             "--record`, or plan the 6-repetition fallback run")  # fmt: skip
         return EXIT_FAILED
     return EXIT_OK
 

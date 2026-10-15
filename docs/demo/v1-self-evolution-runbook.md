@@ -103,7 +103,8 @@ the Claude CLI logged in and its isolation self-check passing.
 uv run womm evolve seed
 uv run womm evolve replay sv_73c6a3fdd013 --split train --repetitions 2
 uv run womm evolve failures --sv sv_73c6a3fdd013 --from-db   # is there owner = none in 2+ proposals?
-uv run womm evolve cycle --base sv_73c6a3fdd013 --stage both --cycle-id cycle_demo_dev
+uv run womm evolve cycle --base sv_73c6a3fdd013 --stage both --cycle-id cycle_demo_dev \
+    --gepa-dir .cache/gepa/cycle_demo_dev
 # <chosen> = the cycle's "candidate for the gate"
 uv run womm evolve diffcheck <chosen>              # R37, optional (see below)
 uv run womm evolve diffcheck sv_73c6a3fdd013
@@ -133,7 +134,14 @@ at its first precondition: "the prompt stage needs at least one train and one va
   The judge also moved c02_e03 to compliance_cost; every other item passed both judges.
 - The topology stage needs a pattern with owner none in 2+ proposals: impossible with the AI Act
   alone, possible with the 12 laws of the published cases.
-- Budget several hours on `claude_code` for a cycle: 4 full runs took about 50 minutes.
+- Budget 13 to 16 hours on `claude_code` for a cycle at `max_metric_calls: 40` (about 78 case
+  runs at about 12.5 minutes each), over two days and several usage windows.
+- **A cycle stopped by a usage limit** prints `resume it with womm evolve worker <batch>
+  --resume`. Run that once the limit resets, then rerun the same `womm evolve cycle` command
+  with the same `--cycle-id` and `--gepa-dir`: GEPA reloads its state and every finished
+  replay is reused (no repeated runs, no new proposals). Without `--gepa-dir` the prompt stage
+  starts again and the Claude proposer writes new proposals, so hours of runs are lost. Change
+  nothing in the worktree until the cycle ends: replay batches are pinned to the code version.
 
 What each step needs:
 
@@ -175,9 +183,13 @@ Before the first formal comparison, a person must also:
 3. Run the R34 formal noise run (3 repetitions, extended by 3 when the stop rule says so) and
    record it with its minimum-detectable-delta reports:
 
+   Every formal run records its own LangSmith experiment (an extension refuses a run without
+   one), so `LANGSMITH_API_KEY` must be set and `--local` is not used; `womm eval --formal`
+   refuses before any spend otherwise, and exits non-zero if the recording fails after the run.
+
    ```bash
    uv run womm eval --split val --repetitions 3 --formal \
-       --system-version system_versions/v1.0-unscoped-api.yaml     # api key, clean tree
+       --system-version system_versions/v1.0-unscoped-api.yaml     # api + LangSmith keys, clean tree
    # Holdout counts from the sealed store's import log (a person passes them in). --record
    # applies the stop rule and records the attempt whatever it says.
    uv run womm noise report --report runs/eval_<first>.json \
@@ -190,8 +202,13 @@ Before the first formal comparison, a person must also:
    git add evals/promotion_records.yaml && git commit -m "chore: log formal run"
    uv run womm noise report --report runs/eval_<first>.json --report runs/eval_<second>.json \
        --holdout-cases 8 --holdout-proposals 8 --record
-   # If the code has changed since the first run: one fresh run of 6 (a fallback) instead, same
-   # version, split and stop-rule inputs.
+   # If the code has changed since the first run (or the first run has no LangSmith
+   # experiment): one fresh run of 6, the fallback, instead:
+   #   uv run womm eval --split val --repetitions 6 --formal \
+   #       --system-version system_versions/v1.0-unscoped-api.yaml
+   #   git add evals/promotion_records.yaml && git commit -m "chore: log formal run"
+   #   uv run womm noise report --report runs/eval_<fallback>.json \
+   #       --holdout-cases 8 --holdout-proposals 8 --record
    git add evals/promotion_records.yaml && git commit -m "chore: record R34 noise run and MDD"
    ```
 
