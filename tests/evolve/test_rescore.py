@@ -68,12 +68,16 @@ class RescoreStore(ProgressStore):
         for k in [k for k in self.rescore_progress if k[:2] == (gate_id, rjv)]:
             del self.rescore_progress[k]
 
-    async def current_rescore(self, gate_id):
+    def _current(self, gate_id):
         return next((r for r in self.rescores if r["gate_id"] == gate_id
                      and not r["superseded"]), None)  # fmt: skip
 
+    async def current_rescore(self, gate_id):
+        current = self._current(gate_id)
+        return current["result"] if current else None
+
     async def record_rescore(self, gate_id, rjv, result, *, replace=False):
-        current = await self.current_rescore(gate_id)
+        current = self._current(gate_id)
         if current is not None:
             if not replace:
                 raise holdout.HoldoutError("already re-scored")
@@ -228,3 +232,79 @@ async def test_a_second_rescore_needs_replace_and_supersedes(roots):
     await rs.rescore("g1", store=store, judge_sv=_judge_sv(), backends=backend, replace=True)
     assert len(backend["fake"].calls) == 10, "replace clears the old progress"
     assert [r["superseded"] for r in store.rescores] == [True, False]
+
+
+# ----------------------------------------------------------------------------- CLI (U3)
+
+
+def _cli_store(monkeypatch, store):
+    from womm import cli
+    from womm.evolve import promotion as pm
+
+    from .test_promotion import policy
+
+    result = store.audits[0][0]
+    decision = pm.decide(
+        result,
+        policy(),
+        pm.ModeChoice(mode="dev", deployable=False),
+        gate_id="g1",
+        cycle_id="c1",
+        policy_sha256="sha",
+        git_sha="abc",
+    )
+    store.decision = decision.model_dump(mode="json")
+
+    async def migrate():
+        return []
+
+    async def decisions_for(version_id):
+        return [store.decision | {"recorded_at": "2026-10-15T10:00:00"}]
+
+    store.migrate, store.decisions_for = migrate, decisions_for
+    monkeypatch.setattr(cli, "_holdout_store", lambda: store)
+
+    async def fake_prepare(version, *, skip_self_check=False, settings=None):
+        return _judge_backend(hf._judge), None, None
+
+    monkeypatch.setattr(cli, "prepare_backends", fake_prepare)
+    return cli
+
+
+def _judge_file(tmp_path):
+    import yaml
+
+    path = tmp_path / "judge_sv.yaml"
+    path.write_text(yaml.safe_dump(_judge_sv().spec.model_dump(mode="json")))
+    return path
+
+
+async def _seeded(roots):
+    return await _gate(roots, reps=1)
+
+
+def test_evolve_rescore_and_show(roots, tmp_path, monkeypatch, capsys):
+    import asyncio
+
+    store = asyncio.run(_seeded(roots))
+    cli = _cli_store(monkeypatch, store)
+    cand = store.audits[0][0].candidate_version
+    assert cli.main(["evolve", "show", cand]) == cli.EXIT_OK
+    assert "cross-judge check: not run" in capsys.readouterr().out
+
+    args = ["evolve", "rescore", "g1", "--judge-sv", str(_judge_file(tmp_path))]
+    assert cli.main([*args, "--json"]) == cli.EXIT_OK
+    out = json.loads(capsys.readouterr().out)
+    assert out["label"] in ("agrees", "cross-judge-sensitive") and out["gate_id"] == "g1"
+    assert cli.main(args) == cli.EXIT_USAGE and "--replace" in capsys.readouterr().err
+    assert cli.main([*args, "--replace"]) == cli.EXIT_OK
+    capsys.readouterr()
+    assert cli.main(["evolve", "show", cand]) == cli.EXIT_OK
+    shown = capsys.readouterr().out
+    assert "cross-judge check (fake:" in shown and "not run" not in shown
+
+
+def test_rescore_runs_with_the_holdout_url_set():
+    from womm import cli
+
+    assert "rescore" in cli.HOLDOUT_SIDE_EVOLVE

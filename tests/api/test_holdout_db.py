@@ -73,6 +73,7 @@ async def test_holdout_migrations_are_separate_from_the_api(database_url, holdou
         "002_compare_progress",
         "003_budget_reservations",
         "004_compare_progress_run",
+        "005_rescore_audit",
     ]
     assert await store.migrate() == applied
     assert await store.migrate() == []
@@ -260,6 +261,29 @@ async def test_a_gate_comparison_stores_its_runs_for_a_rescore(roots, holdout_ur
     assert again[(row["case_key"], "sv_base_x")] == {"x": 1}
 
 
+async def test_rescore_progress_and_audit_on_the_store(holdout_url):
+    from womm.eval.evaluators import CaseScore
+
+    store = holdout.HoldoutStore(holdout_url)
+    await store.migrate()
+    score = CaseScore(case_id="kabc", scenario_id="s", outcome="scored", coverage=0.5)
+    await store.save_rescore_progress("g1", "jv_c", "sv_a", "kabc", 1, score)
+    await store.save_rescore_progress("g1", "jv_c", "sv_a", "kabc", 1, score)  # idempotent
+    assert await store.load_rescore_progress("g1", "jv_c") == {("sv_a", "kabc", 1): score}
+    assert await store.load_rescore_progress("g1", "jv_other") == {}
+    assert await store.current_rescore("g1") is None
+    await store.record_rescore("g1", "jv_c", {"label": "agrees"})
+    assert (await store.current_rescore("g1"))["label"] == "agrees"
+    with pytest.raises(holdout.HoldoutError, match="already"):
+        await store.record_rescore("g1", "jv_c", {"label": "agrees"})
+    await store.record_rescore("g1", "jv_c", {"label": "cross-judge-sensitive"}, replace=True)
+    assert (await store.current_rescore("g1"))["label"] == "cross-judge-sensitive"
+    assert _rows(holdout_url, "SELECT count(*) FILTER (WHERE superseded) FROM"
+                              " holdout.rescore_audit") == [(1,)]  # fmt: skip
+    await store.clear_rescore_progress("g1", "jv_c")
+    assert await store.load_rescore_progress("g1", "jv_c") == {}
+
+
 def test_import_script_refuses_a_handoff_outside_the_cache(roots, monkeypatch, capsys):
     handoff = roots / "handoff.yaml"
     handoff.write_text(yaml.safe_dump(hf.handoff("prop_alpha")))
@@ -283,6 +307,7 @@ FROZEN_HOLDOUT_MIGRATIONS = {
     "004_compare_progress_run.sql": (
         "572a8f6c421ec0de2a959f3bb8f2a3312c6c28251a52a3fbf8519f78f903de60"
     ),
+    "005_rescore_audit.sql": ("e804b88e1cc4bd8d219c2e283a5eb81437185c2a9db7dbdd5d5032152b281913"),
 }
 
 

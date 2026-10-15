@@ -659,12 +659,40 @@ async def cmd_evolve_show(args: argparse.Namespace) -> int:
     """The gate decisions recorded in the sealed holdout audit for one candidate (local only;
     aggregates, never case ids)."""
     from womm.evolve.promotion import format_decision
+    from womm.evolve.rescore import format_rescore
 
     store = _holdout_store()
     await store.migrate()
     rows = await store.decisions_for(args.candidate)
-    text = "\n\n".join(f"{r['recorded_at']}\n{format_decision(r)}" for r in rows)
-    emit(args, rows, text or f"no gate decision recorded for {args.candidate}")
+    blocks = []
+    for r in rows:
+        rescore = await store.current_rescore(r["gate_id"]) if r.get("gate_id") else None
+        r["rescore"] = rescore
+        check = format_rescore(rescore) if rescore else "cross-judge check: not run"
+        blocks.append(f"{r['recorded_at']}\n{format_decision(r)}\n{check}")
+    emit(args, rows, "\n\n".join(blocks) or f"no gate decision recorded for {args.candidate}")
+    return EXIT_OK
+
+
+async def cmd_evolve_rescore(args: argparse.Namespace) -> int:
+    """Re-score a gate comparison's stored runs with a cross-family judge (report-only; local,
+    aggregates only). Judge calls only, on the judge version's backend (the Claude subscription
+    for the default)."""
+    from womm.evolve import rescore as rs
+
+    judge_sv = load_system_version(_sv_path(args.judge_sv), REPO_ROOT)
+    store = _holdout_store()
+    await store.migrate()
+    backends, _, _ = await prepare_backends(judge_sv, skip_self_check=args.skip_self_check)
+    try:
+        result = await rs.rescore(args.gate_id, store=store, judge_sv=judge_sv,
+                                  backends=backends, replace=args.replace)  # fmt: skip
+    except rs.RescoreRefused as exc:
+        raise UsageError(str(exc)) from None
+    except rs.RescoreStopped as exc:
+        info(str(exc))
+        return EXIT_FAILED
+    emit(args, result.model_dump(mode="json"), rs.format_rescore(result))
     return EXIT_OK
 
 
@@ -1395,6 +1423,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="gate decisions from the sealed holdout audit (local; needs HOLDOUT_DATABASE_URL)",
     )  # fmt: skip
     p_show.add_argument("candidate")
+    p_rescore = evolve.add_parser(
+        "rescore", parents=[common],
+        help="re-score a gate comparison with a cross-family judge (report-only; local; needs "
+        "HOLDOUT_DATABASE_URL)",
+    )  # fmt: skip
+    p_rescore.add_argument("gate_id")
+    p_rescore.add_argument("--judge-sv", default="system_versions/v1.0-unscoped.yaml",
+                           help="the system version whose coverage judge re-scores")  # fmt: skip
+    p_rescore.add_argument("--replace", action="store_true",
+                           help="supersede the gate's current re-score")  # fmt: skip
+    p_rescore.add_argument("--skip-self-check", action="store_true", help="dev only")
     _add_calibration_parsers(sub, common)
     return parser
 
@@ -1506,6 +1545,7 @@ EVOLVE_HANDLERS = {
     "diffcheck": cmd_evolve_diffcheck,
     "promote": cmd_evolve_promote,
     "show": cmd_evolve_show,
+    "rescore": cmd_evolve_rescore,
 }
 
 
@@ -1528,8 +1568,9 @@ GROUPS = {
 
 
 # `womm evolve` subcommands allowed to run with the holdout URL set: only the promotion gate
-# (U7) and the local reader of its audit. Every other evolve command is Improvement-Planner side.
-HOLDOUT_SIDE_EVOLVE = frozenset({"promote", "show"})
+# (U7), the cross-family judge re-score of its comparisons and the local reader of its audit.
+# Every other evolve command is Improvement-Planner side.
+HOLDOUT_SIDE_EVOLVE = frozenset({"promote", "show", "rescore"})
 
 
 def _refuse_holdout_for_planner_side(args: argparse.Namespace) -> None:

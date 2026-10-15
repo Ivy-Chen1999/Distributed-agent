@@ -218,6 +218,7 @@ EVOLVE_ARGV = {
 HOLDOUT_ARGV = {
     "promote": ["promote", "sv_x", "--incumbent", "sv_y"],
     "show": ["show", "sv_x"],
+    "rescore": ["rescore", "gate_x"],
 }
 
 

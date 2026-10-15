@@ -538,6 +538,78 @@ class HoldoutStore:
             ).fetchall()
         return {"audit": dict(audit), "rows": [dict(r) for r in rows]}
 
+    # ------------------------------------------------------------ cross-judge re-score
+
+    async def load_rescore_progress(
+        self, gate_id: str, rescore_judge_version: str
+    ) -> dict[tuple[str, str, int], CaseScore]:
+        async with await self._connect() as conn:
+            rows = await (
+                await conn.execute(
+                    "SELECT version_id, case_key, repetition, score FROM holdout.rescore_progress"
+                    " WHERE gate_id = %s AND rescore_judge_version = %s",
+                    (gate_id, rescore_judge_version),
+                )
+            ).fetchall()
+        return {
+            (r["version_id"], r["case_key"], r["repetition"]): CaseScore.model_validate(r["score"])
+            for r in rows
+        }
+
+    async def save_rescore_progress(
+        self, gate_id: str, rescore_judge_version: str, version_id: str, case_key: str,
+        repetition: int, score: CaseScore,
+    ) -> None:  # fmt: skip
+        async with await self._connect() as conn:
+            await conn.execute(
+                "INSERT INTO holdout.rescore_progress (gate_id, rescore_judge_version, version_id,"
+                " case_key, repetition, score) VALUES (%s, %s, %s, %s, %s, %s)"
+                " ON CONFLICT DO NOTHING",
+                (gate_id, rescore_judge_version, version_id, case_key, repetition,
+                 Jsonb(score.model_dump(mode="json"))),
+            )  # fmt: skip
+
+    async def clear_rescore_progress(self, gate_id: str, rescore_judge_version: str) -> None:
+        async with await self._connect() as conn:
+            await conn.execute(
+                "DELETE FROM holdout.rescore_progress WHERE gate_id = %s"
+                " AND rescore_judge_version = %s",
+                (gate_id, rescore_judge_version),
+            )
+
+    async def current_rescore(self, gate_id: str) -> dict[str, Any] | None:
+        """The gate's current (not superseded) re-score result, or None."""
+        async with await self._connect() as conn:
+            row = await (
+                await conn.execute(
+                    "SELECT result FROM holdout.rescore_audit WHERE gate_id = %s"
+                    " AND NOT superseded",
+                    (gate_id,),
+                )
+            ).fetchone()
+        return row["result"] if row else None
+
+    async def record_rescore(
+        self, gate_id: str, rescore_judge_version: str, result: dict[str, Any], *,
+        replace: bool = False,
+    ) -> None:  # fmt: skip
+        """Write the gate's re-score; with ``replace`` the current one becomes superseded."""
+        async with await self._connect() as conn, conn.transaction():
+            if replace:
+                await conn.execute(
+                    "UPDATE holdout.rescore_audit SET superseded = true WHERE gate_id = %s"
+                    " AND NOT superseded",
+                    (gate_id,),
+                )
+            try:
+                await conn.execute(
+                    "INSERT INTO holdout.rescore_audit (gate_id, rescore_judge_version, result)"
+                    " VALUES (%s, %s, %s)",
+                    (gate_id, rescore_judge_version, Jsonb(result)),
+                )
+            except psycopg.errors.UniqueViolation:
+                raise HoldoutError(f"gate {gate_id} is already re-scored") from None
+
     # ------------------------------------------------------------ promotion gate (U7)
 
     async def record_decision(self, gate_id: str, decision: dict[str, Any]) -> None:
