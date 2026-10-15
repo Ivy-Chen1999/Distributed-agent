@@ -151,6 +151,23 @@ async def test_runs_stored_before_the_migration_are_refused(roots):
                          backends=_judge_backend(hf._judge))  # fmt: skip
 
 
+async def test_a_gate_without_recorded_runs_is_refused(roots):
+    """A gate decided before migration 004 (or not checkpointed) has no compare_runs rows: it
+    is refused, never recorded as an empty inconclusive re-score."""
+    store = await _gate(roots)
+    backend = _judge_backend(hf._judge)
+    real = store.stored_runs
+
+    async def no_rows(gate_id):
+        out = await real(gate_id)
+        return {**out, "rows": []}
+
+    store.stored_runs = no_rows
+    with pytest.raises(rs.RescoreRefused, match="no recorded runs"):
+        await rs.rescore("g1", store=store, judge_sv=_judge_sv(), backends=backend)
+    assert backend["fake"].calls == [] and await store.current_rescore("g1") is None
+
+
 async def test_refusals_before_any_judge_call(roots):
     store = await _gate(roots)
     backend = _judge_backend(hf._judge)
@@ -296,6 +313,9 @@ def test_evolve_rescore_and_show(roots, tmp_path, monkeypatch, capsys):
     assert cli.main([*args, "--json"]) == cli.EXIT_OK
     out = json.loads(capsys.readouterr().out)
     assert out["label"] in ("agrees", "cross-judge-sensitive") and out["gate_id"] == "g1"
+    raw = json.dumps(out)
+    stored = asyncio.run(store.stored_runs("g1"))["rows"]
+    assert stored and not any(r["case_key"] in raw for r in stored)  # aggregates only
     assert cli.main(args) == cli.EXIT_USAGE and "--replace" in capsys.readouterr().err
     assert cli.main([*args, "--replace"]) == cli.EXIT_OK
     capsys.readouterr()

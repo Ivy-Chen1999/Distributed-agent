@@ -97,6 +97,9 @@ async def rescore(
         raise RescoreRefused(f"the comparison of gate {gate_id} aborted: nothing to re-score")
     if not audit.get("decision"):
         raise RescoreRefused(f"gate {gate_id} has no decision recorded")
+    if not rows or audit.get("judge_version") is None:
+        raise RescoreRefused(f"gate {gate_id} has no recorded runs (decided before holdout "
+                             "migration 004, or unchecked): it cannot be re-scored")  # fmt: skip
     if any(r["score"] is not None and r["run"] is None for r in rows):
         raise RescoreRefused(f"gate {gate_id} used runs saved before runs were stored (holdout "
                              "migration 004): it cannot be re-scored")  # fmt: skip
