@@ -1,0 +1,128 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WOMM Demo Hard Questions</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one column; a scoreboard strip, then one row per question, ranked by damage. */
+:root {
+  --bg: #f6f7f9; --panel: #ffffff; --fg: #1b2230; --muted: #5d6676; --rule: #dde1e8;
+  --accent: #2456a6; --fail: #b3261e; --fail-soft: #f8e1df; --weak: #9a5b0b; --weak-soft: #f7ead6;
+  --ok: #2c6e3f; --ok-soft: #dcefe2;
+  --display: "Fraunces", Georgia, serif; --body: "IBM Plex Sans", system-ui, sans-serif; --mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12161d; --panel: #1a2029; --fg: #e4e8ef; --muted: #9aa4b4; --rule: #2c3440; --accent: #7ea6e8;
+  --fail: #f08a80; --fail-soft: #3a2220; --weak: #e3a35a; --weak-soft: #3a2c17; --ok: #7cc795; --ok-soft: #1d3324; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #12161d; --panel: #1a2029; --fg: #e4e8ef; --muted: #9aa4b4; --rule: #2c3440; --accent: #7ea6e8;
+  --fail: #f08a80; --fail-soft: #3a2220; --weak: #e3a35a; --weak-soft: #3a2c17; --ok: #7cc795; --ok-soft: #1d3324; color-scheme: dark }
+body { background: var(--bg); color: var(--fg); font: 15px/1.55 var(--body); }
+.wrap { max-width: 900px; margin: 0 auto; padding-block: 32px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 24px; }
+h1 { font: 600 2rem/1.15 var(--display); margin: 0; text-wrap: balance; }
+h2 { font: 600 1.2rem/1.3 var(--display); margin: 0; text-wrap: balance; }
+.eyebrow { font: 500 .75rem var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+p { margin: 0; max-width: 68ch; }
+.muted { color: var(--muted); }
+.strip { display: flex; flex-wrap: wrap; gap: 10px; }
+.tally { background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; padding: 10px 14px; display: grid; gap: 2px; min-width: 120px; }
+.tally b { font: 600 1.6rem var(--display); font-variant-numeric: tabular-nums; }
+.q { background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; padding: 16px 18px; display: grid; gap: 8px; grid-template-columns: 2.2rem 1fr; column-gap: 12px; }
+.q .n { font: 600 1.3rem var(--display); color: var(--muted); font-variant-numeric: tabular-nums; }
+.q .body { display: grid; gap: 8px; min-width: 0; }
+.ask { font-weight: 600; }
+.row { display: grid; grid-template-columns: 5.5rem 1fr; gap: 10px; }
+.lab { font: 500 .72rem var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding-top: 2px; }
+.pill { font: 500 .72rem var(--mono); padding: 2px 8px; border-radius: 99px; white-space: nowrap; justify-self: start; }
+.fixed { background: var(--ok-soft); color: var(--ok); }
+.fails { background: var(--fail-soft); color: var(--fail); } .weak { background: var(--weak-soft); color: var(--weak); } .holds { background: var(--ok-soft); color: var(--ok); }
+.cost { font-family: var(--mono); font-size: .82rem; color: var(--muted); }
+ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+section.box { background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; padding: 18px; display: grid; gap: 10px; }
+@media (max-width: 520px) { .row { grid-template-columns: 1fr; gap: 2px; } .q { grid-template-columns: 1fr; } }
+</style>
+
+<div class="wrap">
+  <header style="display:grid;gap:10px">
+    <div class="eyebrow">WOMM v1 demo · pre-mortem · 2026-10-14, status 2026-10-15</div>
+    <h1>The ten questions most likely to sink the demo</h1>
+    <p class="muted">From a hostile-audience review (an evaluation researcher, an impact-assessment expert, a funder) of the current plans and pre-registered rules. Ranked by damage. Each row: the honest answer today, whether it holds, and the cheapest fix before the demo.</p>
+  </header>
+
+  <div class="strip" aria-label="Verdict counts">
+    <div class="tally"><span class="eyebrow">Fails today</span><b style="color:var(--fail)">3</b></div>
+    <div class="tally"><span class="eyebrow">Weak</span><b style="color:var(--weak)">7</b></div>
+    <div class="tally"><span class="eyebrow">Holds</span><b style="color:var(--ok)">0</b></div>
+    <div class="tally"><span class="eyebrow">Fixed</span><b style="color:var(--ok)">6 of 10</b></div>
+    <div class="tally"><span class="eyebrow">Answered by wording</span><b style="color:var(--ok)">4 of 10</b></div>
+  </div>
+
+  <div id="list" style="display:grid;gap:12px"></div>
+
+  <section class="box">
+    <div class="eyebrow">Never say</div>
+    <h2>Three claims the demo must not make</h2>
+    <ul>
+      <li>"The system improved" or "statistically shown", for any weak-mode or dev-mode decision.</li>
+      <li>"Human-verified" or "expert-validated" answer keys. The strongest honest wording: AI-drafted, read-checked by two people, owner-ruled on the differences.</li>
+      <li>"Drafts impact assessments" or "approaches official IAs". It recovers part of an IA's list of impacts from the proposal text, graded by its own model family.</li>
+    </ul>
+  </section>
+</div>
+
+<script>
+const Q = [
+  ["Your gate would promote a candidate with no real effect about half the time. What does “promoted” tell me?",
+   "Weak mode promotes on mean delta above 0 plus guards; the design itself says a null candidate passes about half the time.", "fails",
+   "Pre-register a weak bar above zero (about 1 SE, ~0.04) and measure the null pass rate from same-version pairs of the R34 runs. Call a weak pass “not rejected (directional)”.", "~1 h · $0"],
+  ["Who says the answer keys are right?",
+   "Claude drafted them; train/val drafts are settled by tools. The reference check tests faithful reading, not correctness, and differs from the key on 21 of 59 items. The holdout gets 3 items per draft checked, while the golden-case plan required every holdout item verified by a person.", "fails",
+   "Owner verifies every holdout item, not 3 per draft. Publish the count of key errors among the 21 differences. Disclose the change from the plan.", "~2 h owner · $0"],
+  ["The same GPT writes the dossier and grades it. Was the judge calibrated on what the evolved candidate writes?",
+   "No: the 30 calibration pairs come from incumbent output only. The Claude re-score is report-only and not neutral (the dev cycle tunes against a Claude judge).", "weak",
+   "After the cycle, classmates label 10 more pairs from the candidate's val output.", "~10 min each · $0"],
+  ["An IA compares policy options before the text exists. You read the final proposal. Isn't that reverse-engineering?",
+   "Input is the proposal text; coverage is recall only; grounding checks that a quote exists, not that it supports the claim.", "fails",
+   "Scope the wording: “drafts the impacts list of an IA from the proposal text”. Optionally the owner marks 20 val impacts supported / unsupported for a precision figure.", "~30 min · $0"],
+  ["Has gpt-6.1-sol already read these IAs?",
+   "The holdout prefers IAs after June 2025 and records a postdate count; the model's knowledge cutoff is April 2026, so some holdout IAs predate it.", "weak",
+   "Closed-book probe on train/val (title and COM number only, no text), scored by the same judge. Report the postdate count in aggregate.", "~13 runs · ~$3"],
+  ["GEPA tuned the prompts on Claude, but the gate runs on GPT. Why would that transfer?",
+   "One api-twin val run is planned: 3 cases at ~0.1 noise cannot confirm a 0.08 gain.", "weak",
+   "Run the twin 3 times on val against the incumbent's R34 runs; pre-register “spend a holdout comparison only if the val delta is above 0”.", "~$9"],
+  ["Is this self-evolution, or automated prompt tweaking?",
+   "Config only; GEPA is an existing library; the new-expert route may fall back to prompt-only; no comparison against a person tuning prompts for the same hours.", "weak",
+   "Name it “automated prompt and config optimization with a sealed holdout gate”. Show the literal diff.", "$0"],
+  ["What does a rejection mean?",
+   "A binding count guard could reject a real new expert; in weak mode a rejection cannot tell no effect from noise.", "weak",
+   "Pre-register a table mapping each reject reason to its meaning before the first comparison.", "~30 min · $0"],
+  ["What does it cost to use for real, and to evolve?",
+   "About $0.35 plus the judge and 7 minutes per case run; $22–44 per holdout comparison; cycles run for hours on a personal subscription with no price.", "weak",
+   "One cost slide, with an API-equivalent cycle cost from the logged usage.", "~30 min · $0"],
+  ["You signed the policy on 10-12 and changed it on 10-14. Is that really pre-registered?",
+   "Changes are allowed before any comparison and every decision records the file's hash, but two same-day decisions were reversed.", "weak",
+   "A dated changelog in the policy header with the reason for each change, frozen before comparison 1.", "~15 min · $0"],
+];
+const DONE = {0: "Done 10-15: weak bar = gain above 1 bootstrap SE (clustered by proposal); A/A rate reported as a lower bound.",
+  3: "Done 10-15: scope wording in the runbook.", 6: "Done 10-15: wording in the runbook.",
+  7: "Done 10-15: reject-reason table in the runbook, incl. precision and impact-count guards.",
+  9: "Done 10-15: dated changelog in the policy; signing requires an entry dated that day. Policy signed 10-15.",
+  1: "Wording 10-15 (owner declined full verification): AI-drafted, read-checked by two people, owner-ruled on the differences, holdout spot-checked. Never \u201chuman-verified\u201d.",
+  2: "Wording 10-15 (extra calibration pairs declined): the runbook says the judge was calibrated on the incumbent's output; the Claude cross-judge re-score is reported after each comparison.",
+  4: "Wording 10-15 (probe not run): both arms use the same model, so contamination mostly cancels in the delta; absolute coverage shown only as context; postdate count reported.",
+  5: "Wording 10-15 (no new rule): the holdout gate runs on sol, so it is the transfer test; the api twin's val run is a sanity check only.",
+  8: "Done 10-15: cost slide from logged usage (docs/demo/cost-slide.html); api runs now record list-price cost, so USD caps work."};
+const FIXED = new Set([0, 3, 6, 7, 8, 9]);
+const list = document.getElementById("list");
+Q.forEach(([ask, now, v, fix, cost], i) => {
+  const el = document.createElement("article"); el.className = "q";
+  el.innerHTML = `<div class="n">${i + 1}</div><div class="body">
+    <div class="ask"></div>
+    <div class="row"><span class="lab">Today</span><div><span class="pill ${v}">${v}</span> <span class="now"></span></div></div>
+    <div class="row"><span class="lab">Fix</span><div><span class="fix"></span> <span class="cost"></span></div></div>${DONE[i] ? '<div class="row"><span class="lab">Status</span><div><span class="pill fixed">${FIXED.has(i) ? "fixed" : "wording"}</span> <span class="done"></span></div></div>' : ''}</div>`;
+  el.querySelector(".ask").textContent = ask; el.querySelector(".now").textContent = now;
+  el.querySelector(".fix").textContent = fix; if (DONE[i]) el.querySelector(".done").textContent = DONE[i]; el.querySelector(".cost").textContent = "· " + cost;
+  list.append(el);
+});
+</script>
+</html>
