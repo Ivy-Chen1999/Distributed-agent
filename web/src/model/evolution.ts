@@ -48,6 +48,7 @@ export const BADGES: Record<string, { t: string; c: string }> = {
   promoted: { t: 'Promoted', c: GREEN },
   'not-rejected': { t: 'Not rejected', c: AMBER },
   rejected: { t: 'Rejected', c: RED },
+  inconclusive: { t: 'Inconclusive', c: NEUTRAL },
   'dev-only': { t: 'Dev-only', c: AMBER },
   r37: { t: 'R37 regression', c: AMBER },
 };
@@ -56,7 +57,8 @@ export const badge = (b: string): { t: string; c: string } => BADGES[b] ?? { t: 
 
 /** The decision's badge: "promoted" for a statistical promotion only; a weak or dev pass is
  *  "not rejected" (directional, never the deployed default). Same rule as the lineage badges. */
-export function decisionBadge(d: Pick<PromotionDecision, 'decision' | 'mode'>): string {
+export function decisionBadge(d: Pick<PromotionDecision, 'decision' | 'mode'> & { reasons?: string[] }): string {
+  if (d.reasons?.includes('inconclusive')) return 'inconclusive'; // aborted: no result
   return d.decision === 'promoted' && d.mode !== 'statistical' ? 'not-rejected' : d.decision;
 }
 

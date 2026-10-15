@@ -377,6 +377,7 @@ def test_a_weak_pass_is_never_made_the_deployed_default():
 def test_an_aborted_comparison_is_inconclusive_and_free():
     d = decide(cmp(coverage=(None, None, None), aborted=True))
     assert d.decision == "rejected" and d.reasons == ["inconclusive"] and not d.consumes_budget
+    assert d.label == "inconclusive (aborted: no result, no holdout budget used)"
     again = decide(cmp(coverage=(None, None, None), aborted=True), prior_aborts=1)
     assert again.reasons == ["inconclusive", "repeated_abort"]
     assert any("a human should look" in n for n in again.notes)

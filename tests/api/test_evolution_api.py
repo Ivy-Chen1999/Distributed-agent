@@ -117,6 +117,21 @@ def test_only_a_statistical_promotion_is_badged_promoted(database_url, tmp_path)
     assert nodes[ids["topology"]]["badges"] == ["topology", "promoted"]
 
 
+def test_an_aborted_comparison_is_badged_inconclusive(database_url, tmp_path):
+    import psycopg
+
+    client, ids = _client(database_url, tmp_path)
+    with psycopg.connect(database_url) as conn:
+        conn.execute(
+            "UPDATE promotion_decisions SET decision = 'rejected',"
+            " reasons = '[\"inconclusive\"]'::jsonb WHERE decision = 'promoted'"
+        )
+    with client as c:
+        body = c.get("/evolution/lineage", headers=AUTH).json()
+    nodes = {n["version_id"]: n for n in body["nodes"]}
+    assert nodes[ids["topology"]]["badges"] == ["topology", "inconclusive"]
+
+
 @pytest.mark.parametrize(("publish", "status", "text"), [
     (False, "sealed", "not submitted to holdout"),
     (True, "not_submitted", "Not submitted to holdout."),

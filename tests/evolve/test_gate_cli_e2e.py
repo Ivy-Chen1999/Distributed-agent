@@ -357,7 +357,10 @@ def test_a_rate_limited_gate_is_inconclusive_and_the_rerun_reuses_its_runs(
 
     assert cli.main(argv) == cli.EXIT_OK, capsys.readouterr().err
     out = capsys.readouterr().out
-    assert f"{cand.version_id} vs {inc.version_id}: rejected (holdout, bootstrap CI)" in out
+    assert (
+        f"{cand.version_id} vs {inc.version_id}: inconclusive (aborted: no result, no holdout "
+        "budget used)"
+    ) in out
     assert "reasons: inconclusive" in out and "target category" not in out
     assert _planner_calls(backends.api) == fail_on, "the comparison stopped at the rate limit"
     ((decision, result),) = _rows(holdout_url,

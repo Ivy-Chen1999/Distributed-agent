@@ -369,7 +369,8 @@ What each reason and note means (pre-registered 2026-10-14, before any compariso
 - `promoted (holdout, bootstrap CI)`: statistical mode only. A person records it in
   `system_versions/PROMOTIONS.md` and commits the new default version (plan, human-in-the-loop
   point 4).
-- `rejected (inconclusive)`: the comparison aborted and consumed no budget; a repeated abort on
+- `inconclusive (aborted: no result, no holdout budget used)` (grey "Inconclusive" badge; the
+  machine field `decision` is `rejected`): the comparison aborted and consumed no budget; a repeated abort on
   the same pair is flagged for a person.
 - A summary that fails to reach the main database after the decision is recorded: `promote`
   prints the decision and exits non-zero; the audit row is authoritative.

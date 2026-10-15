@@ -344,7 +344,10 @@ class EvolutionView:
 
 def decision_badge(d: DecisionOut) -> str:
     """``promoted`` for a statistical promotion only; a weak or dev pass is ``not-rejected``
-    (owner decision 2026-10-15: directional, never the deployed default)."""
+    (owner decision 2026-10-15: directional, never the deployed default); an aborted
+    comparison is ``inconclusive``."""
+    if "inconclusive" in d.reasons:  # aborted: no result, not a rejection on the merits
+        return "inconclusive"
     return "not-rejected" if d.decision == "promoted" and d.mode != "statistical" else d.decision
 
 

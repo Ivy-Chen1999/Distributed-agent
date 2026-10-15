@@ -62,6 +62,8 @@ describe('evolution view models', () => {
     expect(decisionBadge({ ...weakDecision, mode: 'dev' })).toBe('not-rejected');
     expect(decisionBadge({ ...weakDecision, mode: 'statistical' })).toBe('promoted');
     expect(decisionBadge({ ...weakDecision, decision: 'rejected' })).toBe('rejected');
+    expect(decisionBadge({ ...weakDecision, decision: 'rejected', reasons: ['inconclusive'] })).toBe('inconclusive');
+    expect(badge('inconclusive').t).toBe('Inconclusive');
   });
 
   it('states the cross-judge check, or that it was not run', () => {

@@ -87,6 +87,8 @@ MODE_LABELS: dict[str, str] = {
     "dev": "dev-only, not deployable; weak threshold: directional",
 }
 WEAK_PASS = "not rejected"  # a weak or dev pass: directional, never the deployed default
+# An aborted comparison has no result: not a rejection on the merits (decision stays "rejected").
+INCONCLUSIVE = "inconclusive (aborted: no result, no holdout budget used)"
 
 
 class GateRefused(RuntimeError):
@@ -766,10 +768,11 @@ def decide(
         notes += _target_notes(cmp)
     decision = "promoted" if improved and not reasons else "rejected"
     shown = WEAK_PASS if decision == "promoted" and mode != "statistical" else decision
+    label = INCONCLUSIVE if cmp.aborted else f"{shown} ({MODE_LABELS[mode]})"
     return GateDecision(
         gate_id=gate_id, cycle_id=cycle_id, candidate_version=cmp.candidate_version,
         incumbent_version=cmp.baseline_version, mode=mode, deployable=choice.deployable,
-        decision=decision, label=f"{shown} ({MODE_LABELS[mode]})", reasons=reasons,
+        decision=decision, label=label, reasons=reasons,
         notes=notes, deltas=deltas, n_proposals=cmp.n_proposals, flags=list(cmp.flags),
         consumes_budget=not cmp.aborted, policy_sha256=policy_sha256, git_sha=git_sha, r37=r37,
     )  # fmt: skip

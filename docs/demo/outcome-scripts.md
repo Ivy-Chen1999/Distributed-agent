@@ -58,7 +58,7 @@ Every outcome opens the same way, on page 4 (Evolution):
 - **Never:** "the candidate is wrong" for precision (the key is incomplete, so unmatched
   impacts are not shown to be wrong).
 
-## 5. `rejected (inconclusive)`: the comparison aborted
+## 5. `inconclusive (aborted: no result, no holdout budget used)`: the comparison aborted
 
 - **Show:** the `inconclusive` reason; no deltas.
 - **Say:** "The run stopped (a rate limit or a missing score), so there is no result. It used
