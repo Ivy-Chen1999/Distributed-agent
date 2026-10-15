@@ -12,6 +12,8 @@ import {
   badge,
   capLines,
   ciText,
+  crossJudgeText,
+  decisionBadge,
   defaultSelection,
   fmtDelta,
   lineDiffKind,
@@ -83,7 +85,7 @@ function DecisionCard({ d }: { d: PromotionDecision }) {
   return (
     <div data-testid="decision" style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <Badge b={d.decision} />
+        <Badge b={decisionBadge(d)} />
         {!d.deployable && <Badge b="dev-only" />}
         <span data-testid="decision-label" style={{ fontWeight: 700, fontSize: 14 }}>
           {d.label}
@@ -113,6 +115,9 @@ function DecisionCard({ d }: { d: PromotionDecision }) {
           ))}
         </tbody>
       </table>
+      <div data-testid="cross-judge" style={{ fontSize: 13 }}>
+        {crossJudgeText(d.cross_judge)}
+      </div>
       {d.notes.map((n) => (
         <div key={n} style={{ fontSize: 12, color: 'var(--n1)' }}>
           {n}

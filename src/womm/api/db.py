@@ -552,8 +552,8 @@ class Database:
         async with self.pool.connection() as conn:
             return await (await conn.execute(
                 "SELECT gate_id, created_at, cycle_id, candidate_version, incumbent_version, mode,"
-                " deployable, decision, label, reasons, notes, deltas, n_proposals, flags, r37"
-                " FROM promotion_decisions ORDER BY created_at, gate_id"
+                " deployable, decision, label, reasons, notes, deltas, n_proposals, flags, r37,"
+                " cross_judge FROM promotion_decisions ORDER BY created_at, gate_id"
             )).fetchall()  # fmt: skip
 
     # ------------------------------------------------------------------ hosted labelling

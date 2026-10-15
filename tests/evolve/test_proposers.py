@@ -56,6 +56,7 @@ def test_config_snapshots_and_hashes_the_proposer_prompts():
         assert cfg.prompts[role.prompt].strip() and len(cfg.prompt_hashes[role.prompt]) == 16
     assert cfg.budget.selection_k == 1.0
     assert Budget().selection_k == 1.0
+    assert cfg.budget.max_metric_calls == 40  # owner 2026-10-15: ~12.5 min per case run
 
 
 async def test_propose_prompt_asks_the_reflect_role_for_one_typed_edit():

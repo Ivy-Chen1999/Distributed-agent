@@ -21,6 +21,7 @@ async def test_migrate_is_idempotent(database_url):
             "005_promotion_decisions",
             "006_analyst_feedback",
             "007_label_tasks",
+            "008_promotion_cross_judge",
         ]
         assert await database.migrate() == []
     finally:
@@ -28,7 +29,7 @@ async def test_migrate_is_idempotent(database_url):
 
 
 # Applied migrations are never edited: Database.migrate skips one it has applied, so an edit
-# would silently not reach an existing database. A schema change is a new migration (007+).
+# would silently not reach an existing database. A schema change is a new migration (009+).
 FROZEN_MIGRATIONS = {
     "001_init.sql": "c80129fb50cb58c8016aa493c0707f457907553b13c368deba76fb9b2145ba28",
     "002_run_ownership.sql": "de28c62563c4477571ce3c9346f4e92fe3020a808afeac6a757ca15f79dfdeab",
@@ -40,13 +41,14 @@ FROZEN_MIGRATIONS = {
     "006_analyst_feedback.sql": (
         "db8a7d02060ce1b244108ae9e0004a24bc771ba50e95bc16bb65fe9d773df0c7"
     ),
+    "007_label_tasks.sql": "4c52146e5738b31b63c1e41ce217de28ef4182694eab0cd2a6c9d8bb19e58e04",
 }
 
 
 def test_applied_migrations_are_frozen():
     for name, digest in FROZEN_MIGRATIONS.items():
         actual = hashlib.sha256((MIGRATIONS_DIR / name).read_bytes()).hexdigest()
-        assert actual == digest, f"{name} changed: add a new migration (007+) instead"
+        assert actual == digest, f"{name} changed: add a new migration (009+) instead"
 
 
 async def test_events_roundtrip_in_order(db):

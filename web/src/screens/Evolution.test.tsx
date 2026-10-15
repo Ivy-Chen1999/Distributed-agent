@@ -52,18 +52,19 @@ describe('Evolution page', () => {
     expect(rows).toHaveLength(4);
     const topo = rows.find((b) => b.getAttribute('data-version') === TOPOLOGY.version_id)!;
     expect(within(topo).getByText('New expert')).toBeTruthy();
-    expect(within(topo).getByText('Promoted')).toBeTruthy();
+    expect(within(topo).getByText('Not rejected')).toBeTruthy();
+    expect(within(topo).queryByText('Promoted')).toBeNull();
     expect(within(topo).getByText('+1 api twin')).toBeTruthy();
     // The latest decided candidate opens first.
     expect(await screen.findByRole('heading', { name: REJECTED.version_id })).toBeTruthy();
   });
 
-  it('shows a promoted weak-mode decision verbatim and the new-expert highlight', async () => {
+  it('shows a weak-mode pass as "not rejected", verbatim, with the cross-judge check and the new-expert highlight', async () => {
     stub();
     render(<Evolution />);
     await screen.findByRole('list', { name: 'Lineage' });
     pick(TOPOLOGY.version_id);
-    const label = await screen.findAllByText('promoted (weak threshold: directional)');
+    const label = await screen.findAllByText('not rejected (weak threshold: directional)');
     expect(label.length).toBeGreaterThan(0);
     const highlight = screen.getByTestId('new-expert');
     expect(within(highlight).getByText('New expert: workforce')).toBeTruthy();
@@ -73,6 +74,10 @@ describe('Evolution page', () => {
     expect(within(holdout).getByText('Weak threshold (directional) · sv_topologyapi1 vs incumbent sv_seedapi00001 · 3 proposals')).toBeTruthy();
     expect(within(holdout).getByText('+0.060')).toBeTruthy();
     expect(within(holdout).getAllByText('CI not available')).toHaveLength(3);
+    const card = within(holdout).getByTestId('decision');
+    expect(card.querySelector('[data-badge="not-rejected"]')).toBeTruthy();
+    expect(card.querySelector('[data-badge="promoted"]')).toBeNull();
+    expect(within(holdout).getByTestId('cross-judge').textContent).toBe('Cross-judge check (claude_code:claude-opus-5-5): agrees; re-scored coverage delta +0.050');
   });
 
   it('a candidate without a decision shows train/val only and "not submitted to holdout"', async () => {
@@ -93,9 +98,10 @@ describe('Evolution page', () => {
     await screen.findByRole('heading', { name: REJECTED.version_id });
     expect(screen.getByTestId('r37-warning').textContent).toMatch(/decision is unchanged/);
     const row = within(tree()).getAllByRole('button').find((b) => b.getAttribute('data-version') === REJECTED.version_id)!;
-    expect(within(row).getByText('Promoted')).toBeTruthy();
+    expect(within(row).getByText('Not rejected')).toBeTruthy();
     expect(within(row).getByText('R37 regression')).toBeTruthy();
     expect(screen.getByTestId('decision-label').textContent).toBe(REJECTED.label);
+    expect(screen.getByTestId('cross-judge').textContent).toBe('Cross-judge check: not run');
   });
 
   it('loads the per-prompt diffs only when asked', async () => {

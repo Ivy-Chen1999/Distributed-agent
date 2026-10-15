@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { DIFF_LINE_CAP, badge, capLines, ciText, defaultSelection, fmtDelta, lineDiffKind, patternText, r37Line, summaryLines, treeRows, withNoise } from './evolution';
-import { PROMPT, REJECTED, SEED, TOPOLOGY, details, lineage } from '../test/evolution';
+import { DIFF_LINE_CAP, badge, capLines, ciText, crossJudgeText, decisionBadge, defaultSelection, fmtDelta, lineDiffKind, patternText, r37Line, summaryLines, treeRows, withNoise } from './evolution';
+import { PROMPT, REJECTED, SEED, TOPOLOGY, details, lineage, weakDecision } from '../test/evolution';
 
 describe('evolution view models', () => {
   it('orders the lineage depth first with children under their parent', () => {
@@ -52,8 +52,22 @@ describe('evolution view models', () => {
   it('labels badges and diff lines', () => {
     expect(badge('topology').t).toBe('New expert');
     expect(badge('dev-only').t).toBe('Dev-only');
+    expect(badge('not-rejected').t).toBe('Not rejected');
     expect(badge('something').t).toBe('something');
     expect(['+++ b', '--- a', '@@ -1 +1 @@', '+x', '-y', ' z'].map(lineDiffKind)).toEqual(['meta', 'meta', 'hunk', 'add', 'del', 'ctx']);
+  });
+
+  it('badges only a statistical promotion "promoted"; a weak or dev pass is "not rejected"', () => {
+    expect(decisionBadge(weakDecision)).toBe('not-rejected');
+    expect(decisionBadge({ ...weakDecision, mode: 'dev' })).toBe('not-rejected');
+    expect(decisionBadge({ ...weakDecision, mode: 'statistical' })).toBe('promoted');
+    expect(decisionBadge({ ...weakDecision, decision: 'rejected' })).toBe('rejected');
+  });
+
+  it('states the cross-judge check, or that it was not run', () => {
+    expect(crossJudgeText(weakDecision.cross_judge)).toBe('Cross-judge check (claude_code:claude-opus-5-5): agrees; re-scored coverage delta +0.050');
+    expect(crossJudgeText(null)).toBe('Cross-judge check: not run');
+    expect(crossJudgeText(undefined)).toBe('Cross-judge check: not run');
   });
 
   it('caps a long prompt diff and counts the hidden lines', () => {

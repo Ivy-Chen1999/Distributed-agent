@@ -66,7 +66,7 @@ sealed holdout.
    (`ScriptedHoldoutStore`). It never reads `HOLDOUT_DATABASE_URL` and refuses to start when it
    is set. The policy is the committed one, signed in memory by the harness for the synthetic
    holdout only and publishing its summary; nothing is written to `evals/`. Expected label:
-   `promoted (dev-only, not deployable; weak threshold: directional)`, flag
+   `not rejected (dev-only, not deployable; weak threshold: directional)`, flag
    `insufficient_proposals` (2 proposals, fewer than the 5 a CI needs).
 5. **Page 4.** The archive and the decision summary are in `DATABASE_URL`.
 
@@ -142,7 +142,8 @@ What each step needs:
 | `seed`, `replay`, `failures`, `cycle` | `DATABASE_URL`; the Claude CLI (`claude_code`); golden train/val cases. No holdout URL (these commands refuse one). |
 | `diffcheck` (R37) | The reference answers in `evals/diff_regression/demo_penalties_amended.yaml`: LLM-drafted on 2026-10-12 (status `llm_drafted`; every quote is machine-checked against the article texts). Run `womm evolve diffcheck <version>` for the candidate and the incumbent so the evolution page can compare them. Never gates. |
 | `promote` (dev mode) | **A signed and committed `evals/promotion_policy.yaml`** (user decision 2026-10-06: every gate mode, dev included, reads the sealed holdout and spends its budget). The sealed holdout imported into `HOLDOUT_DATABASE_URL` (golden plan U8). Dev mode skips the coverage-judge calibration and the R34 run. |
-| Page 4 shows the holdout decision | `publish_summary: true` in the signed policy (decision 3). With `false`, the decision stays in the holdout audit and only `womm evolve show` reads it. |
+| Page 4 shows the holdout decision | `publish_summary: true` in the signed policy (decision 3; on since the owner's decision of 2026-10-15). With `false`, the decision stays in the holdout audit and only `womm evolve show` reads it. |
+| Page 4 shows the cross-judge check | `womm evolve rescore <gate_id>` with `DATABASE_URL` set as well as `HOLDOUT_DATABASE_URL`: it puts the label on the gate's published summary. |
 
 ## Path C: formal cycle on the `api` backend (when a key exists)
 
@@ -321,14 +322,20 @@ uv run womm evolve show <candidate>           # the decision, then the cross-jud
   Claude subscription (no API spend), about 1-2 hours. Holdout dossiers and key items go to
   Anthropic through the isolated CLI. A usage limit stops it; the same command resumes.
 - `cross-judge-sensitive`: the re-scored coverage delta has the opposite sign to the gate's, or
-  the gate promoted and the re-scored delta is at or below 0. The decision is unchanged; the
-  demo shows the label next to it. `agrees`: same direction. `inconclusive`: a case lacks a
-  re-scored value on some side under the gate's `failure_policy` (abort).
+  the gate passed the candidate (`promoted` or `not rejected`) and the re-scored delta is at or
+  below 0. The decision is unchanged; the demo shows the label next to it. `agrees`: same
+  direction. `inconclusive`: a case lacks a re-scored value on some side under the gate's
+  `failure_policy` (abort).
 - Claude agreeing is **weak evidence**: the dev cycle tuned the candidate against a Claude
   judge, so the Claude re-score leans toward the candidate. **Disagreement is the useful
   signal**: a gain that the GPT judge sees and the Claude judge does not depends on the judge.
-- `womm evolve show` prints `cross-judge check: not run` when it was skipped; the demo never
-  shows a formal decision with that line.
+- With `DATABASE_URL` set too, `rescore` puts the label, the re-scored coverage delta and its
+  CI, the judge and the gate's delta on the gate's published summary, and page 4 shows
+  "Cross-judge check (<judge>): <label>; re-scored coverage delta ...". A gate whose summary
+  was not published gets nothing (the command says so). If that write fails, the re-score is
+  still saved in the holdout audit; the command exits non-zero.
+- `womm evolve show` prints `cross-judge check: not run` when it was skipped, and page 4 shows
+  "Cross-judge check: not run"; the demo never shows a formal decision with that line.
 - A second rescore of the same gate refuses; `--replace` keeps the old one as superseded.
   Comparisons made before holdout migration 004 (runs not stored) cannot be re-scored.
 
@@ -352,9 +359,15 @@ What each reason and note means (pre-registered 2026-10-14, before any compariso
 | note `batch shift` | The R34 halves differ; the noise SD may mix day-to-day variation | The gate is invalid |
 | note `weak bar: ...` | The bar the weak decision used | Statistical evidence |
 
-- `promoted` in dev mode: nothing is deployed. Present it as directional.
-- `promoted` in a formal mode: a person records it in `system_versions/PROMOTIONS.md` and
-  commits the new default version (plan, human-in-the-loop point 4).
+- `not rejected (dev-only, ...)`: a dev-mode pass; nothing is deployed. Present it as
+  directional.
+- `not rejected (weak threshold: directional)`: a weak-mode pass (a statistical run downgraded
+  to weak included). It is **never made the deployed default** and never recorded in
+  `system_versions/PROMOTIONS.md` (owner decision 2026-10-15); `promote` prints "weak pass:
+  directional, not made the deployed default". The machine field `decision` stays `promoted`.
+- `promoted (holdout, bootstrap CI)`: statistical mode only. A person records it in
+  `system_versions/PROMOTIONS.md` and commits the new default version (plan, human-in-the-loop
+  point 4).
 - `rejected (inconclusive)`: the comparison aborted and consumed no budget; a repeated abort on
   the same pair is flagged for a person.
 - A summary that fails to reach the main database after the decision is recorded: `promote`

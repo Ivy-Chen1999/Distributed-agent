@@ -24,10 +24,12 @@ from ..eval.test_holdout import CLEAN, _sealed
 from ..eval.test_holdout_resume import ProgressStore
 from ..graph.conftest import fake_sv
 
-# The committed policy's values, unsigned: each test signs (SIGNED) where it needs to.
+# The committed policy's values, unsigned and unpublished: each test signs (SIGNED) and
+# publishes (publish_summary=True) where it needs to.
 POLICY = yaml.safe_load((REPO_ROOT / "evals" / "promotion_policy.yaml").read_text()) | {
     "signed_by": None,
     "signed_on": None,
+    "publish_summary": False,
 }
 
 
@@ -111,7 +113,8 @@ def test_the_committed_policy_holds_the_plan_defaults():
     assert p.guards["grounding"].max_drop == 0.02
     assert p.guards["omissions_addressed"].max_drop_noise_sd == 1.0
     assert (p.holdout_budget.per_cycle, p.holdout_budget.total) == (1, 6)
-    assert p.publish_summary is False and p.failure_policy == "abort"
+    assert p.publish_summary is True and p.failure_policy == "abort"  # owner 2026-10-15
+    assert p.changelog[-1].date == "2026-10-15"
     assert len(sha) == 64
     assert pm.load_records() == pm.PromotionRecords()
 
@@ -325,6 +328,7 @@ def test_statistical_promotes_on_a_ci_above_zero_with_guards_within_tolerance():
     d = decide(cmp(grounding=(-0.01, None, None), omissions=(-0.05, None, None)))
     assert d.decision == "promoted" and d.mode == "statistical" and d.reasons == []
     assert d.label == "promoted (holdout, bootstrap CI)" and d.consumes_budget
+    assert "next: a human commits PROMOTIONS.md" in pm.format_decision(d)
     assert d.deltas["omissions_addressed"].noise_sd == pytest.approx(0.1)
     assert decide(cmp(coverage=(0.05, -0.01, 0.1))).reasons == ["coverage_ci_not_above_zero"]
 
@@ -339,7 +343,7 @@ def test_omissions_guard_is_one_pooled_noise_sd():
 def test_weak_mode_promotes_on_a_positive_mean_and_says_directional():
     d = decide(cmp(coverage=(0.04, None, None)), mode="weak")
     assert d.decision == "promoted" and d.mode == "weak"
-    assert d.label == "promoted (weak threshold: directional)"
+    assert d.label == "not rejected (weak threshold: directional)"
     assert decide(cmp(coverage=(0.0, None, None)), mode="weak").reasons == [
         "coverage_below_weak_bar"]  # fmt: skip
 
@@ -347,6 +351,7 @@ def test_weak_mode_promotes_on_a_positive_mean_and_says_directional():
 def test_insufficient_proposals_downgrade_statistical_to_weak_and_record_it():
     d = decide(cmp(coverage=(0.04, None, None), flags=["insufficient_proposals"], n_proposals=3))
     assert d.mode == "weak" and d.decision == "promoted"
+    assert d.label == "not rejected (weak threshold: directional)"
     assert any("downgraded from statistical to weak: insufficient proposals" in n
                for n in d.notes)  # fmt: skip
 
@@ -354,8 +359,19 @@ def test_insufficient_proposals_downgrade_statistical_to_weak_and_record_it():
 def test_dev_mode_is_never_deployable():
     d = decide(cmp(coverage=(0.04, None, None)), mode="dev", deployable=False)
     assert d.decision == "promoted" and not d.deployable
-    assert d.label == "promoted (dev-only, not deployable; weak threshold: directional)"
+    assert d.label == "not rejected (dev-only, not deployable; weak threshold: directional)"
     assert "can never change the deployed default" in pm.format_decision(d)
+
+
+def test_a_weak_pass_is_never_made_the_deployed_default():
+    """Owner decision 2026-10-15: a weak (or dev) pass is "not rejected", never the default;
+    only a statistical promotion asks a human to commit the new default."""
+    d = decide(cmp(coverage=(0.04, None, None)), mode="weak")
+    text = pm.format_decision(d)
+    assert "weak pass: directional, not made the deployed default" in text
+    assert "PROMOTIONS.md" not in text
+    rejected = pm.format_decision(decide(cmp(coverage=(0.0, None, None)), mode="weak"))
+    assert "weak pass" not in rejected and "PROMOTIONS.md" not in rejected
 
 
 def test_an_aborted_comparison_is_inconclusive_and_free():
@@ -471,6 +487,22 @@ async def test_gate_records_on_postgres(roots, db, database_url, holdout_url, pu
     async with PlannerView(database_url, runs_dir=tmp_path, env={}) as view:
         assert await view.candidate(cand.version_id) is None
         assert await view.metrics(cand.version_id) == []
+
+
+CROSS = {"label": "agrees", "mean_delta": 0.05, "ci95_low": None, "ci95_high": None,
+         "judge": "claude_code:claude-opus-5-5", "gate_delta": 0.06,
+         "rescored_on": "2026-10-15"}  # fmt: skip
+
+
+async def test_the_cross_judge_label_lands_on_the_published_summary_only(db, database_url):
+    """``womm evolve rescore`` copies its aggregate label onto the gate's page-4 row; a gate
+    without a published summary (publish_summary off) gets no row."""
+    d = decide(cmp(coverage=(0.04, None, None)), mode="weak")
+    await pm.record_summary(db, d)
+    assert await pm.record_cross_judge(db, d.gate_id, CROSS) is True
+    assert _rows(database_url, "SELECT cross_judge FROM promotion_decisions") == [(CROSS,)]
+    assert await pm.record_cross_judge(db, "gate_unpublished", CROSS) is False
+    assert _rows(database_url, "SELECT count(*) FROM promotion_decisions") == [(1,)]
 
 
 def test_an_r37_error_is_shown_and_never_changes_the_decision():

@@ -44,8 +44,8 @@ td.r, th.r { text-align:right; font-variant-numeric:tabular-nums; white-space:no
   <div class="kpis">
     <div class="kpi"><span class="eyebrow">One case run, formal (sol)</span><b>~$0.45</b><span class="muted">$0.35 system + ~$0.10 judge · ~7 min</span></div>
     <div class="kpi"><span class="eyebrow">One case run, dev (Claude)</span><b>$1.17</b><span class="muted">median API-equivalent, n=35 · $0 on subscription</span></div>
-    <div class="kpi"><span class="eyebrow">One holdout comparison</span><b>$22–44</b><span class="muted">8 cases × 2 arms × 3–6 reps</span></div>
-    <div class="kpi"><span class="eyebrow">Whole demo, API</span><b>$34–87</b><span class="muted">$34–60 with one comparison; $87 with both and a calibration retry; set the OpenAI limit to $100</span></div>
+    <div class="kpi"><span class="eyebrow">The one holdout comparison</span><b>$22–44</b><span class="muted">8 cases × 2 arms × 3–6 reps · 6–13 h</span></div>
+    <div class="kpi"><span class="eyebrow">Whole demo, API</span><b>$34–65</b><span class="muted">one holdout comparison; $65 with a calibration retry; OpenAI limit set to $100</span></div>
   </div>
 
   <section class="box">
@@ -68,7 +68,6 @@ td.r, th.r { text-align:right; font-variant-numeric:tabular-nums; white-space:no
         <tr><td>R34 noise run</td><td>noise of the system the gate compares</td><td class="r">$4–8</td></tr>
         <tr><td>Val check of the candidate's api twin</td><td>prompts tuned on Claude must hold on sol</td><td class="r">~$3</td></tr>
         <tr><td>Holdout comparison 1</td><td>the formal gate</td><td class="r">$22–44</td></tr>
-        <tr><td>Holdout comparison 2 (only if the prompt-only fallback runs)</td><td>incumbent runs are reused</td><td class="r">~$11–22</td></tr>
         <tr><td>Cross-judge re-score</td><td>runs on Claude</td><td class="r">$0</td></tr>
         <tr><td>Evolution cycles</td><td>run on Claude</td><td class="r">$0</td></tr>
         <tr><td>Calibration retry (only if the first fails)</td><td>new sample needs fresh api outputs</td><td class="r">~$5</td></tr>
@@ -78,11 +77,12 @@ td.r, th.r { text-align:right; font-variant-numeric:tabular-nums; white-space:no
 
   <section class="box">
     <h2>One evolution cycle, if it were paid for</h2>
-    <p>The cycle has not run against a real model yet, so this is a bound, not a measurement. A cycle is
-      capped at 60 GEPA metric calls; on the fake backend 62 metric calls needed 14 graph runs, because
-      repeated evaluations are cached. At $1.17 per Claude run that is about <b>$16</b> (14 runs) to
-      <b>$70</b> (60 runs) of API-equivalent usage, plus val replays. The first real cycle's logged usage
-      replaces this estimate.</p>
+    <p>The cycle has not run against a real model yet, so this is an estimate. A cycle is capped at
+      40 GEPA metric calls (owner 2026-10-15); with the train replays and val replays that is about
+      78 case runs. At the measured 12.5 minutes and $1.17 API-equivalent per Claude run, that is
+      about <b>13–16 hours</b> over two days and about <b>$90</b> of API-equivalent usage, paid by
+      the flat subscription ($0). Cached replays make it cheaper; the first real cycle's logged
+      usage replaces this estimate.</p>
   </section>
 
   <section class="box">

@@ -354,6 +354,17 @@ export interface MetricDeltaOut {
   noise_sd?: number | null;
 }
 
+/** The cross-family judge re-score of a gate's comparison (`womm evolve rescore`); report-only. */
+export interface CrossJudge {
+  label: 'agrees' | 'cross-judge-sensitive' | 'inconclusive';
+  mean_delta: number | null;
+  ci95_low: number | null;
+  ci95_high: number | null;
+  judge: string;
+  gate_delta: number | null;
+  rescored_on?: string | null;
+}
+
 export interface PromotionDecision {
   gate_id: string;
   created_at: string;
@@ -368,6 +379,7 @@ export interface PromotionDecision {
   deltas: Record<string, MetricDeltaOut>;
   n_proposals: number;
   flags: string[];
+  cross_judge: CrossJudge | null;
 }
 
 export interface SplitMetrics {

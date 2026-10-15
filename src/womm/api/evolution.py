@@ -5,7 +5,7 @@ metrics, the R37 diff-check score) and, only when the promotion policy publishes
 promotion decision summaries. The deployed API is never given the holdout database's URL, so
 a holdout result reaches this page only as a ``promotion_decisions`` summary: aggregates, with
 no case or scenario id. Labels and reasons come from the gate as written; this module carries no
-promotion logic of its own.
+promotion logic of its own (the node badge only names a weak or dev pass ``not-rejected``).
 """
 
 from __future__ import annotations
@@ -41,6 +41,19 @@ class DeltaOut(BaseModel):
     noise_sd: float | None = None
 
 
+class CrossJudgeOut(BaseModel):
+    """The cross-family judge re-score of the gate's comparison (``womm evolve rescore``):
+    aggregates only, report-only."""
+
+    label: Literal["agrees", "cross-judge-sensitive", "inconclusive"]
+    mean_delta: float | None
+    ci95_low: float | None
+    ci95_high: float | None
+    judge: str
+    gate_delta: float | None
+    rescored_on: str | None = None
+
+
 class DecisionOut(BaseModel):
     """A published promotion decision summary (aggregates only)."""
 
@@ -57,6 +70,7 @@ class DecisionOut(BaseModel):
     deltas: dict[str, DeltaOut]
     n_proposals: int
     flags: list[str]
+    cross_judge: CrossJudgeOut | None = None
 
 
 class LineageNode(BaseModel):
@@ -265,7 +279,7 @@ class EvolutionView:
         if expert and row["origin"] != "topology":
             badges.append("topology")
         if latest:
-            badges.append(latest.decision)
+            badges.append(decision_badge(latest))
             if latest.mode == "dev":
                 badges.append("dev-only")
         return LineageNode(
@@ -326,6 +340,12 @@ class EvolutionView:
         return CandidateDiff(version_id=row["version_id"], parent_id=row["parent_id"],
                              summary=rendered.get("summary"),
                              prompts=rendered.get("prompts") or {})  # fmt: skip
+
+
+def decision_badge(d: DecisionOut) -> str:
+    """``promoted`` for a statistical promotion only; a weak or dev pass is ``not-rejected``
+    (owner decision 2026-10-15: directional, never the deployed default)."""
+    return "not-rejected" if d.decision == "promoted" and d.mode != "statistical" else d.decision
 
 
 def split_metrics(rows: list[dict]) -> list[SplitMetrics]:

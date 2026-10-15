@@ -1,7 +1,7 @@
 // View models for the evolution page (R36 page 4). Pure presentation: decisions, labels,
 // reasons and the R37 message come from the API exactly as the promotion gate wrote them.
 import { AMBER, GREEN, RED } from '../design';
-import type { CandidateDetail, DiffSummary, LineageNode, MetricDeltaOut } from '../types';
+import type { CandidateDetail, CrossJudge, DiffSummary, LineageNode, MetricDeltaOut, PromotionDecision } from '../types';
 
 export interface TreeRow {
   node: LineageNode;
@@ -46,12 +46,25 @@ export const BADGES: Record<string, { t: string; c: string }> = {
   manual: { t: 'Manual', c: NEUTRAL },
   twin: { t: 'api twin', c: NEUTRAL },
   promoted: { t: 'Promoted', c: GREEN },
+  'not-rejected': { t: 'Not rejected', c: AMBER },
   rejected: { t: 'Rejected', c: RED },
   'dev-only': { t: 'Dev-only', c: AMBER },
   r37: { t: 'R37 regression', c: AMBER },
 };
 
 export const badge = (b: string): { t: string; c: string } => BADGES[b] ?? { t: b, c: NEUTRAL };
+
+/** The decision's badge: "promoted" for a statistical promotion only; a weak or dev pass is
+ *  "not rejected" (directional, never the deployed default). Same rule as the lineage badges. */
+export function decisionBadge(d: Pick<PromotionDecision, 'decision' | 'mode'>): string {
+  return d.decision === 'promoted' && d.mode !== 'statistical' ? 'not-rejected' : d.decision;
+}
+
+/** One line for the cross-judge re-score, or that it was not run. */
+export function crossJudgeText(x: CrossJudge | null | undefined): string {
+  if (!x) return 'Cross-judge check: not run';
+  return `Cross-judge check (${x.judge}): ${x.label}; re-scored coverage delta ${fmtDelta(x.mean_delta)}`;
+}
 
 export const METRIC_NAMES: Record<string, string> = {
   coverage: 'Coverage',

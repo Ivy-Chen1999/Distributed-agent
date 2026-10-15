@@ -1,5 +1,5 @@
-// Evolution page fixtures: a seed, a prompt-stage child, a topology child (promoted, weak mode,
-// via its api twin) and a rejected dev candidate with an R37 regression.
+// Evolution page fixtures: a seed, a prompt-stage child, a topology child (not rejected, weak
+// mode, via its api twin) and a dev candidate (not rejected, dev mode) with an R37 regression.
 import type { CandidateDetail, CandidateDiff, Lineage, LineageNode, PromotionDecision } from '../types';
 
 const node = (over: Partial<LineageNode> & Pick<LineageNode, 'version_id'>): LineageNode => ({
@@ -24,10 +24,10 @@ export const TOPOLOGY = node({
   name: 'v1.0-unscoped+e1+e2',
   parent_id: PROMPT.version_id,
   origin: 'topology',
-  badges: ['topology', 'promoted'],
+  badges: ['topology', 'not-rejected'],
   twins: ['sv_topologyapi1'],
   decision: 'promoted',
-  label: 'promoted (weak threshold: directional)',
+  label: 'not rejected (weak threshold: directional)',
   new_expert: 'workforce',
   r37_regression: false,
   cycle_id: 'cycle_a',
@@ -37,9 +37,9 @@ export const REJECTED = node({
   name: 'v1.0-unscoped+e3',
   parent_id: SEED.version_id,
   origin: 'gepa',
-  badges: ['gepa', 'promoted', 'dev-only'],
+  badges: ['gepa', 'not-rejected', 'dev-only'],
   decision: 'promoted',
-  label: 'promoted (dev-only, not deployable; weak threshold: directional)',
+  label: 'not rejected (dev-only, not deployable; weak threshold: directional)',
   r37_regression: true,
   cycle_id: 'cycle_b',
 });
@@ -56,12 +56,13 @@ export const weakDecision: PromotionDecision = {
   mode: 'weak',
   deployable: true,
   decision: 'promoted',
-  label: 'promoted (weak threshold: directional)',
+  label: 'not rejected (weak threshold: directional)',
   reasons: [],
   notes: ['weak mode: no minimum-detectable-delta report for this judge'],
   deltas: { coverage: delta(0.06), grounding: delta(-0.01), omissions_addressed: delta(0) },
   n_proposals: 3,
   flags: ['insufficient_proposals'],
+  cross_judge: { label: 'agrees', mean_delta: 0.05, ci95_low: null, ci95_high: null, judge: 'claude_code:claude-opus-5-5', gate_delta: 0.06, rescored_on: '2026-10-15' },
 };
 
 const base = (n: LineageNode): CandidateDetail => ({
@@ -101,7 +102,7 @@ export const details: Record<string, CandidateDetail> = {
     holdout: {
       status: 'published',
       message: '',
-      decisions: [{ ...weakDecision, gate_id: 'gate_2', candidate_version: REJECTED.version_id, mode: 'dev', deployable: false, label: REJECTED.label! }],
+      decisions: [{ ...weakDecision, gate_id: 'gate_2', candidate_version: REJECTED.version_id, mode: 'dev', deployable: false, label: REJECTED.label!, cross_judge: null }],
     },
     r37: { status: 'available', score: { mean: 0.31, sd: 0.01, n: 3 }, reference_version: SEED.version_id, reference_score: { mean: 0.6, sd: 0.02, n: 3 }, regression: true, message: 'regression on the R37 diff check (monitoring only: the decision is unchanged)' },
   },

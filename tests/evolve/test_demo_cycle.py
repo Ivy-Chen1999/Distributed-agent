@@ -29,10 +29,10 @@ def test_the_scripted_demo_proposes_a_new_expert_and_gates_it_in_dev_mode(databa
     assert r.prompt_best and r.prompt_best != r.base
     # 3. The topology stage proposed the Workforce expert on top of it, and it was chosen.
     assert r.topology_reason == "proposed" and r.topology == r.chosen
-    # 4. The dev-mode gate promoted it, labelled dev-only and directional.
+    # 4. The dev-mode gate passed it: "not rejected", labelled dev-only and directional.
     d = r.decision
     assert d["mode"] == "dev" and not d["deployable"] and d["decision"] == "promoted"
-    assert d["label"] == "promoted (dev-only, not deployable; weak threshold: directional)"
+    assert d["label"] == "not rejected (dev-only, not deployable; weak threshold: directional)"
     assert "insufficient_proposals" in d["flags"]
     assert d["r37"]["status"] == "not_run"  # reference drafted; neither version diff-checked
 
@@ -51,7 +51,7 @@ def test_page_four_shows_the_lineage_with_the_new_expert(database_url, tmp_path)
     assert nodes[r.prompt_best]["origin"] == "gepa" and nodes[r.prompt_best]["parent_id"] == r.base
     topo = nodes[r.chosen]
     assert topo["parent_id"] == r.prompt_best and topo["new_expert"] == "workforce"
-    assert topo["badges"] == ["topology", "promoted", "dev-only"]
+    assert topo["badges"] == ["topology", "not-rejected", "dev-only"]
     expert = detail["new_expert"]
     assert expert["router_gloss"] == demo.WORKFORCE_GLOSS
     assert expert["target_pattern"] == {"kind": "missed_impact", "category": demo.CATEGORY,
@@ -93,4 +93,4 @@ def test_the_scripted_command_prints_each_step(database_url, monkeypatch, capsys
     out = capsys.readouterr().out
     assert "missed_impact/social_environmental/none (2 proposals)" in out
     assert "topology stage: proposed" in out
-    assert "gate: promoted (dev-only, not deployable; weak threshold: directional)" in out
+    assert "gate: not rejected (dev-only, not deployable; weak threshold: directional)" in out

@@ -7,8 +7,10 @@ labelled ``cross-judge-sensitive`` when the re-scored coverage delta has the opp
 gate's, or when the gate promoted and the re-scored delta is at or below 0.
 
 Holdout side, like ``womm.evolve.promotion``: it reads the sealed store and writes only the
-holdout database's ``rescore_audit`` (aggregates only, never a case id), never the main database
-or Failure Memory, and the Improvement Planner never imports it.
+holdout database's ``rescore_audit`` (aggregates only, never a case id), never Failure Memory,
+and the Improvement Planner never imports it. ``womm evolve rescore`` then copies
+``cross_judge_summary`` (the label and coverage aggregates) onto the gate's published
+``promotion_decisions`` row for page 4, through ``promotion.record_cross_judge``.
 """
 
 from __future__ import annotations
@@ -176,6 +178,13 @@ async def rescore(
     )  # fmt: skip
     await store.record_rescore(gate_id, rjv, out.model_dump(mode="json"), replace=replace)
     return out
+
+
+def cross_judge_summary(r: RescoreResult, rescored_on: str) -> dict[str, Any]:
+    """What page 4 shows next to the gate's decision: aggregates only, never a case id."""
+    return {"label": r.label, "mean_delta": r.delta.mean_delta, "ci95_low": r.delta.ci95_low,
+            "ci95_high": r.delta.ci95_high, "judge": r.judge, "gate_delta": r.gate_delta,
+            "rescored_on": rescored_on}  # fmt: skip
 
 
 def format_rescore(r: RescoreResult | Mapping[str, Any]) -> str:

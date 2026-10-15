@@ -14,8 +14,9 @@ It runs the real code path end to end, with every LLM call scripted and no api k
 4. **Gate (dev mode).** ``promotion.run_gate`` on a SYNTHETIC holdout held in memory
    (``ScriptedHoldoutStore``): two synthetic cases, never the sealed holdout, never
    ``HOLDOUT_DATABASE_URL``. The policy is the committed one, signed in memory by this harness
-   and publishing its summary, so page 4 shows the decision. Dev mode: the label says
-   "dev-only, not deployable" and the threshold is directional.
+   and publishing its summary, so page 4 shows the decision. Dev mode: a pass is labelled "not
+   rejected" (never "promoted"), the label says "dev-only, not deployable" and the threshold
+   is directional.
 5. **Page 4.** The archive and the summary are in ``DATABASE_URL``; the evolution page shows the
    lineage, the prompt child and the new-expert highlight.
 

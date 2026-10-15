@@ -14,7 +14,9 @@ roles:
     prompt: prompts/evolution/propose_expert.md
     timeout_s: 900
 budget:
-  max_metric_calls: 60      # case runs GEPA may request (cached replays count too)
+  max_metric_calls: 40      # case runs GEPA may request (cached replays count too)
+                            # (owner 2026-10-15: a cycle on claude_code measured
+                            # ~12.5 min per case run)
   max_usd: 25.0             # replays plus proposer calls; claude_code reports no cost
   minibatch_size: 2
   train_repetitions: 2      # minibatch acceptance

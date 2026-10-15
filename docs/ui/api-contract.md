@@ -135,14 +135,17 @@ response field is a case id or a scenario id. The API never reads the holdout da
     "cycle_id": "cycle_…" | null, "origin": "seed"|"gepa"|"topology"|"twin"|"manual",
     "created_at": "ISO", "badges": ["topology", "promoted", "dev-only"],
     "twins": ["sv_…"], "decision": "promoted"|"rejected"|null,
-    "label": "promoted (weak threshold: directional)" | null,
+    "label": "not rejected (weak threshold: directional)" | null,
     "new_expert": "workforce" | null, "r37_regression": true|false|null
   }]
 }
 ```
 Oldest first. api twins (`twin_of`) are collapsed into their dev candidate's `twins`; a
 decision on a twin is shown on its dev node. `badges`: the origin, then the latest published
-decision (`promoted`/`rejected`) and `dev-only` for a dev-mode decision. `publish_summary` is
+decision (`promoted` for a statistical promotion only, `not-rejected` for a weak or dev pass,
+`rejected`) and `dev-only` for a dev-mode decision. A weak or dev pass keeps `decision:
+"promoted"` (the machine field) but is labelled `not rejected (...)` and is never made the
+deployed default (owner decision 2026-10-15). `publish_summary` is
 null when the policy file is not deployed (the API image has no `evals/`).
 `r37_regression` compares the version's R37 diff-check score with the incumbent of its latest
 decision, else its parent, under a judge both were scored by (the most recently recorded one);
@@ -170,7 +173,14 @@ null when either was not checked or they share no judge.
                              "deltas": {"coverage": {"mean_delta": 0.06, "ci95_low": null,
                                                      "ci95_high": null, "n_cases": 8,
                                                      "noise_sd": 0.05}},
-                             "n_proposals": 3, "flags": ["insufficient_proposals"]}]},
+                             "n_proposals": 3, "flags": ["insufficient_proposals"],
+                             "cross_judge": {"label": "agrees"|"cross-judge-sensitive"|
+                                                      "inconclusive",
+                                             "mean_delta": 0.05, "ci95_low": null,
+                                             "ci95_high": null,
+                                             "judge": "claude_code:claude-opus-5-5",
+                                             "gate_delta": 0.06,
+                                             "rescored_on": "2026-10-15"} | null}]},
   "r37": {"status": "available"|"not_run", "judge_version": "jv_…" | null,
           "score": {"mean": 0.6, "sd": 0.02, "n": 3} | null,
           "reference_version": "sv_…" | null, "reference_score": {…} | null,
@@ -181,7 +191,9 @@ An api twin's id opens its dev candidate. `metrics` holds split-level aggregates
 full-split replay batch per (split, judge); `noise_sd` is the pooled within-case run-to-run SD
 (the noise band). `holdout.status`: `published` when a summary exists; otherwise
 `not_submitted` when the policy publishes summaries, else `sealed` (the decision, if any, is
-only in the holdout audit; `womm evolve show <id>` reads it locally). The R37 check is
+only in the holdout audit; `womm evolve show <id>` reads it locally). `cross_judge`: the
+cross-family judge re-score of the gate's comparison, written by `womm evolve rescore` onto the
+published summary (aggregates only, report-only); null when it was not run. The R37 check is
 monitoring only: a regression never changes a decision. 404 for an unknown version.
 
 ### `GET /evolution/candidates/{version_id}/diff`

@@ -422,9 +422,10 @@ def _split_rows(case_means: dict[str, list[float]], fixture: str = "ai_act") -> 
 
 async def seed_evolution(db: Any) -> dict[str, str]:
     """A scripted self-evolution story for the evolution page (U9): the v1.0-unscoped seed and
-    its api twin, a prompt-stage child, a topology child adding a Workforce expert (promoted on
-    its api twin, weak mode) and a rejected dev candidate with an R37 regression. Decision
-    summaries are inserted as published (aggregates only). Returns the version ids by role."""
+    its api twin, a prompt-stage child, a topology child adding a Workforce expert (not rejected
+    on its api twin, weak mode, with a cross-judge label) and a rejected dev candidate with an
+    R37 regression. Decision summaries are inserted as published (aggregates only). Returns the
+    version ids by role."""
     from womm.evolve.archive import Archive, archive_child, archive_twin, seed_archive
     from womm.evolve.edits import build_candidate, render_diff, validate_diff
 
@@ -494,27 +495,32 @@ async def seed_evolution(db: Any) -> dict[str, str]:
 
     decisions = [
         ("gate_e2e_promoted", EVOLUTION_CYCLE, topology_api.version_id, seed_api.version_id,
-         "weak", True, "promoted", "promoted (weak threshold: directional)", [],
+         "weak", True, "promoted", "not rejected (weak threshold: directional)", [],
          ["weak mode: no minimum-detectable-delta report for this judge"],
          {"coverage": delta(0.06), "grounding": delta(-0.01), "omissions_addressed": delta(0.0)},
-         3, ["insufficient_proposals"]),
+         3, ["insufficient_proposals"],
+         {"label": "agrees", "mean_delta": 0.05, "ci95_low": None, "ci95_high": None,
+          "judge": "claude_code:claude-opus-5-5", "gate_delta": 0.06,
+          "rescored_on": "2026-10-15"}),
         ("gate_e2e_rejected", "cycle_e2e_rejected", rejected.version_id, seed.version_id, "dev",
          False, "rejected", "rejected (dev-only, not deployable; weak threshold: directional)",
          ["grounding_regression"], [],
          {"coverage": delta(0.1), "grounding": delta(-0.1), "omissions_addressed": delta(0.0)},
-         3, ["insufficient_proposals"]),
+         3, ["insufficient_proposals"], None),
     ]  # fmt: skip
     async with db.pool.connection() as conn:
         for row in decisions:
             (gate, cycle, cand, inc, mode, deployable, decision, label, reasons, notes, deltas,
-             n_proposals, flags) = row  # fmt: skip
+             n_proposals, flags, cross_judge) = row  # fmt: skip
             await conn.execute(
                 "INSERT INTO promotion_decisions (gate_id, cycle_id, candidate_version,"
                 " incumbent_version, mode, deployable, decision, label, reasons, notes, deltas,"
-                " n_proposals, flags, policy_sha256, git_sha) VALUES (%s, %s, %s, %s, %s, %s, %s,"
-                " %s, %s, %s, %s, %s, %s, 'sha_e2e_policy', 'e2e') ON CONFLICT DO NOTHING",
+                " n_proposals, flags, policy_sha256, git_sha, cross_judge) VALUES (%s, %s, %s, %s,"
+                " %s, %s, %s, %s, %s, %s, %s, %s, %s, 'sha_e2e_policy', 'e2e', %s)"
+                " ON CONFLICT DO NOTHING",
                 (gate, cycle, cand, inc, mode, deployable, decision, label, json.dumps(reasons),
-                 json.dumps(notes), json.dumps(deltas), n_proposals, json.dumps(flags)),
+                 json.dumps(notes), json.dumps(deltas), n_proposals, json.dumps(flags),
+                 json.dumps(cross_judge) if cross_judge else None),
             )  # fmt: skip
     return {"seed": seed.version_id, "seed_api": seed_api.version_id,
             "prompt": prompt_child.version_id, "topology": topology.version_id,

@@ -677,7 +677,9 @@ async def cmd_evolve_show(args: argparse.Namespace) -> int:
 async def cmd_evolve_rescore(args: argparse.Namespace) -> int:
     """Re-score a gate comparison's stored runs with a cross-family judge (report-only; local,
     aggregates only). Judge calls only, on the judge version's backend (the Claude subscription
-    for the default)."""
+    for the default). With DATABASE_URL set, the label is copied onto the gate's published
+    promotion_decisions row (page 4), when it has one."""
+    from womm.evolve import promotion as pm
     from womm.evolve import rescore as rs
 
     judge_sv = load_system_version(_sv_path(args.judge_sv), REPO_ROOT)
@@ -692,7 +694,29 @@ async def cmd_evolve_rescore(args: argparse.Namespace) -> int:
     except rs.RescoreStopped as exc:
         info(str(exc))
         return EXIT_FAILED
-    emit(args, result.model_dump(mode="json"), rs.format_rescore(result))
+    data, text = result.model_dump(mode="json"), rs.format_rescore(result)
+    # Page 4: the label goes onto the gate's published summary row, when there is one. The
+    # re-score is already saved in the holdout audit, so a failure here loses nothing.
+    if not load_settings().database_url:
+        data["page4"] = None
+        emit(args, data, f"{text}\npage 4: not updated (no DATABASE_URL)")
+        return EXIT_OK
+    summary = rs.cross_judge_summary(result, dt.date.today().isoformat())
+    try:
+        async with _evolve_db("womm evolve rescore") as db:
+            published = await pm.record_cross_judge(db, args.gate_id, summary)
+    except Exception as exc:
+        data["page4"] = None
+        emit(args, data, text)
+        info(f"error: the re-score is recorded in the holdout audit, but page 4's "
+             f"promotion_decisions.cross_judge for gate {args.gate_id} was not written: {exc}; "
+             f"set it by hand from `womm evolve show <candidate>`")  # fmt: skip
+        return EXIT_FAILED
+    data["page4"] = published
+    text += (f"\npage 4: the cross-judge label is on gate {args.gate_id}'s published summary"
+             if published else f"\npage 4: no published summary for gate {args.gate_id} "
+             "(publish_summary was off for it): nothing updated")  # fmt: skip
+    emit(args, data, text)
     return EXIT_OK
 
 

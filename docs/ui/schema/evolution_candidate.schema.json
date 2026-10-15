@@ -1,5 +1,89 @@
 {
   "$defs": {
+    "CrossJudgeOut": {
+      "description": "The cross-family judge re-score of the gate's comparison (``womm evolve rescore``):\naggregates only, report-only.",
+      "properties": {
+        "label": {
+          "enum": [
+            "agrees",
+            "cross-judge-sensitive",
+            "inconclusive"
+          ],
+          "title": "Label",
+          "type": "string"
+        },
+        "mean_delta": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Mean Delta"
+        },
+        "ci95_low": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Ci95 Low"
+        },
+        "ci95_high": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Ci95 High"
+        },
+        "judge": {
+          "title": "Judge",
+          "type": "string"
+        },
+        "gate_delta": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Gate Delta"
+        },
+        "rescored_on": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rescored On"
+        }
+      },
+      "required": [
+        "label",
+        "mean_delta",
+        "ci95_low",
+        "ci95_high",
+        "judge",
+        "gate_delta"
+      ],
+      "title": "CrossJudgeOut",
+      "type": "object"
+    },
     "DecisionOut": {
       "description": "A published promotion decision summary (aggregates only).",
       "properties": {
@@ -75,6 +159,17 @@
           },
           "title": "Flags",
           "type": "array"
+        },
+        "cross_judge": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CrossJudgeOut"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [

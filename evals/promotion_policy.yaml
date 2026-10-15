@@ -44,6 +44,13 @@ changelog:
     reason: "Bundling: merging findings into a few broad impacts raises precision while
       coverage holds; a new expert only adds impacts, so a large drop in impact count is not a
       real improvement (owner decision 2026-10-15)."
+  - date: "2026-10-15"
+    change: "publish_summary on: the decision summary (aggregates only) is published to page 4.
+      A weak or dev pass is labelled 'not rejected (...)', never 'promoted', and is never made
+      the deployed default. At most one holdout comparison in the demo (holdout_budget.per_cycle
+      stays 1)."
+    reason: "R36 page 4 shows the holdout scores and the promote/reject decision; a weak-mode
+      pass is directional only, not evidence for deployment (owner decision 2026-10-15)."
 
 # Decision 1: coverage is the primary metric; omissions, grounding and precision are regression
 # guards.
@@ -85,9 +92,10 @@ holdout_budget:
   total: 6                    # for the whole of v1
 
 # Decision 3: write an aggregate decision summary to the main database (promotion_decisions) so
-# the evolution page can show holdout aggregates. Off until the user confirms: decisions then
-# live only in the holdout database's audit (`womm evolve show <candidate>` reads them locally).
-publish_summary: false
+# the evolution page can show holdout aggregates (R36 page 4; on since the owner's decision of
+# 2026-10-15). With false, decisions live only in the holdout database's audit (`womm evolve
+# show <candidate>` reads them locally).
+publish_summary: true
 
 bootstrap:
   n_boot: 2000

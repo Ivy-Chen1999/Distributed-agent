@@ -49,8 +49,10 @@ def test_lineage_collapses_twins_and_badges_each_candidate(database_url, tmp_pat
     ]
     topo = nodes[ids["topology"]]
     assert topo["parent_id"] == ids["prompt"] and topo["twins"] == [ids["topology_api"]]
-    assert topo["badges"] == ["topology", "promoted"] and topo["new_expert"] == "workforce"
-    assert topo["label"] == "promoted (weak threshold: directional)"
+    # A weak pass is "not rejected" on the page (owner 2026-10-15); the machine field stays.
+    assert topo["badges"] == ["topology", "not-rejected"] and topo["new_expert"] == "workforce"
+    assert topo["decision"] == "promoted"
+    assert topo["label"] == "not rejected (weak threshold: directional)"
     assert topo["r37_regression"] is False
     rejected = nodes[ids["rejected"]]
     assert rejected["badges"] == ["gepa", "rejected", "dev-only"]
@@ -80,7 +82,11 @@ def test_candidate_detail_with_a_new_expert_and_a_published_decision(database_ur
     holdout = body["holdout"]
     assert holdout["status"] == "published"
     (decision,) = holdout["decisions"]
-    assert decision["label"] == "promoted (weak threshold: directional)"
+    assert decision["label"] == "not rejected (weak threshold: directional)"
+    assert decision["cross_judge"] == {
+        "label": "agrees", "mean_delta": 0.05, "ci95_low": None, "ci95_high": None,
+        "judge": "claude_code:claude-opus-5-5", "gate_delta": 0.06, "rescored_on": "2026-10-15",
+    }  # fmt: skip
     assert decision["candidate_version"] == ids["topology_api"]
     assert body["r37"]["status"] == "available" and body["r37"]["regression"] is False
     assert body["r37"]["reference_version"] == ids["seed"]
@@ -92,7 +98,23 @@ def test_r37_regression_is_visible_and_the_decision_unchanged(database_url, tmp_
         body = c.get(f"/evolution/candidates/{ids['rejected']}", headers=AUTH).json()
     assert body["r37"]["regression"] is True and "decision is unchanged" in body["r37"]["message"]
     assert body["holdout"]["decisions"][0]["reasons"] == ["grounding_regression"]
+    assert body["holdout"]["decisions"][0]["cross_judge"] is None, "not run"
     assert body["node"]["decision"] == "rejected"
+
+
+def test_only_a_statistical_promotion_is_badged_promoted(database_url, tmp_path):
+    import psycopg
+
+    client, ids = _client(database_url, tmp_path)
+    with psycopg.connect(database_url) as conn:
+        conn.execute(
+            "UPDATE promotion_decisions SET mode = 'statistical',"
+            " label = 'promoted (holdout, bootstrap CI)' WHERE decision = 'promoted'"
+        )
+    with client as c:
+        body = c.get("/evolution/lineage", headers=AUTH).json()
+    nodes = {n["version_id"]: n for n in body["nodes"]}
+    assert nodes[ids["topology"]]["badges"] == ["topology", "promoted"]
 
 
 @pytest.mark.parametrize(("publish", "status", "text"), [

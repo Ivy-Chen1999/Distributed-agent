@@ -280,6 +280,7 @@ def _cli_store(monkeypatch, store):
 
     store.migrate, store.decisions_for = migrate, decisions_for
     monkeypatch.setattr(cli, "_holdout_store", lambda: store)
+    monkeypatch.delenv("DATABASE_URL", raising=False)
 
     async def fake_prepare(version, *, skip_self_check=False, settings=None):
         return _judge_backend(hf._judge), None, None
@@ -322,6 +323,93 @@ def test_evolve_rescore_and_show(roots, tmp_path, monkeypatch, capsys):
     assert cli.main(["evolve", "show", cand]) == cli.EXIT_OK
     shown = capsys.readouterr().out
     assert "cross-judge check (fake:" in shown and "not run" not in shown
+
+
+def test_the_page_four_summary_is_aggregates_only(roots):
+    import asyncio
+
+    store = asyncio.run(_gate(roots, reps=1))
+    result = asyncio.run(rs.rescore("g1", store=store, judge_sv=_judge_sv(),
+                                    backends=_judge_backend(hf._judge)))  # fmt: skip
+    summary = rs.cross_judge_summary(result, "2026-10-15")
+    assert summary == {"label": result.label, "mean_delta": result.delta.mean_delta,
+                       "ci95_low": result.delta.ci95_low, "ci95_high": result.delta.ci95_high,
+                       "judge": result.judge, "gate_delta": result.gate_delta,
+                       "rescored_on": "2026-10-15"}  # fmt: skip
+
+
+async def _published(database_url, decision):
+    from womm.api.db import Database
+    from womm.evolve import promotion as pm
+
+    db = Database(database_url)
+    await db.open()
+    try:
+        await db.migrate()
+        if decision is not None:
+            await pm.record_summary(db, pm.GateDecision.model_validate(decision))
+    finally:
+        await db.close()
+
+
+def _cross_judge(database_url):
+    import psycopg
+
+    with psycopg.connect(database_url) as conn:
+        return conn.execute("SELECT gate_id, cross_judge FROM promotion_decisions").fetchall()
+
+
+@pytest.mark.parametrize("published", [True, False])
+def test_rescore_copies_its_label_to_the_published_summary(roots, tmp_path, monkeypatch, capsys,
+                                                           database_url, published):  # fmt: skip
+    """With DATABASE_URL set, the cross-judge label goes onto the gate's page-4 row; a gate
+    whose summary was never published (publish_summary off) gets nothing, and the CLI says so."""
+    import asyncio
+
+    store = asyncio.run(_seeded(roots))
+    cli = _cli_store(monkeypatch, store)
+    asyncio.run(_published(database_url, store.decision if published else None))
+    monkeypatch.setenv("DATABASE_URL", database_url)
+    args = ["evolve", "rescore", "g1", "--judge-sv", str(_judge_file(tmp_path))]
+    assert cli.main(args) == cli.EXIT_OK
+    out = capsys.readouterr().out
+    rows = _cross_judge(database_url)
+    if published:
+        ((gate, cross),) = rows
+        assert gate == "g1" and cross["label"] in ("agrees", "cross-judge-sensitive")
+        assert set(cross) == {"label", "mean_delta", "ci95_low", "ci95_high", "judge",
+                              "gate_delta", "rescored_on"}  # fmt: skip
+        assert "page 4: the cross-judge label is on gate g1's published summary" in out
+    else:
+        assert rows == []
+        assert "no published summary for gate g1" in out
+
+
+def test_a_failed_page_four_write_keeps_the_rescore(roots, tmp_path, monkeypatch, capsys):
+    import asyncio
+    import contextlib
+
+    from womm.evolve import promotion as pm
+
+    store = asyncio.run(_seeded(roots))
+    cli = _cli_store(monkeypatch, store)
+    monkeypatch.setenv("DATABASE_URL", "postgresql://x/main")
+
+    @contextlib.asynccontextmanager
+    async def fake_db(_what):
+        yield object()
+
+    async def broken(*_a, **_k):
+        raise RuntimeError("main database down")
+
+    monkeypatch.setattr(cli, "_evolve_db", fake_db)
+    monkeypatch.setattr(pm, "record_cross_judge", broken)
+    args = ["evolve", "rescore", "g1", "--judge-sv", str(_judge_file(tmp_path))]
+    assert cli.main(args) == cli.EXIT_FAILED
+    captured = capsys.readouterr()
+    assert "cross-judge check (fake:" in captured.out
+    assert "main database down" in captured.err
+    assert len(store.rescores) == 1, "the holdout re-score record is kept"
 
 
 def test_rescore_runs_with_the_holdout_url_set():

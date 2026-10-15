@@ -24,16 +24,19 @@ nothing Planner-side imports either.
   the comparison runs, and the cycle is the candidate's archived one (``gate_cycle_id``).
 - **Decision.** Statistical: the primary metric's CI95 lower bound above 0. Weak and dev: its
   mean delta above ``weak_min_delta_se`` standard errors of the paired mean (from the
-  comparison's own noise). Every guard metric's mean delta at least minus its tolerance
-  (precision included). The mean impact count may fall at most ``impact_count_guard`` below
-  the incumbent's (bundling); impact count and text length rises over 25% are noted, never
-  gated. An aborted
-  comparison is rejected as ``inconclusive``, consumes no budget, and a repeated abort on the
-  same pair is flagged for a human.
+  comparison's own noise); such a pass is labelled "not rejected", never "promoted", and is
+  never made the deployed default (owner decision 2026-10-15). The machine field ``decision``
+  stays ``promoted`` for it (database CHECK, API, holdout audit). Every guard metric's mean
+  delta at least minus its tolerance (precision included). The mean impact count may fall at
+  most ``impact_count_guard`` below the incumbent's (bundling); impact count and text length
+  rises over 25% are noted, never gated. An aborted comparison is rejected as
+  ``inconclusive``, consumes no budget, and a repeated abort on the same pair is flagged for a
+  human.
 - **Records.** The decision is written next to its comparison in the holdout audit
   (``holdout.compare_audit.decision``). A summary goes to the main database's
   ``promotion_decisions`` only when the policy sets ``publish_summary``. The R37 diff check is
-  copied into both, and never changes the decision.
+  copied into both, and never changes the decision. ``womm evolve rescore`` later adds the
+  cross-judge label (aggregates only) to that summary row when it exists.
 """
 
 from __future__ import annotations
@@ -80,6 +83,7 @@ MODE_LABELS: dict[str, str] = {
     "weak": "weak threshold: directional",
     "dev": "dev-only, not deployable; weak threshold: directional",
 }
+WEAK_PASS = "not rejected"  # a weak or dev pass: directional, never the deployed default
 
 
 class GateRefused(RuntimeError):
@@ -723,10 +727,11 @@ def decide(
         reasons += _impact_count_reasons(cmp, policy.impact_count_guard)
         notes += _diagnostic_notes(cmp)
     decision = "promoted" if improved and not reasons else "rejected"
+    shown = WEAK_PASS if decision == "promoted" and mode != "statistical" else decision
     return GateDecision(
         gate_id=gate_id, cycle_id=cycle_id, candidate_version=cmp.candidate_version,
         incumbent_version=cmp.baseline_version, mode=mode, deployable=choice.deployable,
-        decision=decision, label=f"{decision} ({MODE_LABELS[mode]})", reasons=reasons,
+        decision=decision, label=f"{shown} ({MODE_LABELS[mode]})", reasons=reasons,
         notes=notes, deltas=deltas, n_proposals=cmp.n_proposals, flags=list(cmp.flags),
         consumes_budget=not cmp.aborted, policy_sha256=policy_sha256, git_sha=git_sha, r37=r37,
     )  # fmt: skip
@@ -749,6 +754,17 @@ async def record_summary(db: Database, decision: GateDecision) -> None:
              Jsonb(d["notes"]), Jsonb(d["deltas"]), d["n_proposals"], Jsonb(d["flags"]),
              d["policy_sha256"], d["git_sha"], Jsonb(d["r37"]) if d["r37"] else None),
         )  # fmt: skip
+
+
+async def record_cross_judge(db: Database, gate_id: str, cross_judge: dict[str, Any]) -> bool:
+    """Put a cross-judge re-score's aggregate label on the gate's summary row; False when the
+    gate has no row (its policy did not publish summaries), and nothing is written then."""
+    async with db.pool.connection() as conn:
+        cur = await conn.execute(
+            "UPDATE promotion_decisions SET cross_judge = %s WHERE gate_id = %s",
+            (Jsonb(cross_judge), gate_id),
+        )
+        return cur.rowcount > 0
 
 
 Backends = Mapping[str, LLMBackend]
@@ -838,6 +854,8 @@ def format_decision(d: GateDecision | Mapping[str, Any]) -> str:
                         else ""))  # fmt: skip
     if not d["deployable"]:
         lines.append("dev-only: this decision can never change the deployed default")
-    elif d["decision"] == "promoted":
+    elif d["decision"] == "promoted" and d["mode"] == "statistical":
         lines.append("next: a human commits PROMOTIONS.md and the default version")
+    elif d["decision"] == "promoted":
+        lines.append("weak pass: directional, not made the deployed default")
     return "\n".join(lines)
