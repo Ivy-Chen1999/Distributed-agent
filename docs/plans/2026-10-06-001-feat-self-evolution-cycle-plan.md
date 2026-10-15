@@ -29,6 +29,24 @@ origin: docs/brainstorms/2026-09-28-womm-phased-requirements.md
 > - **Implementation notes:** the topology candidate is replayed on val only (the optional short GEPA pass on the new expert's prompt is not built). "Persists across at least 2 proposals" means at least 2 legislative proposals (fixtures), checked against the prompt stage's chosen candidate. `run_cycle` replays the base on val before comparing it with a topology candidate, and the base wins ties. Proposals that fail validation are kept in the stage result and CLI output only, since they have no version to archive.
 > - **The port is not needed:** none of the go/no-go criteria failed.
 
+> **Revision 2026-10-15: sync with the implementation (branch `feat/v1-integration`).** Owner decisions of 2026-10-12 to 2026-10-15 and the code built since. Where a section below conflicts with this block, this block wins. Paths are on `feat/v1-integration`.
+>
+> - **Models (R32, R28).** Every api role, the judge included, runs on `openai:gpt-6.1-sol` at `reasoning_effort: medium`; the effort is part of the judge id, and the judge's model and effort never change after calibration (`system_versions/PROMOTIONS.md`). "Again if the judge changes" below no longer applies within v1.
+> - **Gate rule (R28, AE4).** Primary metric coverage. Binding guards: grounding (drop at most 0.02), omissions and precision (drop at most one noise SD each), and impact count (drop at most 25%, `impact_count_drop`; anti-bundling, owner 2026-10-15). Report-only notes: impact count or impact text up more than 25%. Weak mode promotes only when the coverage gain exceeds `weak_min_delta_se` (1.0) times the bootstrap SE clustered by proposal, falling back to the within-run SE with a note (`src/womm/evolve/promotion.py`, plan 2026-10-14-001). The statistical mode applies the same guards. The full reject-reason table is pre-registered in `docs/demo/v1-self-evolution-runbook.md`.
+> - **Mode choice (R28, R34).** Statistical and weak modes both need a calibrated judge and a complete R34 chain: the first noise attempt per judge (never restarted), at most one blinded extension or fallback, and every finished formal run logged in `evals/promotion_records.yaml`. An MDD report whose repetitions or holdout counts do not match the policy and the sealed store refuses the gate. Statistical also needs an MDD report at or below `expected_gain`; no MDD report, an MDD above `expected_gain`, or `insufficient_proposals` gives weak mode, with the downgrade recorded.
+> - **Repetitions (R34).** `FORMAL_MIN_REPETITIONS` is 3, not 6. The policy holds `repetitions: {min: 3, max: 6}` for R34 and for holdout comparisons; the extension to 6 reads the pooled noise only, never the arms' difference. A comparison is 48 to 96 runs (about $22 to $44); the incumbent's cached runs make a second one about half, but only on the same code version (git HEAD, any uncommitted diff, and the Claude CLI version for `claude_code` roles): any commit in between re-runs the incumbent. The branch is therefore frozen from the first holdout comparison until the last comparison and any `--resume` are done.
+> - **Policy change control (R28).** The decision records the policy file's sha256; `promote` refuses while the policy or records file has uncommitted changes; the policy carries a dated `changelog` and a signature, and `womm policy sign` refuses unless the last changelog entry is dated the signing day (signed 2026-10-15). The calibration record lives in `evals/promotion_records.yaml`, not in the policy.
+> - **Calibration (R28).** Agreement of at least 85%, taken as the lower of the raw and natural-rate figures; besides that: at least 24 pairs, two annotators, and inter-annotator agreement of at least 0.80.
+> - **Candidate choice (plan U5; chooses among the R27 archive).** The val coverage gain must also exceed `selection_k` (1.0) times its SE (`evals/evolution.yaml`, `src/womm/evolve/cycle.py`).
+> - **Holdout budget and demo (R28, R30).** The policy keeps 1 comparison per cycle and 6 in total. The demo spends at most 2: the second only for the prompt-only fallback candidate, and a gate rejection is a valid end of the cycle. Budget is reserved atomically (holdout migration 003, `--resume`); an aborted comparison consumes none, and its finished repetitions are reused on retry (on the same code version only).
+> - **Holdout schema (R28).** Holdout migrations 002 to 005 (budget reservations, stored runs, rescore audit). `HoldoutComparison` gained diagnostics, the repetition rule, precision and the SE. Besides `womm.evolve.promotion`, `womm.evolve.rescore` may import `womm.eval.holdout` (boundary test updated).
+> - **Cross-family check (R28; plan 2026-10-15-001).** After each formal comparison, `womm evolve rescore <gate_id>` re-judges the stored runs with the Claude judge of `v1.0-unscoped` and labels the decision `cross-judge-sensitive` when the re-scored coverage delta has the opposite sign, or when the gate promoted and the re-scored delta is at or below 0 (otherwise `agrees` or `inconclusive`). Report-only; aggregates only.
+> - **R37 reference answers: deviation from origin R37.** Origin R37 says "write reference answers by hand". The owner decided on 2026-10-12 that they are LLM-drafted from the two article texts only, with every quoted fragment machine-checked word for word against the texts (`status: llm_drafted`). Accepted because the check is monitoring only and never gates. The demo says "LLM-drafted" when it shows the R37 score. The hand-written approach in U8 and Human-in-the-Loop row 3 are superseded; U8 otherwise stands. The file was drafted on `feat/eu-cost` and is on `feat/v1-integration` (`evals/diff_regression/demo_penalties_amended.yaml`).
+> - **Cost (R32).** api calls record list-price cost (`src/womm/llm/api.py`, `PRICES_PER_MTOK`), so `max_usd` stops work on api runs; eval reports record the judge's cost per case (`judge_cost_usd`). `claude_code` runs report no cost to the cycle budget.
+> - **Data egress (R28).** Formal runs send holdout proposal text to OpenAI (api backend); the cross-family re-score sends holdout dossiers and key items to Anthropic through the isolated Claude CLI. The data boundary and its account settings are in `docs/status/2026-10-07-v1-human-steps.md`.
+> - **U11 analyst feedback (R31)** is built (main migration 006); analyst rows never reach the Improvement Planner's input.
+> - **Corrections:** `promotion_decisions` is in main migration 005, not 004. A role only one version has (a new expert) passes the "same backends" check when its backend and model are used elsewhere in the other version. The dev label reads "dev-only, not deployable; weak threshold: directional".
+
 ## Overview
 
 This plan delivers the v1 self-evolution cycle (origin F3) and the demo it must support (R30):
@@ -81,7 +99,7 @@ v0 and plan 002 leave self-evolution as interfaces:
 - **Config only.** The Improvement Planner never edits code, the judge, the backend or model of any role, the router mode, data scopes, or the golden cases. The origin excludes evaluator self-improvement and code self-modification.
 - **No agent merge, deletion or graph reorganisation** (origin Scope Boundaries, Experimental items). A topology change in v1 is one thing only: adding one expert.
 - **Promotion optimises whole-proposal evaluation only.** The provision-level diff is monitored by R37 and never gates (origin Scope Boundaries).
-- **No new golden cases and no changes to holdout sealing.** The golden plan owns both. This plan adds one holdout migration (compare progress, U7), behind the same module boundary.
+- **No new golden cases and no changes to holdout sealing.** The golden plan owns both. This plan adds holdout migrations 002 to 005 (compare progress, budget reservations, stored runs, rescore audit; Revision 2026-10-15), behind the same module boundary.
 - **No automatic deployment.** A promoted version becomes the deployed default only through a human commit to `PROMOTIONS.md` and the API's default version (see Human-in-the-Loop Points).
 
 ### Deferred to Follow-Up Work
@@ -112,7 +130,7 @@ Code referenced below lives on two unmerged branches: `feat/provision-corpus` (p
   - `ExpectedVerdict` maps each expected impact to `covered` and the dossier `impact_id`;
   - `FAILURE_THRESHOLDS` are loose v0 defaults.
 - `src/womm/eval/golden.py` (golden-import): `ExpectedImpact.category` comes from `CATEGORY_GUIDE` in `src/womm/eval/drafting.py` (`compliance_cost`, `public_enforcement_cost`, `social_environmental`, ...). This is R25's "impact type".
-- `src/womm/eval/run_eval.py`: `persist_failures` refuses holdout reports. `check_formal` gates the R34 run on the api backend with `FORMAL_MIN_REPETITIONS = 6`.
+- `src/womm/eval/run_eval.py`: `persist_failures` refuses holdout reports. `check_formal` gates the R34 run on the api backend with `FORMAL_MIN_REPETITIONS = 3` (6 before 2026-10-14).
 - `src/womm/eval/holdout.py`: `compare(candidate, baseline, repetitions, store=..., failure_policy=...)`, `HoldoutComparison`, `MIN_PROPOSALS = 5`, and `HoldoutStore.record_audit`. Scoring uses the baseline's judge.
 - `src/womm/eval/trajectory.py`: deterministic per-run metrics (`planner_key_recall`, ...), recomputable offline from `runs/`. These feed failure traces.
 - `src/womm/tracing.py`: `is_sealed(split)` is the single sealed-split predicate. Every new trace or feedback path must check it.
@@ -122,7 +140,7 @@ Code referenced below lives on two unmerged branches: `feat/provision-corpus` (p
 
 ### Institutional Learnings
 
-- `docs/solutions/evaluation/single-run-scores-are-noise.md`: pool at least 6 runs per case before claiming a difference; omission scores move in steps of 0.25–0.33. This governs replay repetitions and the weak-threshold mode.
+- `docs/solutions/evaluation/single-run-scores-are-noise.md`: pool at least 6 runs per case before claiming a difference; omission scores move in steps of 0.25–0.33. This governs replay repetitions and the weak-threshold mode. Formal R34 and holdout comparisons run 3 repetitions, extended to 6 only by the pooled-noise rule (Revision 2026-10-15).
 - `docs/solutions/llm-backends/claude-cli-subscription-isolation.md`: `claude_code` calls run with no tools, no MCP and no project files. The Improvement Planner's LLM therefore sees only what our code puts in its prompt, which is why the data boundary (U6) sits in code.
 - `system_versions/PROMOTIONS.md`, 2026-09-29: v0.3's promotion gain came from one case, and its prompts were tuned on the same cases. This is why promotion must be decided on the holdout, not on train/val.
 
@@ -133,7 +151,7 @@ Code referenced below lives on two unmerged branches: `feat/provision-corpus` (p
   - A candidate is `dict[str, str]` of named text components. Custom systems plug in through a `GEPAAdapter` with `evaluate(batch, candidate, capture_traces)` and `make_reflective_dataset(...)`, plus an optional `propose_new_texts`, which takes over proposal generation from the reflection LM.
   - Options include `candidate_selection_strategy` (`pareto`, `top_k_pareto`, `current_best`), `module_selector` (`round_robin`, `all`), `max_metric_calls` as the budget, and `run_dir` resume through a pickled `gepa_state.bin`.
   - The docs show `reflection_lm` as any `str -> str` callable, including `claude -p`.
-  - Core dependencies are `litellm` and `tqdm`.
+  - The core package has no runtime dependencies (Revision 2026-10-06).
 - **DSPy GEPA** wraps the same engine for DSPy programs. WOMM is not a DSPy program, so the standalone `gepa` package is the relevant entry point.
 - ADAS and DGM (origin Key Decisions): keep every candidate in an archive with lineage, not only the best. This is R27.
 
@@ -171,11 +189,11 @@ Code referenced below lives on two unmerged branches: `feat/provision-corpus` (p
   - All search, selection and Pareto bookkeeping use train/val only.
   - At most **one holdout comparison per cycle**, and a **v1 budget of 6 holdout comparisons in total** (pre-registered in the promotion policy). Each comparison returns an aggregate decision, and adaptive reuse of a small holdout overfits it (the reusable-holdout problem). The Planner never sees the outcome (U6), and the budget bounds the leak through humans choosing what to submit.
 - **Promotion policy is a committed, pre-registered file.**
-  - `evals/promotion_policy.yaml` holds: the primary metric, the per-metric regression tolerances, repetitions per holdout case, `failure_policy`, the mode, the holdout budget, and the coverage-judge calibration record that the golden plan requires (judge–human agreement ≥85%).
+  - `evals/promotion_policy.yaml` holds: the primary metric, the per-metric regression tolerances, repetitions per holdout case, `failure_policy`, the mode, and the holdout budget. The coverage-judge calibration record lives in `evals/promotion_records.yaml` (Revision 2026-10-15).
   - The gate refuses to run while the file is missing a field or the calibration is missing or below 85%.
-  - Changes to the file after the first holdout comparison are allowed only through a commit whose message the audit row records (git sha), so a moved goalpost is visible.
+  - The policy file is never changed after the first holdout comparison. Each decision records the policy file's sha256, and `promote` refuses while the policy or records file has uncommitted changes (Revision 2026-10-15).
 - **Three gate modes, chosen by the data, never by the result.** See the table under High-Level Technical Design.
-  - **Statistical** needs the api backend, a formal R34 noise run, and at least 5 proposals (no `insufficient_proposals` flag).
+  - **Statistical** needs the api backend, a complete R34 chain (Revision 2026-10-15), and at least 5 proposals (no `insufficient_proposals` flag).
   - **Weak** is the formal backend without a resolvable CI. This includes the case the golden plan names: the minimum-detectable-delta report shows the gate cannot resolve R30's expected improvement.
   - **Dev** is a `claude_code` run. It can never change the deployed default and is labelled dev-only everywhere.
   - *Why:* origin R28's weak-threshold clause, the golden plan's MDD rule, and R34's "claude_code data is for development reference only".
@@ -255,9 +273,9 @@ flowchart TB
 
 | Mode | When | Promote if | Labelled |
 |---|---|---|---|
-| Statistical | api backend; formal R34 run on record; no `insufficient_proposals`; MDD report says the gate can resolve the expected gain | primary-metric CI95 lower bound > 0, and each guard metric's mean delta ≥ −tolerance, and not `aborted` | "promoted (holdout, bootstrap CI)" |
-| Weak | api backend, but CIs are null or MDD exceeds the expected gain | primary mean delta > `weak_min_delta_se` x SE of the comparison's noise (amended 2026-10-14, plan 2026-10-14-001; was > 0), and guards within tolerance (precision added), and not `aborted` | "promoted (weak threshold: directional)" |
-| Dev | any role on `claude_code` | as Weak | "dev-only, not deployable" |
+| Statistical | api backend; complete R34 chain on record; no `insufficient_proposals`; MDD report says the gate can resolve the expected gain | primary-metric CI95 lower bound > 0, and every binding guard holds (grounding, omissions, precision, impact-count drop ≤ 25%), and not `aborted` | "promoted (holdout, bootstrap CI)" |
+| Weak | api backend, but CIs are null or MDD exceeds the expected gain | primary mean delta > `weak_min_delta_se` x the comparison's bootstrap SE clustered by proposal, or the within-run noise SE (noted) when the CIs are null (amended 2026-10-14, plan 2026-10-14-001; was > 0), and every binding guard holds, and not `aborted` | "promoted (weak threshold: directional)" |
+| Dev | any role on `claude_code` | as Weak | "dev-only, not deployable; weak threshold: directional" |
 
 **Cycle, step by step**
 
@@ -282,7 +300,7 @@ flowchart TB
 
 **Files:**
 - Create: `src/womm/evolve/__init__.py`, `src/womm/evolve/failure_memory.py`
-- Create: `src/womm/api/migrations/004_evolution.sql` (`failure_events`, `failure_patterns` view; U3, U4 and U7 tables in the same file). The golden plan's body once named a main-database "migration 004" for the holdout; its Revision moved the holdout to its own database and migrations, so 004 is free on both branches.
+- Create: `src/womm/api/migrations/004_evolution.sql` (`failure_events`, `failure_patterns` view; U3 and U4 tables in the same file; `promotion_decisions` is main migration 005). The golden plan's body once named a main-database "migration 004" for the holdout; its Revision moved the holdout to its own database and migrations, so 004 is free on both branches.
 - Modify: `src/womm/eval/evaluators.py` (`failure_records` emits per-item rows with category and `touching_agents`)
 - Modify: `src/womm/eval/run_eval.py` (`persist_failures` writes `failure_events` with repetition and split)
 - Modify: `src/womm/api/db.py` (insert and pattern queries)
@@ -431,9 +449,9 @@ flowchart TB
 - **Reflective dataset per component:** for each failed train case in the minibatch: the expected impacts that were missed (actor, mechanism, impact, category; the train golden case is visible by design), what the component's role produced on those provision keys, unsupported findings with their validation reason, and the Failure Memory pattern rows the case contributes to. Inputs are capped in characters per component.
 - **Prompt proposer:** structured `PromptEdit {role, new_text, rationale}`, validated by U2. A proposal that fails validation counts as a rejected proposal and is not retried endlessly.
 - **Topology proposer:** it fires only on a persistent `(missed_impact, category, owner = none)` pattern spanning at least 2 proposals, after the prompt stage. It outputs one `ExpertProposal {id, domain, prompt_text, router_gloss, rationale, target_pattern}`, which becomes an `add_expert` diff. Its rationale must name the target pattern, and page 4 shows it.
-- **Candidate choice:** from the archive's val metrics, the val Pareto front (GEPA's per-instance front), then the best mean val primary metric with val grounding within tolerance. One candidate goes to the gate per cycle.
+- **Candidate choice:** from the archive's val metrics, the val Pareto front (GEPA's per-instance front), then the best mean val primary metric with val grounding within tolerance and a val coverage gain above `selection_k` (1.0) times its SE (Revision 2026-10-15). When nothing beats the base beyond noise, the base is chosen and no holdout comparison is spent. One candidate goes to the gate per cycle.
 - **The Improvement Planner role is not part of any evolved SystemVersion.** Its prompts are fixed config (no evaluator or planner self-improvement in v1).
-- **Budget:** a cycle stops at `max_metric_calls` or `max_usd` (from `CallUsage`), whichever comes first.
+- **Budget:** a cycle stops at `max_metric_calls` or `max_usd` (from `CallUsage`), whichever comes first (`max_usd` stops api runs only; see Revision 2026-10-15).
 
 **Test scenarios:**
 - Happy path (fake backend): a scripted proposer edits the Fiscal prompt, the replayed candidate scores higher on the minibatch, and it is archived with origin `gepa` and its parent.
@@ -463,7 +481,7 @@ flowchart TB
 - Modify: `src/womm/cli.py` (`womm evolve cycle` refuses to start while `HOLDOUT_DATABASE_URL` is set in its environment)
 
 **Approach:**
-- **Import boundary:** `womm.evolve.{planner_view, proposers, gepa_adapter, cycle}` must not import `womm.eval.holdout` or `womm.evolve.promotion`, directly or transitively. An AST import-graph test enforces it. Only `womm.evolve.promotion` may import `womm.eval.holdout`.
+- **Import boundary:** `womm.evolve.{planner_view, proposers, gepa_adapter, cycle}` must not import `womm.eval.holdout` or `womm.evolve.promotion`, directly or transitively. An AST import-graph test enforces it. Only `womm.evolve.promotion` and `womm.evolve.rescore` (Revision 2026-10-15) may import `womm.eval.holdout`.
 - **Process boundary:** the cycle command and the promotion command are separate processes. The cycle refuses to run with the holdout URL in its environment, and the promotion command is the only one that needs it.
 - **Query boundary:** `PlannerView` has no method that reads `promotion_decisions`, and no free-form SQL. The test checks its query strings against a table allow-list.
 - **Content boundary:** archive rows carry no decision fields. The incumbent id is the only promotion-derived fact the Planner sees: it must know its parent.
@@ -491,14 +509,14 @@ flowchart TB
 - Create: `src/womm/evolve/promotion.py`, `evals/promotion_policy.yaml`
 - Create: `src/womm/eval/holdout_migrations/002_compare_progress.sql`
 - Modify: `src/womm/eval/holdout.py` (`compare` checkpoints per `(sv, judge, git_sha, internal case key, repetition)` scores in `holdout.compare_progress` and resumes from them; no change to its return type)
-- Modify: `src/womm/api/migrations/004_evolution.sql` (`promotion_decisions`)
+- Create: main migration 005 (`promotion_decisions`; Revision 2026-10-15)
 - Modify: `src/womm/cli.py` (`womm evolve promote <candidate> --incumbent <id>`)
 - Test: `tests/evolve/test_promotion.py`, `tests/eval/test_holdout_resume.py`
 
 **Approach:**
 - Preconditions, each a refusal with a message:
   - the policy file is complete;
-  - the judge calibration is on record and at least 85%;
+  - the judge calibration is on record in `evals/promotion_records.yaml` and meets the rule in Revision 2026-10-15;
   - the holdout budget is not exhausted;
   - candidate and incumbent use the same backends;
   - the R34 formal record exists for statistical or weak mode.
@@ -511,7 +529,7 @@ flowchart TB
 **Test scenarios:**
 - Covers AE4: a fake comparison with coverage +0.08 (CI above 0) and grounding −0.05 (tolerance 0.02) is rejected with reason `grounding_regression`. The summary row has no case ids, and `PlannerView` cannot read it.
 - Happy path (statistical): CI low > 0 and guards within tolerance gives `promoted`, mode `statistical`.
-- Happy path (weak): CIs null with a positive mean delta gives `promoted`, mode `weak`, and the label says "directional".
+- Happy path (weak): CIs null with a mean delta above `weak_min_delta_se` x SE gives `promoted`, mode `weak`, and the label says "directional" (was: any positive delta; amended 2026-10-14).
 - Edge case: `insufficient_proposals` with the statistical mode requested downgrades to weak and records the downgrade.
 - Edge case: any role on `claude_code` gives mode `dev` and `deployable = false` in the decision record.
 - Edge case: with `publish_summary: false`, no `promotion_decisions` row is written and the summary fields sit in the audit row only.
@@ -540,7 +558,7 @@ flowchart TB
 - Test: `tests/evolve/test_diff_regression.py`
 
 **Approach:**
-- The reference answers are written by hand, as origin R37 requires: one person decides every item. The golden plan's drafting tool may pre-fill a draft, but no item is auto-accepted (unlike the golden plan's LLM-judged train/val items). The R2 demo scenario has no IA, so anchors are provision quotes, not IA quotes.
+- *(Superseded: LLM-drafted with machine-checked quotes, owner decision 2026-10-12; see Revision 2026-10-15.)* The reference answers are written by hand, as origin R37 requires: one person decides every item. The golden plan's drafting tool may pre-fill a draft, but no item is auto-accepted (unlike the golden plan's LLM-judged train/val items). The R2 demo scenario has no IA, so anchors are provision quotes, not IA quotes.
 - The check runs through the replay store with split `diff_check` and 3 repetitions. Scores go to `sv_metrics` (split `diff_check`).
 - `PlannerView` does not read `diff_check` metrics, so the Planner cannot optimise the monitor.
 
@@ -621,7 +639,7 @@ flowchart TB
 
 ---
 
-- U11. **(Follow-on, only if time allows) Analyst feedback into Failure Memory**
+- U11. **(Follow-on, only if time allows) Analyst feedback into Failure Memory** (built; Revision 2026-10-15)
 
 **Goal:** R31's minimal path: an analyst's "missing impact" or "weak evidence" mark on a train/val run becomes a Failure Memory row.
 
@@ -650,11 +668,11 @@ Kept to the places where a machine decision cannot be trusted, or where a deploy
 
 | # | Point | Who | When | Effort |
 |---|---|---|---|---|
-| 1 | Sign the promotion policy (primary metric, tolerances, budget) before the first holdout comparison | user | once, before U10 | 15 min |
-| 2 | Coverage-judge calibration (≥85% agreement), already required by the golden plan | classmates | once; again if the judge changes | about 1 h (golden plan) |
-| 3 | Write the R37 reference answers for `demo_penalties_amended` (by hand, origin R37) | one person | once (U8) | about 1 h |
-| 4 | Commit a promoted version as the deployed default (`PROMOTIONS.md`) | user | per promotion | 10 min |
-| 5 | Look at an `inconclusive` abort that repeats on the same pair | user | only when it happens | varies |
+| 1 | Sign the promotion policy (primary metric, tolerances, budget) before the first holdout comparison | owner | once, before U10 | 15 min |
+| 2 | Coverage-judge calibration (≥85% agreement), already required by the golden plan | classmates | once; not repeated within v1 (judge frozen after calibration) | about 1 h (golden plan) |
+| 3 | ~~Write the R37 reference answers by hand~~ Done 2026-10-12: LLM-drafted, quotes machine-checked, owner accepted (Revision 2026-10-15) | owner | once (U8) | done |
+| 4 | Commit a promoted version as the deployed default (`PROMOTIONS.md`) | owner | per promotion | 10 min |
+| 5 | Look at an `inconclusive` abort that repeats on the same pair | owner | only when it happens | varies |
 
 Not a gate: the golden plan's habit of reading 3 sampled transcripts per eval report. No human approves candidates before the holdout, and no human sees the holdout cases.
 
@@ -664,11 +682,11 @@ Not a gate: the golden plan's habit of reading 3 sampled transcripts per eval re
 
 - **Interaction graph:** the graph, Planner, experts and router are unchanged. `relevance_question` reads one new optional field. New code sits in `src/womm/evolve/` and in CLI subcommands.
 - **Data:**
-  - Main database gains `failure_events`, `sv_archive`, `sv_prompts`, `sv_metrics`, `replay_batches`, `replay_items` and `promotion_decisions` (migration 004).
-  - The holdout database gains `compare_progress` (holdout migration 002).
+  - Main database gains `failure_events`, `sv_archive`, `sv_prompts`, `sv_metrics`, `replay_batches`, `replay_items` (migration 004) and `promotion_decisions` (migration 005).
+  - The holdout database gains holdout migrations 002 to 005 (Revision 2026-10-15).
   - No holdout content enters the main database. `promotion_decisions` holds aggregates only.
 - **Unchanged invariants:** every existing SystemVersion id; v0 and plan 002 prompt bytes; the holdout sealing guarantees and `compare`'s return type; `.dockerignore` keeping `evals/` out of the image.
-- **Cost:** see Sizing. Every evolution command reports `CallUsage` totals and stops at the configured `max_usd`.
+- **Cost:** see Sizing. Every evolution command reports `CallUsage` totals. `max_usd` stops api runs only; `claude_code` runs report no cost to the cycle budget (Revision 2026-10-15).
 - **Deployment:** evolution runs locally or as a worker. The `claude_code` backend cannot run on Railway (origin Key Decisions), so dev cycles are local. The API only reads the new tables.
 
 ---
@@ -686,7 +704,7 @@ Today is 2026-10-06. v1 is due around 2026-11-27: about 7.5 weeks, of which abou
 | U5 Planner + GEPA (incl. 1 d spike) | 4–5 d | after U1–U4 | train cases for realistic runs |
 | U6 Boundary | 1–2 d | with U5 | — |
 | U7 Gate | 3 d | after U3, U6 | holdout sealed; API key for formal modes |
-| U8 R37 | 2 d + 1 h human | after U4 | — |
+| U8 R37 | 2 d | after U4 | — |
 | U9 Page 4 | 4 d | after U3; finish after U7 | — |
 | U10 Demo cycle | 3–5 d wall clock | ~2026-11-16 | all of the above |
 | U11 Feedback | 1–2 d | only if ahead | — |
@@ -696,10 +714,10 @@ Total: about 26–32 developer-days for U1–U10, which fits the window for one 
 **Compute, rough, to be measured in the U5 spike:**
 - One preset case run costs 3 expert calls plus Planner, synthesis and judge. On `claude_code` this is a few minutes per case at parallelism 3.
 - A prompt stage with `max_metric_calls` around 60 case runs takes about 3–4 hours of wall clock on `claude_code`.
-- A holdout comparison of 8 cases × 3 repetitions × 2 versions is 48 runs. The baseline cache makes later comparisons 24.
+- A holdout comparison of 8 cases × 3 to 6 repetitions × 2 versions is 48 to 96 runs. The baseline cache makes later comparisons 24 to 48.
 
 **Cut order if late:**
-1. U11.
+1. U11 (built; cut only if removed from the branch).
 2. U9's per-prompt diffs (keep the structural summary).
 3. The topology stage: fall back to the prompt-level cycle, as R30 allows.
 
@@ -711,13 +729,13 @@ Never cut U6 or U7's preconditions.
 
 | Risk | Mitigation |
 |---|---|
-| **No API key (R34 dependency).** Without the api backend there is no formal noise run, so statistical and weak modes are unavailable | The gate runs in dev mode on `claude_code`, labelled "dev-only, not deployable", with the weak rule. The demo states this. Formal modes switch on as soon as a key and the R34 run exist, with no code change. User decision 4 sets the cut-off date. **Resolved 2026-10-14:** the key exists |
+| **No API key (R34 dependency).** Without the api backend there is no formal noise run, so statistical and weak modes are unavailable | The gate runs in dev mode on `claude_code`, labelled "dev-only, not deployable; weak threshold: directional", with the weak rule. The demo states this. Formal modes switch on as soon as a key and the R34 run exist, with no code change. User decision 4 sets the cut-off date. **Resolved 2026-10-14:** the key exists |
 | The holdout cannot resolve the gain (8 cases, noise about 0.1) | The weak mode is pre-registered, the golden plan's MDD report chooses it before any result is seen, and the label is shown everywhere |
 | Adaptive overfitting of the holdout through repeated comparisons | One comparison per cycle, 6 for v1, and the Planner never sees outcomes (U6) |
 | No persistent `owner = none` pattern appears, so no new expert is proposed | The R30 fallback to a prompt-level cycle is decided by 2026-11-20. The topology trigger is reported honestly, never forced by hand-seeding failures |
 | Train/val is small (about 10 train / 3 val), so the val Pareto front is coarse | Several repetitions on val, choice on mean val primary metric, and the holdout decides anyway |
 | GEPA does not fit the async replay, or its pickled state does not round-trip | The one-day spike with go/no-go. The port is about 250 lines, and the replay store is the source of truth in both cases |
-| GEPA pulls in `litellm` as a core dependency | Pin and lock it; it is never called at runtime (own proposer). Revisit if the dependency footprint is a problem |
+| ~~GEPA pulls in `litellm` as a core dependency~~ | Void (Revision 2026-10-06): the core package has no runtime dependencies |
 | The Improvement Planner writes prompts that game the judge | The judge is pinned to the seed's (replay) and the baseline's (holdout), judge edits are forbidden, and the calibration requirement stands |
 | A new expert's id or gloss confuses the Jev decider | The router stays in shadow, so the decision is recorded but every expert runs. The gloss is config and shown on page 4 |
 | Golden cases or the holdout arrive late | U1–U6 and U8–U9 run on the 2 existing train cases and the fake backend. U7 and U10 wait |

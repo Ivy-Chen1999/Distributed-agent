@@ -1,4 +1,4 @@
-# WOMM v1: the steps that need a person — 2026-10-07 (revised 2026-10-14)
+# WOMM v1: the steps that need a person — 2026-10-07 (revised 2026-10-15)
 
 Everything else in v1 is automated. People are needed where an LLM is being checked and another
 LLM cannot be the reference: did the AI read its sources faithfully (the reference check; it does
@@ -17,8 +17,8 @@ carry aggregate holdout numbers and counts only, never holdout case ids, proposa
 Revised 2026-10-10 to the least human work: the holdout is settled by the same tool chain as
 train/val and only spot-checked; transcript reading is replaced by the review pages that
 `score` writes; the 11-20 route is stated by `womm evolve cycle`; the IA cost reference is
-checked by a script; the hand-written R37 answers move to v1.1 (monitoring only, they gate
-nothing).
+checked by a script; the R37 reference answers are LLM-drafted (decided 2026-10-12; monitoring
+only, they gate nothing).
 
 | # | Step | Who | Time |
 |---|---|---|---|
@@ -29,11 +29,11 @@ nothing).
 | 3b | RSB companions: commit them on `feat/v1-integration` before step 4 (labelled in step 2) | owner | 10 min |
 | 4 | Publish the golden cases; then the calibration sitting | owner, then 2 classmates | 5 min, then about 20 min each |
 | 5 | Holdout: spot-check 3 items a draft on a local page (tie-break **done 2026-10-12**), import | owner | about 20 min |
-| 6 | Sign the promotion policy (**done 2026-10-12**) | owner | 5 min |
+| 6 | Sign the promotion policy (**re-signed 2026-10-15** after the 2026-10-14 amendment) | owner | 5 min |
 | 7 | R34 noise run and MDD report (after the calibration passes and step 5) | owner starts it | 10 min plus about 2 h |
 | 8 | Cost reference: run the check, record the FTE basis (**done 2026-10-12**) | owner | 5 min |
 
-Order: 0, 1, 2, 3, 3b, 4, 5, 7; then the first holdout comparison. The calibration in 4 needs the
+Order: 0, 1, 2, 3, 3b, 4, 5, 6, 7; then the first holdout comparison. The calibration in 4 needs the
 published cases and the API key (the gate calibrates the API judge, and the published cases give
 it 13 cases instead of 2). 5 needs a passed reference check. 7 needs the published val cases (step
 4), a recorded calibration (a judge-prompt fix after a failed calibration changes the judge id,
@@ -269,26 +269,32 @@ uv run womm policy sign --by "<your name>"
 git commit evals/promotion_policy.yaml
 ```
 
-Never change the file after a comparison; every decision records its sha256.
+Never change the file after a comparison; every decision records its sha256. From the first
+holdout comparison until the last one (and any `--resume`) is done, commit nothing on
+`feat/v1-integration`: cached runs are keyed on the code version, so any commit re-runs the
+incumbent at full cost.
 
-**Decided 2026-10-14, before any comparison** (plan
+**Decided 2026-10-14, before any comparison; impact-count guard added 2026-10-15** (plan
 `docs/plans/2026-10-14-001-feat-precision-guard-and-adaptive-repetitions-plan.md` on
 `feat/v1-integration`; the policy gains the fields below, its signature is cleared, and the owner
-signs again (`womm policy sign`)):
+signs again (`womm policy sign`); re-signed 2026-10-15):
 
 - Repetitions adapt to the data: each comparison runs 3 per case and arm, and extends both arms to
   6 only when the pooled noise (never the difference between the arms) says 6 can resolve
   `expected_gain` and 3 cannot. The decision records the repetitions used.
-- Weak mode promotes only when the coverage gain exceeds one standard error of the comparison's
-  own noise (`weak_min_delta_se: 1.0`), not merely 0. The R34 report states how often a version
+- Weak mode promotes only when the coverage gain exceeds one standard error of the gain
+  (`weak_min_delta_se: 1.0`; bootstrap SE clustered by proposal, or the within-run noise SE,
+  noted, when too few proposals leave the CIs null), not merely 0. The R34 report states how often a version
   compared against itself would clear that bar (the null pass rate); the demo quotes it.
 - Precision guard (binding): the share of dossier impacts the judge matched to an expected impact
-  may drop by at most one noise SD (`precision_regression`). Impact count and total impact text
-  are reported for both arms, with a note above +25%; they reject nothing.
+  may drop by at most one noise SD (`precision_regression`). Impact count may drop by at most
+  25% (`impact_count_drop`, binding; owner 2026-10-15). Rises in impact count or total impact
+  text above 25% are noted only.
 - At most 2 formal holdout comparisons in the demo; the second only for the prompt-only fallback
   candidate. A rejection by the gate is shown as a valid end of the cycle.
-- Before spending a comparison, the chosen candidate's api twin runs once on val (about $3), so a
-  gain found on the Claude subscription is confirmed under the GPT model and judge.
+- Before spending a comparison, the chosen candidate's api twin runs once on val (about $3) as a
+  sanity check that it works under the GPT model and judge. Three val cases cannot resolve the
+  expected gain; the holdout comparison on `gpt-6.1-sol` is the transfer test.
 - After each comparison, a report-only check: the coverage delta re-scored by a Claude judge
   (`claude_code`, subscription, about 1-2 hours, no API spend) on the same stored runs:
   `uv run womm evolve rescore <gate_id>` (resumes after a usage limit). Opposite signs, or a
