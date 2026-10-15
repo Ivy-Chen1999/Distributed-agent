@@ -10,7 +10,8 @@ refer to `feat/v1-integration`, except step 8 (`feat/eu-cost`).
 
 Data boundary: the holdout store and the step 5 page stay on the owner's machine. The api versions
 run on OpenAI, so a formal holdout comparison sends holdout proposal text and answer-key items to
-the OpenAI API (system roles and judge). Committed files (`evals/promotion_records.yaml`, this page)
+the OpenAI API (system roles and judge), and the cross-judge re-score after it sends the stored
+holdout dossiers and key items to Anthropic through the isolated Claude CLI. Committed files (`evals/promotion_records.yaml`, this page)
 carry aggregate holdout numbers and counts only, never holdout case ids, proposal names or key text.
 
 Revised 2026-10-10 to the least human work: the holdout is settled by the same tool chain as
@@ -289,8 +290,12 @@ signs again (`womm policy sign`)):
 - Before spending a comparison, the chosen candidate's api twin runs once on val (about $3), so a
   gain found on the Claude subscription is confirmed under the GPT model and judge.
 - After each comparison, a report-only check: the coverage delta re-scored by a Claude judge
-  (`claude_code`, subscription) on the same saved runs; disagreeing signs label the decision
-  "judge-sensitive". To build before the first comparison.
+  (`claude_code`, subscription, about 1-2 hours, no API spend) on the same stored runs:
+  `uv run womm evolve rescore <gate_id>` (resumes after a usage limit). Opposite signs, or a
+  promotion the Claude judge does not see as a gain, label the decision `cross-judge-sensitive`;
+  the decision itself is unchanged. Agreement is weak evidence (the dev cycle tuned the candidate
+  against a Claude judge); disagreement is the signal. Plan:
+  `docs/plans/2026-10-15-001-feat-cross-family-judge-rescore-plan.md` on `feat/v1-integration`.
 - Not adopted: full human verification of every holdout item, and extra calibration pairs from the
   candidate's output. The demo says the key is "AI-drafted, read-checked by two people,
   owner-ruled on the differences, holdout spot-checked" and the judge "calibrated on the
