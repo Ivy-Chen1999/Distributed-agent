@@ -394,7 +394,14 @@ async def record_langsmith_experiment(
         return scores[i].model_dump(mode="json")
 
     def metrics(outputs: dict) -> dict:
-        keys = ("coverage", "omissions_addressed", "grounding", "latency_s", "cost_usd")
+        keys = (
+            "coverage",
+            "omissions_addressed",
+            "grounding",
+            "latency_s",
+            "cost_usd",
+            "judge_cost_usd",
+        )
         results = [{"key": k, "score": outputs.get(k)} for k in keys]
         # LangSmith feedback scores are capped at +/-99999.9999, so tokens go in as thousands.
         tokens = outputs.get("tokens")

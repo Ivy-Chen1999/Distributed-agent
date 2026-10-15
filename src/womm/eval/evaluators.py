@@ -74,6 +74,8 @@ class CaseScore(BaseModel):
     latency_s: float = 0.0
     tokens: int = 0
     cost_usd: float = 0.0
+    judge_tokens: int = Field(default=0, description="Coverage-judge tokens, apart from the run's.")
+    judge_cost_usd: float = 0.0
     judge: JudgeOutput | None = None
     judge_error: str | None = None
     decisions: list[dict] = Field(
@@ -164,6 +166,21 @@ def _complete(case: GoldenCase, out: JudgeOutput) -> bool:
 
 
 async def score_case(
+    case: GoldenCase,
+    run: RunResult,
+    judge_backend: LLMBackend,
+    judge_role: RoleConfig,
+    judge_prompt: str,
+) -> tuple[CaseScore, CallUsage | None]:
+    score, usage = await _score_case(case, run, judge_backend, judge_role, judge_prompt)
+    if usage is not None:
+        score = score.model_copy(update={
+            "judge_tokens": usage.input_tokens + usage.output_tokens,
+            "judge_cost_usd": usage.cost_usd or 0.0})  # fmt: skip
+    return score, usage
+
+
+async def _score_case(
     case: GoldenCase,
     run: RunResult,
     judge_backend: LLMBackend,
@@ -325,4 +342,5 @@ def aggregate(scores: list[CaseScore]) -> dict:
         "latency_s": mean("latency_s"),
         "tokens": mean("tokens"),
         "cost_usd": mean("cost_usd"),
+        "judge_cost_usd": mean("judge_cost_usd"),
     }
