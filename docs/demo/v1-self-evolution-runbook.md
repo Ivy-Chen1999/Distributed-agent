@@ -34,12 +34,21 @@ sealed holdout.
 - A weak-mode pass is **"not rejected (directional)"**. Quote the A/A null pass rate that
   `womm noise report` prints, with its label: **lower bound: within-run noise only** (it splits
   one version's runs, so it misses how a gain varies between cases).
+- Contamination: `gpt-6.1-sol` may have read some holdout IAs (its knowledge cutoff is April
+  2026; the holdout prefers IAs after June 2025). Both arms of a comparison run on the same model,
+  so this mostly cancels in the gate's delta. Show absolute coverage only as context, never as
+  out-of-sample ability, and quote the count of holdout IAs dated after the cutoff (aggregate).
+- Transfer: the cycle tunes prompts on Claude; the gate compares api twins on `gpt-6.1-sol`, so
+  the holdout comparison is itself the transfer test. A candidate that does not transfer is
+  rejected. The api twin's val run before the comparison is an operator sanity check, not a
+  pre-registered rule (3 val cases cannot resolve the expected gain).
 
 ### Claims the demo never makes
 
 - "The system improved" or "statistically shown", for any weak-mode or dev-mode decision.
 - "Human-verified" or "expert-validated" answer keys.
 - "Drafts impact assessments" or "approaches official IAs".
+- Absolute coverage as out-of-sample ability ("it recovers X% of an IA's impacts").
 
 ## Path A: scripted rehearsal (no human input, no api key)
 
