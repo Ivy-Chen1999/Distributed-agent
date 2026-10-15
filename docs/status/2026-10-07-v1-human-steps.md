@@ -327,7 +327,10 @@ published them). It starts at 3 repetitions (9 case runs, about $4, about 1 hour
 says `stop` or `extend`; on `extend`, 3 more (about $4 more), pooled with the first. Every formal
 run is logged in `evals/promotion_records.yaml` when it finishes; commit that file after each run
 (the next formal run refuses a dirty tree). Only the first chain for a judge counts, and the
-report shows the stop rule's numbers only when it records. Standard tier.
+report shows the stop rule's numbers only when it records. Standard tier. Every formal run needs
+`LANGSMITH_API_KEY` set (each run records its own experiment, which the extension needs; val
+cases are public): `womm eval --formal` refuses before any spend without it, and exits non-zero
+if the recording fails after the run.
 
 ```
 uv run womm eval --system-version system_versions/v1.0-unscoped-api.yaml --split val --repetitions 3 --formal
@@ -342,9 +345,18 @@ uv run womm noise report --report <first report> --report <second report> \
 git commit evals/promotion_records.yaml -m "chore: R34 extension"
 ```
 
-If the code changed between the two runs, run one fresh 6-repetition run instead and record it on
-its own (it is logged as such). Sign the policy before the first R34 run: the stop rule records
-the policy's hash, and a later policy change blocks the extension.
+If the code changed between the two runs, or the first run has no LangSmith experiment, run one
+fresh 6-repetition run instead and record it on its own (it is logged as such):
+
+```
+uv run womm eval --system-version system_versions/v1.0-unscoped-api.yaml --split val --repetitions 6 --formal
+git commit evals/promotion_records.yaml -m "chore: formal R34 run logged"
+uv run womm noise report --report <fallback report> --holdout-cases 8 --holdout-proposals 8 --record
+git commit evals/promotion_records.yaml -m "chore: R34 fallback"
+```
+
+Sign the policy before the first R34 run: the stop rule records the policy's hash, and a later
+policy change blocks the extension.
 
 If the MDD is above `expected_gain`, the gate uses the weak threshold, and the demo says so. An
 MDD at or below `expected_gain` is necessary, not sufficient: it covers run-to-run noise only, not
