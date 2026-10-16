@@ -88,7 +88,7 @@ class Review:
             raise verify.VerifyError("a reviewer name is required (--reviewer)")
         self.reviewer, self.full, self.out_dir = reviewer.strip(), full, out_dir
         self.today = today or dt.date.today()
-        self.reference = verify.robust_reference_check(reference_dir)
+        self.reference = verify.robust_reference_check(reference_dir, list(drafts))
         if full:
             drafts = {p: d for p, d in drafts.items() if d.case_id == full}
             if not drafts:
@@ -102,7 +102,7 @@ class Review:
                 self.asked[draft.case_id] = draft.items()
             else:
                 verify.require_settled(draft)
-                self.asked[draft.case_id] = verify.spot_sample(draft)
+                self.asked[draft.case_id] = verify.spot_sample(draft, self.reference.spot_size)
         self.cards = self._cards(ia_root)
         self.lock = threading.Lock()
         self.state_path = state_dir / f"answers_{full or 'spot'}.json"

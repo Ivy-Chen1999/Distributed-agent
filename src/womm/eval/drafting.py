@@ -278,6 +278,22 @@ class TiebreakBlock(StrictModel):
     model: str = Field(description="The tie-break model, or 'deterministic' for a failed check.")
 
 
+SWEEP_TRIMMABLE = ("affected_actor", "impact", "description")
+
+
+class SweepBlock(StrictModel):
+    """The fidelity sweep's edit of a kept item (plan 2026-10-16-001): ``trim`` deleted words
+    the item's source does not state from the fields in ``before`` (their text before the cut);
+    ``drop`` leaves the item out of the published case. The item's review, tie-break and audit
+    stay as they were; the tool digest is taken over ``before``."""
+
+    action: Literal["trim", "drop"]
+    before: dict[str, str] = Field(default_factory=dict)
+    reason: str
+    model: str
+    on: dt.date
+
+
 class ItemProvenance(StrictModel):
     origin: Literal["llm_drafted", "llm_recall", "human_added"]
     status: Literal[
@@ -322,6 +338,7 @@ class _DraftItem(StrictModel):
     tiebreak: TiebreakBlock | None = None
     provenance: ItemProvenance
     review: Review
+    sweep: SweepBlock | None = None
 
     @property
     def item_id(self) -> str:
@@ -516,6 +533,9 @@ def tool_fields(item: _DraftItem) -> dict[str, Any]:
     data.pop("review")
     if data["tiebreak"] is None:  # absent before a tie-break, so older digests hold
         del data["tiebreak"]
+    sweep = data.pop("sweep")  # a sweep edit is checked against the text it cut (``before``)
+    if sweep is not None:
+        data |= sweep["before"]
     # Fields added later are left out when unset, so digests of drafts written before they
     # existed hold.
     data["provenance"] = {
@@ -1035,7 +1055,7 @@ def draft_path(
 ITEM_KEY_ORDER = (
     "expected_id", "omission_id", "candidate_id", "affected_actor", "mechanism", "impact",
     "description", "source", "why_missing", "provision_keys", "ia_section", "ia_anchor", "anchor",
-    "category", "derivability", "flags", "judge", "tiebreak", "provenance", "review",
+    "category", "derivability", "flags", "judge", "tiebreak", "provenance", "review", "sweep",
 )  # fmt: skip
 
 
@@ -1044,6 +1064,8 @@ def _reviewer_order(item: dict) -> dict:
     ordered = {k: item[k] for k in ITEM_KEY_ORDER if k in item} | item
     if ordered.get("tiebreak", ...) is None:
         del ordered["tiebreak"]
+    if ordered.get("sweep", ...) is None:
+        del ordered["sweep"]
     return ordered
 
 

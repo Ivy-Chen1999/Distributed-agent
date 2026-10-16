@@ -75,6 +75,23 @@ def _batches(cards: list[dict], size: int) -> list[list[dict]]:
     return [cards[i : i + size] for i in range(0, len(cards), size)]
 
 
+async def judge_cards(
+    cards: list[dict[str, Any]], config: DraftingConfig, backends: dict[str, LLMBackend]
+) -> dict[str, FidelityVerdict]:
+    """The page question's answer for each card, by the tie-break role, ``BATCH`` per call."""
+    role = config.roles.tiebreak
+    if role is None:
+        raise FidelityError("the drafting config has no tie-break role to answer with")
+    prompt = PROMPT.read_text(encoding="utf-8")
+    verdicts: dict[str, FidelityVerdict] = {}
+    for batch in _batches(cards, BATCH):
+        user = "## Cards\n\n" + json.dumps([card_input(c) for c in batch], indent=1,
+                                            ensure_ascii=False)  # fmt: skip
+        out, _ = await backends[role.backend].call(ROLE, prompt, user, FidelityOutput, role)
+        verdicts |= {v.item_id: v for v in out.verdicts if v.item_id in {c["id"] for c in batch}}
+    return verdicts
+
+
 async def rejudge(
     out_dir: Path, config: DraftingConfig, backends: dict[str, LLMBackend]
 ) -> dict[str, Any]:
@@ -89,16 +106,7 @@ async def rejudge(
     cards = [c for cs in pages["annotators"].values() for c in cs]
     if {c["id"] for c in cards} != set(key["items"]):
         raise FidelityError("the pages and the key hold different items")
-    role = config.roles.tiebreak
-    if role is None:
-        raise FidelityError("the drafting config has no tie-break role to answer with")
-    prompt = PROMPT.read_text(encoding="utf-8")
-    verdicts: dict[str, FidelityVerdict] = {}
-    for batch in _batches(cards, BATCH):
-        user = "## Cards\n\n" + json.dumps([card_input(c) for c in batch], indent=1,
-                                            ensure_ascii=False)  # fmt: skip
-        out, _ = await backends[role.backend].call(ROLE, prompt, user, FidelityOutput, role)
-        verdicts |= {v.item_id: v for v in out.verdicts if v.item_id in {c["id"] for c in batch}}
+    verdicts = await judge_cards(cards, config, backends)
     if missing := sorted(set(key["items"]) - set(verdicts)):
         raise FidelityError(f"no verdict for {', '.join(missing)}")
     changed = []
@@ -112,6 +120,6 @@ async def rejudge(
         if it["tool_kept"] != it["golden_kept"]:
             changed.append(iid)
     key["comparison"] = "fidelity"
-    key["fidelity_model"] = role.model
+    key["fidelity_model"] = config.roles.tiebreak.model  # type: ignore[union-attr]
     key_path.write_text(json.dumps(key, indent=2), encoding="utf-8")
     return {"items": len(key["items"]), "differs_from_golden": sorted(changed)}

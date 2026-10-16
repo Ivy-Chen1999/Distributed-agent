@@ -43,7 +43,8 @@ import json
 import os
 import sys
 import textwrap
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -54,6 +55,7 @@ from pydantic import ValidationError
 from womm.config import REPO_ROOT
 from womm.data.fixtures import FixtureError, fixture_dir, load_fixture
 from womm.eval import ia_sources
+from womm.eval import key_sweep as ks
 from womm.eval import reference_check as rc
 from womm.eval.drafting import (
     EVALS_DIR,
@@ -86,6 +88,11 @@ HANDOFF_DIR = REPO_ROOT / ".cache" / "holdout_import"
 CLAIM_FIELDS = ("affected_actor", "mechanism", "impact", "description")
 SHORTCUTS = {"v": "verified", "e": "edited", "r": "rejected", "u": "unclear"}
 SPOT_SAMPLE = 3  # one per stratum: about 24 items over the 8 holdout drafts
+# After the failed reference check of 2026-10-14, a key tightened by the fidelity sweep (plan
+# 2026-10-16-001) stands in for a ROBUST result, with a larger spot check of unswept items.
+TIGHTENED = "tightened, not re-checked"
+SPOT_SAMPLE_TIGHTENED = 5
+HOLDOUT_SWEEP_RECORD = REPO_ROOT / ".cache" / "holdout_sweep" / ks.RECORD_FILE
 # Like the reference check's early stop: any disagreement sends the draft to a full check. One
 # in three would tolerate a 33% tool error on the holdout, which is new, post-cutoff material.
 SPOT_MAX_DISAGREEMENTS = 0
@@ -207,26 +214,60 @@ def verify(
 # ----------------------------------------------------------------------------- spot check
 
 
-def robust_reference_check(directory: Path) -> str:
-    """The sample id of the reference check in ``directory``, re-scored here from its answers;
-    refused unless the verdict is ROBUST."""
+@dataclass(frozen=True)
+class ReferenceBasis:
+    """Why the spot check may stand in for a full verification: the reference check ``sample``
+    scored ROBUST, or it failed and the drafts carry the fidelity sweep (``TIGHTENED``)."""
+
+    sample: str
+    basis: str
+
+    @property
+    def spot_size(self) -> int:
+        return SPOT_SAMPLE if self.basis == "ROBUST" else SPOT_SAMPLE_TIGHTENED
+
+
+def robust_reference_check(
+    directory: Path,
+    draft_paths: Sequence[Path] = (),
+    sweep_record: Path | None = None,
+) -> ReferenceBasis:
+    """The reference check in ``directory``, re-scored here from its answers. ROBUST passes. The
+    one failed check the owner decided on (``key_sweep.SAMPLE``) passes only with the sweep's
+    record (``sweep_record``, default the holdout sweep's) within its rules and naming each of
+    ``draft_paths`` with its current digest; anything else is refused."""
     try:
         key = json.loads((directory / rc.KEY_FILE).read_text(encoding="utf-8"))
         labels, _ = rc.read_answers(directory, key)
         result = rc.score(rc.part(key, "reference"), labels)  # companion points apart
     except (OSError, ValueError, KeyError, TypeError, AttributeError, ZeroDivisionError) as exc:
         raise VerifyError(f"cannot score the reference check in {directory}: {exc}") from None
-    if not result["robust"]:
-        why = (
-            f"{len(result['blank'])} items unlabelled"
-            if result["blank"]
-            else f"tool error {result['error']:.1%} over the {rc.MAX_ERROR:.0%} limit"
-        )
-        raise VerifyError(
-            f"the reference check {key['sample']} is not ROBUST ({why}); no spot check: verify "
-            "every item (run without --spot-check)"
-        )
-    return str(key["sample"])
+    sample = str(key["sample"])
+    if result["robust"]:
+        return ReferenceBasis(sample, "ROBUST")
+    why = (
+        f"{len(result['blank'])} items unlabelled"
+        if result["blank"]
+        else f"tool error {result['error']:.1%} over the {rc.MAX_ERROR:.0%} limit"
+    )
+    refused = (f"the reference check {sample} is not ROBUST ({why}); no spot check: verify "
+               "every item (run without --spot-check)")  # fmt: skip
+    if sample != ks.SAMPLE:
+        raise VerifyError(refused)
+    record_path = sweep_record or HOLDOUT_SWEEP_RECORD
+    try:
+        record = json.loads(record_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        raise VerifyError(f"{refused}; or tighten the key first (no sweep record at "
+                          f"{record_path})") from None  # fmt: skip
+    problems = ks.record_problems(record)
+    for path in draft_paths:
+        if record.get("drafts", {}).get(str(path.resolve())) != ks.digest(path):
+            problems.append(f"{path.name} is not the draft the sweep wrote (swept again?)")
+    if problems:
+        raise VerifyError(f"{refused}; the sweep record does not stand in for it: "
+                          + "; ".join(problems))  # fmt: skip
+    return ReferenceBasis(sample, TIGHTENED)
 
 
 def unsettled(draft: GoldenDraft) -> list[str]:
@@ -256,17 +297,16 @@ def spot_seed_for(case_id: str) -> int:
     return audit_seed_for(f"{case_id}#spot")
 
 
-def spot_sample(draft: GoldenDraft) -> list[_DraftItem]:
-    """Up to ``SPOT_SAMPLE`` tool-decided items, stratified like the reference check (items
-    dropped by a deterministic check carry no judgement and are left out), in draft order."""
+def spot_sample(draft: GoldenDraft, size: int = SPOT_SAMPLE) -> list[_DraftItem]:
+    """Up to ``size`` tool-decided items, stratified like the reference check (items dropped by
+    a deterministic check carry no judgement and are left out; items the fidelity sweep edited
+    were reviewed one by one), in draft order."""
     pool = [
         rc.Item(draft.case_id, draft.fixture, i.item_id, s, i.review.decision in KEPT_DECISIONS)
         for i in draft.items()
-        if (s := rc.stratum(i)) is not None
+        if (s := rc.stratum(i)) is not None and i.sweep is None
     ]
-    picked = {
-        p.item_id for p in rc.stratified_sample(pool, SPOT_SAMPLE, spot_seed_for(draft.case_id))
-    }
+    picked = {p.item_id for p in rc.stratified_sample(pool, size, spot_seed_for(draft.case_id))}
     return [i for i in draft.items() if i.item_id in picked]
 
 
@@ -283,14 +323,14 @@ def spot_verify(
     decisions: dict[str, dict[str, Any]],
     reviewer: str,
     today: dt.date,
-    reference_sample: str,
+    reference: ReferenceBasis,
 ) -> tuple[GoldenCase, dict[str, Any]]:
     """The case with the owner's sample decisions over the tool's, and the spot-check record;
     refused when the owner disagrees with the tool on more than ``SPOT_MAX_DISAGREEMENTS``."""
     if not reviewer.strip():
         raise VerifyError("a reviewer name is required")
     require_settled(draft)
-    sample = {i.item_id: i for i in spot_sample(draft)}
+    sample = {i.item_id: i for i in spot_sample(draft, reference.spot_size)}
     if not sample:
         raise VerifyError(f"{draft.case_id}: no tool-decided item to spot-check")
     if sorted(decisions) != sorted(sample):
@@ -309,14 +349,16 @@ def spot_verify(
         "seed": spot_seed_for(draft.case_id),
         "items": sorted(sample),
         "disagreements": disagreed,
-        "reference_check": reference_sample,
+        "reference_check": reference.sample,
+        "reference_check_basis": reference.basis,
     }
     note = (
         f"Holdout spot check by {reviewer.strip()}: {len(sample)} tool-decided items sampled "
         f"(seed {record['seed']}), disagreements with the tool: {disagreed or 'none'}; the "
-        f"other items stand as the tool settled them. Reference check {reference_sample} was "
-        "ROBUST."
-    )
+        f"other items stand as the tool settled them. Reference check {reference.sample}: "
+        + ("ROBUST." if reference.basis == "ROBUST" else
+           f"failed; the key was {TIGHTENED} by a model fidelity check (plan 2026-10-16-001).")
+    )  # fmt: skip
     decided = _decide(draft, decisions, reviewer.strip())
     decided = decided.model_copy(
         update={"notes": " ".join(n for n in (decided.notes.strip(), note) if n)}
@@ -500,16 +542,16 @@ def run_spot_check(args: argparse.Namespace, *, interactive: bool, ask: Ask, say
     if args.decisions or not interactive:
         raise VerifyError("a spot check is interactive only (no --decisions, needs a terminal)")
     draft = load_holdout_draft(args.draft)
-    reference_sample = robust_reference_check(args.reference_check)
+    reference = robust_reference_check(args.reference_check, [args.draft])
     require_settled(draft)
     today = args.today or dt.date.today()
     reviewer = args.reviewer or ask("reviewer name: ").strip()
-    sample = spot_sample(draft)
+    sample = spot_sample(draft, reference.spot_size)
     say(f"spot check: {len(sample)} of {len(draft.items())} items, reference check "
-        f"{reference_sample} ROBUST")  # fmt: skip
+        f"{reference.sample} {reference.basis}")  # fmt: skip
     ia = ia_sources.load_cached_ia(draft.fixture, args.ia_root)
     decisions = interactive_decisions(draft, ask, say, ia, items=sample)
-    case, record = spot_verify(draft, decisions, reviewer, today, reference_sample)
+    case, record = spot_verify(draft, decisions, reviewer, today, reference)
     path = write_handoff(case, args.draft, reviewer, today, args.out_dir, spot_check=record)
     print(f"{case.case_id}: {len(case.expected_impacts)} impacts, "
           f"{len(case.important_omissions)} omissions; spot check of {record['sample_size']} "

@@ -371,6 +371,7 @@ def test_spot_check_writes_a_handoff_the_importer_accepts(tmp_path, settled, mon
         "sample_size": verify.SPOT_SAMPLE, "seed": verify.spot_seed_for(CASE),
         "items": sorted(shown),
         "disagreements": [], "reference_check": "2026-10-01-abcd1234",
+        "reference_check_basis": "ROBUST",
     }  # fmt: skip
     case = GoldenCase.model_validate(handoff["case"])
     by_id = {e.expected_id: e for e in case.expected_impacts}
@@ -417,10 +418,45 @@ def test_the_spot_check_gate_reads_the_answer_key_part_only(tmp_path):
     answers = yaml.safe_load((directory / "answers_ana.yaml").read_text())
     answers["answers"] += [{"item": f"c{n}", "label": "keep"} for n in range(1, 4)]
     (directory / "answers_ana.yaml").write_text(yaml.safe_dump(answers))
-    assert verify.robust_reference_check(directory) == key["sample"]
+    robust = verify.ReferenceBasis(key["sample"], "ROBUST")
+    assert verify.robust_reference_check(directory) == robust
     answers["answers"][0]["label"] = "drop"
     answers["answers"][1]["label"] = "drop"
     answers["answers"][2]["label"] = "drop"
     (directory / "answers_ana.yaml").write_text(yaml.safe_dump(answers))
     with pytest.raises(verify.VerifyError, match="not ROBUST"):
         verify.robust_reference_check(directory)
+
+
+def test_a_failed_check_passes_only_as_the_pinned_sample_with_a_valid_sweep_record(
+    tmp_path, monkeypatch
+):
+    """Plan 2026-10-16-001 U4: the one failed check the owner decided on stands in for ROBUST
+    only with a sweep record within its rules that names the draft's current digest."""
+    from womm.eval import key_sweep as ks
+
+    round_dir = _reference_round(tmp_path, wrong=6)  # 30%: not ROBUST
+    draft = tmp_path / "d.yaml"
+    draft.write_text("draft")
+    record_path = tmp_path / "key_tightened.json"
+    record = {"sample": "2026-10-01-abcd1234", "rulings": {"open": 0, "key_open": 0, "ai_wrong": 2},
+              "sampled_keeps": 15, "wrong_keeps": 1,
+              "drafts": {str(draft.resolve()): ks.digest(draft)}}  # fmt: skip
+    record_path.write_text(json.dumps(record))
+    with pytest.raises(verify.VerifyError, match="not ROBUST"):  # not the pinned sample
+        verify.robust_reference_check(round_dir, [draft], record_path)
+    monkeypatch.setattr(ks, "SAMPLE", "2026-10-01-abcd1234")
+    got = verify.robust_reference_check(round_dir, [draft], record_path)
+    assert got == verify.ReferenceBasis("2026-10-01-abcd1234", verify.TIGHTENED)
+    assert got.spot_size == verify.SPOT_SAMPLE_TIGHTENED
+    draft.write_text("changed after the sweep")
+    with pytest.raises(verify.VerifyError, match="not the draft the sweep wrote"):
+        verify.robust_reference_check(round_dir, [draft], record_path)
+    draft.write_text("draft")
+    for bad in ({"rulings": {"open": 0, "key_open": 0, "ai_wrong": 4}}, {"wrong_keeps": 2},
+                {"sampled_keeps": 0}):  # fmt: skip
+        record_path.write_text(json.dumps(record | bad))
+        with pytest.raises(verify.VerifyError, match="does not stand in"):
+            verify.robust_reference_check(round_dir, [draft], record_path)
+    with pytest.raises(verify.VerifyError, match="tighten the key first"):
+        verify.robust_reference_check(round_dir, [draft], tmp_path / "none.json")

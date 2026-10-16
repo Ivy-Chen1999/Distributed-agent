@@ -49,6 +49,7 @@ from womm.eval.drafting import (
     AUDIT_RATE,
     DIMENSIONS,
     DRAFTS_DIR,
+    SWEEP_TRIMMABLE,
     DraftCandidate,
     DraftImpact,
     DraftOmission,
@@ -73,6 +74,7 @@ DROPPED_DECISIONS = ("rejected", "unclear", "llm_dropped")
 # Set only by the tie-break judge (womm.eval.tiebreak), never by a person.
 TIEBREAK_DECISIONS = {"keep": "llm_kept", "drop": "llm_dropped", "unsure": "llm_dropped"}
 AUDIT_ERRORS = ("edited", "rejected", "unclear")
+_WORD = re.compile(r"[\w%€$£.,'-]+")
 NOTE_REQUIRED = ("rejected", "unclear")
 ESCALATION_RATE = 0.10
 MIN_KEPT_IMPACTS = 3
@@ -326,6 +328,7 @@ def integrity_problems(draft: GoldenDraft) -> list[str]:
             )
         if item.provenance.origin == "human_added":
             problems.extend(_analyst_digest_problems(draft, item, where))
+        problems.extend(sweep_problems(item, where))
     for gone in sorted(set(p.item_digests) - set(by_id)):
         problems.append(
             f"{cid}/{gone}: item removed from the draft; put it back and decide it 'rejected' "
@@ -630,11 +633,54 @@ def check_draft(
     return problems
 
 
+def swept_out(item: _DraftItem) -> bool:
+    """Dropped by the fidelity sweep (plan 2026-10-16-001): left out whatever its decision."""
+    return item.sweep is not None and item.sweep.action == "drop"
+
+
+def is_kept(item: _DraftItem) -> bool:
+    return item.review.decision in KEPT_DECISIONS and not swept_out(item)
+
+
+def _words(text: str) -> list[str]:
+    return [w.strip(".,'").lower() for w in _WORD.findall(text) if w.strip(".,'")]
+
+
+def is_deletion(after: str, before: str) -> bool:
+    """``after`` keeps some of ``before``'s words, in order, and adds none (punctuation aside)."""
+    rest = iter(_words(before))
+    words = _words(after)
+    return bool(words) and all(w in rest for w in words)
+
+
+def sweep_problems(item: _DraftItem, where: str) -> list[str]:
+    """A sweep edit only deletes words from the fields the page judges, on a kept item."""
+    sw = item.sweep
+    if sw is None:
+        return []
+    problems = []
+    if item.review.decision not in KEPT_DECISIONS:
+        problems.append(f"{where}: the fidelity sweep edited an item that is not kept")
+    if sw.action == "drop" and sw.before:
+        problems.append(f"{where}: a sweep drop changes no text (before must be empty)")
+    if sw.action == "trim":
+        if not sw.before:
+            problems.append(f"{where}: a sweep trim names no field it cut")
+        for field, text in sw.before.items():
+            if field not in SWEEP_TRIMMABLE or not hasattr(item, field):
+                problems.append(f"{where}: the sweep may not edit {field!r}")
+            elif not is_deletion(getattr(item, field), text) or getattr(item, field) == text:
+                problems.append(f"{where}: the sweep's {field!r} is not a deletion from its text")
+    return problems
+
+
 def kept_impacts(draft: GoldenDraft) -> list[DraftImpact | DraftCandidate]:
     """Impacts and human-accepted candidates that a publish would keep."""
-    impacts = [i for i in draft.expected_impacts if i.review.decision in KEPT_DECISIONS]
+    impacts = [i for i in draft.expected_impacts if is_kept(i)]
     candidates = [
-        c for c in draft.possibly_missing if c.review.decision in ("verified", "edited", "llm_kept")
+        c
+        for c in draft.possibly_missing
+        if c.review.decision in ("verified", "edited", "llm_kept") and not swept_out(c)
     ]
     return [*impacts, *candidates]
 
@@ -683,6 +729,15 @@ def review_notes(
         parts.append(f"Declined candidates: {declined}.")
     if dropped["llm_dropped"]:
         parts.append(f"Dropped by the tie-break judge: {dropped['llm_dropped']}.")
+    swept = {i.item_id: i.sweep for i in items if i.sweep is not None}
+    if swept:
+        on = min(sw.on for sw in swept.values()).isoformat()
+        trimmed = [k for k, sw in swept.items() if sw.action == "trim"]
+        cut = [k for k, sw in swept.items() if sw.action == "drop"]
+        parts.append(
+            f"Tightened by a model fidelity check on {on} after a failed reference check (not "
+            f"re-checked by people): trimmed {trimmed or 'none'}, dropped {cut or 'none'}."
+        )
     return " ".join(parts)
 
 
@@ -735,7 +790,7 @@ def build_case(
         )
         for d, mark in sources
         for o in d.important_omissions
-        if o.review.decision in KEPT_DECISIONS
+        if is_kept(o)
     ]
     ids = [o.omission_id for o in omissions]
     if len(set(ids)) != len(ids):
