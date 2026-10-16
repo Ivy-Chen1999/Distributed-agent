@@ -1,5 +1,7 @@
 """`womm policy sign`: the owner signs the pre-registered promotion policy with one command."""
 
+import datetime as dt
+
 import yaml
 
 from womm import cli
@@ -14,6 +16,11 @@ def _policy(tmp_path):
     if data["signed_by"] is not None:
         text = text.replace(f'signed_by: "{data["signed_by"]}"', "signed_by: null")
         text = text.replace(f'signed_on: "{data["signed_on"]}"', "signed_on: null")
+    # Signing needs a changelog entry dated the signing day; date the last one today so the
+    # test does not depend on when the committed policy was last signed.
+    last = data["changelog"][-1]["date"]
+    head, sep, tail = text.rpartition(f'  - date: "{last}"')
+    text = head + sep.replace(last, dt.date.today().isoformat()) + tail
     path.write_text(text)
     assert yaml.safe_load(path.read_text())["signed_by"] is None
     return path

@@ -185,7 +185,8 @@ Before the first formal comparison, a person must also:
 
    Every formal run records its own LangSmith experiment (an extension refuses a run without
    one), so `LANGSMITH_API_KEY` must be set and `--local` is not used; `womm eval --formal`
-   refuses before any spend otherwise, and exits non-zero if the recording fails after the run.
+   refuses before any spend otherwise (it also syncs the val dataset first, so a set but
+   rejected key is caught then), and exits non-zero if the recording fails after the run.
 
    ```bash
    uv run womm eval --split val --repetitions 3 --formal \

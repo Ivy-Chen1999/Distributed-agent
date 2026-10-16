@@ -142,6 +142,7 @@ def env(monkeypatch, tmp_path):
     import langsmith
 
     monkeypatch.setattr(langsmith, "Client", lambda *_a, **_k: object())
+    monkeypatch.setattr(cli, "sync_dataset", lambda *_a, **_k: None)  # the pre-spend check
     experiments = []
 
     async def record(report, cases, client, prefix):

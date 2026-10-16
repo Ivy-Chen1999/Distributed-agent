@@ -299,3 +299,28 @@ def test_eval_formal_refuses_without_langsmith_before_any_backend(tmp_path, caps
     code = cli.main(["eval", "--system-version", api, "--split", "train", "--repetitions", "3",
                      "--formal", "--runs-dir", str(tmp_path), *extra])  # fmt: skip
     assert code == cli.EXIT_USAGE and "LangSmith" in capsys.readouterr().err
+
+
+def test_eval_formal_refuses_a_rejected_langsmith_key_before_any_backend(tmp_path, capsys,
+                                                                         monkeypatch):  # fmt: skip
+    """A key that is set but rejected (expired, wrong workspace) is found before the spend, by
+    the same dataset sync the recording does after the run."""
+    from womm.config import load_settings
+
+    async def must_not_run(*a, **k):
+        raise AssertionError("no backend or self-check before the refusal")
+
+    def rejected(*a, **k):
+        raise RuntimeError("401 Unauthorized")
+
+    synced = []
+    monkeypatch.setattr(cli, "prepare_backends", must_not_run)
+    monkeypatch.setattr(cli, "load_settings", lambda: load_settings({"LANGSMITH_API_KEY": "bad"}))
+    monkeypatch.setattr(cli, "langsmith_client", lambda: object())
+    monkeypatch.setattr(cli, "sync_dataset", lambda _c, cases: synced.append(cases) or rejected())
+    api = str(cli.REPO_ROOT / "system_versions" / "v1.0-unscoped-api.yaml")
+    code = cli.main(["eval", "--system-version", api, "--split", "train", "--repetitions", "3",
+                     "--formal", "--runs-dir", str(tmp_path)])  # fmt: skip
+    err = capsys.readouterr().err
+    assert code == cli.EXIT_USAGE and "401 Unauthorized" in err and "nothing was spent" in err
+    assert synced and all(c.split == "train" for c in synced[0])

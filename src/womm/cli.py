@@ -31,6 +31,7 @@ from womm.eval.run_eval import (
     evaluate_cases,
     persist_failures,
     record_langsmith_experiment,
+    sync_dataset,
     write_report,
 )
 from womm.graph.build import run_scenario
@@ -181,6 +182,12 @@ async def cmd_run(args: argparse.Namespace) -> int:
     return _RUN_EXIT[result.status]
 
 
+def langsmith_client() -> Any:
+    from langsmith import Client
+
+    return Client()
+
+
 async def cmd_eval(args: argparse.Namespace) -> int:
     sv = _load_sv(args)
     cases = load_all_golden()
@@ -204,6 +211,15 @@ async def cmd_eval(args: argparse.Namespace) -> int:
         # An R34 extension refuses a run without its own experiment; refuse before the spend.
         raise UsageError("a formal run records a LangSmith experiment (an R34 extension needs one "
                          "per run): set LANGSMITH_API_KEY and drop --local")  # fmt: skip
+    if args.formal:
+        # A set but rejected key would only fail after the spend: do the recording's own
+        # dataset sync now (idempotent; the run's cases, never holdout).
+        try:
+            sync_dataset(langsmith_client(), cases)
+        except Exception as exc:  # noqa: BLE001
+            reason = f"{type(exc).__name__}: {exc}"
+            raise UsageError(f"LangSmith is not usable ({reason}); a formal run must record "
+                             "its experiment, so nothing was spent") from exc  # fmt: skip
     decisions = make_decision_service(sv, settings)  # config errors before LLM spend
     backends, cli_version, _ = await prepare_backends(sv, skip_self_check=args.skip_self_check)
     report = await evaluate_cases(
@@ -222,12 +238,10 @@ async def cmd_eval(args: argparse.Namespace) -> int:
     path = write_report(report, Path(args.runs_dir))
     if not args.local and settings.langsmith_api_key:
         try:
-            from langsmith import Client
-
             # LangSmith prints the experiment link to stdout; stdout is reserved for data.
             with contextlib.redirect_stdout(sys.stderr):
                 name = await record_langsmith_experiment(
-                    report, cases, Client(), prefix=_experiment_prefix(sv, report)
+                    report, cases, langsmith_client(), prefix=_experiment_prefix(sv, report)
                 )
             report.metadata["langsmith_experiment"] = name
             info(f"LangSmith experiment: {name}")
