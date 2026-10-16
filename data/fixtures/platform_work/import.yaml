@@ -1,0 +1,41 @@
+# Import settings for 52021PC0762; rerun scripts/import_proposal.py after editing.
+# strip_patterns / redactions / leak_allow / quant_allow are reviewed exceptions to the
+# memorandum leak guards (reasons stay here, never in sources.json).
+# IA identifiers live only in the gitignored evals/private/ia_index.yaml.
+celex: 52021PC0762
+regulation_id: platform_work
+title: Platform Work Directive
+document_url: https://publications.europa.eu/resource/celex/52021PC0762
+date: null
+strip_patterns: {}
+redactions:
+- section: 5.1.
+  sentence: Progress towards achieving the objectives of the initiative will be monitored
+  reason: cites the IA report as the source of the monitoring indicators
+- section: 1.1.
+  sentence: They have continued expanding in size
+  reason: 'quantified estimate restated in the memorandum; manual review: redacted'
+- section: 1.1.
+  sentence: Nine out of ten platforms active in the EU
+  reason: 'quantified estimate restated in the memorandum; manual review: redacted'
+- section: 1.1.
+  sentence: According to one estimate, up to five and a half million people
+  reason: 'quantified estimate restated in the memorandum; manual review: redacted'
+- section: 2.2.
+  sentence: Digital labour platforms are often based in one country, while operating through people based
+    elsewhere. 59% of all people
+  reason: 'quantified background statistic of the kind used to size the problem; manual review: redacted'
+leak_allow: []
+quant_allow: []
+scenarios:
+- scenario_id: eval_employment_status_algorithmic_management
+  description: Legal presumption of an employment relationship for platform work and its rebuttal, transparency
+    on automated monitoring and decision-making systems, human monitoring and review of significant decisions,
+    and declaration of platform work (proposal only, no prior version).
+  articles:
+  - '4'
+  - '5'
+  - '6'
+  - '7'
+  - '8'
+  - '11'

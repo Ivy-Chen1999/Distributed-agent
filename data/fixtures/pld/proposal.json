@@ -1,0 +1,154 @@
+{
+  "regulation_id": "pld",
+  "title": "Product Liability Directive",
+  "versions": [
+    {
+      "version_id": "com2022_495",
+      "date": "2022-09-28",
+      "status": "proposal",
+      "source": "52022PC0495",
+      "provisions": [
+        {
+          "provision_key": "pld/proposal/art/1",
+          "article": "1",
+          "paragraph": null,
+          "text": "This Directive lays down common rules on the liability of economic operators for damage suffered by natural persons caused by defective products.",
+          "source_id": "com2022_495/art_1"
+        },
+        {
+          "provision_key": "pld/proposal/art/2",
+          "article": "2",
+          "paragraph": null,
+          "text": "1. This Directive shall apply to products placed on the market or put into service after [OP, please insert the date: 12 months after entry into force].\n\n2. This Directive shall not apply to damage arising from nuclear accidents in so far as liability for such damage is covered by international conventions ratified by Member States.\n\n3. This Directive shall not affect:\n(a) the applicability of Union law on the protection of personal data, in particular Regulation (EU) 2016/679, Directive 2002/58/EC, and Directive (EU) 2016/680;\n(b) national rules concerning the right of contribution or recourse between two or more economic operators that are jointly and severally liable pursuant to Article 11 or in a case where the damage is caused both by a defective product and by an act or omission of a third party as referred to in Article 12;\n(c) any rights which an injured person may have under national rules concerning contractual liability or concerning non-contractual liability on grounds other than the defectiveness of a product, including national rules implementing Union Law, such as [AI Liability Directive];\n(d) any rights which an injured person may have under any special liability system that existed in national law on 30 July 1985.",
+          "source_id": "com2022_495/art_2"
+        },
+        {
+          "provision_key": "pld/proposal/art/3",
+          "article": "3",
+          "paragraph": null,
+          "text": "Member States shall not maintain or introduce, in their national law, provisions diverging from those laid down in this Directive, including more, or less, stringent provisions to achieve a different level of consumer protection, unless otherwise provided for in this Directive.",
+          "source_id": "com2022_495/art_3"
+        },
+        {
+          "provision_key": "pld/proposal/art/4",
+          "article": "4",
+          "paragraph": null,
+          "text": "For the purpose of this Directive, the following definitions shall apply:\n(1) ‘product’ means all movables, even if integrated into another movable or into an immovable. ‘Product’ includes electricity, digital manufacturing files and software;\n(2) ‘digital manufacturing file’ means a digital version or a digital template of a movable;\n(3) ‘component’ means any item, whether tangible or intangible, or any related service, that is integrated into, or inter-connected with, a product by the manufacturer of that product or within that manufacturer’s control;\n(4) ‘related service’ means a digital service that is integrated into, or inter-connected with, a product in such a way that its absence would prevent the product from performing one or more of its functions;\n(5) ‘manufacturer’s control’ means that the manufacturer of a product authorises a) the integration, inter-connection or supply by a third party of a component including software updates or upgrades, or b) the modification of the product;\n(6) ‘damage’ means material losses resulting from:\n(a) death or personal injury, including medically recognised harm to psychological health;\n(b) harm to, or destruction of, any property, except:\n(i) the defective product itself;\n(ii) a product damaged by a defective component of that product;\n(iii) property used exclusively for professional purposes;\n(c) loss or corruption of data that is not used exclusively for professional purposes;\n(7) ‘data’ means data as defined in Article 2, point (1), of Regulation (EU) 2022/868 of the European Parliament and of the Council;\n(8) ‘placing on the market’ means the first making available of a product on the Union market;\n(9) ‘making available on the market’ means any supply of a product for distribution, consumption or use on the Union market in the course of a commercial activity, whether in return for payment or free of charge;\n(10) ‘putting into service’ means the first use of a product in the Union in the course of a commercial activity, whether in return for payment or free of charge, in circumstances in which the product has not been placed on the market prior to its first use;\n(11) ‘manufacturer’ means any natural or legal person who develops, manufactures or produces a product or has a product designed or manufactured, or who markets that product under its name or trademark or who develops, manufactures or produces a product for its own use;\n(12) ‘authorised representative’ means any natural or legal person established within the Union who has received a written mandate from a manufacturer to act on its behalf in relation to specified tasks;\n(13) ‘importer’ means any natural or legal person established within the Union who places a product from a third country on the Union market;\n(14) ‘fulfilment service provider’ means any natural or legal person offering, in the course of commercial activity, at least two of the following services: warehousing, packaging, addressing and dispatching of a product, without having ownership of the product, with the exception of postal services as defined in Article 2, point (1), of Directive 97/67/EC of the European Parliament and of the Council, of parcel delivery services as defined in Article 2, point (2), of Regulation (EU) 2018/644 of the European Parliament and of the Council, and of any other postal services or freight transport services;\n(15) ‘distributor’ means any natural or legal person in the supply chain, other than the manufacturer or the importer, who makes a product available on the market;\n(16) ‘economic operator’ means the manufacturer of a product or component, the provider of a related service, the authorised representative, the importer, the fulfilment service provider or the distributor;\n(17) ‘online platform’ means online platform as defined in Article 2, point (h), of Regulation (EU)…/… of the European Parliament and of the Council on a Single Market for Digital Services (Digital Services Act).",
+          "source_id": "com2022_495/art_4"
+        },
+        {
+          "provision_key": "pld/proposal/art/5",
+          "article": "5",
+          "paragraph": null,
+          "text": "1. Member States shall ensure that any natural person who suffers damage caused by a defective product (‘the injured person’) is entitled to compensation in accordance with the provisions set out in this Directive.\n\n2. Member States shall ensure that claims for compensation pursuant to paragraph 1 may also be brought by:\n(a) a person that succeeded, or was subrogated, to the right of the injured person by virtue of law or contract; or\n(b) a person acting on behalf of one or more injured persons in accordance with Union or national law.",
+          "source_id": "com2022_495/art_5"
+        },
+        {
+          "provision_key": "pld/proposal/art/6",
+          "article": "6",
+          "paragraph": null,
+          "text": "1. A product shall be considered defective when it does not provide the safety which the public at large is entitled to expect, taking all circumstances into account, including the following:\n(a) the presentation of the product, including the instructions for installation, use and maintenance;\n(b) the reasonably foreseeable use and misuse of the product;\n(c) the effect on the product of any ability to continue to learn after deployment;\n(d) the effect on the product of other products that can reasonably be expected to be used together with the product;\n(e) the moment in time when the product was placed on the market or put into service or, where the manufacturer retains control over the product after that moment, the moment in time when the product left the control of the manufacturer;\n(f) product safety requirements, including safety-relevant cybersecurity requirements;\n(g) any intervention by a regulatory authority or by an economic operator referred to in Article 7 relating to product safety;\n(h) the specific expectations of the end-users for whom the product is intended.\n\n2. A product shall not be considered defective for the sole reason that a better product, including updates or upgrades to a product, is already or subsequently placed on the market or put into service.",
+          "source_id": "com2022_495/art_6"
+        },
+        {
+          "provision_key": "pld/proposal/art/7",
+          "article": "7",
+          "paragraph": null,
+          "text": "1. Member States shall ensure that the manufacturer of a defective product can be held liable for damage caused by that product.\nMember States shall ensure that, where a defective component has caused the product to be defective, the manufacturer of a defective component can also be held liable for the same damage.\n\n2. Member States shall ensure that, where the manufacturer of the defective product is established outside the Union, the importer of the defective product and the authorised representative of the manufacturer can be held liable for damage caused by that product.\n\n3. Member States shall ensure that, where the manufacturer of the defective product is established outside the Union and neither of the economic operators referred to in paragraph 2 is established in the Union, the fulfilment service provider can be held liable for damage caused by the defective product.\n\n4. Any natural or legal person that modifies a product that has already been placed on the market or put into service shall be considered a manufacturer of the product for the purposes of paragraph 1, where the modification is considered substantial under relevant Union or national rules on product safety and is undertaken outside the original manufacturer’s control.\n\n5. Member States shall ensure that where a manufacturer under paragraph 1 cannot be identified or, where the manufacturer is established outside the Union, an economic operator under paragraph 2 or 3 cannot be identified, each distributor of the product can be held liable where:\n(a) the claimant requests that distributor to identify the economic operator or the person who supplied the distributor with the product; and\n(b) the distributor fails to identify the economic operator or the person who supplied the distributor with the product within 1 month of receiving the request.\n\n6. Paragraph 5 shall also apply to any provider of an online platform that allows consumers to conclude distance contracts with traders and that is not a manufacturer, importer or distributor , provided that the conditions of Article 6(3) set out in Regulation (EU)…/… of the European Parliament and of the Council on a Single Market for Digital Services (Digital Services Act) are fulfilled.",
+          "source_id": "com2022_495/art_7"
+        },
+        {
+          "provision_key": "pld/proposal/art/8",
+          "article": "8",
+          "paragraph": null,
+          "text": "1. Member States shall ensure that national courts are empowered, upon request of an injured person claiming compensation for damage caused by a defective product (‘the claimant’) who has presented facts and evidence sufficient to support the plausibility of the claim for compensation, to order the defendant to disclose relevant evidence that is at its disposal.\n\n2. Member States shall ensure that national courts limit the disclosure of evidence to what is necessary and proportionate to support a claim referred to in paragraph 1.\n\n3. When determining whether the disclosure is proportionate, national courts shall consider the legitimate interests of all parties, including third parties concerned, in particular in relation to the protection of confidential information and trade secrets within the meaning of Article 2, point 1, of Directive (EU) 2016/943.\n\n4. Member States shall ensure that, where a defendant is ordered to disclose information that is a trade secret or an alleged trade secret, national courts are empowered, upon a duly reasoned request of a party or on their own initiative, to take the specific measures necessary to preserve the confidentiality of that information when it is used or referred to in the course of the legal proceedings.",
+          "source_id": "com2022_495/art_8"
+        },
+        {
+          "provision_key": "pld/proposal/art/9",
+          "article": "9",
+          "paragraph": null,
+          "text": "1. Member States shall ensure that a claimant is required to prove the defectiveness of the product, the damage suffered and the causal link between the defectiveness and the damage.\n\n2. The defectiveness of the product shall be presumed, where any of the following conditions are met:\n(a) the defendant has failed to comply with an obligation to disclose relevant evidence at its disposal pursuant to Article 8(1);\n(b) the claimant establishes that the product does not comply with mandatory safety requirements laid down in Union law or national law that are intended to protect against the risk of the damage that has occurred; or\n(c) the claimant establishes that the damage was caused by an obvious malfunction of the product during normal use or under ordinary circumstances.\n\n3. The causal link between the defectiveness of the product and the damage shall be presumed, where it has been established that the product is defective and the damage caused is of a kind typically consistent with the defect in question.\n\n4. Where a national court judges that the claimant faces excessive difficulties, due to technical or scientific complexity, to prove the defectiveness of the product or the causal link between its defectiveness and the damage, or both, the defectiveness of the product or causal link between its defectiveness and the damage, or both, shall be presumed where the claimant has demonstrated, on the basis of sufficiently relevant evidence, that:\n(a) the product contributed to the damage; and\n(b) it is likely that the product was defective or that its defectiveness is a likely cause of the damage, or both.\nThe defendant shall have the right to contest the existence of excessive difficulties or the likelihood referred to in the first subparagraph.\n\n5. The defendant shall have the right to rebut any of the presumptions referred to in paragraphs 2, 3 and 4.",
+          "source_id": "com2022_495/art_9"
+        },
+        {
+          "provision_key": "pld/proposal/art/10",
+          "article": "10",
+          "paragraph": null,
+          "text": "1. An economic operator referred to in Article 7 shall not be liable for damage caused by a defective product if that economic operator proves any of the following:\n(a) in the case of a manufacturer or importer, that it did not place the product on the market or put it into service;\n(b) in the case of a distributor, that it did not make the product available on the market;\n(c) that it is probable that the defectiveness that caused the damage did not exist when the product was placed on the market, put into service or, in respect of a distributor, made available on the market, or that this defectiveness came into being after that moment;\n(d) that the defectiveness is due to compliance of the product with mandatory regulations issued by public authorities;\n(e) in the case of a manufacturer, that the objective state of scientific and technical knowledge at the time when the product was placed on the market, put into service or in the period in which the product was within the manufacturer’s control was not such that the defectiveness could be discovered;\n(f) in the case of a manufacturer of a defective component referred to in Article 7(1), second subparagraph, that the defectiveness of the product is attributable to the design of the product in which the component has been integrated or to the instructions given by the manufacturer of that product to the manufacturer of the component; or\n(g) in the case of a person that modifies a product as referred to in Article 7(4), that the defectiveness that caused the damage is related to a part of the product not affected by the modification.\n\n2. By way of derogation from paragraph 1, point (c), an economic operator shall not be exempted from liability, where the defectiveness of the product is due to any of the following, provided that it is within the manufacturer’s control:\n(a) a related service;\n(b) software, including software updates or upgrades; or\n(c) the lack of software updates or upgrades necessary to maintain safety.",
+          "source_id": "com2022_495/art_10"
+        },
+        {
+          "provision_key": "pld/proposal/art/11",
+          "article": "11",
+          "paragraph": null,
+          "text": "Member States shall ensure that where two or more economic operators are liable for the same damage pursuant to this Directive, they can be held liable jointly and severally.",
+          "source_id": "com2022_495/art_11"
+        },
+        {
+          "provision_key": "pld/proposal/art/12",
+          "article": "12",
+          "paragraph": null,
+          "text": "1. Member States shall ensure that the liability of an economic operator is not reduced when the damage is caused both by the defectiveness of a product and by an act or omission of a third party.\n\n2. The liability of an economic operator may be reduced or disallowed when the damage is caused both by the defectiveness of the product and by the fault of the injured person or any person for whom the injured person is responsible.",
+          "source_id": "com2022_495/art_12"
+        },
+        {
+          "provision_key": "pld/proposal/art/13",
+          "article": "13",
+          "paragraph": null,
+          "text": "Member States shall ensure that the liability of an economic operator pursuant to this Directive is not, in relation to the injured person, limited or excluded by a contractual provision or by national law.",
+          "source_id": "com2022_495/art_13"
+        },
+        {
+          "provision_key": "pld/proposal/art/14",
+          "article": "14",
+          "paragraph": null,
+          "text": "1. Member States shall ensure that a limitation period of 3 years applies to the initiating of proceedings for claiming compensation for damage falling within the scope of this Directive. The limitation period shall begin to run from the day on which the injured person became aware, or should reasonably have become aware, of all of the following:\n(a) the damage;\n(b) the defectiveness;\n(c) the identity of the relevant economic operator that can be held liable for the damage in accordance with Article 7.\nThe laws of Member States regulating suspension or interruption of the limitation period referred to in the first subparagraph shall not be affected by this Directive.\n\n2. Member States shall ensure that the rights conferred upon the injured person pursuant to this Directive are extinguished upon the expiry of a limitation period of 10 years from the date on which the actual defective product which caused the damage was placed on the market, put into service or substantially modified as referred to in Article 7(4), unless a claimant has, in the meantime, initiated proceedings before a national court against an economic operator that can be held liable pursuant to Article 7.\n\n3. By way of exception from paragraph 2, where an injured person has not been able to initiate proceedings within 10 years due to the latency of a personal injury, the rights conferred upon the injured person pursuant to this Directive shall be extinguished upon the expiry of a limitation period of 15 years.",
+          "source_id": "com2022_495/art_14"
+        },
+        {
+          "provision_key": "pld/proposal/art/15",
+          "article": "15",
+          "paragraph": null,
+          "text": "1. Member States shall publish, in an easily accessible and electronic format, any final judgment delivered by their national courts in relation to proceedings launched pursuant to this Directive as well as other relevant final judgments on product liability. The publication shall be made without delay upon notification of the full written judgment to the parties.\n\n2. The Commission may set up and maintain a publicly available database containing the judgments referred to in paragraph 1.",
+          "source_id": "com2022_495/art_15"
+        },
+        {
+          "provision_key": "pld/proposal/art/16",
+          "article": "16",
+          "paragraph": null,
+          "text": "The Commission shall by [OP, please insert the date: 6 years after the date of entry into force of this Directive], and every 5 years thereafter, review the application of this Directive and submit a report to the European Parliament, to the Council and to the European Economic and Social Committee.",
+          "source_id": "com2022_495/art_16"
+        },
+        {
+          "provision_key": "pld/proposal/art/17",
+          "article": "17",
+          "paragraph": null,
+          "text": "1. Directive 85/374/EEC is repealed with effect from [OP, please insert the date: 12 months after the date of entry into force of this Directive]. However, it shall continue to apply with regard to products placed on the market or put into service before that date.\n\n2. References to Directive 85/374/EEC shall be construed as references to this Directive and shall be read in accordance with the correlation table set out in the Annex to this Directive.",
+          "source_id": "com2022_495/art_17"
+        },
+        {
+          "provision_key": "pld/proposal/art/18",
+          "article": "18",
+          "paragraph": null,
+          "text": "1. Member States shall bring into force the laws, regulations and administrative provisions necessary to comply with this Directive by [OP, please insert the date: 12 months after entry into force of this Directive]. They shall forthwith communicate to the Commission the text of those provisions.\nWhen Member States adopt those provisions, they shall contain a reference to this Directive or be accompanied by such a reference on the occasion of their official publication. Member States shall determine how such reference is to be made.\n\n2. Member States shall communicate to the Commission the text of the main provisions of national law which they adopt in the field covered by this Directive.",
+          "source_id": "com2022_495/art_18"
+        },
+        {
+          "provision_key": "pld/proposal/art/19",
+          "article": "19",
+          "paragraph": null,
+          "text": "This Directive shall enter into force on the twentieth day following that of its publication in the Official Journal of the European Union.",
+          "source_id": "com2022_495/art_19"
+        },
+        {
+          "provision_key": "pld/proposal/art/20",
+          "article": "20",
+          "paragraph": null,
+          "text": "This Directive is addressed to the Member States.",
+          "source_id": "com2022_495/art_20"
+        }
+      ]
+    }
+  ]
+}

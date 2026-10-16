@@ -5,7 +5,7 @@ from __future__ import annotations
 import datetime as dt
 from typing import Literal
 
-from pydantic import Field, model_validator
+from pydantic import Field, model_serializer, model_validator
 
 from womm.models.base import StrictModel
 
@@ -57,6 +57,22 @@ class Source(StrictModel):
         default_factory=list,
         description="Section headings removed because they restate impact-assessment findings.",
     )
+    redactions: list[str] = Field(
+        default_factory=list,
+        description=(
+            "One 'redacted: <n> sentence(s) in <section heading>' per section of this source with "
+            "sentences removed because they state or cite impact-assessment material. Neither "
+            "the sentences nor the reasons are kept here (reasons stay in import.yaml)."
+        ),
+    )
+
+    @model_serializer(mode="wrap")
+    def _omit_empty_redactions(self, handler):
+        # Sources without redactions serialise exactly as before the field existed.
+        data = handler(self)
+        if not self.redactions:
+            data.pop("redactions", None)
+        return data
 
 
 class Scenario(StrictModel):
