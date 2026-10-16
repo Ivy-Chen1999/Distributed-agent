@@ -91,3 +91,13 @@ def test_a_fidelity_pass_says_what_it_proves_and_lists_where_the_key_differs(tmp
     assert "does not prove every point in the answer key" in data["verdict"]["meaning"]
     assert [c["id"] for c in data["cards"] if c["section"] == "golden"] == ["r1"]
     assert "does not prove the key" in rc.format_result(result, key)
+
+
+def test_the_owner_rules_blind_and_the_first_mark_is_final():
+    """Plan 2026-10-16-001 U0: reasons hidden until marked, no toggling, key cards ruled too,
+    counts exported without item text."""
+    text = review_page.TEMPLATE.read_text()
+    assert "Its reason shows once you have marked this card." in text
+    assert "if (marks[c.id]) return;" in text and "b.disabled = !!marks[c.id];" in text
+    assert '"key_wrong", "The key is wrong"' in text
+    assert "Copy counts" in text and "key_wrong: kt.key_wrong" in text

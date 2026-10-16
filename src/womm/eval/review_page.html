@@ -104,7 +104,8 @@ dd { margin: 0; font-size: 14px; }
   </section>
   <section id="goldenSec" hidden>
     <div class="section-head"><h2>Where the answer key and the page verdict differ</h2>
-      <span class="hint">Not part of the check: the answer key's decision rests on more than the page asks (the law, repeats, the whole text). Read these before publishing; a point the page verdict shows unsupported may need fixing in the key.</span></div>
+      <span class="hint">Not part of the check: the answer key's decision rests on more than the page asks (the law, repeats, the whole text). Rule each against the source before publishing; a point the page verdict shows unsupported may need fixing in the key.</span>
+      <span class="tally" id="goldenTally"></span></div>
     <div id="golden" style="display:flex;flex-direction:column;gap:14px;margin-top:12px"></div>
   </section>
   <section id="unsureSec">
@@ -112,8 +113,15 @@ dd { margin: 0; font-size: 14px; }
       <span class="hint">Often a sign the item or the rule is unclear.</span></div>
     <div id="unsure" style="display:flex;flex-direction:column;gap:14px;margin-top:12px"></div>
   </section>
+  <section id="exportBox" hidden>
+    <div class="section-head"><h2>Your counts</h2>
+      <span class="hint">Counts only, no item text. Copy them for the sweep's record (<code>key_fidelity_sweep.py --apply --rulings</code>).</span></div>
+    <div class="decide"><button id="copyBtn" type="button">Copy counts</button><span class="why" id="copyMsg"></span></div>
+    <pre id="exportText" style="white-space:pre-wrap;font-size:13px;margin:8px 18px"></pre>
+  </section>
 </main>
 <script>
+let EXPORT = null;
 const DATA = __DATA__;
 const $ = id => document.getElementById(id);
 const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
@@ -168,21 +176,30 @@ function card(c, withDecide) {
     people.append(line);
     if (h.note) people.append(el("span", "why", "“" + h.note + "”"));
   }
+  // Blind ruling: the AI's reasons stay hidden until the card is marked, and the first mark is
+  // final, so the owner's ruling is not anchored on them (plan 2026-10-16-001, U0).
+  const blind = withDecide && !marks[c.id];
   const ai = el("div", "who"); const w = WORD[c.ai.label] || [c.ai.label, ""];
   ai.append(el("span", "lbl", DATA.kind === "calibration" ? "The grader AI" : "The answer-key tool"),
-    el("span", "ans " + w[1], w[0]), el("span", "why", c.ai.reason || "(no reason recorded)"));
+    el("span", "ans " + w[1], w[0]),
+    el("span", "why", blind ? "Its reason shows once you have marked this card." : (c.ai.reason || "(no reason recorded)")));
   if (c.ai.matched) ai.append(el("span", "why", "It matched entry " + c.ai.matched + " (highlighted)."));
   v.append(people, ai); box.append(v);
   if (withDecide) {
-    const dec = el("div", "decide"); dec.append(el("span", null, "Who is right?"));
-    const opts = c.section === "unsure"
+    const golden = c.section === "golden";
+    const dec = el("div", "decide"); dec.append(el("span", null, golden ? "Is the answer key right?" : "Who is right?"));
+    const opts = golden
+      ? [["key_right", "The key is right"], ["key_wrong", "The key is wrong"], ["key_unclear", "Unclear"]]
+      : c.section === "unsure"
       ? [["people", "The AI is wrong"], ["ai", "The AI is right"], ["unclear", "Unclear / rule is vague"]]
       : [["people", "The people"], ["ai", "The AI"], ["unclear", "Unclear / rule is vague"]];
     for (const [k, t] of opts) {
       const b = el("button", marks[c.id] === k ? "on" : "", t);
-      b.onclick = () => { marks[c.id] = marks[c.id] === k ? undefined : k; save(); render(); };
+      b.disabled = !!marks[c.id];
+      b.onclick = () => { if (marks[c.id]) return; marks[c.id] = k; save(); render(); };
       dec.append(b);
     }
+    if (marks[c.id]) dec.append(el("span", "why", "Marked; reasons shown above."));
     box.append(dec);
   }
   return box;
@@ -231,9 +248,26 @@ function render() {
   $("unsure").replaceChildren(...u.map(c => card(c, true)));
   const g = DATA.cards.filter(c => c.section === "golden");
   $("goldenSec").hidden = !g.length;
-  $("golden").replaceChildren(...g.map(c => card(c, false)));
+  $("golden").replaceChildren(...g.map(c => card(c, true)));
+  const kt = { key_right: 0, key_wrong: 0, key_unclear: 0 };
+  g.forEach(c => { if (marks[c.id] in kt) kt[marks[c.id]]++; });
+  $("goldenTally").textContent = g.length ? `${kt.key_wrong} key wrong · ${kt.key_right} key right · ${kt.key_unclear} unclear · ${g.length - kt.key_wrong - kt.key_right - kt.key_unclear} open` : "";
+  // The counts the sweep's record takes (no item text): copy and pass to --apply.
+  EXPORT = { sample: DATA.sample, kind: DATA.kind, ai_right: t.ai, ai_wrong: t.people, unclear: t.unclear,
+    open, key_right: kt.key_right, key_wrong: kt.key_wrong, key_unclear: kt.key_unclear,
+    key_open: g.length - kt.key_wrong - kt.key_right - kt.key_unclear };
+  $("exportBox").hidden = !all.length && !g.length;
 }
 render();
+function showExport() { $("exportText").textContent = JSON.stringify(EXPORT, null, 1); }
+showExport();
+document.addEventListener("click", () => setTimeout(showExport, 0));
+$("copyBtn").onclick = () => {
+  const text = JSON.stringify(EXPORT);
+  navigator.clipboard.writeText(text).then(() => { $("copyMsg").textContent = "Copied."; },
+    () => { const r = document.createRange(); r.selectNodeContents($("exportText"));
+      const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); $("copyMsg").textContent = "Selected: press Cmd+C."; });
+};
 </script>
 </body>
 </html>
