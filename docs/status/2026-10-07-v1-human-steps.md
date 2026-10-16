@@ -155,7 +155,9 @@ local, never send them. Record the reference check here:
 
 | Date | Sample id | Error | 95% bound | Verdict | Key errors in the 21 differences |
 |---|---|---|---|---|---|
-| | | | | | |
+| 2026-10-16 | 2026-10-14-75af237c | 52.2% (key, 24/46); 23.1% (companions, 3/13) | 63.8%; 45.8% | NOT ROBUST | not ruled |
+
+Breakdown and chart: `docs/status/2026-10-16-reference-check-result.html` (aggregates only).
 
 Then read "Where the answer key and the page verdict differ" (21 of 59 items) and rule on each
 against the source: key wrong, or AI answer wrong. Count the items ruled key wrong. Up to 10% of
