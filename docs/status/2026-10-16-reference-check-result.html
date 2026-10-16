@@ -60,6 +60,27 @@ ol, ul { margin:0; padding-left:20px; display:grid; gap:6px; }
   </section>
 
   <section class="box">
+    <h2>Who is right: assistant's first-pass reading of every card (owner to confirm in step 3)</h2>
+    <p class="muted">Each of the 24 errors and each of the 21 key-vs-page differences was read
+      against the text shown on the card. Provisional, not the owner's ruling.</p>
+    <div id="who" style="display:grid;gap:10px"></div>
+    <ul>
+      <li><b>"Can't tell" is mostly a misread of the task.</b> In 8 of 12 the figure is in the
+        highlighted sentence itself; the note asks for the IA's own source of the number, which the
+        card never asks for. The welcome card must say so before the calibration sitting, which uses
+        the same two people.</li>
+      <li><b>Answered disagreements: the AI's reading holds in about 10 of 12.</b> The person kept a
+        point that adds an effect, cause or figure the source does not state ("offer lower prices",
+        "because the criteria give legal certainty", "uptake of complex products").</li>
+      <li><b>The answer key over-reaches on about 11 of 46 points (24%), and on 1 of 13 companions</b>, all the same way: a kept
+        point carries one clause more than its source. The step-3 rule allows at most 10%, so the key
+        is not ready as it stands. The fix is the same for all: trim the clause, or drop the point.</li>
+      <li><b>Card display:</b> 2-3 items had the needed figure outside the shown window, and one board
+        card ("which report?") lacked context.</li>
+    </ul>
+  </section>
+
+  <section class="box">
     <h2>What it means</h2>
     <ul>
       <li><b>Two different problems.</b> "Can't tell" (12): the notes say the point's figures are not
@@ -97,6 +118,24 @@ for (const [lab, ...v] of rows) {
   const e = document.createElement("span"); e.textContent = (err * 100).toFixed(0) + "% err"; e.className = err > .1 ? "bad" : "";
   r.append(l, t, e); host.append(r);
 }
+const who = [ // [label, AI right, unclear, AI wrong / card problem]
+  ["can't tell (12)", 10, 2, 0],
+  ["answered disagreements (12)", 10, 2, 0],
+  ["key vs page differences (21)", 12, 2, 7],
+];
+const W = ["var(--agree)", "var(--unsure)", "var(--wrong)"];
+for (const [lab, ...v] of who) {
+  const n = v[0] + v[1] + v[2];
+  const r = document.createElement("div"); r.className = "row";
+  const l = document.createElement("span"); l.textContent = lab;
+  const t = document.createElement("div"); t.className = "track";
+  v.forEach((x, i) => { const b = document.createElement("i"); b.style.width = (x / n * 100) + "%"; b.style.background = W[i]; t.append(b); });
+  const e = document.createElement("span"); e.textContent = `${v[0]} AI`;
+  r.append(l, t, e); document.getElementById("who").append(r);
+}
+const lg = document.createElement("div"); lg.className = "legend";
+lg.innerHTML = '<span><i style="background:var(--agree)"></i>AI reading holds (key wrong, where they differ)</span><span><i style="background:var(--unsure)"></i>unclear</span><span><i style="background:var(--wrong)"></i>AI wrong or card problem (key right)</span>';
+document.getElementById("who").prepend(lg);
 </script>
 </body>
 </html>
