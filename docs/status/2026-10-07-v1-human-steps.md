@@ -329,8 +329,9 @@ run is logged in `evals/promotion_records.yaml` when it finishes; commit that fi
 (the next formal run refuses a dirty tree). Only the first chain for a judge counts, and the
 report shows the stop rule's numbers only when it records. Standard tier. Every formal run needs
 `LANGSMITH_API_KEY` set (each run records its own experiment, which the extension needs; val
-cases are public): `womm eval --formal` refuses before any spend without it, and exits non-zero
-if the recording fails after the run.
+cases are public): `womm eval --formal` refuses before any spend without it or when LangSmith
+rejects it (it syncs the val dataset first), and exits non-zero if the recording fails after the
+run.
 
 ```
 uv run womm eval --system-version system_versions/v1.0-unscoped-api.yaml --split val --repetitions 3 --formal
