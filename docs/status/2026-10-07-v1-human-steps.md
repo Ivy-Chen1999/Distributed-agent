@@ -159,12 +159,25 @@ local, never send them. Record the reference check here:
 
 Breakdown and chart: `docs/status/2026-10-16-reference-check-result.html` (aggregates only).
 
+**What followed (owner decisions 2026-10-16/17; plan `docs/plans/2026-10-16-001`):** no second
+sitting. The annotators' answers stay as recorded and the result stays NOT ROBUST. Their feedback
+was used as leads: each disagreement and 55 window-flagged points were checked against the whole
+IA, RSB opinion and law, and Codex reviewed every proposed edit (records under
+`.cache/reference_check/round1_v6/`, private). 17 key points were corrected in the train/val
+drafts and companions (trims, one restored "expected to", four rewrites with their sources; each
+keeps its original text in a `sweep` overlay; commits `1e99658`, `b352bef`); 4 proposed cuts were
+rejected because the source does support them. 38 points the window check flagged were kept after
+a screening, not yet a clause-by-clause review. The cases found are regression tests
+(`evals/regression/key_fidelity_2026-10-17.yaml`). Record the revision as "corrected after human
+feedback by an AI full-text review"; never "read-checked by two people" or "robust".
+
 Then read "Where the answer key and the page verdict differ" (21 of 59 items) and rule on each
 against the source: key wrong, or AI answer wrong. Count the items ruled key wrong. Up to 10% of
 the answer-key points (the companions' bound): fix those items, then publish. More: the key is
 not ready; fix the drafting input and settle the drafts again before step 4. Record the count in
-the table; the demo then says the key was "read-checked by two people, owner-ruled on the
-differences", nothing stronger.
+the table. (Superseded for sample 2026-10-14-75af237c by the paragraph above: the demo says the
+key was "checked by two people on a sample, which failed; corrected after their feedback by an AI
+full-text review; not re-checked by people", nothing stronger.)
 
 ## 3b. RSB companions (after a ROBUST reference check)
 
@@ -317,8 +330,9 @@ signs again (`womm policy sign`); re-signed 2026-10-15):
   against a Claude judge); disagreement is the signal. Plan:
   `docs/plans/2026-10-15-001-feat-cross-family-judge-rescore-plan.md` on `feat/v1-integration`.
 - Not adopted: full human verification of every holdout item, and extra calibration pairs from the
-  candidate's output. The demo says the key is "AI-drafted, read-checked by two people,
-  owner-ruled on the differences, holdout spot-checked" and the judge "calibrated on the
+  candidate's output. The demo says the key is "AI-drafted; a two-person sample check failed;
+  corrected after that feedback by an AI full-text review, not re-checked by people; holdout
+  spot-checked" and the judge "calibrated on the
   incumbent's output". Every reason a decision can carry, and what it does not mean, is in the
   runbook's reject-reason table.
 
