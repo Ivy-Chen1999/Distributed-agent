@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
-import { SourcePanel } from './overlays';
+import { fireEvent, render, screen, within } from '@testing-library/react';
+import { RunPicker, SourcePanel } from './overlays';
 import type { Loadable } from '../hooks';
-import type { ScenarioSources, SourceDoc } from '../types';
+import type { Scenario, ScenarioSources, SourceDoc } from '../types';
+import { demoScenario, scenarios } from '../test/fixtures';
 
 const scenarioSources: Loadable<ScenarioSources> = {
   status: 'ready',
@@ -46,5 +47,26 @@ describe('SourcePanel', () => {
   it('says a citation is unresolved when neither has the source', () => {
     render(<SourcePanel sourceId={view.source_id} quote="lay down" sources={scenarioSources} onClose={() => {}} />);
     expect(within(panel()).getByText('This source is not part of the scenario.')).toBeTruthy();
+  });
+});
+
+describe('RunPicker', () => {
+  const ready: Loadable<Scenario[]> = { status: 'ready', data: [...scenarios, demoScenario] };
+  const picker = (initial: string) => <RunPicker scenarios={ready} initial={initial} staged={null} busy={false} onRun={() => {}} onClose={() => {}} />;
+  const checked = () => within(screen.getByRole('dialog', { name: 'Start a run' })).getByRole('radio', { checked: true }).textContent;
+
+  it('follows the current scenario when it resolves after the picker opened', () => {
+    // Opened before the runs loaded: the app passes its default scenario first.
+    const { rerender } = render(picker('eval_sme_impacts'));
+    expect(checked()).toMatch(/eval_sme_impacts/);
+    rerender(picker('demo_penalties_amended'));
+    expect(checked()).toMatch(/demo_penalties_amended/);
+  });
+
+  it("keeps the user's choice when the current scenario changes", () => {
+    const { rerender } = render(picker('eval_sme_impacts'));
+    fireEvent.click(screen.getByRole('radio', { name: /eval_provider_compliance_costs/ }));
+    rerender(picker('demo_penalties_amended'));
+    expect(checked()).toMatch(/eval_provider_compliance_costs/);
   });
 });

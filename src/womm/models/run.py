@@ -27,6 +27,8 @@ class CodeIdentity(BaseModel):
     git_sha: str | None
     dirty: bool
     claude_cli_version: str | None = None
+    # sha256 prefix of `git diff HEAD` when dirty: tells two uncommitted edits apart.
+    diff_sha: str | None = None
 
 
 class CallUsage(BaseModel):

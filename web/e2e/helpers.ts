@@ -19,7 +19,8 @@ export const SCENARIO_NAMES: Record<string, string> = {
 };
 
 export const SCREENS = ['Overview', 'Run pipeline', 'Run detail', 'Agents', 'Topology', 'Ask WOMM', 'Settings'] as const;
-export type ScreenTitle = (typeof SCREENS)[number];
+// Evolution (R36 page 4) is a desktop page outside the screen tour; e2e/evolution.spec.ts covers it.
+export type ScreenTitle = (typeof SCREENS)[number] | 'Evolution';
 
 /** Design tokens (TH in web/design/WOMM Console.dc.html). */
 export const TH = {

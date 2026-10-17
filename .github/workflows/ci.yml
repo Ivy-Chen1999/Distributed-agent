@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
+    # ready_for_review re-runs the strict golden-draft check when a draft PR is marked ready.
+    types: [opened, synchronize, reopened, ready_for_review]
 
 permissions:
   contents: read
@@ -15,6 +17,9 @@ concurrency:
 env:
   # Tests never call real LLMs: the fake backend replays scripted outputs.
   LANGSMITH_TRACING: "false"
+  # Golden-case drafts may carry undecided review items only on a draft PR
+  # (tests/eval/test_golden_drafts.py). Pushes to main and ready PRs are always strict.
+  WOMM_DRAFT_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft && 'true' || 'false' }}
 
 jobs:
   python:

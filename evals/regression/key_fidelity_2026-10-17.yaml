@@ -1,0 +1,798 @@
+# Regression cases for checking answer-key points against their source (plan 2026-10-16-001).
+#
+# Found because a reference check (sample 2026-10-14-75af237c, two annotators) failed; every case
+# below was settled on the whole source, not on the annotators' or a model's verdict: the
+# feedback pointed at the problem, the source decided it. Any checker of answer-key points
+# (fidelity check, sweep, tie-break) must reproduce `expected` on these claims.
+#
+# Fields: id; case and point; claim (the clause at issue, as the point stated it before any
+# fix); expected (supported | not_supported); kind; source (file:line under .cache/ia/<fixture>/
+# or the proposal article) and why. `law_context` marks a claim the key keeps because the
+# proposal's text states it: a check must not drop it for want of an IA sentence. `window` marks a claim supported outside the ~900-character
+# card window: a window-only check gets it wrong. Each claim is judged as written, modality
+# included: a prediction stated as fact is not supported (see m01), so supported claims keep the
+# source's "expected", "may" or "likely". These are acceptance cases for a checker; the test
+# beside them checks only the data, not any checker's verdicts.
+# j01-j04 were added after Codex ruled their labels (2026-10-17). Each case freezes its input: the full point as drafted, before any fix (`input.point`), its
+# anchor and the sha256 of every source it may be checked against. `claim` names the clause
+# this case judges; one point can hold a supported and an unsupported clause (w12 and o01).
+cases:
+- id: w01
+  case: case_04_cra_manufacturer_obligations
+  point: c04_m07
+  kind: window
+  expected: supported
+  claim: software firms rated their expected costs high to very high
+  source: cra/ia_full.txt:739
+  why: '"software manufacturers indicated in average ''high to very high costs'' (4.21 out of 5)"'
+  input:
+    fixture: cra
+    companion: false
+    anchored_on: ia
+    section: 6.3.1. Impacts on manufacturers of products with digital elements and other economic operators
+    anchor: For software manufacturers, it is assumed that the BaU factor would be lower, given that less
+      software products are today covered by NLF legislation.
+    point:
+      affected_actor: Software manufacturers, especially of non-embedded software
+      mechanism: Fewer software products are covered by existing product-safety (NLF) laws, so their existing
+        compliance baseline (business-as-usual costs) is lower. Conformity assessment and secure development
+        therefore add proportionally more cost (Art. 10, 24).
+      impact: Software manufacturers bear higher extra compliance costs than hardware manufacturers. The
+        IA assumes 25% of software testing costs are already incurred, against 40% for hardware, and software
+        firms rated their expected costs high to very high.
+    sources:
+      ia: a053047db53c117468cbc66692bc19ab6e7149689f56caf4c82aa75cb5570d7f
+      rsb_opinion: 4bb5a6c54bc5f9a5fbc8df9996d21f8180bda07e067bca6b0808d13bde51233a
+      law: 40b40802f61edd83c484305d26e35b81ecae7fbaf0c45f00becaddcba480ac1a
+- id: w02
+  case: case_06_dma_gatekeeper_obligations
+  point: c06_m03
+  kind: window
+  expected: supported
+  claim: implementation that disrupts commercial relationships with business users less
+  source: dma/ia_full.txt:942
+  why: '"a more flexible implementation ... that would disrupt less the commercial relationship" (a search
+    for ''less disruptive'' misses it)'
+  input:
+    fixture: dma
+    companion: false
+    anchored_on: ia
+    section: 3.2. Overview of costs
+    anchor: On the one hand, the possibility of a dialogue would reduce the compliance costs.
+    point:
+      affected_actor: Designated gatekeepers
+      mechanism: Under Art 7(7) a gatekeeper can ask for a regulatory dialogue and request a Commission
+        decision on whether its intended Art 6 measures are effective. This makes implementation more
+        flexible and gives more legal certainty.
+      impact: Lower compliance costs, and implementation that disrupts commercial relationships with business
+        users less than self-executing obligations would.
+    sources:
+      ia: b1d4bad749a3fa592104129f31bd6a899bfaa55401e0e93b51122e328c4f4daf
+      rsb_opinion: d88f751d41fe6245f7a50cfc50261bbf7a8cc32030f95b3a73724a05481aba7c
+      law: 205bf045863c6fc8ad1354a49a6302c99469a51263df498541f193397ecb6979
+- id: w03
+  case: case_06_dma_gatekeeper_obligations
+  point: c06_m07
+  kind: window
+  expected: supported
+  claim: gatekeepers have stronger incentives to offer lower prices
+  source: dma/ia_full.txt:956
+  why: '"will rather increase gatekeepers'' incentive to innovate and offer lower prices"'
+  input:
+    fixture: dma
+    companion: false
+    anchored_on: ia
+    section: Businesses
+    anchor: increased market contestability would continue to incentivise gatekeepers to bring innovative
+      products to the market
+    point:
+      affected_actor: Designated gatekeepers
+      mechanism: More contestable markets created by the Art 5 and 6 obligations increase competitive
+        pressure on gatekeepers, which have to keep a large user base.
+      impact: Stronger incentives for gatekeepers to innovate, bring new products to market and offer
+        lower prices, even though their business models are affected.
+    sources:
+      ia: b1d4bad749a3fa592104129f31bd6a899bfaa55401e0e93b51122e328c4f4daf
+      rsb_opinion: d88f751d41fe6245f7a50cfc50261bbf7a8cc32030f95b3a73724a05481aba7c
+      law: 205bf045863c6fc8ad1354a49a6302c99469a51263df498541f193397ecb6979
+- id: w04
+  case: case_13_gigabit_infrastructure_access_and_permits
+  point: c13_e01
+  kind: window
+  expected: supported
+  claim: network built by reuse or coordination rises to about 470,000 km against 250,000 km in the baseline
+  source: gigabit/ia_full.txt:773
+  why: '"470,000 km instead of 250,000 km under baseline"'
+  input:
+    fixture: gigabit
+    companion: false
+    anchored_on: ia
+    section: 2. Summary of costs and benefits
+    anchor: Cost savings due to improved access to existing infrastructure and co-deployment opportunities
+    point:
+      affected_actor: Electronic communications network (ECN) operators deploying very high capacity networks
+      mechanism: The right to access existing physical infrastructure of network operators and public
+        sector bodies on fair and reasonable terms, together with the right to coordinate civil works,
+        lets operators reuse ducts and poles and co-deploy instead of building new civil works.
+      impact: Lower deployment capex, around EUR 12 billion to 2030. Network built by reusing infrastructure
+        or coordinating civil works rises to about 470,000 km, against 250,000 km in the baseline.
+    sources:
+      ia: 5ddf052fcfe6aaf147a1d55fe075d5fbfe2d08afcc4a70c8857cf83ce6868d4b
+      rsb_opinion: e65ddf3c434fc314f292a28e3240c921e07e80d9cb56143b8690db74075c389b
+      law: ae5d3384953ed08d630ef6a1f27b186d2a15baa1648dae6a8c9892c5ebfc651a
+- id: w05
+  case: case_10_platform_work_employment_status_algorithmic_management
+  point: c10_e05
+  kind: window
+  expected: supported
+  claim: a slight rise in administrative burden for all platforms from algorithmic transparency
+  source: platform_work/ia_full.txt:990
+  why: '"all types of platforms will face a slightly increased administrative burden due to ... algorithmic
+    transparency"'
+  input:
+    fixture: platform_work
+    companion: false
+    anchored_on: ia
+    section: A3.2 Overview of costs of the preferred option
+    anchor: One-off costs of providing more algorithmic transparency for people working through platforms.
+    point:
+      affected_actor: Digital labour platforms (all types)
+      mechanism: Platforms must give workers a written document on their automated monitoring and decision-making
+        systems (main parameters and grounds for decisions), update it when the systems change substantially,
+        and supply it to worker representatives and labour authorities on request.
+      impact: One-off costs of providing algorithmic transparency and a slight rise in administrative
+        burden for all platforms. The IA does not quantify the cost.
+    sources:
+      ia: 2cf6fb890d0ead6310613c68da3c50e3a65fe25513eb6df23c7dba8604e6ffba
+      rsb_opinion: 0ada4456250c3a02687325951626aab689a6052845439be992dcb41040fd6ca4
+      law: 5029fcb7d4bcafb3706f5835070cc3ebe4fa50ffc363f693e201d37fefde3a1c
+- id: w06
+  case: case_12_ehds_secondary_use_obligations
+  point: c12_e01
+  kind: window
+  expected: supported
+  claim: a fee-based permit replaces costly consent collection
+  source: ehds/ia_full.txt:112
+  why: '"(fee to data access body as opposed to contacting data subjects and getting the consent)"'
+  input:
+    fixture: ehds
+    companion: false
+    anchored_on: ia
+    section: 6.1.3.2 Impact of actions on secondary uses of health data
+    anchor: stemming from efficiency gains in data access as a results of a less costly access to health
+      data by reusers, be it researchers, innovators, regulators and policy-makers EUR 3.4 billion)
+    point:
+      affected_actor: Data reusers (researchers and innovators applying for data permits)
+      mechanism: Mandatory availability of listed data categories (Art 33), defined permitted purposes
+        (Art 34) and a permit procedure with fixed deadlines that replaces individual consent gathering
+        (Art 33(5), Art 46) make access to health data cheaper and faster
+      impact: Efficiency gains in data access, valued at EUR 3.4 billion over 10 years in the preferred
+        option, as a fee-based permit replaces costly consent collection
+    sources:
+      ia: f46808adc8e26712052fb78b0430dabf8be24dd91dff3e7a79d6f477eb2b16ee
+      rsb_opinion: 1314b5bfffe475ec1c583bd9ded3659f5eaf5ab445aaa00b0f439b3c3e599daf
+      law: 9a70f5acff017ded452ca32d1b9e543a795e813e3f1a2c472692f59942ba7d44
+- id: w07
+  case: case_06_dma_gatekeeper_obligations
+  point: c06_e05
+  kind: window
+  expected: supported
+  claim: protection from data exploitation gives business users more confidence to sell online
+  source: dma/ia_full.txt:2061
+  why: 'table: "more confidence in selling online, as they would be protected from practices that exploit
+    their data"'
+  input:
+    fixture: dma
+    companion: false
+    anchored_on: ia
+    section: SMEs
+    anchor: Measures against data misuse would prevent that their data are exploited for the only benefit
+      of the platform.
+    point:
+      affected_actor: Business users of gatekeeper platforms
+      mechanism: Gatekeepers may not use non-public data generated by business users and their end users
+        to compete against those business users (Art 6(1)(a), 6(2)).
+      impact: Business users are protected from their data being exploited only for the platform's benefit.
+        This gives them more confidence to sell online.
+    sources:
+      ia: b1d4bad749a3fa592104129f31bd6a899bfaa55401e0e93b51122e328c4f4daf
+      rsb_opinion: d88f751d41fe6245f7a50cfc50261bbf7a8cc32030f95b3a73724a05481aba7c
+      law: 205bf045863c6fc8ad1354a49a6302c99469a51263df498541f193397ecb6979
+- id: w08
+  case: case_10_platform_work_employment_status_algorithmic_management
+  point: c10_e02
+  kind: window
+  expected: supported
+  claim: the IA expects the costs to fall below the baseline in the long run because the clear control
+    criteria give platforms certainty
+  source: platform_work/ia_full.txt:1041
+  why: '"a clear set of criteria concerning the definition of control ... The platforms will adapt ...
+    Significant savings ... are likely"'
+  input:
+    fixture: platform_work
+    companion: false
+    anchored_on: ia
+    section: A3.2 Overview of costs of the preferred option
+    anchor: As Policy Option A3b would make it easier and less costly for people working through platforms
+      to challenge their legal status, the legal and non-compliance costs are likely to be even higher
+      in the short to medium term.
+    point:
+      affected_actor: Digital labour platforms
+      mechanism: The presumption applies in all administrative and legal proceedings. Rebutting it puts
+        the burden of proof on the platform, and a rebuttal does not suspend the presumption. This makes
+        it easier and cheaper for workers and authorities to challenge employment status.
+      impact: Legal and non-compliance costs, currently tens to hundreds of millions of euros for on-location
+        platforms, rise in the short to medium term. The IA expects them to fall below the baseline in
+        the long run because the control criteria give legal certainty.
+    sources:
+      ia: 2cf6fb890d0ead6310613c68da3c50e3a65fe25513eb6df23c7dba8604e6ffba
+      rsb_opinion: 0ada4456250c3a02687325951626aab689a6052845439be992dcb41040fd6ca4
+      law: 5029fcb7d4bcafb3706f5835070cc3ebe4fa50ffc363f693e201d37fefde3a1c
+- id: w09
+  case: case_05_dsa_due_diligence_obligations
+  point: c05_o03
+  kind: window
+  expected: supported
+  claim: this cost falls on about 20 of the largest platforms
+  source: dsa/ia_full.txt:627
+  why: '"higher costs for approximately 20 of the largest platforms" (a reviewer missed it: absence needs
+    a wide search)'
+  input:
+    fixture: dsa
+    companion: false
+    anchored_on: ia
+    section: 6.1. Economic impacts – Costs and administrative burdens on digital services
+    anchor: Overall the additional costs for such service providers range from EUR 300.000 to EUR 3.500.000
+      per annum for the additional obligations, excluding potential variable costs for risk mitigation
+      measures.
+    point:
+      description: Very large online platforms bear a cumulative recurring cost from the full set of obligations
+        (risk assessment, audits, ad repository, compliance officers of 1–5 FTEs), estimated at EUR 300.000
+        to EUR 3.500.000 per annum before variable mitigation costs. This cost falls on about 20 of the
+        largest platforms.
+    sources:
+      ia: efb0c90f2ba2e17fbeb75985be689c237a883ef05d62139cd09e015cc4ee35ea
+      rsb_opinion: ca8eab7b5d30ea8e070676e3ccab480430df742dd252e3023810a8d3977e9766
+      law: c9fd236e86cbe2b9ea6f274282da8df8ed91989b51c3f5df63a54c78f6eb4b56
+- id: w10
+  case: case_05_dsa_due_diligence_obligations
+  point: c05_e09
+  kind: window
+  expected: supported
+  claim: erroneous removal or account suspension
+  source: dsa/ia_full.txt:205; proposal Art 17(1)(c)
+  why: suspension of user accounts discussed as a harm; Art 17 covers suspension
+  input:
+    fixture: dsa
+    companion: false
+    anchored_on: ia
+    section: 6.1. Economic impacts – Competitiveness, innovation and investment
+    anchor: In addition, the legally guaranteed availability of the internal and external complaint and
+      redress mechanisms would afford other better protections against erroneous removal and limit losses
+      for legitimate businesses and entrepreneurs.
+    point:
+      affected_actor: Business users of online platforms (legitimate businesses and entrepreneurs)
+      mechanism: Right to an internal complaint-handling system, with reversal of unjustified decisions,
+        and access to certified out-of-court dispute settlement whose decisions bind the platform
+      impact: Better protection against wrongful removal or account suspension, which limits losses for
+        legitimate businesses and supports their competitiveness.
+    sources:
+      ia: efb0c90f2ba2e17fbeb75985be689c237a883ef05d62139cd09e015cc4ee35ea
+      rsb_opinion: ca8eab7b5d30ea8e070676e3ccab480430df742dd252e3023810a8d3977e9766
+      law: c9fd236e86cbe2b9ea6f274282da8df8ed91989b51c3f5df63a54c78f6eb4b56
+- id: w11
+  case: case_10_platform_work_employment_status_algorithmic_management
+  point: c10_o04
+  kind: window
+  expected: supported
+  claim: SME restaurants may bear costs through higher commissions or fewer orders
+  source: platform_work/ia_full.txt:1068; 1824-1836
+  why: SME restaurants and "an increase in commissions" (1068); drop of orders in the Spanish estimate
+    (1836). 'commission' also matches 'the Commission'
+  input:
+    fixture: platform_work
+    companion: false
+    anchored_on: ia
+    section: A3.2 Overview of costs of the preferred option
+    anchor: Based on the case of Spain, around 0.16% - 1.0% of restaurant revenue lost.
+    point:
+      description: Businesses that rely on platforms, especially SME restaurants that use delivery platforms,
+        bear part of the reclassification costs indirectly through higher commissions or fewer orders.
+        On the Spanish experience, the IA estimates the loss at around 0.16% - 1.0% of restaurant revenue.
+    sources:
+      ia: 2cf6fb890d0ead6310613c68da3c50e3a65fe25513eb6df23c7dba8604e6ffba
+      rsb_opinion: 0ada4456250c3a02687325951626aab689a6052845439be992dcb41040fd6ca4
+      law: 5029fcb7d4bcafb3706f5835070cc3ebe4fa50ffc363f693e201d37fefde3a1c
+- id: w12
+  case: case_11_pld_liability_software_burden_of_proof
+  point: c11_m05
+  kind: window
+  expected: supported
+  claim: more confidence to claim compensation in complex cases
+  source: pld/ia_full.txt:610
+  why: '"give consumers greater confidence to make compensation claims in more complex cases"'
+  input:
+    fixture: pld
+    companion: false
+    anchored_on: ia
+    section: 6.4. Policy option 2.a – Easing the burden of proof and reducing disproportionate restrictions
+      to make claims
+    anchor: The greater visibility of the possibility to ease the burden of proof could improve consumer
+      confidence and trust in more complex products.
+    point:
+      affected_actor: Consumers of complex products (as purchasers and users)
+      mechanism: Making the presumptions in Art. 9 explicit and visible increases consumer confidence
+        and trust in complex products and their willingness to bring claims.
+      impact: Better consumer trust in, and uptake of, complex and digital products, and more confidence
+        to claim compensation in complex cases.
+    sources:
+      ia: 80767222aa101c0608e14facc455651911b85e38a3962d074e2d6d94a3941142
+      rsb_opinion: c8b2a8ccf5440c5c93b8973a699238b742051a79f59b1d2f5a8224d4e3294a53
+      law: c6565c176bcbc5d7e23c3d1977b8e0ea51f76a349501a7a6bd15fe9c15759f56
+- id: l01
+  case: case_04_cra_manufacturer_obligations
+  point: c04_e03
+  kind: law_context
+  expected: supported
+  claim: manufacturers of critical products (Annex III class I without harmonised standards, and class
+    II) bear third-party assessment costs
+  source: proposal Art 6(1), Art 24(2)-(3); cra/ia_full.txt:706,714
+  why: 'the proposal: "Categories of critical products with digital elements shall be divided into class
+    I and class II"; Art 24 sets the third-party procedure for class I without standards and for class
+    II. Dropping the scope would widen the group'
+  input:
+    fixture: cra
+    companion: false
+    anchored_on: ia
+    section: 6.3.1. Impacts on manufacturers of products with digital elements and other economic operators
+    anchor: For third-party assessment, costs were estimated at EUR 25 000, which represents an average
+      of possible costs for different types of products based on secondary data.
+    point:
+      affected_actor: Manufacturers of critical products with digital elements (Annex III class I without
+        harmonised standards, and class II)
+      mechanism: Classification as critical products, which makes notified-body procedures mandatory (module
+        B+C or H) (Art. 6(1), 6(4), 24(2)-(3))
+      impact: Third-party assessment costs on average EUR 25 000 per product, including certification
+        fees and recurrent audits. It is expected to apply to a narrow share of the market, about 10%
+        of products.
+    sources:
+      ia: a053047db53c117468cbc66692bc19ab6e7149689f56caf4c82aa75cb5570d7f
+      rsb_opinion: 4bb5a6c54bc5f9a5fbc8df9996d21f8180bda07e067bca6b0808d13bde51233a
+      law: 40b40802f61edd83c484305d26e35b81ecae7fbaf0c45f00becaddcba480ac1a
+- id: l02
+  case: case_11_pld_liability_software_burden_of_proof
+  point: c11_o01
+  kind: law_context
+  expected: supported
+  claim: disclosure duties put confidential information and trade secrets at risk
+  source: proposal Art 8(3)-(4); pld/ia_full.txt:396,608
+  why: 'the proposal: "in particular in relation to the protection of confidential information and trade
+    secrets"; the IA covers confidentiality and IP risk in general'
+  input:
+    fixture: pld
+    companion: false
+    anchored_on: ia
+    section: 6.4. Policy option 2.a – Easing the burden of proof and reducing disproportionate restrictions
+      to make claims
+    anchor: so long as a claimant’s request was justified and intellectual property rights were adequately
+      protected.
+    point:
+      description: Court-ordered disclosure under Art. 8 may require producers to reveal confidential
+        technical information and trade secrets. A good assessment should cover the risk to producers'
+        intellectual property and confidentiality, and the role of the proportionality test and confidentiality
+        safeguards in Art. 8(3)–(4) in limiting it.
+    sources:
+      ia: 80767222aa101c0608e14facc455651911b85e38a3962d074e2d6d94a3941142
+      rsb_opinion: c8b2a8ccf5440c5c93b8973a699238b742051a79f59b1d2f5a8224d4e3294a53
+      law: c6565c176bcbc5d7e23c3d1977b8e0ea51f76a349501a7a6bd15fe9c15759f56
+- id: o01
+  case: case_11_pld_liability_software_burden_of_proof
+  point: c11_m05
+  kind: over_inference
+  expected: not_supported
+  claim: better consumer uptake of complex and digital products
+  source: pld/ia_full.txt:610,646
+  why: only confidence and trust in more complex products; 'uptake' appears only as something other options
+    could undermine
+  input:
+    fixture: pld
+    companion: false
+    anchored_on: ia
+    section: 6.4. Policy option 2.a – Easing the burden of proof and reducing disproportionate restrictions
+      to make claims
+    anchor: The greater visibility of the possibility to ease the burden of proof could improve consumer
+      confidence and trust in more complex products.
+    point:
+      affected_actor: Consumers of complex products (as purchasers and users)
+      mechanism: Making the presumptions in Art. 9 explicit and visible increases consumer confidence
+        and trust in complex products and their willingness to bring claims.
+      impact: Better consumer trust in, and uptake of, complex and digital products, and more confidence
+        to claim compensation in complex cases.
+    sources:
+      ia: 80767222aa101c0608e14facc455651911b85e38a3962d074e2d6d94a3941142
+      rsb_opinion: c8b2a8ccf5440c5c93b8973a699238b742051a79f59b1d2f5a8224d4e3294a53
+      law: c6565c176bcbc5d7e23c3d1977b8e0ea51f76a349501a7a6bd15fe9c15759f56
+- id: o02
+  case: case_09_batteries_sustainability_requirements
+  point: c09_o03
+  kind: over_inference
+  expected: not_supported
+  claim: this could constrain supply and competition, which the amendment power is meant to address
+  source: batteries/ia_full.txt:846,4575,4601
+  why: the IA reports manufacturers' worry about secondary materials; the supply-and-competition chain
+    is not stated
+  input:
+    fixture: batteries
+    companion: false
+    anchored_on: ia
+    section: 'Measure 9: Recycled content'
+    anchor: Some manufacturers of large EV batteries are against it because they consider that there will
+      not be enough secondary raw materials to meet the criteria
+    point:
+      description: Recycled-content targets may be hard to meet for large EV battery makers if there are
+        not enough secondary raw materials, given fast-growing demand. This could constrain supply and
+        competition, which the amendment power in Art 8(4) is meant to address.
+    sources:
+      ia: 049c9ebf268bf90d4b46e89299c3e2568d7f8ef6b809f36997b78791f4db8a8f
+      rsb_opinion: d9f1650eb1f63de353f146d27e327f2ea687c886ba993914dfe6a4dd9a0485fd
+      law: 2cf0cf271c7b2162a24e3dfc9d613ff6c5d55f0a408e43af12ab4beaaa66fc8a
+- id: o03
+  case: case_12_ehds_secondary_use_obligations
+  point: c12_o04
+  kind: over_inference
+  expected: not_supported
+  claim: data subjects lose consent control as the price of the savings (as a board request)
+  source: ehds/rsb_opinion.txt:60-62
+  why: the board asks whether benefits come from consent or from safeguarding rights; it asserts no trade-off.
+    Both annotators and the page AI missed it
+  input:
+    fixture: ehds
+    companion: true
+    anchored_on: rsb_opinion
+    section: RSB second opinion (positive), (C) What to improve, point (3)
+    anchor: The report should clarify if the benefits from data governance by Health Data Access
+    point:
+      description: Under Art 33(5), health data access bodies give access on the basis of the Chapter's
+        obligations even where national law requires the data subject's consent. Data subjects therefore
+        lose the individual consent control they have today. The savings that come from not having to
+        obtain consent are paid for by that loss of control. A good assessment should say that this is
+        a shift in rights away from data subjects, and that the permit and purpose rules (Art 34, Art
+        46) must act as the replacement safeguard.
+    sources:
+      ia: f46808adc8e26712052fb78b0430dabf8be24dd91dff3e7a79d6f477eb2b16ee
+      rsb_opinion: 1314b5bfffe475ec1c583bd9ded3659f5eaf5ab445aaa00b0f439b3c3e599daf
+      law: 9a70f5acff017ded452ca32d1b9e543a795e813e3f1a2c472692f59942ba7d44
+- id: o04
+  case: case_12_ehds_secondary_use_obligations
+  point: c12_o06
+  kind: over_inference
+  expected: not_supported
+  claim: the competitive effect on firms that share and firms that receive health data (as a board request)
+  source: ehds/rsb_opinion.txt:601
+  why: the board asks which markets are affected, not for a competition analysis
+  input:
+    fixture: ehds
+    companion: true
+    anchored_on: rsb_opinion
+    section: RSB first opinion (negative), (C) What to improve, point (3)
+    anchor: health data and which private and public markets would be affected.
+    point:
+      description: Art 33(1) and (3) require private data holders to supply their data, including makers
+        of medical devices and wellness apps, clinical trial sponsors, biobanks, and holders of insurance
+        and claims data. Their competitors can then obtain this data through permits at cost-based fees
+        (Art 42). A good assessment should name the private and public markets affected and describe the
+        competitive effect on the firms that must share data and on the firms that receive it.
+    sources:
+      ia: f46808adc8e26712052fb78b0430dabf8be24dd91dff3e7a79d6f477eb2b16ee
+      rsb_opinion: 1314b5bfffe475ec1c583bd9ded3659f5eaf5ab445aaa00b0f439b3c3e599daf
+      law: 9a70f5acff017ded452ca32d1b9e543a795e813e3f1a2c472692f59942ba7d44
+- id: o05
+  case: case_03_data_act_cloud_switching
+  point: c03_o01
+  kind: over_inference
+  expected: not_supported
+  claim: the extra demand goes mostly to providers
+  source: data_act/ia_full.txt:698-700
+  why: extra demand outweighs providers' initial costs; no relative split of benefits
+  input:
+    fixture: data_act
+    companion: false
+    anchored_on: ia
+    section: 6.2.3. Intervention on cloud and edge services
+    anchor: This makes it difficult to distinguish the costs of regulatory compliance from the investments
+      of the cloud providers under the baseline scenario.
+    point:
+      description: Provider compliance costs are not quantified (Table 6 shows 'n/a'), and the IA admits
+        that costs from Article 27 safeguards cannot be separated from baseline investment. The net-benefit
+        claim therefore rests on an assumption that initial costs are outweighed by extra demand, which
+        goes mostly to providers, not on a costed comparison.
+    sources:
+      ia: 086d6901d65293f8642a08ec6b7d9e23d3fa32e003910ff4c209aac50a96b336
+      rsb_opinion: 9534ab1606f19c2e556f4a326d26a2e2d1b00a8aa4db6c69a97a55bf64b8d036
+      law: d41b1b70fce4a06a361d7763328affec895502dc854a149d452b569c81e3167b
+- id: o06
+  case: case_04_cra_manufacturer_obligations
+  point: c04_m01
+  kind: over_inference
+  expected: not_supported
+  claim: which puts them at a competitive disadvantage against large and non-EU firms
+  source: cra/ia_full.txt:847-849
+  why: a stakeholder worry, with survey SMEs neutral; stated as fact
+  input:
+    fixture: cra
+    companion: false
+    anchored_on: ia
+    section: 6.3.2. Impact on SMEs
+    anchor: In terms of costs, SMEs as manufacturers would in principle be more affected than large companies
+      for several reasons.
+    point:
+      affected_actor: SME manufacturers of products with digital elements
+      mechanism: Fixed costs of secure development, getting to know the new rules and showing conformity
+        hit SMEs harder. They have smaller customer bases, little in-house expertise and limited lab capacity,
+        so they turn to external consultants and testing labs (Art. 5, 10).
+      impact: SME manufacturers face higher relative compliance costs than large firms. Some may struggle
+        to bear them and could leave the market, which puts them at a competitive disadvantage against
+        large and non-EU firms.
+    sources:
+      ia: a053047db53c117468cbc66692bc19ab6e7149689f56caf4c82aa75cb5570d7f
+      rsb_opinion: 4bb5a6c54bc5f9a5fbc8df9996d21f8180bda07e067bca6b0808d13bde51233a
+      law: 40b40802f61edd83c484305d26e35b81ecae7fbaf0c45f00becaddcba480ac1a
+- id: o07
+  case: case_04_cra_manufacturer_obligations
+  point: c04_o06
+  kind: over_inference
+  expected: not_supported
+  claim: late standards raise notified-body demand (as the board's request)
+  source: cra/rsb_opinion.txt:93-96
+  why: the board asks whether standards arrive in time and stay current; the notified-body effect is a
+    legal inference, not the board's request
+  input:
+    fixture: cra
+    companion: true
+    anchored_on: rsb_opinion
+    section: (C) What to improve
+    anchor: the role and effectiveness of standardisation processes in effectively ensuring that the advocated
+      solution is delivered in due time
+    point:
+      description: The timing of harmonised standards directly affects how many manufacturers must use
+        a notified body. Under Art. 24(2), manufacturers of class I critical products must use third-party
+        procedures (module B+C or H) if they have not applied harmonised standards, common specifications
+        or certification schemes, or if none exist. If standards are late or out of date in a fast-moving
+        digital sector, more class I manufacturers will face higher-cost notified-body assessment. Demand
+        on notified bodies would also rise.
+    sources:
+      ia: a053047db53c117468cbc66692bc19ab6e7149689f56caf4c82aa75cb5570d7f
+      rsb_opinion: 4bb5a6c54bc5f9a5fbc8df9996d21f8180bda07e067bca6b0808d13bde51233a
+      law: 40b40802f61edd83c484305d26e35b81ecae7fbaf0c45f00becaddcba480ac1a
+- id: g01
+  case: case_11_pld_liability_software_burden_of_proof
+  point: c11_e10
+  kind: group_mismatch
+  expected: not_supported
+  claim: importers bear new liability exposure
+  source: pld/ia_full.txt:208,1438
+  why: importers are already liable under the current PLD
+  input:
+    fixture: pld
+    companion: false
+    anchored_on: ia
+    section: 8. Preferred option
+    anchor: it would ensure the liability of an EU-based responsible person for defective products, in
+      line with market surveillance rules.
+    point:
+      affected_actor: Importers, authorised representatives and fulfilment service providers of non-EU
+        manufacturers
+      mechanism: Where the manufacturer is established outside the Union, the importer and authorised
+        representative, and failing them the fulfilment service provider, can be held liable (Art. 7(2)–(3);
+        definitions in Art. 4)
+      impact: There is always an EU-based person liable for defective products, in line with market surveillance
+        rules. These operators bear new liability exposure.
+    sources:
+      ia: 80767222aa101c0608e14facc455651911b85e38a3962d074e2d6d94a3941142
+      rsb_opinion: c8b2a8ccf5440c5c93b8973a699238b742051a79f59b1d2f5a8224d4e3294a53
+      law: c6565c176bcbc5d7e23c3d1977b8e0ea51f76a349501a7a6bd15fe9c15759f56
+- id: g02
+  case: case_04_cra_manufacturer_obligations
+  point: c04_e07
+  kind: group_mismatch
+  expected: not_supported
+  claim: the burden on importers and distributors is not expected to be significant
+  source: cra/ia_full.txt:857
+  why: said by SME representatives about SME importers and distributors only
+  input:
+    fixture: cra
+    companion: false
+    anchored_on: ia
+    section: 6.3.1. Impacts on manufacturers of products with digital elements and other economic operators
+    anchor: The main costs for importers and distributors would be adjustment costs related to familiarisation
+      related to the new requirements.
+    point:
+      affected_actor: Importers and distributors
+      mechanism: Verification duties (conformity assessment done, CE marking, documentation, contact details),
+        corrective action, informing authorities and record-keeping (Art. 13, 14)
+      impact: Their main costs are familiarisation with the new requirements. These were not quantified;
+        as a benchmark, under the Toy Safety Directive it took 110 man-hours per type for importers and
+        86 for distributors. Because security must already be ensured by the manufacturer, the burden
+        is not expected to be significant.
+    sources:
+      ia: a053047db53c117468cbc66692bc19ab6e7149689f56caf4c82aa75cb5570d7f
+      rsb_opinion: 4bb5a6c54bc5f9a5fbc8df9996d21f8180bda07e067bca6b0808d13bde51233a
+      law: 40b40802f61edd83c484305d26e35b81ecae7fbaf0c45f00becaddcba480ac1a
+- id: g03
+  case: case_10_platform_work_employment_status_algorithmic_management
+  point: c10_o03
+  kind: group_mismatch
+  expected: not_supported
+  claim: reclassified workers lose the choice of their hours
+  source: platform_work/ia_full.txt:1106,825
+  why: the IA names lost flexibility and multi-homing; choosing one's hours appears only as a gain of
+    the genuinely self-employed
+  input:
+    fixture: platform_work
+    companion: false
+    anchored_on: ia
+    section: 'Annex 3: Who is affected and how? – Impacts on people working through platforms'
+    anchor: Some of them, however, might lose some flexibility related to independent contractor status.
+    point:
+      description: Reclassified workers gain protection but may lose the flexibility and autonomy of independent
+        contractor status, such as choosing their hours or working for several platforms at the same time.
+        The IA puts this at around 1.72 – 4.09 million people.
+    sources:
+      ia: 2cf6fb890d0ead6310613c68da3c50e3a65fe25513eb6df23c7dba8604e6ffba
+      rsb_opinion: 0ada4456250c3a02687325951626aab689a6052845439be992dcb41040fd6ca4
+      law: 5029fcb7d4bcafb3706f5835070cc3ebe4fa50ffc363f693e201d37fefde3a1c
+- id: a01
+  case: case_07_dga_data_intermediation
+  point: c07_e01
+  kind: amount_mismatch
+  expected: not_supported
+  claim: these (implementation) costs are a one-off EUR 20 000-50 000 or EUR 35 000-75 000 plus renewal
+  source: dga/ia_full.txt:565,577-578
+  why: the figures are the cost of obtaining a label or certificate, kept apart from implementation costs
+  input:
+    fixture: dga
+    companion: false
+    anchored_on: ia
+    section: '6.1.3. Policy option 2: Lower intensity legislation'
+    anchor: Data intermediaries would bear the cost of obtaining and maintaining the certification or
+      label as well as implementation costs to ensure compliance with the requirements.
+    point:
+      affected_actor: Providers of data sharing services (data intermediaries)
+      mechanism: 'Providers must meet the conditions for providing data sharing services: no use of the
+        data for other purposes, a separate legal entity, fair and non-discriminatory access, fraud prevention,
+        continuity and insolvency safeguards, security measures and competition-compliance procedures.'
+      impact: Intermediaries pay implementation costs to comply with the requirements. For the comparable
+        certification options the IA puts these at a one-off EUR 20 000-50 000 (voluntary) or EUR 35 000-75
+        000 (compulsory), plus annual renewal costs.
+    sources:
+      ia: 37fea7f8a4c43da95c95fd653d9dc714d329032c278123fb0c9c321cf3f3fb36
+      rsb_opinion: a547eb395cb76708896a9da11150a3f253dc66abe003a94077cbb47dddc224d1
+      law: 7b9b4f94812b6910bd7c43e1cc6c1f9a1f88c70333e1026b8c1493e6cf1f6803
+- id: m01
+  case: case_08_gpsr_economic_operator_obligations
+  point: c08_e09
+  kind: modality
+  expected: not_supported
+  claim: recalls work better (stated as fact)
+  source: gpsr/ia_full.txt:864
+  why: '"are expected to improve the effectiveness of recalls"'
+  input:
+    fixture: gpsr
+    companion: false
+    anchored_on: ia
+    section: 6.3. Impacts of Option 3 – Social impacts
+    anchor: The introduction of additional requirements for traceability and product recalls are expected
+      to improve the effectiveness of recalls of unsafe products from consumers.
+    point:
+      affected_actor: Consumers and public health systems
+      mechanism: Traceability systems for high-risk products, product identification numbers, and alerts
+        to consumers through the Safety Business Gateway (Arts 8(6), 8(11), 17)
+      impact: Recalls work better and fewer unsafe products stay in consumers' hands. Informing affected
+        consumers directly was estimated to save €73 million in 2019, and the health-care costs of product-related
+        injuries (about EUR 6.7 billion a year) could come down.
+    sources:
+      ia: 63ef4f3d9973e0539c3070ee9ebc1a8d728cdf67d32f97e8b76474865b2cd1cc
+      rsb_opinion: 9469c0a6a17f0171eeabbea45455dbf52931a14ac31c8f7ddc44e781e2a01ce4
+      law: 8c7056698c4fe42076b56cb7ca43bd43b870a61cb74a341d300cd27a8d32e43c
+- id: m02
+  case: case_10_platform_work_employment_status_algorithmic_management
+  point: c10_m01
+  kind: modality
+  expected: not_supported
+  claim: low-skill on-location workers are hit hardest
+  source: platform_work/ia_full.txt:1109
+  why: the IA compares them with online workers ('more affected'); 'hardest' ranks them above everyone
+  input:
+    fixture: platform_work
+    companion: false
+    anchored_on: ia
+    section: A3.2 Overview of costs of the preferred option
+    anchor: Some loss of flexibility and autonomy for those people (around 1.72 – 4.09 million people)
+    point:
+      affected_actor: People working through platforms who are reclassified as employees
+      mechanism: Being reclassified under the presumption means losing the flexibility and autonomy of
+        independent contractor status, including the option to work for several platforms at the same
+        time.
+      impact: About 1.72 to 4.09 million reclassified people lose some flexibility and autonomy. Low-skill
+        on-location workers are hit hardest.
+    sources:
+      ia: 2cf6fb890d0ead6310613c68da3c50e3a65fe25513eb6df23c7dba8604e6ffba
+      rsb_opinion: 0ada4456250c3a02687325951626aab689a6052845439be992dcb41040fd6ca4
+      law: 5029fcb7d4bcafb3706f5835070cc3ebe4fa50ffc363f693e201d37fefde3a1c
+- id: j01
+  kind: same_group_kind
+  expected: supported
+  claim: Low-skilled on-location workers face a higher risk of misclassification than high-skilled on-location
+    workers.
+  source: platform_work/ia_full.txt:1604
+  why: '"48% of those doing low-skilled on-location work are likely to be at risk of misclassification"
+    against 18% high-skilled: a likelihood, stated'
+  input:
+    fixture: platform_work
+    anchored_on: ia
+    anchor: Low-skill on-location platforms are much more likely to exert control or sub-ordination over
+      people working through them.
+    point:
+      impact: Low-skilled on-location workers face a higher risk of misclassification than high-skilled
+        on-location workers.
+    sources: &id001
+      ia: 2cf6fb890d0ead6310613c68da3c50e3a65fe25513eb6df23c7dba8604e6ffba
+      rsb_opinion: 0ada4456250c3a02687325951626aab689a6052845439be992dcb41040fd6ca4
+      law: 5029fcb7d4bcafb3706f5835070cc3ebe4fa50ffc363f693e201d37fefde3a1c
+  ruled_by: Codex 2026-10-17 (j01_j04_m02_codex_rulings_2026-10-17.json)
+- id: j02
+  kind: same_group_kind
+  expected: not_supported
+  claim: Low-skilled on-location workers lose more flexibility from reclassification than high-skilled
+    on-location workers.
+  source: platform_work/ia_full.txt:1604; 974
+  why: the IA states higher control and misclassification risk for this group, and that these services
+    are 'affected the most'; a larger loss of flexibility for the workers is a different judgement (proposed
+    label; Codex to rule)
+  input:
+    fixture: platform_work
+    anchored_on: ia
+    anchor: Low-skill on-location platforms are much more likely to exert control or sub-ordination over
+      people working through them.
+    point:
+      impact: Low-skilled on-location workers lose more flexibility from reclassification than high-skilled
+        on-location workers.
+    sources: *id001
+  ruled_by: Codex 2026-10-17 (j01_j04_m02_codex_rulings_2026-10-17.json)
+- id: j03
+  kind: modality
+  expected: supported
+  claim: The new traceability and recall requirements are expected to make recalls of unsafe products
+    more effective.
+  source: gpsr/ia_full.txt:864
+  why: '"are expected to improve the effectiveness of recalls of unsafe products": the prediction kept
+    as a prediction'
+  input:
+    fixture: gpsr
+    anchored_on: ia
+    anchor: The introduction of additional requirements for traceability and product recalls are expected
+      to improve the effectiveness of recalls of unsafe products from consumers.
+    point:
+      impact: The new traceability and recall requirements are expected to make recalls of unsafe products
+        more effective.
+    sources: &id002
+      ia: 63ef4f3d9973e0539c3070ee9ebc1a8d728cdf67d32f97e8b76474865b2cd1cc
+      rsb_opinion: 9469c0a6a17f0171eeabbea45455dbf52931a14ac31c8f7ddc44e781e2a01ce4
+      law: 8c7056698c4fe42076b56cb7ca43bd43b870a61cb74a341d300cd27a8d32e43c
+  ruled_by: Codex 2026-10-17 (j01_j04_m02_codex_rulings_2026-10-17.json)
+- id: j04
+  kind: modality
+  expected: not_supported
+  claim: Health-care costs for product-related injuries will fall below EUR 6.7 billion a year.
+  source: gpsr/ia_full.txt:864
+  why: 'the IA says the current EUR 6.7 billion ''could be further reduced'': a possibility, not a stated
+    outcome below that level'
+  input:
+    fixture: gpsr
+    anchored_on: ia
+    anchor: The introduction of additional requirements for traceability and product recalls are expected
+      to improve the effectiveness of recalls of unsafe products from consumers.
+    point:
+      impact: Health-care costs for product-related injuries will fall below EUR 6.7 billion a year.
+    sources: *id002
+  ruled_by: Codex 2026-10-17 (j01_j04_m02_codex_rulings_2026-10-17.json)

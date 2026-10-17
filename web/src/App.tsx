@@ -19,6 +19,7 @@ import { Agents } from './screens/Agents';
 import { Topology } from './screens/Topology';
 import { Ask } from './screens/Ask';
 import { Settings, overridesFrom } from './screens/Settings';
+import { Evolution } from './screens/Evolution';
 
 export const DEFAULT_SCENARIO = 'eval_sme_impacts';
 const THEME_KEY = 'womm.theme';
@@ -463,6 +464,7 @@ export function App() {
             {screen === 'agents' && <Agents />}
             {screen === 'topo' && <Topology />}
             {screen === 'chat' && <Ask />}
+            {screen === 'evolution' && <Evolution />}
             {screen === 'settings' && <Settings />}
           </main>
         </div>

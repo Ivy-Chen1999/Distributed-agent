@@ -2,7 +2,7 @@ import { useConsole } from '../ctx';
 import { useNarrow } from '../hooks';
 import { ACC, CARD, FONT, LABEL, PULSE, RED, TABULAR, WARN_BG, WARN_INK } from '../design';
 import { Dot, EmptyCard, ErrorCard, HButton, LoadingCard, Seg } from '../components/ui';
-import { colIds, decisionVMs, feedVM, nodeVM, routerDecider, routerMode, routerNote, selInfo, stripVM } from '../model/pipeline';
+import { colIds, decisionVMs, hasCost, feedVM, nodeVM, routerDecider, routerMode, routerNote, selInfo, stripVM } from '../model/pipeline';
 import { statusAt } from '../model/trace';
 
 const SPEEDS = [1, 2, 3, 4, 8];
@@ -17,12 +17,12 @@ export function Pipeline() {
   const rv = C.rv;
   const t = C.t;
   const strip = stripVM(rv);
-  const cols = colIds(rv.trace.experts).map((ids, i) => ({ ids, i }));
+  const cols = colIds(rv.trace.experts, hasCost(rv.trace)).map((ids, i) => ({ ids, i }));
   const decisions = decisionVMs(rv);
   const mode = routerMode(rv);
   const decider = routerDecider(rv);
   const feed = feedVM(rv, C.run?.board, C.run?.dossier);
-  const valid = colIds(rv.trace.experts).flat();
+  const valid = colIds(rv.trace.experts, hasCost(rv.trace)).flat();
   const sel = selInfo(valid.includes(C.sel) ? C.sel : (rv.trace.experts[0] ?? 'planner'), rv);
 
   const badge = (b: string) =>

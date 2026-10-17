@@ -1,0 +1,122 @@
+# R37 diff regression check: reference answers for the R2 demo scenario demo_penalties_amended
+# (AI Act proposal COM(2021) 206 -> Regulation (EU) 2024/1689: provider obligations Art 16 -> 16,
+# SME measures Art 55 -> 62, penalties Art 71 -> 99). Self-evolution plan U8; origin R37.
+#
+# LLM-DRAFTED (2026-10-12, owner decision: the LLM does what it can, people keep the high-risk
+# checks). The check is monitoring only: it is shown on the evolution page and copied into
+# promotion records, and it never gates a promotion, so a drafted reference is acceptable here.
+# Guard against a made-up reference: every quote in `ia_section` ("..." fragments) must appear
+# word for word in the scenario's proposal or final article text, or the loader refuses the file
+# (womm.evolve.diff_regression.check_quotes). Items are drafted from the two article texts only,
+# never from dossier output. The Improvement Planner never reads this file.
+#
+# Shape: a golden case (evals/golden/) with split `diff_check`. Expected impacts are the changes
+# a good diff analysis must find between the two versions (actor x mechanism level); important
+# omissions are changes it must not leave out. provision_keys must be keys of the scenario:
+#   ai_act/high_risk/provider_obligations, ai_act/innovation/sme_measures,
+#   ai_act/penalties/penalties
+status: llm_drafted   # "written" when a person writes every item; "llm_drafted" when an LLM did
+written_by: "LLM-drafted (Claude Opus 5.5 in Claude Code); quotes machine-checked; owner Chen Yuxin"
+written_on: "2026-10-12"
+case:
+  case_id: diff_demo_penalties_amended
+  scenario_id: demo_penalties_amended
+  fixture: ai_act
+  split: diff_check
+  ia_reference: >-
+    None: the R2 demo scenario has no impact assessment. Items are anchored on the provision
+    texts of COM(2021) 206 and Regulation (EU) 2024/1689.
+  notes: >-
+    Covers the substantive changes between the proposal and the adopted text in the three demo
+    articles: the fine tiers and their scope, the new SME cap on fines, the new provider
+    obligations, and the wider SME support. Leaves out renumbering, cross-reference updates
+    (Chapter 2 -> Section 2) and wording changes without a change in who must do what.
+  expected_impacts:
+    - expected_id: d01_e01
+      affected_actor: Operators engaging in prohibited AI practices (Article 5)
+      mechanism: The top fine tier rises from EUR 30 million or 6 % of worldwide turnover to EUR 35 million or 7 %
+      impact: Higher maximum fines for prohibited practices, raising the deterrent and the worst-case exposure
+      provision_keys: [ai_act/penalties/penalties]
+      ia_section: >-
+        proposal Art 71(3): "administrative fines of up to 30 000 000 EUR" -> Regulation Art 99(3):
+        "administrative fines of up to EUR 35000000"
+    - expected_id: d01_e02
+      affected_actor: Providers of high-risk AI systems that breach data and data governance requirements (Article 10)
+      mechanism: Breaches of Article 10 leave the top fine tier, which now covers Article 5 prohibitions only
+      impact: Lower maximum fine for data governance breaches than the proposal foreseen (middle tier instead of top tier)
+      provision_keys: [ai_act/penalties/penalties]
+      ia_section: >-
+        proposal Art 71(3)(b): "non-compliance of the AI system with the requirements laid down in
+        Article 10" -> Regulation Art 99(3): "Non-compliance with the prohibition of the AI practices
+        referred to in Article 5"
+    - expected_id: d01_e03
+      affected_actor: Providers, authorised representatives, importers, distributors, deployers and notified bodies
+      mechanism: The general fine tier falls from EUR 20 million or 4 % to EUR 15 million or 3 % and now lists the obligations it covers
+      impact: Lower maximum fines for breaches of operator obligations, with clearer scope by role
+      provision_keys: [ai_act/penalties/penalties]
+      ia_section: >-
+        proposal Art 71(4): "administrative fines of up to 20 000 000 EUR" -> Regulation Art 99(4):
+        "administrative fines of up to EUR 15000000"
+    - expected_id: d01_e04
+      affected_actor: SMEs, including start-ups
+      mechanism: Each fine is capped at the lower of the fixed amount and the turnover percentage, instead of the higher
+      impact: Substantially lower maximum fines for SMEs and start-ups than for larger undertakings
+      provision_keys: [ai_act/penalties/penalties]
+      ia_section: >-
+        Regulation Art 99(6): "In the case of SMEs, including start-ups, each fine referred to in this
+        Article shall be up to the percentages or amount referred to in paragraphs 3, 4 and 5,
+        whichever thereof is lower"
+    - expected_id: d01_e05
+      affected_actor: Operators supplying incorrect, incomplete or misleading information to notified bodies or authorities
+      mechanism: The fine for incorrect information falls from EUR 10 million or 2 % to EUR 7.5 million or 1 %
+      impact: Lower maximum fines for information failures
+      provision_keys: [ai_act/penalties/penalties]
+      ia_section: >-
+        proposal Art 71(5): "administrative fines of up to 10 000 000 EUR" -> Regulation Art 99(5):
+        "administrative fines of up to EUR 7500000"
+    - expected_id: d01_e06
+      affected_actor: Providers of high-risk AI systems
+      mechanism: New obligations to show their name and contact address on the system, draw up an EU declaration of conformity and meet accessibility requirements
+      impact: Additional compliance tasks for providers beyond the proposal's list
+      provision_keys: [ai_act/high_risk/provider_obligations]
+      ia_section: >-
+        Regulation Art 16(b): "their name, registered trade name or registered trade mark, the address
+        at which they can be contacted"; Art 16(g): "draw up an EU declaration of conformity"; Art
+        16(l): "complies with accessibility requirements"
+    - expected_id: d01_e07
+      affected_actor: SMEs including start-ups, deployers and local public authorities
+      mechanism: Member State support (priority sandbox access, awareness and training, advice channels) is extended from small-scale providers to SMEs, deployers and local public authorities, and adds help to take part in standardisation
+      impact: More organisations get national support to comply, and SMEs get a route into standard setting
+      provision_keys: [ai_act/innovation/sme_measures]
+      ia_section: >-
+        proposal Art 55(1)(a): "provide small-scale providers and start-ups with priority access" ->
+        Regulation Art 62(1)(d): "facilitate the participation of SMEs and other relevant stakeholders
+        in the standardisation development process"
+    - expected_id: d01_e08
+      affected_actor: All operators, in particular SMEs; the AI Office
+      mechanism: The AI Office must provide standardised templates, a single information platform and awareness campaigns
+      impact: Lower information and compliance costs for operators; new tasks and costs for the AI Office
+      provision_keys: [ai_act/innovation/sme_measures]
+      ia_section: >-
+        Regulation Art 62(3): "The AI Office shall undertake the following actions"; "develop and
+        maintain a single information platform providing easy to use information"
+  important_omissions:
+    - omission_id: d01_o01
+      source: Regulation Art 99(11)
+      description: >-
+        Member States must report to the Commission every year on the administrative fines they
+        issued and on related litigation, a new reporting duty absent from the proposal.
+      provision_keys: [ai_act/penalties/penalties]
+    - omission_id: d01_o02
+      source: Regulation Art 99(1)
+      description: >-
+        The penalty rules may now include warnings and non-monetary measures and must take the
+        Commission's guidelines into account, so enforcement is not limited to fines.
+      provision_keys: [ai_act/penalties/penalties]
+    - omission_id: d01_o03
+      source: Regulation Art 99(7)
+      description: >-
+        Authorities deciding on fines must weigh a longer list of factors, among them cooperation
+        with the authorities, the operator's degree of responsibility and whether the breach was
+        intentional or negligent.
+      provision_keys: [ai_act/penalties/penalties]

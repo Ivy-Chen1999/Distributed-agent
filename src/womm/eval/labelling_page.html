@@ -1,0 +1,915 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23141414'/%3E%3Cpath d='M9 16.5l4.5 4.5L23 11' fill='none' stroke='%23FFB000' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Answer Key Check</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+/* Layout and palette follow the scorecard labelling app: dark top bar, document on the left,
+   decision panel on the right, a first-visit welcome card and a spotlight guide. */
+:root {
+  --ink: #0F0F0F; --bg: #FDFCFD; --paper: #ffffff; --bark: #C4B8AB; --bark-lt: #E1DCD7;
+  --green: #007A5E; --green-lt: #e3f3ee; --amber: #FFB000; --amber-lt: #fff3d1;
+  --red: #A01414; --red-lt: #f8e3e3; --grey: #505A5F; --muted: #6b6b6b; --mark: #ffe08a;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink);
+  font-family: "Manrope", -apple-system, "Segoe UI", Roboto, sans-serif; }
+body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+[hidden] { display: none !important; }
+.spacer { flex: 1; }
+.muted { color: var(--muted); font-weight: 400; }
+button { font-family: inherit; cursor: pointer; }
+button:disabled { cursor: default; opacity: .45; }
+button:focus-visible, input:focus, textarea:focus { outline: 2px solid var(--ink); outline-offset: 1px; }
+::selection { background: rgba(255,176,0,0.35); }
+
+/* top bar */
+.topbar { flex-shrink: 0; height: 60px; display: flex; align-items: center; gap: 16px;
+  padding: 0 32px; background: var(--ink); color: var(--bg); }
+.topbar .title { font-weight: 700; font-size: 16px; }
+.topbar .divider { width: 1px; height: 22px; background: var(--grey); }
+.topbar .who { font-size: 14px; color: var(--bark); }
+.howto { height: 32px; padding: 0 14px; border: 1px solid var(--grey); border-radius: 4px;
+  background: transparent; color: var(--bg); font-weight: 700; font-size: 13px; }
+.howto:hover { background: var(--bg); color: var(--ink); }
+
+/* main split */
+.main { flex: 1; min-height: 0; display: flex; }
+.doc-pane { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.doc-toolbar { flex-shrink: 0; min-height: 48px; display: flex; align-items: center; gap: 10px;
+  flex-wrap: wrap; padding: 8px 24px; border-bottom: 1px solid var(--bark); }
+.tag { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  border: 1px solid var(--ink); border-radius: 4px; padding: 3px 8px; }
+.tag.soft { border-color: var(--bark); color: var(--grey); font-weight: 600; text-transform: none;
+  letter-spacing: 0; font-size: 13px; }
+.doc-scroll { flex: 1; overflow-y: auto; padding: 28px 24px; background: var(--bark-lt); }
+.page { max-width: 760px; margin: 0 auto; background: var(--paper); border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12); padding: 36px 44px; }
+.page-head { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--green); margin-bottom: 4px; }
+.page-sub { font-size: 13px; color: var(--muted); margin-bottom: 18px; }
+.passage { font-family: Georgia, "Times New Roman", serif; font-size: 17px; line-height: 1.7;
+  overflow-wrap: anywhere; color: #2a2a2a; }
+.passage mark { background: var(--mark); color: var(--ink); padding: 2px 3px; border-radius: 3px;
+  box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+.legend { margin-top: 18px; font-size: 13px; color: var(--muted); display: flex; gap: 8px;
+  align-items: center; }
+.legend i { width: 18px; height: 12px; background: var(--mark); border-radius: 2px; display: inline-block; }
+
+/* side pane */
+.side-pane { width: 430px; flex-shrink: 0; border-left: 1px solid var(--bark); overflow-y: auto;
+  background: var(--bg); padding: 24px; display: flex; flex-direction: column; gap: 26px; }
+.block { display: flex; flex-direction: column; gap: 10px; }
+.block-head { font-weight: 700; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; }
+.block-head .muted { text-transform: none; letter-spacing: 0; }
+dl.claim { margin: 0; display: flex; flex-direction: column; gap: 10px; }
+dl.claim div { border-left: 3px solid var(--ink); padding: 2px 0 2px 12px; }
+dl.claim dt { font-size: 12px; font-weight: 700; color: var(--grey); text-transform: uppercase;
+  letter-spacing: .05em; }
+dl.claim dd { margin: 2px 0 0; font-size: 15px; line-height: 1.55; }
+dl.claim div.context { border-left-color: var(--bark); }
+dl.claim div.context dd { color: var(--grey); font-size: 14px; }
+.question { font-size: 17px; font-weight: 700; line-height: 1.35; }
+.tiles { display: flex; flex-direction: column; gap: 8px; }
+.tile { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 8px 14px;
+  border: 1px solid var(--ink); border-radius: 4px; background: var(--bg); color: var(--ink);
+  text-align: left; font-size: 15px; }
+.tile b { font-size: 15px; min-width: 92px; }
+.tile span { font-size: 13px; color: var(--grey); line-height: 1.4; flex: 1; }
+.tile kbd { font-family: inherit; font-size: 11px; font-weight: 700; color: var(--grey);
+  border: 1px solid var(--bark); border-radius: 3px; padding: 0 5px; }
+.tile:hover { border-width: 2px; padding: 7px 13px; }
+.tile.keep.on { background: var(--green); border-color: var(--green); color: #fff; }
+.tile.drop.on { background: var(--red); border-color: var(--red); color: #fff; }
+.tile.unsure.on { background: var(--amber); border-color: var(--amber); color: var(--ink); }
+.tile.on span, .tile.on kbd { color: inherit; border-color: currentColor; }
+textarea.note { border: 1px solid var(--ink); border-radius: 4px; padding: 10px 14px;
+  font-family: inherit; font-size: 15px; line-height: 1.5; resize: vertical; background: var(--bg); }
+textarea.note.need { border: 2px solid var(--amber); background: var(--amber-lt); }
+.hint { font-size: 13px; color: var(--grey); line-height: 1.5; }
+.srctabs { max-width: 760px; margin: 0 auto 10px; display: flex; gap: 6px; flex-wrap: wrap; }
+.srctab { border: 1px solid var(--ink); background: var(--bg); color: var(--ink); border-radius: 4px;
+  padding: 5px 10px; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.srctab.on { background: var(--ink); color: var(--bg); }
+.law-view { white-space: pre-wrap; }
+.artlink { border: none; background: none; padding: 0; font: inherit; color: inherit; cursor: pointer;
+  text-decoration: underline dotted; text-underline-offset: 3px; }
+.decide { border: 2px solid var(--ink); border-radius: 6px; padding: 12px 14px; font-size: 15px;
+  line-height: 1.5; background: var(--paper); }
+.decide .terms { margin: 6px 0 0; font-size: 13px; color: var(--grey); }
+.decide b.q { font-size: 16px; text-transform: none; letter-spacing: 0; margin-bottom: 6px; }
+.decide b { display: block; font-size: 12px; letter-spacing: .04em; text-transform: uppercase;
+  margin-bottom: 4px; }
+
+/* bottom bar */
+.bottombar { flex-shrink: 0; min-height: 72px; display: flex; align-items: center; gap: 14px;
+  padding: 10px 32px; border-top: 1px solid var(--bark); background: var(--bg); }
+.progress { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.progress-text { font-size: 14px; color: var(--grey); }
+.progress-text b { color: var(--ink); }
+.dots { display: flex; flex-wrap: wrap; gap: 3px; }
+.dot { width: 18px; height: 18px; border-radius: 3px; border: 1px solid var(--bark); padding: 0;
+  font-size: 10px; font-weight: 700; color: var(--grey); background: var(--bg); }
+.dot.keep { background: var(--green); border-color: var(--green); color: #fff; }
+.dot.drop { background: var(--red); border-color: var(--red); color: #fff; }
+.dot.unsure { background: var(--amber); border-color: var(--amber); color: var(--ink); }
+.dot.cur { outline: 2px solid var(--ink); outline-offset: 1px; }
+.jump { border: none; background: none; padding: 0; font: inherit; font-weight: 700; color: var(--ink);
+  text-decoration: underline; cursor: pointer; }
+#missing { white-space: pre-line; }
+.nudge { font-size: 14px; margin-top: 10px; padding: 10px 12px; border-radius: 4px; background: var(--amber-lt); }
+.saved { font-size: 13px; color: var(--green); font-weight: 700; white-space: nowrap; }
+.saved.bad { color: var(--red); }
+
+/* buttons */
+.primary { height: 48px; padding: 0 28px; border: none; border-radius: 4px; background: var(--ink);
+  color: var(--bg); font-weight: 700; font-size: 16px; }
+.primary:hover:not(:disabled) { background: var(--green); }
+.primary.sm { height: 36px; padding: 0 16px; font-size: 14px; }
+.primary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; white-space: nowrap; }
+.primary.sent, .primary.sent:disabled { background: var(--green); color: #fff; opacity: 1; }
+.ic { width: 1em; height: 1em; flex: none; vertical-align: -0.125em; }
+.saved { display: inline-flex; align-items: center; gap: 5px; }
+.ghost { height: 44px; min-width: 44px; padding: 0 14px; border: 1px solid var(--ink); border-radius: 4px;
+  background: transparent; color: var(--ink); font-weight: 700; font-size: 15px; }
+.ghost.sm { height: 32px; min-width: 0; font-size: 14px; }
+.linkbtn { border: none; background: none; padding: 0; font-weight: 700; font-size: 13px;
+  color: var(--grey); text-decoration: underline; text-underline-offset: 3px; }
+
+/* overlays: welcome, done */
+.overlay { position: fixed; inset: 0; background: rgba(15,15,15,0.55); display: flex;
+  align-items: center; justify-content: center; z-index: 60; padding: 24px; }
+.card { background: var(--bg); border-radius: 12px; padding: 32px 36px; width: 640px; max-width: 100%;
+  max-height: calc(100vh - 48px); overflow: auto; box-shadow: 0 8px 28px rgba(0,0,0,0.32);
+  display: flex; flex-direction: column; gap: 14px; }
+.eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--green); }
+.card h2 { margin: 0; font-size: 24px; line-height: 1.25; }
+.card h3 { margin: 8px 0 0; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; }
+.lead { color: var(--grey); font-size: 15px; line-height: 1.6; margin: 0; }
+.reasons { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.reasons li { border-left: 3px solid var(--green); padding: 2px 0 2px 12px; font-size: 14px;
+  line-height: 1.55; color: var(--grey); }
+.reasons li b { color: var(--ink); }
+.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.steps li { display: flex; gap: 12px; align-items: flex-start; font-size: 14px; line-height: 1.55;
+  color: var(--grey); }
+.steps li b { color: var(--ink); }
+.step-n { flex-shrink: 0; width: 28px; height: 28px; border-radius: 6px; background: var(--ink);
+  color: var(--bg); font-weight: 700; font-size: 14px; display: flex; align-items: center;
+  justify-content: center; }
+.rules { display: grid; grid-template-columns: auto 1fr; gap: 8px 12px; font-size: 14px;
+  line-height: 1.5; color: var(--grey); }
+.pill { font-size: 12px; font-weight: 700; border-radius: 4px; padding: 3px 8px; white-space: nowrap;
+  align-self: start; }
+.pill.keep { background: var(--green); color: #fff; } .pill.drop { background: var(--red); color: #fff; }
+.pill.unsure { background: var(--amber); color: var(--ink); }
+details.examples summary { cursor: pointer; font-weight: 700; font-size: 14px; }
+.example { border: 1px solid var(--bark); border-radius: 6px; padding: 10px 14px; margin-top: 10px;
+  font-size: 14px; line-height: 1.5; }
+.example p { margin: 3px 0; }
+.example mark { background: var(--mark); }
+.example .ans { font-weight: 700; } .example .ans.keep { color: var(--green); }
+.example .ans.drop { color: var(--red); }
+.signin { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
+.signin label { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 200px;
+  font-weight: 700; font-size: 13px; letter-spacing: .04em; }
+.signin input { height: 48px; border: 1px solid var(--ink); border-radius: 4px; padding: 0 12px;
+  font-family: inherit; font-size: 15px; background: var(--bg); }
+.err { font-size: 14px; font-weight: 700; color: var(--red); min-height: 1.2em; margin: 0; }
+.fineprint { font-size: 13px; color: var(--muted); line-height: 1.5; margin: 0; }
+.done-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+pre { white-space: pre-wrap; font-size: 12px; background: var(--bark-lt); padding: 12px;
+  border-radius: 6px; max-height: 200px; overflow: auto; margin: 0; }
+
+/* spotlight guide */
+#tour { position: fixed; inset: 0; z-index: 90; }
+.tour-spot { position: fixed; border-radius: 8px; box-shadow: 0 0 0 9999px rgba(15,15,15,0.62);
+  transition: all 0.2s ease; pointer-events: none; }
+.tour-pop { position: fixed; max-width: 360px; background: var(--bg); border-radius: 10px;
+  padding: 18px 20px; box-shadow: 0 8px 28px rgba(0,0,0,0.32); display: flex; flex-direction: column; gap: 8px; }
+.tour-step { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--green); }
+.tour-title { font-size: 17px; }
+.tour-text { font-size: 14px; color: var(--grey); line-height: 1.55; }
+.tour-text b { color: var(--ink); }
+.tour-actions { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+
+/* the two tasks share the page; each shows only its own parts */
+body[data-kind="calibration"] [data-kind="reference_check"],
+body[data-kind="reference_check"] [data-kind="calibration"] { display: none !important; }
+.kind-body { display: flex; flex-direction: column; gap: 14px; }
+.dossier { display: flex; flex-direction: column; gap: 16px; }
+.imp { border-left: 3px solid var(--ink); padding: 2px 0 2px 14px; }
+.imp-head { font-size: 15px; line-height: 1.55; }
+.imp-head .n { font-size: 12px; font-weight: 700; color: var(--grey); margin-right: 6px; }
+.imp ul { margin: 6px 0 0; padding-left: 18px; font-size: 14px; color: var(--grey); line-height: 1.5; }
+.imp li { margin-bottom: 4px; } .imp li b { color: var(--ink); font-weight: 600; }
+
+/* narrow screens: stack the decision panel under the report */
+@media (max-width: 960px) {
+  body { height: auto; min-height: 100dvh; overflow-y: auto; }
+  .main { flex-direction: column; }
+  /* the report scrolls in its own box, so the question and buttons follow right below it */
+  .doc-scroll { padding: 16px; flex: none; max-height: 45dvh; }
+  .page { padding: 22px 20px; }
+  .side-pane { width: 100%; border-left: none; border-top: 1px solid var(--bark); padding: 20px 16px; }
+  .topbar, .bottombar, .doc-toolbar { padding-left: 16px; padding-right: 16px; }
+  .bottombar { position: sticky; bottom: 0; gap: 8px; min-height: 60px; padding-top: 8px; padding-bottom: 8px; }
+  .bottombar .primary { height: 40px; padding: 0 14px; font-size: 14px; }
+  .bottombar .ghost { height: 40px; min-width: 40px; padding: 0 10px; }
+  .bottombar .spacer { display: none; }
+  .progress-text { font-size: 13px; line-height: 1.3; }
+  /* one row for the controls; the "Saved" / "Welcome back" line gets its own row under them */
+  .bottombar { flex-wrap: wrap; row-gap: 4px; }
+  .bottombar .progress { flex: 1; min-width: 0; }
+  .bottombar .primary { white-space: nowrap; }
+  .bottombar .saved { order: 10; flex-basis: 100%; justify-content: center; font-size: 12px; }
+  .bottombar .saved:empty { display: none; }
+  .dots, .tile kbd { display: none; }
+  .card { padding: 24px 20px; }
+}
+@media (max-width: 560px) { .topbar .divider, .topbar .who { display: none; } }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <span class="title" id="appTitle">Answer key check</span>
+  <span class="divider"></span>
+  <span class="who" id="who">__ANNOTATOR__</span>
+  <span class="spacer"></span>
+  <button class="howto" id="helpBtn">How it works</button>
+</header>
+
+<div class="main" id="mainView" hidden>
+  <section class="doc-pane">
+    <div class="doc-toolbar" id="docBar">
+      <span class="tag" id="lawTag"></span>
+      <span class="tag soft" id="articles"></span>
+    </div>
+    <div class="doc-scroll" id="docPane">
+      <div class="srctabs" id="srcTabs" data-kind="reference_check"></div>
+      <div class="page">
+        <div class="page-head" id="srcTitle">The official report</div>
+        <div class="page-sub" id="section"></div>
+        <div class="passage" id="passage" data-kind="reference_check"></div>
+        <div class="passage law-view" id="lawView" data-kind="reference_check" hidden></div>
+        <div class="legend" id="legend" data-kind="reference_check"><i></i> highlighted: the sentence the point is based on</div>
+        <div class="dossier" id="dossier" data-kind="calibration"></div>
+      </div>
+    </div>
+  </section>
+
+  <aside class="side-pane">
+    <div class="decide" id="decide" data-kind="reference_check"></div>
+    <div class="block" id="pointBlock">
+      <span class="block-head" data-kind="reference_check">The point to check</span>
+      <span class="block-head" data-kind="calibration">The effect to look for</span>
+      <dl class="claim" id="claim"></dl>
+    </div>
+    <div class="block" id="answerBlock">
+      <span class="question" data-kind="reference_check">Your answer</span>
+      <span class="question" data-kind="calibration">Does our AI's report cover this effect?</span>
+      <div class="tiles" data-kind="calibration">
+        <button class="tile keep" data-l="covered"><b>Yes, covered</b><span>An entry names the same group and the same way they are affected.</span><kbd>Y</kbd></button>
+        <button class="tile drop" data-l="not_covered"><b>No, not covered</b><span>No entry does. Other wording is fine; missing amounts don't count.</span><kbd>N</kbd></button>
+        <button class="tile unsure" data-l="unsure"><b>Can't tell</b><span>Still unsure after reading carefully: add a note why.</span><kbd>C</kbd></button>
+      </div>
+      <div class="tiles" data-kind="reference_check">
+        <button class="tile keep" data-l="keep"><b>Yes</b><span id="keepWhy">Every group, effect and amount in the claim is supported.</span><kbd>Y</kbd></button>
+        <button class="tile drop" data-l="drop"><b>No</b><span id="dropWhy">The claim adds or changes something the source does not support.</span><kbd>N</kbd></button>
+        <button class="tile unsure" data-l="unsure"><b>Can't tell</b><span id="unsureWhy">You need more information to decide. Briefly explain what is missing.</span><kbd>C</kbd></button>
+      </div>
+    </div>
+    <div class="block" id="noteBlock">
+      <span class="block-head">Note <span class="muted">(needed for Can't tell, otherwise optional)</span></span>
+      <textarea class="note" id="note" rows="2" placeholder="One line is enough"></textarea>
+    </div>
+  </aside>
+</div>
+
+<footer class="bottombar" id="bottomBar" hidden>
+  <button class="ghost" id="prev" aria-label="Previous point">←</button>
+  <div class="progress" id="progressBlock">
+    <span class="progress-text" id="count"></span>
+    <div class="dots" id="dots"></div>
+  </div>
+  <span class="saved" id="saved" role="status" aria-live="polite"></span>
+  <span class="spacer"></span>
+  <button class="ghost" id="next" aria-label="Next point">→</button>
+  <button class="primary" id="finish">Finish</button>
+</footer>
+
+<!-- welcome: what this is, why a person is needed, how to answer; sign-in when hosted -->
+<div class="overlay" id="welcome">
+  <div class="card">
+    <span class="eyebrow"><span id="howLong">About half a minute a point</span> · no legal knowledge needed</span>
+    <div class="kind-body" data-kind="reference_check">
+    <h2>Help us check an AI-written answer key</h2>
+    <p class="lead">Our AI lists <b>who a new EU law affects and how</b>. An <b>AI judge</b>
+      decides what counts as a right answer, based on the EU's official reports. <b>We need your
+      review to calibrate it.</b></p>
+    <h3>Why a person has to look</h3>
+    <ul class="reasons">
+      <li><b>Every grade depends on the key.</b> A wrong key rewards our AI for copying its
+        mistakes, and we could not tell whether it really improved.</li>
+      <li><b>The AI is not consistent on hard cases.</b> On 105 borderline points, running the
+        same AI twice changed the answer on 15 (about 1 in 7); two different AIs disagreed on 24.</li>
+      <li><b>An AI checking an AI is not enough.</b> The standard advice is to compare AI graders
+        with people at least once. The AI has answered every point you see; you are not told
+        how. Your answers show whether the AI reads its sources the way people do; the answer key
+        itself is reviewed separately.</li>
+    </ul>
+    <h3>What you do</h3>
+    <ol class="steps">
+      <li><span class="step-n">1</span><span>You see <b><span class="nItems">your</span> points</b>, one
+        at a time. Each says who the law affects and how.</span></li>
+      <li><span class="step-n">2</span><span>Read the <b>highlighted sentence</b> from the official
+        report.</span></li>
+      <li><span class="step-n">3</span><span>Decide: <b>is the point an accurate reading of that sentence?</b></span></li>
+    </ol>
+    <div class="rules">
+      <span class="pill keep">Yes</span><span>Every group, effect and amount in the claim is supported
+        by the source.</span>
+      <span class="pill drop">No</span><span>The claim adds or changes something the source does not
+        support, for example a number the report doesn't give, or an option the EU did not pick.</span>
+      <span class="pill unsure">Can't tell</span><span>You need more information to decide. Briefly
+        explain what is missing.</span>
+    </div>
+    <details class="examples">
+      <summary>See three short examples</summary>
+      <div class="example">
+        <p><b>Point:</b> Online shops face one-off costs to adapt their systems to the labelling duty.</p>
+        <p><b>Report:</b> "... <mark>online retailers will incur one-off costs to adapt their systems
+          to the labelling obligation</mark> ..."</p>
+        <p class="ans keep">Yes: same group, same effect, nothing added.</p>
+      </div>
+      <div class="example">
+        <p><b>Point:</b> Banks must hire more compliance staff.</p>
+        <p><b>Report:</b> "... <mark>Option 3, which was not retained, would have required banks
+          to</mark> appoint additional officers ..."</p>
+        <p class="ans drop">No: that option was not chosen, so it is not an effect of the law.</p>
+      </div>
+      <div class="example">
+        <p><b>Point:</b> Online shops face one-off costs of about EUR 5,000 to adapt their systems.</p>
+        <p><b>Report:</b> "... <mark>online retailers will incur one-off costs to adapt their systems
+          to the labelling obligation</mark> ..."</p>
+        <p class="ans drop">No: the report gives no amount, so the EUR 5,000 is added.</p>
+      </div>
+    </details>
+    </div>
+    <div class="kind-body" data-kind="calibration">
+    <h2>Help us check how our AI is graded</h2>
+    <p class="lead">Our AI writes a report on <b>who a new EU law affects and how</b>. An <b>AI
+      judge</b> scores it against the effects the EU itself lists. <b>We need your review to calibrate
+      it.</b></p>
+    <h3>Why a person has to look</h3>
+    <ul class="reasons">
+      <li><b>Every score comes from the grader.</b> If it is too generous or too strict, we measure
+        our AI's progress wrongly, and may keep a worse version or throw away a better one.</li>
+      <li><b>Graders make predictable mistakes:</b> counting an effect as found because the words
+        look alike, or as missed because the words differ.</li>
+      <li><b>So we compare it with people once.</b> You and another person label the same pairs on
+        your own, without seeing what the grader decided. If the grader agrees with you at least
+        85% of the time, we use it; otherwise we fix it first.</li>
+    </ul>
+    <h3>What you do</h3>
+    <ol class="steps">
+      <li><span class="step-n">1</span><span>You see <b><span class="nItems">your</span> pairs</b>, one
+        at a time: one effect from the EU's report, and our AI's report on the same law. A computer
+        is easiest (<b>Ctrl+F</b> helps).</span></li>
+      <li><span class="step-n">2</span><span>Look through our AI's report for that effect.</span></li>
+      <li><span class="step-n">3</span><span>Decide: <b>does our AI's report mention it?</b> Judge
+        only that: not whether the effect is true, and not where a figure comes from.</span></li>
+    </ol>
+    <div class="rules">
+      <span class="pill keep">Yes, covered</span><span>Some entry names the same group and the same
+        effect, in any words.</span>
+      <span class="pill drop">No, not covered</span><span>No entry does. Go by what it wrote, not what
+        it might have meant.</span>
+      <span class="pill unsure">Can't tell</span><span>You can't decide. Write a few words why.</span>
+    </div>
+    <p class="fineprint">Ignore missing amounts (euros, percentages, staff numbers): our AI never saw
+      those figures. Work alone, and don't discuss pairs with the other person until you have both
+      sent.</p>
+    <details class="examples">
+      <summary>See two short examples</summary>
+      <div class="example">
+        <p><b>Effect:</b> Online shops must label AI-made product photos and pay EUR 2,000 each for new tools.</p>
+        <p><b>Our AI wrote:</b> "Retailers selling online face compliance costs to mark synthetic images."</p>
+        <p class="ans keep">Yes, covered: same group, same way; the missing amount doesn't matter.</p>
+      </div>
+      <div class="example">
+        <p><b>Effect:</b> National authorities must supervise the new product register and need extra staff.</p>
+        <p><b>Our AI wrote:</b> "Companies must register their products before sale."</p>
+        <p class="ans drop">No, not covered: that entry is about companies registering, not authorities supervising.</p>
+      </div>
+    </details>
+    </div>
+    <p class="fineprint" id="saveNote">Your answers are saved as you go, straight to us: nothing to
+      download or send. You can stop and come back with the same link.</p>
+    <div class="signin" id="signinBox" hidden>
+      <label for="name">Your name
+        <input id="name" autocomplete="username" autocapitalize="off" spellcheck="false"></label>
+      <button class="primary" id="signin">Start</button>
+    </div>
+    <p class="err" id="signinErr"></p>
+    <button class="primary" id="start" style="align-self:flex-start">Start</button>
+  </div>
+</div>
+
+<div class="overlay" id="done" hidden>
+  <div class="card">
+    <span class="eyebrow" id="doneEyebrow">Almost done</span>
+    <h2 id="doneTitle">Check and send</h2>
+    <p class="lead" id="summary"></p>
+    <div class="lead" id="missing"></div>
+    <div class="done-actions">
+      <button class="primary" id="submit">Send my answers</button>
+      <button class="primary" id="download">Download <span id="fileName"></span></button>
+      <button class="ghost" id="copy">Copy</button>
+      <button class="ghost" id="back">Back to the points</button>
+    </div>
+    <p class="err" id="submitErr"></p>
+    <p class="fineprint" id="doneHint">The file is in your Downloads folder. Send it to
+      <b>__SEND_TO__</b>.</p>
+    <pre id="yaml"></pre>
+  </div>
+</div>
+
+<!-- spotlight guide: dims the page and explains one part at a time -->
+<div id="tour" hidden>
+  <div id="tourSpot" class="tour-spot"></div>
+  <div id="tourPop" class="tour-pop" role="dialog" aria-live="polite">
+    <span id="tourStep" class="tour-step"></span>
+    <b id="tourTitle" class="tour-title"></b>
+    <span id="tourText" class="tour-text"></span>
+    <div class="tour-actions">
+      <button id="tourSkip" class="linkbtn">Skip</button>
+      <span class="spacer"></span>
+      <button id="tourBack" class="ghost sm">Back</button>
+      <button id="tourNext" class="primary sm">Next</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const DATA = __DATA__;
+const HOSTED = !!DATA.api;
+let KIND = DATA.kind || "reference_check";
+// Each task's labels, by key and by colour (yes / no / unsure).
+const KEYS = { reference_check: { y: "keep", n: "drop", c: "unsure" },
+  calibration: { y: "covered", n: "not_covered", c: "unsure" } };
+const CAT = { keep: "keep", covered: "keep", drop: "drop", not_covered: "drop", unsure: "unsure" };
+const WORDS = { reference_check: { keep: "yes", drop: "no", unsure: "can't tell", unit: "point", title: "Answer key check" },
+  calibration: { covered: "covered", not_covered: "not covered", unsure: "can't tell", unit: "pair", title: "Grader check" } };
+function setKind(k) {
+  KIND = k in KEYS ? k : "reference_check";
+  document.body.dataset.kind = KIND;
+  $("appTitle").textContent = document.title = DATA.title || WORDS[KIND].title;
+}
+let items = DATA.items;
+let KEY = "womm-refcheck:" + DATA.sample + ":" + DATA.annotator;
+// Seen-the-guide is remembered per task: each task has its own guide.
+const tourKey = () => "womm-label-tour:" + KIND;
+let state = { i: 0, answers: {} };
+let submitted = false;
+const restore = () => {
+  try { const s = JSON.parse(localStorage.getItem(KEY));
+    if (s && Number.isInteger(s.i) && s.i < items.length) state.i = s.i;
+    if (!HOSTED && s && s.answers) state.answers = s.answers; } catch (e) {}
+};
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(HOSTED ? { i: state.i } : state)); } catch (e) {} };
+if (!HOSTED) restore();
+const $ = id => document.getElementById(id);
+const CHECK = '<svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3.2L13 4.8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const sentButton = (b, sent, idle) => { b.classList.toggle("sent", sent); b.innerHTML = sent ? CHECK + "Sent" : idle; };
+const el = (tag, cls, text) => { const e = document.createElement(tag);
+  if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const NAMES = { concern: "The effect or risk to judge", affected_actor: "Who is affected", mechanism: "How (from the law; context, not judged)",
+  impact: "What it means for them", description: "What a good assessment must cover" };
+// What to decide, per source of the highlighted sentence (reference check only).
+const ASK = {
+  report: { question: "Does the source support the claim?",
+            keep: "Every group, effect and amount in the claim is supported.",
+            drop: "The claim adds or changes something the source does not support." },
+  board: { question: "Does the board ask for this effect or risk to be assessed?",
+           keep: "The board asks for this effect or risk to be assessed.",
+           drop: "A different concern, or the board's sentence is only about how the report is written." },
+};
+const UNSURE = "You need more information to decide. Briefly explain what is missing.";
+// Terms the reports use without explaining them.
+const TERMS = { FTE: "full-time equivalent: one person's working time", BaU: "business as usual: what firms would do or pay anyway",
+  NLF: "New Legislative Framework: the EU's existing product-safety laws", SME: "small or medium-sized enterprise",
+  RWE: "real-world evidence: data from actual use", HTA: "health technology assessment body",
+  ECN: "electronic communications network", VHCN: "very high capacity network (e.g. fibre)",
+  FTTH: "fibre to the home", capex: "capital expenditure: investment costs" };
+// "Article 26(2)", "Art 15", "Articles 5, 10": each number that has a tab becomes a link to it.
+function withArticleLinks(text, law) {
+  const tab = new Map(law.map((a, j) => [a.label.replace(/^Article /, ""), j + 1]));
+  if (!tab.size) return [text];
+  const out = []; let last = 0;
+  const re = /\b(Art(?:icles?|s?\.?))\s+((?:\d+[a-z]?(?:\(\d+\))*(?:,\s*|\s+and\s+)?)+)/g;
+  for (const m of text.matchAll(re)) {
+    out.push(text.slice(last, m.index), m[1] + " ");
+    const parts = m[2].split(/(\d+[a-z]?)/);
+    for (const part of parts) {
+      if (tab.has(part)) {
+        const b = el("button", "artlink", part);
+        b.onclick = () => { renderItem.view = tab.get(part); renderItem(); };
+        out.push(b);
+      } else out.push(part);
+    }
+    last = m.index + m[0].length;
+  }
+  out.push(text.slice(last));
+  return out;
+}
+let view = "welcome";
+let advance;
+
+async function api(method, path, body) {
+  const r = await fetch(DATA.api + path, { method, credentials: "same-origin",
+    headers: body ? { "Content-Type": "application/json" } : {},
+    body: body ? JSON.stringify(body) : undefined });
+  let data = null; try { data = await r.json(); } catch (e) {}
+  if (!r.ok) { const e = new Error((data && data.detail) || ("error " + r.status)); e.status = r.status; throw e; }
+  return data;
+}
+
+// Hosted: every answer goes to the server; a failed save is shown and retried with the next one.
+const unsaved = new Set();
+let noteTimer;
+async function persist(id) {
+  save();
+  if (!HOSTED) { $("saved").textContent = "Kept in this browser"; return; }
+  const a = state.answers[id];
+  if (!a || !a.label) return;
+  unsaved.add(id);
+  $("saved").textContent = "Saving..."; $("saved").classList.remove("bad");
+  for (const x of [...unsaved]) {
+    const ax = state.answers[x];
+    try { await api("PUT", "/answers/" + encodeURIComponent(x), { label: ax.label, note: ax.note || "" }); unsaved.delete(x); }
+    catch (e) {
+      $("saved").textContent = e.status === 401 ? "Signed out: reload the page" : "Not saved: check your connection";
+      $("saved").classList.add("bad"); return;
+    }
+  }
+  $("saved").innerHTML = CHECK + "Saved";
+}
+
+function load(p) {
+  setKind(p.kind);
+  items = p.items; state.answers = p.answers || {}; submitted = !!p.submitted;
+  DATA.annotator = p.annotator; $("who").textContent = p.annotator;
+  KEY = "womm-refcheck:" + DATA.sample + ":" + p.annotator; restore();
+  // Coming back (stopped half-way, or more points were added): start at the first open one.
+  const open = items.findIndex(i => !state.answers[i.id]?.label);
+  if (open >= 0 && answered() > 0) {
+    state.i = open;
+    const n = items.length - answered(), unit = WORDS[KIND].unit;
+    $("saved").textContent = `Welcome back: ${n} ${unit}${n === 1 ? "" : "s"} still open`;
+  }
+  counts();
+}
+
+function counts() {
+  // Before sign-in the page does not know how many items this person has: no number yet.
+  const n = items.length;
+  document.querySelectorAll(".nItems").forEach(e => { e.textContent = n ? String(n) : "your"; });
+  // About half a minute per point; a pair means reading a whole report, about a minute.
+  const minutes = Math.max(5, Math.round(KIND === "calibration" ? n : n / 2));
+  $("howLong").textContent = n ? `About ${minutes} minutes`
+    : (KIND === "calibration" ? "About a minute a pair" : "About half a minute a point");
+}
+
+function show(v) {
+  view = v;
+  $("welcome").hidden = v !== "welcome";
+  $("mainView").hidden = $("bottomBar").hidden = v === "welcome";
+  $("done").hidden = v !== "done";
+  if (v !== "welcome") renderItem();
+  if (v === "done") renderDone();
+  if (v === "item") { try { if (!localStorage.getItem(tourKey())) setTimeout(startTour, 250); } catch (e) {} }
+}
+
+function answered() { return items.filter(i => state.answers[i.id]?.label).length; }
+
+function renderItem() {
+  const it = items[state.i];
+  const cal = KIND === "calibration";
+  $("lawTag").textContent = "Law: " + it.case.replace(/^case_\d+_/, "").replace(/_/g, " ");
+  $("articles").hidden = cal;
+  if (!cal) $("articles").textContent = "Articles " + it.provisions.map(p => p.split("/").pop()).join(", ");
+  const claim = $("claim"); claim.replaceChildren();
+  const fields = cal ? it.expected : it.claim;
+  // A fixed order: the server's JSON storage does not keep key order.
+  const keys = Object.keys(NAMES).filter(k => k in fields).concat(Object.keys(fields).filter(k => !(k in NAMES)));
+  const board = !cal && it.source !== "report";
+  const law = it.articles || [];
+  const linked = text => cal ? [text] : withArticleLinks(String(text), law);
+  if (!cal && "concern" in fields) {
+    // One marked line to judge; the whole point below it is context.
+    const d = el("div"), dd = el("dd"); dd.append(...linked(fields.concern));
+    d.append(el("dt", null, board ? "The effect or risk to judge" : "The claim to judge"), dd); claim.append(d);
+    const rest = keys.filter(k => k !== "concern");
+    const g = el("div", "context"), gd = el("dd");
+    rest.forEach((k, j) => {
+      if (j) gd.append(el("br"));
+      if (rest.length > 1) gd.append(el("b", null, (NAMES[k] || k).replace(/ \(.*\)$/, "") + ": "));
+      gd.append(...linked(fields[k]));
+    });
+    g.append(el("dt", null, board ? "The AI's reasoning (context, not judged)" : "The full point (context, not judged)"), gd);
+    claim.append(g);
+  } else {
+    for (const k of keys) {
+      const d = el("div"), dd = el("dd"); dd.append(...linked(fields[k]));
+      if (!cal && k === "mechanism") d.className = "context";
+      d.append(el("dt", null, NAMES[k] || k), dd); claim.append(d);
+    }
+  }
+  if (!cal) {
+    const ask = ASK[board ? "board" : "report"];
+    const grey = "concern" in fields || "mechanism" in fields ? " Ignore the grey background." : "";
+    const p = it.passage || {};
+    const shown = [it.quote, p.before, p.quote, p.after, ...Object.values(fields)].join(" ");
+    const table = / \| /.test((p.before || "") + (p.quote || "") + (p.after || ""))
+      ? " The source is a table pressed into text: | separates cells, — is an empty cell, and the first row of cells names the columns." : "";
+    const terms = Object.entries(TERMS).filter(([t]) => new RegExp("\\b" + t + "s?\\b").test(shown));
+    const box = $("decide");
+    box.replaceChildren(el("b", "q", ask.question), "Read the highlighted text and its context." + grey + table);
+    if (terms.length) box.append(el("p", "terms", "Terms: " + terms.map(([t, m]) => `${t} = ${m}`).join("; ") + "."));
+    $("keepWhy").textContent = ask.keep; $("dropWhy").textContent = ask.drop;
+    $("unsureWhy").textContent = UNSURE;
+  }
+  if (cal) {
+    $("srcTitle").textContent = "What our AI wrote";
+    $("section").textContent = `Its report on this law: ${it.dossier.length} entries. Look for one that matches the effect to look for.`;
+    const box = $("dossier"); box.replaceChildren();
+    if (!it.dossier.length) box.append(el("p", "hint", "Our AI's report has no entries for this law."));
+    it.dossier.forEach((imp, j) => {
+      const d = el("div", "imp"); const h = el("div", "imp-head");
+      h.append(el("span", "n", String(j + 1)), imp.summary); d.append(h);
+      if (imp.findings.length) {
+        const ul = el("ul");
+        for (const f of imp.findings) {
+          const li = el("li");
+          li.append(el("b", null, f.affected_actor || "?"), ": " + [f.mechanism, f.impact].filter(Boolean).join(" → "));
+          ul.append(li);
+        }
+        d.append(ul);
+      }
+      box.append(d);
+    });
+  } else {
+    // Tabs over the left pane: the source text first, then each article the point names.
+    if (renderItem.last !== it.id) renderItem.view = 0;
+    const law = it.articles || [];
+    const view = Math.min(renderItem.view || 0, law.length);
+    const tabs = [it.source === "report" ? "Official report" : "Review board's opinion", ...law.map(a => a.label)];
+    $("srcTabs").hidden = !law.length;
+    $("srcTabs").replaceChildren(...tabs.map((t, j) => {
+      const b = el("button", "srctab" + (j === view ? " on" : ""), t);
+      b.onclick = () => { renderItem.view = j; renderItem(); };
+      return b;
+    }));
+    const onSource = view === 0;
+    $("passage").hidden = !onSource; $("legend").hidden = !onSource; $("lawView").hidden = onSource;
+    if (onSource) {
+      $("srcTitle").textContent = it.source === "report" ? "The official report"
+        : "The EU review board's opinion on the report";
+      $("section").textContent = "Section: " + it.section;
+      const p = $("passage"); p.replaceChildren();
+      if (it.passage) p.append(it.passage.before, el("mark", null, it.passage.quote), it.passage.after);
+      else p.append(el("mark", null, it.quote));
+    } else {
+      $("srcTitle").textContent = "The law: " + law[view - 1].label;
+      $("section").textContent = "For reference only: your answer is about the highlighted sentence in the first tab.";
+      $("lawView").textContent = law[view - 1].text;
+    }
+  }
+  if (renderItem.last !== it.id) {  // a new point starts at the top of both panes
+    const pane = $("docPane");
+    pane.scrollTop = 0; document.querySelector(".side-pane").scrollTop = 0; window.scrollTo(0, 0);
+    const mark = pane.querySelector("mark");
+    if (mark && matchMedia("(max-width: 960px)").matches)  // narrow: open the box at the highlight
+      pane.scrollTop = mark.getBoundingClientRect().top - pane.getBoundingClientRect().top - pane.clientHeight / 4;
+    renderItem.last = it.id;
+  }
+  const a = state.answers[it.id] || {};
+  document.querySelectorAll(".tile").forEach(b => {
+    b.classList.toggle("on", b.dataset.l === a.label); b.setAttribute("aria-pressed", String(b.dataset.l === a.label)); });
+  $("note").value = a.note || "";
+  $("note").classList.toggle("need", a.label === "unsure" && !(a.note || "").trim());
+  $("prev").disabled = state.i === 0;
+  const dots = $("dots"); dots.replaceChildren();
+  items.forEach((x, j) => {
+    const d = el("button", "dot " + (CAT[state.answers[x.id]?.label] || "") + (j === state.i ? " cur" : ""), String(j + 1));
+    d.title = WORDS[KIND].unit + " " + (j + 1); d.onclick = () => { state.i = j; save(); show("item"); };
+    dots.append(d);
+  });
+  const unit = WORDS[KIND].unit;
+  $("count").innerHTML = `${unit[0].toUpperCase() + unit.slice(1)} <b>${state.i + 1}</b> of ${items.length} · ${answered()} answered`;
+  sentButton($("finish"), HOSTED && submitted, HOSTED ? "Finish &amp; send" : "Finish");
+}
+
+function label(l) {
+  const it = items[state.i];
+  state.answers[it.id] = { ...(state.answers[it.id] || {}), label: l, note: $("note").value };
+  persist(it.id);
+  if (l === "unsure" && !$("note").value.trim()) { renderItem(); $("note").focus(); return; }
+  // Advance from the point just answered only: a second key press must not skip the next one.
+  clearTimeout(advance);
+  const from = state.i;
+  advance = setTimeout(() => { if (state.i === from) go(1); }, 220);
+  renderItem();
+}
+
+function go(d) {
+  const j = state.i + d;
+  if (j >= items.length) { show("done"); return; }
+  if (j < 0) return;
+  state.i = j; save(); renderItem();
+}
+
+function yaml() {
+  const rows = [`# Answers of ${DATA.annotator} for the reference-answer check (label_${DATA.annotator}.html).`,
+    `sample: ${JSON.stringify(DATA.sample)}`, `annotator: ${JSON.stringify(DATA.annotator)}`, "answers:"];
+  for (const it of [...items].sort((a, b) => a.id.localeCompare(b.id))) {
+    const a = state.answers[it.id] || {};
+    rows.push(`- item: ${it.id}`, `  label: ${a.label || ""}`, `  note: ${JSON.stringify(a.note || "")}`);
+  }
+  return rows.join("\n") + "\n";
+}
+
+function renderDone() {
+  const w = WORDS[KIND], c = {};
+  items.forEach(i => { const l = state.answers[i.id]?.label; if (l) c[l] = (c[l] || 0) + 1; });
+  const parts = Object.values(KEYS[KIND]).map(l => `${c[l] || 0} ${w[l]}`);
+  $("summary").textContent = `${answered()} of ${items.length} answered: ${parts.join(", ")}.`;
+  const miss = items.map((x, j) => state.answers[x.id]?.label ? null : j + 1).filter(Boolean);
+  for (const b of ["download", "copy", "yaml", "doneHint"]) $(b).hidden = HOSTED;
+  $("submit").hidden = !HOSTED;
+  $("submitErr").textContent = "";
+  if (HOSTED) {
+    $("doneEyebrow").textContent = submitted ? "Done" : "Almost done";
+    $("doneTitle").textContent = submitted ? "Thank you!" : "Check and send";
+    const noNote = items.map((x, j) => { const a = state.answers[x.id];
+      return a?.label === "unsure" && !(a.note || "").trim() ? j + 1 : null; }).filter(Boolean);
+    const m = $("missing"); m.replaceChildren();
+    const jumpList = nums => nums.flatMap((n, k) => {
+      const b = el("button", "jump", String(n)); b.onclick = () => { state.i = n - 1; save(); show("item"); };
+      return k ? [", ", b] : [b]; });
+    if (miss.length > 6) {
+      const b = el("button", "jump", `go to ${w.unit} ${miss[0]}`);
+      b.onclick = () => { state.i = miss[0] - 1; save(); show("item"); };
+      m.append(`${miss.length} ${w.unit}s are still open: `, b, ". Answer them, then send.");
+    } else if (miss.length) m.append(`Still open: ${w.unit}${miss.length > 1 ? "s" : ""} `, ...jumpList(miss), ". Answer them, then send.");
+    else m.append(submitted ? "Your answers are in. You can close this page, or go back and change an answer: changes are saved too."
+      : "Everything is answered. Press Send to tell us you are done.");
+    if (noNote.length && !submitted) {
+      const p = el("p", "nudge");
+      p.append(`"Can't tell" without a note: ${w.unit}${noNote.length > 1 ? "s" : ""} `, ...jumpList(noNote),
+        ". A few words on what made it hard help us most; you can send without.");
+      m.append(p);
+    }
+    $("submit").disabled = miss.length > 0 || submitted;
+    sentButton($("submit"), submitted, "Send my answers");
+  } else {
+    $("doneTitle").textContent = "Download and send";
+    $("missing").textContent = miss.length ? `Still open: points ${miss.join(", ")}. You can download now and finish later.` : "";
+    $("yaml").textContent = yaml();
+  }
+}
+
+async function signIn() {
+  $("signinErr").textContent = "";
+  try { load(await api("POST", "/session", { name: $("name").value })); show("item"); }
+  catch (e) { $("signinErr").textContent = e.status === 401
+    ? "That name is not on this check. Check the spelling, or ask who sent you the link." : e.message; }
+}
+
+// ---------- spotlight guide (shown once, on the first point; "How it works" replays it) ----------
+const TOURS = {};
+TOURS.reference_check = [
+  { sel: "#pointBlock", title: "The point to check", text: "One entry of the answer key. Judge the marked claim only. Ignore the grey background." },
+  { sel: "#docPane", title: "What the official report says", text: "The <b>highlighted</b> sentence is what the point is based on; the text around it is context. Read just enough to judge." },
+  { sel: "#answerBlock", title: "Your answer", text: "Does the source support the claim? <b>Yes</b> if every group, effect and amount is supported. <b>No</b> if the claim adds or changes something. <b>Can't tell</b> if you need more information: say what is missing. Keys: <b>Y</b>, <b>N</b>, <b>C</b>." },
+  { sel: "#noteBlock", title: "A short note", text: "Needed when you pick <b>Can't tell</b>, optional otherwise. One line is enough." },
+  { sel: "#progressBlock", title: "Your progress", text: "Jump to any point with the squares; answered ones are coloured. Use ← → to move." },
+  { sel: "#finish", title: "Finish", text: "" },
+];
+TOURS.calibration = [
+  { sel: "#pointBlock", title: "The effect to look for", text: "One effect the EU's official report names: <b>who</b> is affected, <b>what the law makes them do</b> and <b>what it means for them</b>." },
+  { sel: "#docPane", title: "What our AI wrote", text: "Our AI's report on the same law, one entry per effect it found. Look through it for the effect to look for. Tip: <b>Ctrl+F</b> (<b>Cmd+F</b> on a Mac) finds a word such as the group's name." },
+  { sel: "#answerBlock", title: "Your answer", text: "<b>Yes</b> if at least one entry names the same or a clearly overlapping group and the same way they are affected, in any words. <b>No</b> if none does. Ignore missing amounts. Keys: <b>Y</b>, <b>N</b>, <b>C</b>." },
+  { sel: "#noteBlock", title: "A short note", text: "Needed when you pick <b>Can't tell</b>, optional otherwise. One line is enough." },
+  { sel: "#progressBlock", title: "Your progress", text: "Jump to any pair with the squares; answered ones are coloured. Use ← → to move." },
+  { sel: "#finish", title: "Finish", text: "" },
+];
+const tour = () => TOURS[KIND];
+let tourIdx = 0, tourRAF = null;
+function startTour() { if (view !== "item") return; tourIdx = 0; $("tour").hidden = false; showTourStep(); }
+function endTour() { if (tourRAF) { cancelAnimationFrame(tourRAF); tourRAF = null; } $("tour").hidden = true; try { localStorage.setItem(tourKey(), "1"); } catch (e) {} }
+function showTourStep() {
+  const step = tour()[tourIdx];
+  const t = document.querySelector(step.sel);
+  const r0 = t ? t.getBoundingClientRect() : { width: 0, height: 0 };
+  if (r0.width === 0 && r0.height === 0) { if (tourIdx < tour().length - 1) { tourIdx++; return showTourStep(); } return endTour(); }
+  t.scrollIntoView({ block: "nearest" });
+  $("tourStep").textContent = `Step ${tourIdx + 1} of ${tour().length}`;
+  $("tourTitle").textContent = step.title;
+  $("tourText").innerHTML = step.sel === "#finish" ? (HOSTED
+    ? `Your answers save as you go (you'll see <b>Saved</b> with a tick). When every ${WORDS[KIND].unit} is answered, press <b>Finish &amp; send</b>. You can stop and come back with the same link.`
+    : "When every point is answered, press <b>Finish</b> and download the small answer file, then send it back.") : step.text;
+  $("tourBack").style.visibility = tourIdx === 0 ? "hidden" : "visible";
+  $("tourNext").textContent = tourIdx === tour().length - 1 ? "Got it" : "Next";
+  if (tourRAF) cancelAnimationFrame(tourRAF);
+  positionTour();
+  $("tourNext").focus();
+}
+// Re-measure every frame so the spotlight and card follow the target and stay on screen.
+function positionTour() {
+  if ($("tour").hidden) { tourRAF = null; return; }
+  const t = document.querySelector(tour()[tourIdx].sel);
+  if (t) {
+    const r = t.getBoundingClientRect(), pad = 6, M = 12;
+    const spot = $("tourSpot");
+    spot.style.left = Math.max(2, r.left - pad) + "px"; spot.style.top = Math.max(2, r.top - pad) + "px";
+    spot.style.width = (r.width + pad * 2) + "px";
+    spot.style.height = Math.min(r.height + pad * 2, innerHeight - 4) + "px";
+    const pop = $("tourPop");
+    const pw = pop.offsetWidth || 340, ph = pop.offsetHeight || 170;
+    let left, top;
+    if (r.width > innerWidth * 0.5) { left = r.right - pw - 24; top = Math.min(r.bottom, innerHeight) - ph - 24; }  // big pane: its lower corner, off the text
+    else if (r.left - pw - M > M) { left = r.left - pw - M; top = r.top; }                     // to the left
+    else { left = r.left; top = r.bottom + M; if (top + ph > innerHeight - M) top = r.top - ph - M; }
+    top = Math.min(Math.max(M, top), innerHeight - ph - M);
+    left = Math.min(Math.max(M, left), innerWidth - pw - M);
+    pop.style.left = left + "px"; pop.style.top = top + "px";
+  }
+  tourRAF = requestAnimationFrame(positionTour);
+}
+
+// ---------- wiring ----------
+setKind(KIND);
+counts();
+$("fileName").textContent = DATA.file || "";
+if (!HOSTED) $("saveNote").textContent = "Your answers are kept in this browser as you go (don't use a private window). At the end you download a small file and send it back.";
+$("start").onclick = () => show("item");
+$("signin").onclick = signIn;
+$("name").addEventListener("keydown", e => { if (e.key === "Enter") signIn(); });
+$("helpBtn").onclick = () => { if (view === "item") startTour(); else if (view === "done") show("item"), startTour(); else show("welcome"); };
+document.querySelectorAll(".tile").forEach(b => b.onclick = () => label(b.dataset.l));
+$("prev").onclick = () => go(-1);
+$("next").onclick = () => go(1);
+$("finish").onclick = () => show("done");
+$("back").onclick = () => show("item");
+$("note").oninput = () => {
+  const it = items[state.i];
+  state.answers[it.id] = { ...(state.answers[it.id] || {}), note: $("note").value };
+  $("note").classList.remove("need");
+  clearTimeout(noteTimer); noteTimer = setTimeout(() => persist(it.id), 600);
+};
+$("submit").onclick = async () => {
+  try {
+    const r = await api("POST", "/submit");
+    // The local holdout review answers with each draft's outcome; a refused draft is not "sent".
+    submitted = !(r && r.refused && r.refused.length); renderDone(); renderItem();
+    if (r && r.message) $("missing").textContent = r.message;
+  }
+  catch (e) { $("submitErr").textContent = "Not sent: " + e.message; }
+};
+$("download").onclick = () => {
+  const a = el("a"); a.href = URL.createObjectURL(new Blob([yaml()], { type: "text/yaml" }));
+  a.download = DATA.file; a.click();
+};
+$("copy").onclick = () => { navigator.clipboard?.writeText(yaml()).then(() => { $("copy").textContent = "Copied"; }); };
+$("tourNext").onclick = () => { if (tourIdx === tour().length - 1) endTour(); else { tourIdx++; showTourStep(); } };
+$("tourBack").onclick = () => { if (tourIdx > 0) { tourIdx--; showTourStep(); } };
+$("tourSkip").onclick = endTour;
+window.addEventListener("resize", () => { if (!$("tour").hidden) showTourStep(); });
+document.addEventListener("keydown", e => {
+  if (!$("tour").hidden) { if (e.key === "Escape") endTour(); return; }
+  if (view === "done" && e.key === "Escape") { show("item"); return; }
+  if (view !== "item") { if (view === "welcome" && e.key === "Enter" && !HOSTED) show("item"); return; }
+  if (e.target === $("note")) {
+    if (e.key === "Escape") $("note").blur();
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("note").blur(); if (state.answers[items[state.i].id]?.label) go(1); }
+    return;
+  }
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = e.key.toLowerCase();
+  if (k in KEYS[KIND]) { e.preventDefault(); label(KEYS[KIND][k]); }
+  else if (e.key === "ArrowRight") go(1); else if (e.key === "ArrowLeft") go(-1);
+});
+if (HOSTED) {
+  $("start").hidden = true; $("signinBox").hidden = false;
+  api("GET", "/me").then(p => { load(p); show("item"); }).catch(() => show("welcome"));
+} else if (answered() > 0) show("item"); else show("welcome");
+</script>
+</body>
+</html>

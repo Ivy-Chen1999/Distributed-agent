@@ -19,6 +19,7 @@ notes: >-
   (Art 54) in §6.1.4, so neither has an expected impact. The only relevant penalty statement
   (§5.4, footnote 245, on fines for incorrect information and conformity-assessment breaches)
   is not SME-specific.
+  Removed on 2026-10-13 (c02_e05): the drafting derivability judge found its mechanism (sandboxes easing partnering and access to investors) in none of the scenario provisions, the rule the drafted cases apply.
 expected_impacts:
   - expected_id: c02_e01
     affected_actor: SME and start-up providers of high-risk AI systems participating in AI regulatory sandboxes
@@ -32,6 +33,7 @@ expected_impacts:
     provision_keys:
       - ai_act/innovation/regulatory_sandboxes
     ia_section: SWD(2021) 84 Part 1 §6.1.4; §5.4.5(a)
+    category: sme_specific
   - expected_id: c02_e02
     affected_actor: Small-scale providers and start-ups
     mechanism: >-
@@ -45,6 +47,7 @@ expected_impacts:
       - ai_act/innovation/sme_measures
       - ai_act/innovation/regulatory_sandboxes
     ia_section: SWD(2021) 84 Part 1 §6.1.4; §5.4.5(b)
+    category: sme_specific
   - expected_id: c02_e03
     affected_actor: Providers (including SMEs) participating in AI regulatory sandboxes
     mechanism: >-
@@ -58,6 +61,7 @@ expected_impacts:
     provision_keys:
       - ai_act/innovation/regulatory_sandboxes
     ia_section: SWD(2021) 84 Part 1 §5.4.5(a) and §6.1.4; Part 2 Annex 1.3 (RSB response (5))
+    category: compliance_cost
   - expected_id: c02_e04
     affected_actor: SME providers of high-risk AI systems undergoing third-party conformity assessment
     mechanism: >-
@@ -69,18 +73,7 @@ expected_impacts:
     provision_keys:
       - ai_act/innovation/sme_measures
     ia_section: SWD(2021) 84 Part 1 §6.1.4; §5.4.5(b); §6.1.3
-  - expected_id: c02_e05
-    affected_actor: SMEs and start-ups participating in AI regulatory sandboxes
-    mechanism: >-
-      Sandboxes act as a focal point that eases partnering with complementary firms,
-      knowledge acquisition and links to investors.
-    impact: >-
-      Better access to partners and finance; as evidence the IA cites a financial-sector
-      sandbox study in which entry was followed by an average 15% increase in capital raised
-      over the next two years.
-    provision_keys:
-      - ai_act/innovation/regulatory_sandboxes
-    ia_section: SWD(2021) 84 Part 1 §6.1.4
+    category: sme_specific
   - expected_id: c02_e06
     affected_actor: SME providers of high-risk AI systems, including new market entrants
     mechanism: >-
@@ -97,6 +90,7 @@ expected_impacts:
       - ai_act/innovation/sme_measures
       - ai_act/innovation/regulatory_sandboxes
     ia_section: SWD(2021) 84 Part 1 §6.1.4 (final subsection)
+    category: sme_specific
   - expected_id: c02_e07
     affected_actor: National competent authorities establishing AI regulatory sandboxes
     mechanism: >-
@@ -109,6 +103,7 @@ expected_impacts:
     provision_keys:
       - ai_act/innovation/regulatory_sandboxes
     ia_section: SWD(2021) 84 Part 1 §5.4.5(a)
+    category: public_enforcement_cost
 important_omissions:
   - omission_id: c02_o01
     description: >-
@@ -121,6 +116,7 @@ important_omissions:
     source: >-
       RSB opinion (Annex 1.3), second submission, point (1); response in SWD(2021) 84 Part 1
       §6.1.4 (final subsection)
+    category: sme_specific
   - omission_id: c02_o02
     description: >-
       Sandboxes give no exemptions from the rules; their value to SMEs comes from lower costs
@@ -131,6 +127,7 @@ important_omissions:
     source: >-
       RSB opinion (Annex 1.3), first submission, what to improve (5); response in SWD(2021) 84
       Part 1 §5.4.5 and §6.1.4
+    category: innovation_investment
   - omission_id: c02_o03
     description: >-
       Whether fixed costs create a prohibitive barrier to market entry for SMEs; the IA
@@ -141,3 +138,4 @@ important_omissions:
     source: >-
       RSB opinion (Annex 1.3), first submission, findings (3) and what to improve (4); response
       in SWD(2021) 84 Part 1 §6.1.4
+    category: sme_specific

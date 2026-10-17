@@ -1,7 +1,9 @@
 """HTTP API (U11): submit runs, poll status, read live node events.
 
 Every endpoint except /health requires `Authorization: Bearer <WOMM_API_TOKEN>`; the app refuses
-to start without a token. Run with: `uvicorn --factory womm.api.app:create_app`.
+to start without a token. The hosted labelling pages under /label (``womm.api.labels``) have
+their own sign-in and exist only when WOMM_LABEL_ADMIN_TOKEN is set.
+Run with: `uvicorn --factory womm.api.app:create_app`.
 """
 
 from __future__ import annotations
@@ -21,7 +23,16 @@ from langsmith import tracing_context
 from pydantic import BaseModel, Field
 
 from womm.api.db import Database
+from womm.api.evolution import (
+    PANEL_SPLITS,
+    CandidateDetail,
+    CandidateDiff,
+    EvolutionView,
+    Lineage,
+    read_publish_summary,
+)
 from womm.api.jobs import JobRunner, QueueFull
+from womm.api.labels import add_label_routes
 from womm.backends import prepare_backends
 from womm.config import REPO_ROOT, ConfigError, Settings, load_settings
 from womm.data.fixtures import Fixture, FixtureError, load_fixture
@@ -41,6 +52,8 @@ from womm.models.system_version import (
 MIN_TOKEN_LENGTH = 16
 WEB_DIST = REPO_ROOT / "web" / "dist"
 ASK_PROMPT = REPO_ROOT / "prompts" / "ask.md"
+# Read only for its publish_summary flag; absent in the API image (no evals/), which is fine.
+PROMOTION_POLICY = REPO_ROOT / "evals" / "promotion_policy.yaml"
 FINISHED = {"succeeded", "degraded", "failed", "no_changes"}
 WITH_DOSSIER = {"succeeded", "degraded", "no_changes"}
 
@@ -87,6 +100,7 @@ def create_app(
     max_concurrent_asks: int = 4,
     ask_timeout_s: float = 120.0,
     web_dist: Path | None = WEB_DIST,
+    promotion_policy_path: Path | None = PROMOTION_POLICY,
 ) -> FastAPI:
     settings = settings or load_settings()
     if not settings.api_token or len(settings.api_token) < MIN_TOKEN_LENGTH:
@@ -312,6 +326,40 @@ def create_app(
             ],
         }
 
+    async def evolution(request: Request) -> EvolutionView:
+        """The lineage index: ids, origins, diff-check metrics and published decisions; no
+        spec, diff or train/val bodies (those are read per candidate)."""
+        db: Database = request.app.state.db
+        return EvolutionView(
+            await db.evolution_archive(), await db.evolution_metrics(),
+            await db.promotion_decisions(), read_publish_summary(promotion_policy_path),
+        )  # fmt: skip
+
+    def unknown(version_id: str) -> HTTPException:
+        return HTTPException(status.HTTP_404_NOT_FOUND, f"unknown version {version_id}")
+
+    @app.get("/evolution/lineage", dependencies=auth)
+    async def evolution_lineage(request: Request) -> Lineage:
+        return (await evolution(request)).lineage()
+
+    @app.get("/evolution/candidates/{version_id}", dependencies=auth)
+    async def evolution_candidate(version_id: str, request: Request) -> CandidateDetail:
+        db: Database = request.app.state.db
+        view = await evolution(request)
+        if version_id not in view.rows:
+            raise unknown(version_id)
+        vid = view.logical(version_id)
+        row = await db.evolution_candidate(vid)
+        metrics = await db.evolution_metrics(version_ids=[vid], splits=PANEL_SPLITS)
+        return view.detail(vid, row, metrics)
+
+    @app.get("/evolution/candidates/{version_id}/diff", dependencies=auth)
+    async def evolution_diff(version_id: str, request: Request) -> CandidateDiff:
+        row = await request.app.state.db.evolution_candidate(version_id)
+        if row is None:
+            raise unknown(version_id)
+        return EvolutionView.diff(row)
+
     @app.get("/runs", dependencies=auth)
     async def list_runs(request: Request, limit: Annotated[int, Query(ge=1, le=200)] = 20) -> dict:
         return {"runs": await request.app.state.db.list_runs(limit)}
@@ -361,6 +409,13 @@ def create_app(
         known = _dossier_ids(dossier)
         return {"answer": out.answer, "cites": [c for c in out.cites if c in known],
                 "covered": out.covered}  # fmt: skip
+
+    if settings.label_admin_token:
+        if len(settings.label_admin_token) < MIN_TOKEN_LENGTH:
+            raise ConfigError(
+                f"WOMM_LABEL_ADMIN_TOKEN must be at least {MIN_TOKEN_LENGTH} chars when set"
+            )
+        add_label_routes(app, settings.label_admin_token)
 
     if web_dist is not None and (web_dist / "index.html").is_file():
         # The console is a single-page app served from the same origin as the API.

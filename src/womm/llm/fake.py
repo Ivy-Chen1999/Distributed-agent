@@ -12,6 +12,8 @@ step n. A step is:
 
 from __future__ import annotations
 
+import hashlib
+import re
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -20,12 +22,43 @@ from typing import Any
 from pydantic import BaseModel
 
 from womm.llm.base import LLMBackend
+from womm.models.cost import BANDS, EFFORT_TYPES
 from womm.models.run import CallUsage
 from womm.models.system_version import RoleConfig
 
 
 class FakeScriptExhausted(RuntimeError):
     pass
+
+
+_RECORD_ID = re.compile(r"^\[([^\]]+)\]$")
+
+
+def fake_cost_batch(system_prompt: str, user_content: str) -> dict:
+    """A deterministic cost-step answer (a callable script step): one entry per ``[id]`` record
+    in the user content, with an effort type and bands derived from a hash of the id, and
+    ``not_costed`` for prohibitions."""
+    out = []
+    for block in user_content.split("\n\n"):
+        first = block.strip().splitlines()[0] if block.strip() else ""
+        m = _RECORD_ID.match(first)
+        if not m:
+            continue
+        oid = m.group(1)
+        if "statement: prohibition" in block:
+            out.append({"obligation_id": oid, "status": "not_costed", "reason": "prohibition"})
+            continue
+        h = int(hashlib.sha256(oid.encode()).hexdigest(), 16)
+        out.append(
+            {
+                "obligation_id": oid,
+                "effort_type": EFFORT_TYPES[h % len(EFFORT_TYPES)],
+                "one_off": BANDS[h % len(BANDS)],
+                "recurring": BANDS[(h // 7) % len(BANDS)] if h % 3 == 0 else None,
+                "rationale": "fake",
+            }
+        )
+    return {"records": out}
 
 
 @dataclass

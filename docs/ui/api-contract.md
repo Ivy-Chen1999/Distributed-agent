@@ -90,6 +90,14 @@ because nothing was within its scope; it does not degrade the run on its own. `d
 `error_kind` on a failed run is the failure class (`timeout`, `auth`, `orphaned`, `cancelled`,
 `process_error`, …; `pipeline_failed` when the pipeline failed without a tagged cause).
 
+**Costs.** `dossier.costs` is a `CostSection` (`docs/ui/schema/cost_section.schema.json`) on runs
+of cost-enabled versions (`v1.0-cost`), null or absent otherwise: `records[]` (one per duty or
+prohibition: payer, effort type, one-off and recurring cost bands, dates, the provision it comes
+from), `hotspots[]` (the provisions with the highest cost, ranked), `coverage` (counts of
+estimated, not costed and not estimated records), `late_added` (costs only in the final text),
+`delta_basis` and `notes`. A worked example is `COSTS` in `web/src/screens/Detail.test.tsx`; the
+pipeline shows a cost column and the run detail a Costs tab.
+
 ### `GET /runs/{run_id}/events?after=N&limit=500`
 `{"run_id": "…", "events": [{"seq": 1, "node": "planner", "event": "started"|"finished"|"failed", "payload": {…}, "at": "ISO"}], "next_after": N}`
 Nodes: `planner`, `router`, `expert_<id>`, `validate` (citation check), `synthesis`, `assemble`
@@ -105,3 +113,91 @@ Body `{"question": "Who carries the penalty risk?"}` →
 Answers only from that run's dossier, with that run's synthesis backend when this server has it; `covered=false` when the dossier does not address it.
 409 if the run has no dossier, 429 when 4 questions are already in flight, 502 when the backend
 fails, 504 when no answer arrives within 120 s.
+
+## Evolution page (R36 page 4)
+
+Read-only views of the self-evolution archive (self-evolution plan U9). Schemas:
+`docs/ui/schema/evolution_lineage.schema.json`, `evolution_candidate.schema.json`,
+`evolution_diff.schema.json`. The page carries no promotion logic: labels, reasons and the
+R37 message come from the API as the gate wrote them.
+
+Holdout results reach these endpoints only as published decision summaries
+(`promotion_decisions`, written by `womm evolve promote` when `evals/promotion_policy.yaml` sets
+`publish_summary: true`): per-metric mean delta, CI and noise, the mode and the reasons. No
+response field is a case id or a scenario id. The API never reads the holdout database.
+
+### `GET /evolution/lineage`
+```json
+{
+  "publish_summary": false,
+  "nodes": [{
+    "version_id": "sv_…", "name": "v1.0-unscoped+…", "parent_id": "sv_…" | null,
+    "cycle_id": "cycle_…" | null, "origin": "seed"|"gepa"|"topology"|"twin"|"manual",
+    "created_at": "ISO", "badges": ["topology", "promoted", "dev-only"],
+    "twins": ["sv_…"], "decision": "promoted"|"rejected"|null,
+    "label": "not rejected (weak threshold: directional)" | null,
+    "new_expert": "workforce" | null, "r37_regression": true|false|null
+  }]
+}
+```
+Oldest first. api twins (`twin_of`) are collapsed into their dev candidate's `twins`; a
+decision on a twin is shown on its dev node. `badges`: the origin, then the latest published
+decision (`promoted` for a statistical promotion only, `not-rejected` for a weak or dev pass,
+`rejected`) and `dev-only` for a dev-mode decision. A weak or dev pass keeps `decision:
+"promoted"` (the machine field) but is labelled `not rejected (...)` and is never made the
+deployed default (owner decision 2026-10-15). `publish_summary` is
+null when the policy file is not deployed (the API image has no `evals/`).
+`r37_regression` compares the version's R37 diff-check score with the incumbent of its latest
+decision, else its parent, under a judge both were scored by (the most recently recorded one);
+null when either was not checked or they share no judge.
+
+### `GET /evolution/candidates/{version_id}`
+```json
+{
+  "node": LineageNode,
+  "experts": [{"id": "legal", "domain": "legal", "router_gloss": null}],
+  "summary": {"experts_added": [], "added_experts": {}, "prompts_changed": ["expert:fiscal"],
+              "router_gloss_changed": {}, "retrieval": null} | null,
+  "rationale": "…" | null, "proposer": {"model": "…", "prompt_hash": "…"} | null,
+  "new_expert": {"id": "workforce", "domain": "workforce", "router_gloss": "…",
+                 "prompt_text": "…", "target_pattern": {"kind": "missed_impact",
+                 "category": "social_environmental", "owner": "none"}, "rationale": "…"} | null,
+  "metrics": [{"split": "train"|"val", "judge_version": "jv_…",
+               "metrics": {"coverage": {"mean": 0.7, "sd": null, "n": 3, "noise_sd": 0.02}}}],
+  "holdout": {"status": "published"|"not_submitted"|"sealed", "message": "…",
+              "decisions": [{"gate_id": "gate_…", "created_at": "ISO",
+                             "candidate_version": "sv_…", "incumbent_version": "sv_…",
+                             "mode": "statistical"|"weak"|"dev", "deployable": true,
+                             "decision": "promoted"|"rejected", "label": "…",
+                             "reasons": ["grounding_regression"], "notes": ["…"],
+                             "deltas": {"coverage": {"mean_delta": 0.06, "ci95_low": null,
+                                                     "ci95_high": null, "n_cases": 8,
+                                                     "noise_sd": 0.05}},
+                             "n_proposals": 3, "flags": ["insufficient_proposals"],
+                             "cross_judge": {"label": "agrees"|"cross-judge-sensitive"|
+                                                      "inconclusive",
+                                             "mean_delta": 0.05, "ci95_low": null,
+                                             "ci95_high": null,
+                                             "judge": "claude_code:claude-opus-5-5",
+                                             "gate_delta": 0.06,
+                                             "rescored_on": "2026-10-15"} | null}]},
+  "r37": {"status": "available"|"not_run", "judge_version": "jv_…" | null,
+          "score": {"mean": 0.6, "sd": 0.02, "n": 3} | null,
+          "reference_version": "sv_…" | null, "reference_score": {…} | null,
+          "regression": true|false|null, "message": "…"}
+}
+```
+An api twin's id opens its dev candidate. `metrics` holds split-level aggregates of the latest
+full-split replay batch per (split, judge); `noise_sd` is the pooled within-case run-to-run SD
+(the noise band). `holdout.status`: `published` when a summary exists; otherwise
+`not_submitted` when the policy publishes summaries, else `sealed` (the decision, if any, is
+only in the holdout audit; `womm evolve show <id>` reads it locally). `cross_judge`: the
+cross-family judge re-score of the gate's comparison, written by `womm evolve rescore` onto the
+published summary (aggregates only, report-only); null when it was not run. The R37 check is
+monitoring only: a regression never changes a decision. 404 for an unknown version.
+
+### `GET /evolution/candidates/{version_id}/diff`
+`{"version_id": "sv_…", "parent_id": "sv_…" | null, "summary": {…} | null,
+"prompts": {"expert:fiscal": "--- prompts/…\n+++ prompts/evolved/…\n@@ …"}}` — one unified diff
+per changed prompt (a new expert's prompt diffs against `/dev/null`). 404 for an unknown
+version.

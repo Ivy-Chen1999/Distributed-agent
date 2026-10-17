@@ -100,6 +100,24 @@ def test_unresolved_index_key_is_a_fixture_error(tmp_path):
         load_corpus(tmp_path / "c")
 
 
+def test_records_carry_the_unit_delta(corpus):
+    final = [r for recs in corpus.obligations[FINAL].values() for r in recs]
+    assert {r.unit_delta for r in final} == {
+        "added", "modified", "split_merge", "minor_edit", "unchanged",
+    }  # fmt: skip
+    assert all(r.unit_delta is None for recs in corpus.obligations[PROPOSAL].values() for r in recs)
+
+
+def test_unknown_unit_delta_is_a_fixture_error(tmp_path):
+    shutil.copytree(DEFAULT_CORPUS_DIR, tmp_path / "c")
+    path = tmp_path / "c" / "obligations.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data[FINAL]["ai_act/art/36"][0]["unit_delta"] = "rewritten"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    with pytest.raises(FixtureError, match="rewritten"):
+        load_corpus(tmp_path / "c")
+
+
 def test_malformed_record_is_a_fixture_error(tmp_path):
     shutil.copytree(DEFAULT_CORPUS_DIR, tmp_path / "c")
     path = tmp_path / "c" / "obligations.json"

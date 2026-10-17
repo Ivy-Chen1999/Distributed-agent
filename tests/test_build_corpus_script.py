@@ -505,3 +505,42 @@ def test_crosswalk_used_by_the_corpus_is_the_fixture_crosswalk():
     keys = {e["provision_key"] for e in raw["entries"]}
     final = _version(FINAL).by_key()
     assert keys <= set(final)
+
+
+# --- unit-level delta (EU cost plan U1) ------------------------------------------------------
+
+
+def test_unit_delta_is_kept_from_the_upstream_delta_status():
+    keys = {"art50": "ai_act/art/50"}
+    rows = [{**_row("50"), "delta_status": "added"}, {**_row("50"), "delta_status": "modified"}]
+    out, stats = build_corpus.build_obligations(rows, FINAL, keys, set())
+    assert [r["unit_delta"] for r in out["ai_act/art/50"]] == ["added", "modified"]
+    assert stats.unit_delta == {"added": 1, "modified": 1} and stats.no_unit_delta == 0
+    assert "delta_status" not in out["ai_act/art/50"][0]
+
+
+def test_a_row_without_delta_status_gets_no_unit_delta_and_is_reported():
+    out, stats = build_corpus.build_obligations([_row("50")], FINAL, {"art50": "ai_act/x"}, set())
+    assert out["ai_act/x"][0]["unit_delta"] is None
+    assert stats.no_unit_delta == 1
+    assert "1 without a unit delta" in stats.line()
+
+
+def test_an_unknown_delta_status_fails_the_build():
+    row = {**_row("50"), "delta_status": "rewritten"}
+    with pytest.raises(FixtureError, match="rewritten"):
+        build_corpus.build_obligations([row], FINAL, {"art50": "ai_act/x"}, set())
+
+
+def test_committed_final_corpus_has_the_measured_unit_delta_counts(obligations):
+    from collections import Counter
+
+    records = [r for recs in obligations[FINAL].values() for r in recs]
+    duties = [r for r in records if r["statement_type"] in ("duty", "prohibition")]
+    # Measured on the pinned upstream commit (2026-10-07).
+    assert len(duties) == 975
+    assert Counter(r["unit_delta"] for r in duties) == {
+        "added": 387, "modified": 348, "split_merge": 96, "minor_edit": 73, "unchanged": 71,
+    }  # fmt: skip
+    # The proposal is the start of the delta: its records carry none.
+    assert all(r["unit_delta"] is None for recs in obligations[PROPOSAL].values() for r in recs)

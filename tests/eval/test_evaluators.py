@@ -192,3 +192,84 @@ def test_label_decisions_and_calibration():
         decisions=[{"subject": "legal", "probability": None, "relevant": True}],
     )
     assert calibration([stub]) is None
+
+
+def _judge_matching(impact_ids: list[str | None]) -> JudgeOutput:
+    """Expected impact i is covered by impact_ids[i] (None: not covered)."""
+    out = _judge(covered=0)
+    for v, iid in zip(out.expected, impact_ids, strict=False):
+        v.covered, v.impact_id = iid is not None, iid
+    return out
+
+
+async def test_precision_counts_each_matched_impact_once():
+    n = len(CASE.expected_impacts)
+    assert n >= 3
+    # two expected impacts land on I0, one on I1; I2 and I3 match nothing; an unknown id is ignored
+    ids = ["I0", "I0", "I1"] + [None] * (n - 3)
+    backend = FakeBackend({"judge": [_judge_matching(ids)]})
+    score, _ = await score_case(CASE, _run(impacts=4), backend, ROLE, "p")
+    assert score.precision == pytest.approx(2 / 4)
+    assert score.impact_count == 4
+    assert score.impact_chars == 4  # each impact is summary "s" with no findings
+
+
+async def test_precision_ignores_ids_not_in_the_dossier():
+    n = len(CASE.expected_impacts)
+    ids = ["I0", "X9"] + [None] * (n - 2)
+    backend = FakeBackend({"judge": [_judge_matching(ids)]})
+    score, _ = await score_case(CASE, _run(impacts=2), backend, ROLE, "p")
+    assert score.precision == pytest.approx(1 / 2)
+
+
+async def test_impact_chars_counts_summary_and_finding_text():
+    from womm.eval.evaluators import impact_chars
+
+    run = _run(impacts=1)
+    run.dossier.impacts[0].summary = "abcd"
+    assert impact_chars(run.dossier) == 4
+
+
+async def test_measures_are_null_without_a_judge_or_when_errored():
+    score, _ = await score_case(
+        CASE, _run(), FakeBackend({"judge": [LLMError("schema_invalid", "bad", attempts=3)]}),
+        ROLE, "p",
+    )  # fmt: skip
+    assert score.precision is None and score.impact_count == 1
+    run = _run(status=RunStatus.failed, error="planner failed: [auth] Not logged in")
+    score, _ = await score_case(CASE, run, FakeBackend({}), ROLE, "p")
+    assert (score.precision, score.impact_count, score.impact_chars) == (None, None, None)
+
+
+async def test_empty_dossier_counts_zero_impacts_and_scores_zero_precision():
+    fails = [ExpertFailure(agent=a, error_kind="schema_invalid", message="t") for a in "abc"]
+    run = _run(status=RunStatus.failed, failures=fails, impacts=0)
+    score, _ = await score_case(CASE, run, FakeBackend({}), ROLE, "p")
+    # zero like coverage, so a quality failure never leaves a holdout case unscored
+    assert (score.impact_count, score.impact_chars, score.precision) == (0, 0, 0.0)
+
+
+class _PricedFake(FakeBackend):
+    """Fake judge whose every attempt reports 100 + 20 tokens at $0.01."""
+
+    async def _invoke(self, role_name, system_prompt, user_content, schema, role_cfg, agent):
+        out, usage = await super()._invoke(role_name, system_prompt, user_content, schema,
+                                           role_cfg, agent)  # fmt: skip
+        return out, usage.model_copy(
+            update={"input_tokens": 100, "output_tokens": 20, "cost_usd": 0.01}
+        )
+
+
+async def test_judge_usage_is_recorded_apart_from_the_run():
+    score, _ = await score_case(CASE, _run(), _PricedFake({"judge": [_judge(covered=2)]}),
+                                ROLE, "p")  # fmt: skip
+    assert (score.judge_tokens, score.judge_cost_usd) == (120, pytest.approx(0.01))
+    assert score.cost_usd == 0.0  # the run's own cost stays separate
+    agg = aggregate([score])
+    assert agg["judge_cost_usd"] == pytest.approx(0.01)
+
+
+async def test_no_judge_call_records_no_judge_usage():
+    run = _run().model_copy(update={"dossier": None, "status": RunStatus.failed})
+    score, _ = await score_case(CASE, run, _PricedFake({}), ROLE, "p")
+    assert (score.judge_tokens, score.judge_cost_usd) == (0, 0.0)

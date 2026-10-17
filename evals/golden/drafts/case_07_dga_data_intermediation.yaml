@@ -1,0 +1,879 @@
+# DRAFT golden case written by scripts/draft_golden_case.py; not scored until published.
+# Reviewer? Start with docs/eval/reviewer-quickstart.md. The helper lists what to decide:
+#   uv run python scripts/review_draft.py <this file>
+# Decide every item whose review.decision is 'pending' and every possibly_missing candidate
+# as verified / edited / rejected / unclear, with your GitHub username in review.reviewer.
+# Other auto-accepted items need no decision. Do not change tool-written fields of an item
+# you keep as auto_accepted or verified (CI checks provenance.item_digests); the drafter
+# (provenance.drafted_by) cannot review. review_links opens the public IA and proposal on
+# EUR-Lex (train/val only); holdout identifiers never appear in a tracked file.
+case_id: case_07_dga_data_intermediation
+scenario_id: eval_data_intermediation
+fixture: dga
+split: train
+ia_reference: 'Impact assessment accompanying the Data Governance Act proposal (identifiers in the local
+  IA index); sections: 6.1. Economic impact; 6.3. Impact on SMEs'
+notes: ''
+review_links:
+  ia: https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:52020SC0295
+  proposal: https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:52020PC0767
+  ia_parts: 1
+  anchor_parts: {}
+provenance:
+  tool: scripts/draft_golden_case.py
+  drafted_on: '2026-10-06'
+  drafted_by: Chen Yuxin
+  drafting_model: claude-opus-5-5
+  roles:
+    drafter:
+      backend: claude_code
+      model: claude-opus-5-5
+      prompt: prompts/tools/draft_golden_case.md
+    recall:
+      backend: claude_code
+      model: claude-opus-5-5
+      prompt: prompts/tools/recall_golden_case.md
+    judge_anchor:
+      backend: claude_code
+      model: claude-sonnet-5
+      prompt: prompts/tools/judge_anchor.md
+    judge_derivability:
+      backend: claude_code
+      model: claude-sonnet-5
+      prompt: prompts/tools/judge_derivability.md
+    judge_category:
+      backend: claude_code
+      model: claude-sonnet-5
+      prompt: prompts/tools/judge_category.md
+  prompt_hashes:
+    prompts/tools/draft_golden_case.md: c72bd341e2c3ef75
+    prompts/tools/recall_golden_case.md: 36f0a5dcc15a57c6
+    prompts/tools/judge_anchor.md: 0d81eb4d5d2b43bd
+    prompts/tools/judge_derivability.md: 97471d88c14d32c3
+    prompts/tools/judge_category.md: 8b1885320b65b60f
+  ia_sections:
+  - 6.1. Economic impact
+  - 6.3. Impact on SMEs
+  rsb_status: opinion none found in Cellar
+  audit:
+    seed: 1017283742
+    rate: 0.2
+    eligible: 4
+    eligible_ids:
+    - c07_e01
+    - c07_e05
+    - c07_e06
+    - c07_e07
+    sampled:
+    - c07_e01
+    non_publishable_test_seed: false
+  item_digests:
+    c07_e01: 2d8971536fca3cb9fcb0f54a52c06e5f930ed6c722e40c549a6578e75d9f451a
+    c07_e02: cfc99af1ce8c0d777398448f7eb2715839766b89f39a787a37e830ae9e9d5029
+    c07_e03: 7aaf9f74e5a55b03fbc834fcc9f3035596b1fb5dbac6f50d29e4918f59658866
+    c07_e04: 6b1704c6f95d3df78de42d5634165d78ed5c000963b3c961a32a50d9d73ae78f
+    c07_e05: 1fe05d3caf8b2c46562e67276302ea3a6b8aadc3e1f4f504cdcfb47173adbd4a
+    c07_e06: 8b24b16e5eb0f168e1104fc5a9e6bfd80f910d94c285f23be0760abbeffcf07c
+    c07_e07: 57fa8996ac79a45d684c442a4f017761b6b019d3321e1270ea421fa7d57901e6
+    c07_o01: 7f2ce84a130a6944a02180a7c488e1b4c4e6d8deec98fc648ed1e8cd68c7141e
+    c07_o02: 64077f6c7679752f82158718cbdc40ff75d82fcec2dc33a15f8ce8e38088baa7
+    c07_o03: a8b21a17e07dfce2309ad7131787b959a1f6ab120b0e1e61b9efb11d4b433f9b
+    c07_m01: 61523be25e9b239b7b3ee757257b377b944e4b764681d12aaa1495df98f59c5b
+    c07_m02: ee1600e4a8ae10c72566c758d18736696017daeaaecfae13e30ce52f410c305a
+    c07_m03: 0f994d2e627e66855d943a7aff7cebd766eaf096180a1ae6d2724e89dc428ef7
+    c07_m04: 238259614cb15bcfa7eef7a2c87c022b90e07244b3f24a5ff489d7fe7e84a0f0
+    c07_m05: 9df47a74744d27f8f297cacf3005139e8e326573eb329b328450f1e3a3d56c15
+  tiebreak_audit:
+    seed: 1765047449
+    rate: 0.2
+    eligible: 1
+    eligible_ids:
+    - c07_m04
+    sampled:
+    - c07_m04
+    non_publishable_test_seed: false
+stats:
+  items: 15
+  expected_impacts: 7
+  important_omissions: 3
+  possibly_missing: 5
+  anchors_verified: 15
+  judge_agree: 6
+  judge_disagree: 9
+  judge_uncertain: 0
+  auto_accepted: 4
+  pending: 0
+  audited: 2
+  human_decisions_needed: 0
+  llm_kept: 1
+  llm_dropped: 10
+expected_impacts:
+- expected_id: c07_e01
+  affected_actor: Providers of data sharing services (data intermediaries)
+  mechanism: 'Providers must meet the conditions for providing data sharing services: no use of the data
+    for other purposes, a separate legal entity, fair and non-discriminatory access, fraud prevention,
+    continuity and insolvency safeguards, security measures and competition-compliance procedures.'
+  impact: Intermediaries pay implementation costs to comply with the requirements.
+  provision_keys:
+  - dga/proposal/art/11
+  ia_section: '6.1.3. Policy option 2: Lower intensity legislation'
+  ia_anchor: Data intermediaries would bear the cost of obtaining and maintaining the certification or
+    label as well as implementation costs to ensure compliance with the requirements.
+  anchor:
+    status: verified
+    against: ia
+  category: compliance_cost
+  derivability:
+    verdict: 'yes'
+    reason: Article 11 lists substantive organisational, technical and legal measures that providers must
+      put in place, so an expert can infer that intermediaries bear compliance costs.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor confirms data intermediaries bear certification/implementation compliance costs,
+        matching the claimed actor and impact; the quoted cost figures are consistent with the same certification
+        cost table referenced elsewhere in the source document.
+    derivability:
+      verdict: agree
+      reason: Article 11 imposes concrete organisational, technical and legal obligations on providers,
+        directly supporting a compliance-cost mechanism.
+    category:
+      verdict: agree
+      reason: These are substantive implementation/certification costs of meeting the service-provider
+        conditions, which is compliance_cost.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: true
+    reviewer: null
+    note: null
+  sweep:
+    action: trim
+    before:
+      impact: Intermediaries pay implementation costs to comply with the requirements. For the comparable
+        certification options the IA puts these at a one-off EUR 20 000-50 000 (voluntary) or EUR 35 000-75
+        000 (compulsory), plus annual renewal costs.
+    reason: 'full-text review 2026-10-16/17 after the failed reference check 2026-10-14-75af237c (assistant
+      reviewers on owner delegation; accepted by the Codex review of 2026-10-17): The figures are real,
+      but the sentence assigns them to the wrong cost item. Deleting the second sentence leaves the supported
+      ''Intermediaries pay implementation costs to comply with the requirements.'''
+    model: full-text review (assistant reviewers, owner delegation), Codex review 2026-10-17
+    'on': '2026-10-17'
+- expected_id: c07_e02
+  affected_actor: Providers of data sharing services (data intermediaries)
+  mechanism: Binding neutrality and trust conditions, combined with notification and supervision, make
+    intermediaries more trustworthy to data holders and data users.
+  impact: More trust brings efficiency gains, time savings, a larger client base and more data transactions,
+    and so higher revenues. The IA expects a 25-50% increase in revenues and client base.
+  provision_keys:
+  - dga/proposal/art/10
+  - dga/proposal/art/11
+  - dga/proposal/art/13
+  ia_section: '6.1.3. Policy option 2: Lower intensity legislation'
+  ia_anchor: The benefits mainly include the increased trust between actors, leading to further efficiency
+    gains, time savings, increase of the client base and data transactions and therefore increase in revenues
+  anchor:
+    status: verified
+    against: ia
+  category: market_competition
+  derivability:
+    verdict: partly
+    reason: The provisions clearly aim at trustworthy intermediation, but the commercial benefit of more
+      trust for compliant intermediaries is inferred, not stated.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor directly states increased trust leads to efficiency gains, time savings, increased
+        client base, data transactions and revenues, matching actor and effect, and the 25-50% figure
+        is consistent with the client base/revenue gains stated elsewhere in the same document.
+    derivability:
+      verdict: agree
+      reason: Articles 10, 11 and 13 together create a notification-plus-conditions-plus-supervision trust
+        framework, but the resulting revenue/trust benefit to providers is an inference beyond the text,
+        matching 'partly'.
+    category:
+      verdict: disagree
+      reason: The effect is business growth (revenue, client base) from trust and data value creation
+        rather than market structure/prices, so innovation_investment fits better.
+    overall: disagree
+  tiebreak:
+    verdict: drop
+    original_category: market_competition
+    reason: The anchor's trust/revenue benefits are explicitly described under the 'voluntary certification/labelling
+      scheme' (policy option 2) and the 25-50% client-base/revenue figure comes from that certification
+      cost-benefit table, not from the notification-and-conditions regime actually enacted in Articles
+      9-11, 13.
+    model: claude-sonnet-5
+  provenance:
+    origin: llm_drafted
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c07_e03
+  affected_actor: Data users / reusers of intermediated data
+  mechanism: Intermediaries pass on the costs of meeting the regulatory conditions through the charges
+    they set for users.
+  impact: Data users may face indirect transaction and implementation costs because intermediaries may
+    raise their user charges to cover compliance costs.
+  provision_keys:
+  - dga/proposal/art/11
+  ia_section: '6.1.3. Policy option 2: Lower intensity legislation'
+  ia_anchor: Data reusers might be impacted by indirect transaction and implementation costs, as the certified
+    intermediaries might increase the user charges to cover the cost of certification.
+  anchor:
+    status: verified
+    against: ia
+  category: consumers_users
+  derivability:
+    verdict: partly
+    reason: Pass-through of compliance costs to users is a standard inference from Article 11, although
+      Article 11(3) also requires fair, non-discriminatory pricing.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor quote verbatim states data reusers face indirect transaction/implementation costs
+        because certified intermediaries may raise charges, matching actor, mechanism and effect exactly.
+    derivability:
+      verdict: agree
+      reason: Article 11 imposes compliance obligations that plausibly raise costs passed to users, while
+        Article 11(3)'s fairness/pricing requirement limits full derivability, matching 'partly'.
+    category:
+      verdict: disagree
+      reason: The affected 'data users' are businesses reusing data facing higher pass-through charges,
+        which is a pricing effect better captured by market_competition than consumers_users.
+    overall: disagree
+  tiebreak:
+    verdict: drop
+    original_category: consumers_users
+    reason: The anchor says reusers face cost pass-through because 'certified intermediaries might increase
+      user charges to cover the cost of certification' — a certification mechanism absent from Article
+      11 — not because of generic Article 11 compliance costs as the claim states.
+    model: claude-sonnet-5
+  provenance:
+    origin: llm_drafted
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c07_e04
+  affected_actor: Data intermediation markets (B2B and C2B)
+  mechanism: Neutrality conditions (separate legal entity, purpose limitation, fair and non-discriminatory
+    access) plus a single notification valid in all Member States open intermediation markets to neutral
+    providers.
+  impact: Competition among data intermediaries increases in both B2B and C2B markets. The IA estimates
+    up to a 25% increase in competition within 2-5 years.
+  provision_keys:
+  - dga/proposal/art/10
+  - dga/proposal/art/11
+  - dga/proposal/art/9
+  ia_section: '6.1.3. Policy option 2: Lower intensity legislation'
+  ia_anchor: As an indirect benefit, there would be a competition increase for data intermediaries in
+    both the B2B and C2B markets.
+  anchor:
+    status: verified
+    against: ia
+  category: market_competition
+  derivability:
+    verdict: partly
+    reason: Article 9(1)(a)-(b) defines B2B and C2B intermediation and Article 11 sets neutrality rules,
+      but the effect on competition must be inferred.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: disagree
+      reason: The anchor only states a general competition increase in B2B and C2B markets without any
+        quantification, so the claimed specific figure of 'up to 25% increase within 2-5 years' is not
+        supported by the text.
+    derivability:
+      verdict: agree
+      reason: Article 9 defines B2B/C2B intermediation and Articles 10-11 set single-notification neutral
+        access, but the quantified competition effect is inferred, matching 'partly'.
+    category:
+      verdict: agree
+      reason: The claim is directly about increased competition among intermediaries in B2B/C2B markets,
+        matching market_competition.
+    overall: disagree
+  tiebreak:
+    verdict: drop
+    original_category: market_competition
+    reason: The anchor only states a generic, unquantified 'competition increase' tied to discussion of
+      the voluntary certification/labelling scheme; the specific figure 'up to 25% increase within 2-5
+      years' appears nowhere in the text, so the claim both fabricates a number and misattributes the
+      mechanism to a scheme not in Articles 9-11.
+    model: claude-sonnet-5
+  provenance:
+    origin: llm_drafted
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c07_e05
+  affected_actor: Data holders and data subjects making data available
+  mechanism: Intermediaries must act in data subjects' best interest, keep data and metadata uses separate,
+    secure the data and state the jurisdiction of data use. This gives holders and individuals trusted
+    channels for sharing.
+  impact: Data holders can earn more from data sharing, and more individuals become willing to share their
+    personal data through trusted intermediaries.
+  provision_keys:
+  - dga/proposal/art/9
+  - dga/proposal/art/11
+  ia_section: '6.1.3. Policy option 2: Lower intensity legislation'
+  ia_anchor: Data holders would have the opportunity to monetise more from data sharing while more individuals
+    would be willing to share their personal data through the certified platforms.
+  anchor:
+    status: verified
+    against: ia
+  category: consumers_users
+  derivability:
+    verdict: 'yes'
+    reason: Article 9(1)(b)-(c) and Article 11(10)-(11) directly create protections for data subjects
+      and holders that use intermediaries.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor verbatim states data holders can monetise more from data sharing and more individuals
+        would share personal data via certified platforms, matching the claimed actor and effect.
+    derivability:
+      verdict: agree
+      reason: Article 9(1)(b)-(c) and Article 11(10)-(11) directly create data-subject/holder protections
+        via intermediaries, supporting a 'yes'.
+    category:
+      verdict: agree
+      reason: The impact centers on data subjects' willingness to share and benefit, fitting consumers_users.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c07_e06
+  affected_actor: Data users and data providers across Member States
+  mechanism: One notification gives a right to provide services in all Member States, jurisdiction lies
+    with the main establishment, and the Commission keeps a register. Together these harmonise market
+    access across the EU.
+  impact: Harmonisation gives data users and data providers certainty across the EU and raises trust in
+    data intermediaries, which helps create an internal market for data.
+  provision_keys:
+  - dga/proposal/art/10
+  ia_section: 6.1. Economic impact
+  ia_anchor: It would create certainty for data users across the EU and for those who want to make data
+    available, and increase trust in data intermediaries and in mechanisms for making more data available
+    for use.
+  anchor:
+    status: verified
+    against: ia
+  category: market_competition
+  derivability:
+    verdict: 'yes'
+    reason: Article 10(2), (5) and (9) set out single-notification EU-wide access and a public register.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: 'Anchor quote directly matches the claim: harmonisation creates certainty for data users/providers
+        across the EU and increases trust in intermediaries, consistent with actor and effect.'
+    derivability:
+      verdict: agree
+      reason: Article 10(2), (5) and (9) establish EU-wide single-notification access and a Commission
+        register, directly supporting harmonisation.
+    category:
+      verdict: agree
+      reason: Harmonised market access and internal market creation is a market_competition effect.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+- expected_id: c07_e07
+  affected_actor: SME and start-up data intermediaries
+  mechanism: Many intermediaries are SMEs. They gain from the trust the regime creates, and a light ex-ante
+    regime (notification rather than compulsory authorisation) avoids a barrier to entering the market.
+  impact: The regime boosts SMEs and start-ups in the data economy. Gains in clients, revenue and access
+    to investors offset compliance costs, and the regime avoids the entry barrier that compulsory certification
+    would create.
+  provision_keys:
+  - dga/proposal/art/10
+  - dga/proposal/art/11
+  ia_section: 6.3. Impact on SMEs
+  ia_anchor: Many data intermediaries are SMEs. The instrument would give a boost to such SMEs and startups
+    in the data economy.
+  anchor:
+    status: verified
+    against: ia
+  category: sme_specific
+  derivability:
+    verdict: partly
+    reason: The provisions show a light notification regime with no SME exemption, but the size structure
+      of the intermediary market comes from the IA.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Context confirms many data intermediaries are SMEs, that the instrument boosts them, and
+        that gains in client base/revenue and investor attraction offset certification costs, matching
+        the claimed actor and impact.
+    derivability:
+      verdict: agree
+      reason: Articles 10-11 establish a light notification regime without an SME carve-out, consistent
+        with a 'partly' derivability since SME prevalence itself is not stated in the text.
+    category:
+      verdict: agree
+      reason: The claim explicitly concerns SME/start-up intermediaries and entry barriers, matching sme_specific.
+    overall: agree
+  provenance:
+    origin: llm_drafted
+    status: llm_judged
+    drafting_model: claude-opus-5-5
+  review:
+    decision: auto_accepted
+    audit: false
+    reviewer: null
+    note: null
+important_omissions:
+- omission_id: c07_o01
+  description: 'Public enforcement costs for national competent authorities: they must receive and forward
+    notifications, issue declarations within one week, inform the Commission, monitor and supervise compliance,
+    request information, impose penalties and cooperate across borders. Fees may recover part of these
+    costs. A good assessment must state who carries these costs and how far fees offset them.'
+  source: ia
+  provision_keys:
+  - dga/proposal/art/10
+  - dga/proposal/art/13
+  ia_section: 6.1. Economic impact
+  ia_anchor: Member States would incur costs to establish the necessary mechanisms to provide services
+    and to carry out the different tasks
+  anchor:
+    status: verified
+    against: ia
+  category: public_enforcement_cost
+  derivability:
+    verdict: 'yes'
+    reason: Articles 10(7)-(11) and 13 explicitly give competent authorities tasks and powers, including
+      the power to charge fees.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: disagree
+      reason: The anchor's cost statement is explicitly tied to Member States' measures for facilitating
+        reuse of protected public sector data, not to the notification/supervision/enforcement duties
+        for data intermediation service providers described in the claim.
+    derivability:
+      verdict: agree
+      reason: Articles 10(7)-(11) and 13 explicitly assign tasks, powers and fee-charging authority to
+        competent authorities.
+    category:
+      verdict: agree
+      reason: Costs for national authorities' supervision, notification handling and enforcement are public_enforcement_cost.
+    overall: disagree
+  tiebreak:
+    verdict: drop
+    original_category: public_enforcement_cost
+    reason: The anchor sentence explicitly ties Member States' setup costs to 'the measures to facilitate
+      the use of public sector data that cannot be available as open data' (a different chapter), not
+      to the notification/supervision tasks under Articles 10 and 13 for data sharing service providers.
+    model: claude-sonnet-5
+  provenance:
+    origin: llm_drafted
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
+- omission_id: c07_o02
+  description: The structural-separation rule (separate legal entity) and the ban on using intermediated
+    data for other purposes fall hardest on vertically integrated players and large platforms that currently
+    combine intermediation with their own data use. They must restructure or stay out of the market. This
+    shapes the platformisation risk the IA describes in its baseline.
+  source: ia
+  provision_keys:
+  - dga/proposal/art/11
+  ia_section: 6.1.1. Baseline scenario
+  ia_anchor: Without an alternative European model, there would be a risk of platformisation and the hegemony
+    of the Big Tech companies in this field.
+  anchor:
+    status: verified
+    against: ia
+  category: market_competition
+  derivability:
+    verdict: 'yes'
+    reason: Article 11(1)-(2) imposes purpose limitation and legal separation, which bind integrated firms
+      in particular.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: disagree
+      reason: The anchor describes the risk of Big Tech platformisation in the no-intervention baseline
+        scenario, not the effect of the structural-separation/purpose-limitation rule on incumbent platforms
+        under the chosen policy option as the claim asserts.
+    derivability:
+      verdict: agree
+      reason: Article 11(1)-(2)'s purpose-limitation and legal-separation rules squarely target vertically
+        integrated providers.
+    category:
+      verdict: agree
+      reason: Structural separation reshaping which firms can operate as intermediaries is a market structure
+        effect, matching market_competition.
+    overall: disagree
+  tiebreak:
+    verdict: drop
+    original_category: market_competition
+    reason: The anchor is drawn from the no-EU-action baseline scenario describing a risk of Big Tech
+      platformisation, not a statement about the effect of Article 11's structural-separation/purpose-limitation
+      rule on incumbents under the adopted policy.
+    model: claude-sonnet-5
+  provenance:
+    origin: llm_drafted
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
+- omission_id: c07_o03
+  description: 'Providers bear the administrative burden of the notification regime itself: filing the
+    notification with the required information, appointing a legal representative if established outside
+    the EU, notifying cessation within 15 days and answering information requests. This falls on many
+    SME intermediaries and is a different cost from the certification costs the IA quantifies.'
+  source: ia
+  provision_keys:
+  - dga/proposal/art/10
+  - dga/proposal/art/13
+  ia_section: 6.3. Impact on SMEs
+  ia_anchor: The one-off costs for certification/labelling (EUR 20 000-50 000 for a voluntary label, and
+    EUR 35 000-75 000 for a compulsory certification) for data intermediaries and renewal costs would
+    be countered by the high gains in both client base and revenue (25-50% increase), as well as by a
+    higher possibility to attract investors.
+  anchor:
+    status: verified
+    against: ia
+  category: administrative_burden
+  derivability:
+    verdict: 'yes'
+    reason: Articles 10(3), 10(6), 10(11) and 13(2) set out the information and reporting duties directly.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: disagree
+      reason: The anchor quote is precisely the certification/labelling cost figures, which the claim
+        itself says are a 'different cost' from the notification administrative burden it describes, so
+        the anchor does not support the claimed mechanism.
+    derivability:
+      verdict: agree
+      reason: Articles 10(3), 10(6), 10(11) and 13(2) directly impose notification, representative-appointment,
+        cessation-notice and information-response duties on providers.
+    category:
+      verdict: agree
+      reason: Filing notifications, appointing representatives and information duties are classic administrative_burden
+        items.
+    overall: disagree
+  tiebreak:
+    verdict: drop
+    original_category: administrative_burden
+    reason: The only anchor supplied is the certification/labelling cost figures, which the claim itself
+      says is a different cost from the notification-related administrative burden it describes; no IA
+      text is given to support the filing/legal-representative/cessation-notice burden claim.
+    model: claude-sonnet-5
+  provenance:
+    origin: llm_drafted
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
+possibly_missing:
+- candidate_id: c07_m01
+  affected_actor: Investors in data intermediaries
+  mechanism: Binding trust and neutrality conditions plus supervision lower the perceived risk of intermediaries.
+    This makes investors more willing to fund them.
+  impact: Intermediaries that meet the regime's conditions find it easier to attract investment.
+  why_missing: The draft's trust pair is about data holders and users, not about investors or access to
+    funding.
+  provision_keys:
+  - dga/proposal/art/10
+  - dga/proposal/art/11
+  - dga/proposal/art/13
+  ia_section: '6.1.3. Policy option 2: Lower intensity legislation'
+  ia_anchor: Increased trust in the market could also lead to an increase in funding, as investors would
+    consider it safer to invest in certified companies.
+  anchor:
+    status: verified
+    against: ia
+  category: innovation_investment
+  derivability:
+    verdict: 'no'
+    reason: The provisions say nothing about investment; the investor effect appears only in the IA, in
+      its discussion of a labelling scheme.
+  flags:
+  - not_derivable_from_provisions
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor verbatim states increased trust could lead to increased funding as investors see
+        certified companies as safer, matching the claimed actor, mechanism and effect.
+    derivability:
+      verdict: agree
+      reason: None of the cited provisions address investor behaviour or financing, so 'no' is correct.
+    category:
+      verdict: agree
+      reason: Easier access to investment funding due to lower perceived risk fits innovation_investment.
+    overall: agree
+  tiebreak:
+    verdict: drop
+    original_category: innovation_investment
+    reason: The anchor explicitly ties the investor-funding benefit to 'certified companies' under the
+      voluntary certification scheme, a mechanism not present in the adopted Articles 9-11, 13 notification
+      regime.
+    model: claude-sonnet-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c07_m02
+  affected_actor: Data holders (legal persons) sharing data via intermediaries
+  mechanism: Trusted, neutral intermediation services under Article 9(1)(a) and the conditions in Article
+    11 let holders earn revenue from their data through more transactions.
+  impact: Data holders earn more from sharing data.
+  why_missing: The draft covers holders getting trusted channels, not the revenue holders gain from more
+    sharing.
+  provision_keys:
+  - dga/proposal/art/9
+  - dga/proposal/art/11
+  ia_section: '6.1.3. Policy option 2: Lower intensity legislation'
+  ia_anchor: Data holders would have the opportunity to monetise more from data sharing while more individuals
+    would be willing to share their personal data
+  anchor:
+    status: verified
+    against: ia
+  category: market_competition
+  derivability:
+    verdict: partly
+    reason: The services that let holders reach data users are defined in the provisions, but the revenue
+      effect is stated only in the IA.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor states data holders would have the opportunity to monetise more from data sharing,
+        directly matching the claimed actor and effect.
+    derivability:
+      verdict: agree
+      reason: Article 9(1)(a) and Article 11 define the intermediation channel but say nothing about holder
+        revenue, matching 'partly'.
+    category:
+      verdict: disagree
+      reason: Earning more revenue from data sharing reflects data value creation, which fits innovation_investment
+        better than market_competition.
+    overall: disagree
+  tiebreak:
+    verdict: drop
+    original_category: market_competition
+    reason: This duplicates already-kept item c07_e05 (data holders monetising more, individuals more
+      willing to share personal data via intermediaries), and its anchor again ties the effect to 'certified
+      platforms,' a mechanism absent from Articles 9 and 11.
+    model: claude-sonnet-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c07_m03
+  affected_actor: Large integrated tech companies / platforms
+  mechanism: Neutral intermediaries, which must be a separate legal entity and may not use the data for
+    other purposes, offer an alternative to relying on integrated tech vendors. This weakens Big Tech's
+    growing control over data access.
+  impact: Less risk of platformisation and of Big Tech dominance in data intermediation.
+  why_missing: The draft's market-opening pair covers neutral providers entering the market, not the effect
+    on large integrated incumbents.
+  provision_keys:
+  - dga/proposal/art/11
+  ia_section: 6.1.1. Baseline scenario
+  ia_anchor: Overall, this would lead to a scenario in which large, integrated tech companies that have
+    already collected large volumes of data would further strengthen their position to decide on data
+    access.
+  anchor:
+    status: verified
+    against: ia
+  category: market_competition
+  derivability:
+    verdict: partly
+    reason: The neutrality conditions are in Article 11, but the effect on Big Tech comes from the IA's
+      baseline comparison.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: disagree
+      reason: The anchor describes the baseline (no-EU-action) scenario in which Big Tech strengthens
+        its position, which is the opposite framing of the claim that the intervention's neutral-intermediary
+        mechanism reduces Big Tech dominance.
+    derivability:
+      verdict: agree
+      reason: Article 11's neutrality conditions support an alternative to integrated providers, but the
+        Big Tech competitive-dynamics effect is not stated, matching 'partly'.
+    category:
+      verdict: agree
+      reason: Weakening Big Tech dominance and platformisation risk is a market structure concern, matching
+        market_competition.
+    overall: disagree
+  tiebreak:
+    verdict: drop
+    original_category: market_competition
+    reason: The anchor describes the no-EU-intervention baseline in which Big Tech strengthens its position
+      — the opposite framing from the claim that the adopted structural-separation rule in Article 11
+      weakens Big Tech dominance.
+    model: claude-sonnet-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null
+- candidate_id: c07_m04
+  affected_actor: SMEs as data users
+  mechanism: Intermediation services and data marketplaces under the notification regime help match supply
+    and demand for data. This gives smaller firms access to data they could not negotiate for on their
+    own.
+  impact: SMEs that use data get better access to data and to the value of big data.
+  why_missing: The only SME pair in the draft covers SMEs as intermediaries, not SMEs as data users.
+  provision_keys:
+  - dga/proposal/art/9
+  - dga/proposal/art/11
+  ia_section: 6.3. Impact on SMEs
+  ia_anchor: (e.g. by supporting data marketplaces), smaller companies would have better access to the
+    value of big data
+  anchor:
+    status: verified
+    against: ia
+  category: sme_specific
+  derivability:
+    verdict: partly
+    reason: The provisions cover marketplace-type services and fair access, but the specific benefit to
+      SMEs comes from the IA.
+  flags: []
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor verbatim states that supporting data marketplaces gives smaller companies better
+        access to the value of big data, matching the claimed actor, mechanism and effect.
+    derivability:
+      verdict: agree
+      reason: Article 9 and Article 11's fair-access rules support a matching mechanism, but the specific
+        SME-data-user benefit is not stated, matching 'partly'.
+    category:
+      verdict: agree
+      reason: The claim is specifically about SMEs' access to data, matching sme_specific.
+    overall: agree
+  tiebreak:
+    verdict: keep
+    original_category: sme_specific
+    reason: The anchor directly states that by supporting data marketplaces (the intermediation services
+      of Article 9, accessed fairly under Article 11) 'smaller companies would have better access to the
+      value of big data,' matching actor, mechanism and effect, and it is distinct from the already-kept
+      SME-as-intermediary item.
+    model: claude-sonnet-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_kept
+    audit: true
+    reviewer: null
+    note: null
+- candidate_id: c07_m05
+  affected_actor: EU economy and society at large
+  mechanism: More trust in intermediaries increases data sharing across the EU, which leads to more efficient
+    services and new data-driven products, including AI.
+  impact: Growth of the data economy beyond the intermediation market itself.
+  why_missing: The drafted pairs stop at the intermediation market and its direct participants; none covers
+    the wider effect on the economy.
+  provision_keys:
+  - dga/proposal/art/9
+  - dga/proposal/art/10
+  - dga/proposal/art/11
+  ia_section: 6.1. Economic impact
+  ia_anchor: The measures taken by the initiative would act as a catalyst to increase data sharing across
+    the EU.
+  anchor:
+    status: verified
+    against: ia
+  category: other
+  derivability:
+    verdict: 'no'
+    reason: The effect on the economy as a whole is an IA estimate and cannot be read from the provisions.
+  flags:
+  - not_derivable_from_provisions
+  judge:
+    anchor_faithfulness:
+      verdict: agree
+      reason: Anchor and surrounding text state the initiative acts as a catalyst increasing data sharing,
+        leading to more efficient services and new data-based products including AI, benefiting the EU
+        economy and society, matching the claim.
+    derivability:
+      verdict: agree
+      reason: The provisions regulate intermediaries only and say nothing about economy-wide data-driven
+        growth, so 'no' is correct.
+    category:
+      verdict: disagree
+      reason: Growth of the data economy via new data-driven products and services fits innovation_investment
+        rather than other.
+    overall: disagree
+  tiebreak:
+    verdict: drop
+    original_category: other
+    reason: The claimed economy-wide catalytic effect is a broad, general framing statement about the
+      Data Governance Act as a whole, far beyond what is derivable from Articles 9-11's notification and
+      conditions, and too diffuse to verify against these specific provisions.
+    model: claude-sonnet-5
+  provenance:
+    origin: llm_recall
+    status: llm_tiebroken
+    drafting_model: claude-opus-5-5
+  review:
+    decision: llm_dropped
+    audit: false
+    reviewer: null
+    note: null

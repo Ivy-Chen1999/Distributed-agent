@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WOMM Critical Path</title>
+<style>
+/* Demo audit 2026-10-15: the path from today to the demo, as dated bars. Local file. */
+:root { --bg:#f7f6f2; --panel:#fff; --fg:#1d2128; --muted:#5f6670; --rule:#dedbd2;
+  --owner:#2456a6; --people:#b4572e; --machine:#3d7a4f; --risk:#b3261e; }
+@media (prefers-color-scheme: dark) { :root { --bg:#14171c; --panel:#1c2027; --fg:#e6e8ec;
+  --muted:#9aa2ae; --rule:#2e343d; --owner:#7ea6e8; --people:#e39a72; --machine:#7cc795; --risk:#f08a80; color-scheme:dark } }
+body { background:var(--bg); color:var(--fg); font:15px/1.5 system-ui, sans-serif; margin:0; }
+.wrap { max-width:960px; margin:0 auto; padding:32px 16px 56px; display:grid; gap:20px; }
+h1 { font:600 1.8rem/1.2 Georgia, serif; margin:0; } h2 { font:600 1.1rem Georgia, serif; margin:0; }
+.eyebrow { font:500 .74rem ui-monospace, monospace; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
+.muted { color:var(--muted); } p { margin:0; max-width:72ch; }
+.box { background:var(--panel); border:1px solid var(--rule); border-radius:6px; padding:18px; display:grid; gap:10px; }
+.chart { overflow-x:auto; }
+.grid { position:relative; min-width:720px; }
+.row { display:grid; grid-template-columns:15rem 1fr; align-items:center; height:28px; border-bottom:1px solid var(--rule); }
+.lab { font-size:.85rem; padding-right:8px; }
+.lane { position:relative; height:100%; }
+.bar { position:absolute; top:6px; height:16px; border-radius:3px; opacity:.9; }
+.bar.slack { opacity:.25; }
+.mark { position:absolute; top:0; bottom:0; border-left:2px dashed var(--risk); }
+.mark span { position:absolute; top:-18px; left:4px; font:500 .7rem ui-monospace, monospace; color:var(--risk); white-space:nowrap; }
+.legend { display:flex; gap:14px; flex-wrap:wrap; font-size:.85rem; color:var(--muted); }
+.legend i { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:6px; vertical-align:-1px; }
+ol { margin:0; padding-left:20px; display:grid; gap:6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header style="display:grid;gap:8px">
+    <div class="eyebrow">WOMM v1 demo · audit · 2026-10-15</div>
+    <h1>From today to the demo: who waits on whom</h1>
+    <p class="muted">Solid bar: earliest realistic window. Faded bar: slack to the latest safe date.
+      Durations from the timeline audit: one case run on claude_code measured 12.5 min, on
+      gpt-6.1-sol about 7 min; case runs are sequential.</p>
+  </header>
+  <section class="box">
+    <div class="legend"><span><i style="background:var(--owner)"></i>owner</span>
+      <span><i style="background:var(--people)"></i>classmates</span>
+      <span><i style="background:var(--machine)"></i>machine</span></div>
+    <div class="chart"><div class="grid" id="g" style="padding-top:22px"></div></div>
+  </section>
+  <section class="box">
+    <h2>Binding constraint and risks</h2>
+    <ol>
+      <li><b>Two classmate sittings in a row</b> (reference check, then calibration) gate everything formal. Set a date today.</li>
+      <li><b>Calibration passes about half the time</b> for a judge whose true agreement is 85%. If it fails by 11-06, the demo uses the dev gate on Claude (outcome 7 in the talk tracks).</li>
+      <li><b>The dev cycle takes 13–16 h</b> over two days on the subscription; nothing in the worktree may change while it runs.</li>
+      <li><b>The holdout comparison takes 6–13 h</b> on the frozen branch; a 429 at the OpenAI limit makes it inconclusive (limit $100).</li>
+    </ol>
+  </section>
+</div>
+<script>
+const D = s => new Date(s + "T00:00:00Z").getTime();
+const start = D("2026-10-15"), end = D("2026-11-28"), span = end - start;
+const pct = s => ((D(s) - start) / span) * 100;
+const C = { o: "var(--owner)", p: "var(--people)", m: "var(--machine)" };
+const rows = [ // [label, who, earliest start, earliest end, latest]
+  ["0 OpenAI limit, data settings", "o", "2026-10-15", "2026-10-16", "2026-10-21"],
+  ["1 merge 11 drafts", "o", "2026-10-15", "2026-10-16", "2026-10-21"],
+  ["2 reference check", "p", "2026-10-16", "2026-10-21", "2026-10-23"],
+  ["3 owner rules 21 differences", "o", "2026-10-21", "2026-10-22", "2026-10-24"],
+  ["4a oracle check, publish cases", "o", "2026-10-22", "2026-10-23", "2026-10-25"],
+  ["4b calibration sitting", "p", "2026-10-23", "2026-10-28", "2026-11-06"],
+  ["5 holdout spot check, import", "o", "2026-10-22", "2026-10-23", "2026-11-06"],
+  ["7 R34 noise run", "m", "2026-10-28", "2026-10-29", "2026-11-07"],
+  ["dev cycle (40 calls)", "m", "2026-10-23", "2026-10-25", "2026-11-14"],
+  ["api twin val check", "m", "2026-10-29", "2026-10-30", "2026-11-20"],
+  ["holdout comparison (frozen)", "m", "2026-10-30", "2026-10-31", "2026-11-22"],
+  ["cross-judge re-score", "m", "2026-10-31", "2026-11-01", "2026-11-24"],
+];
+const g = document.getElementById("g");
+for (const [lab, who, a, b, late] of rows) {
+  const r = document.createElement("div"); r.className = "row";
+  r.innerHTML = `<span class="lab"></span><div class="lane"><div class="bar slack"></div><div class="bar"></div></div>`;
+  r.querySelector(".lab").textContent = lab;
+  const [slack, bar] = r.querySelectorAll(".bar");
+  slack.style.cssText = `left:${pct(a)}%;width:${pct(late) - pct(a)}%;background:${C[who]}`;
+  bar.style.cssText = `left:${pct(a)}%;width:${Math.max(pct(b) - pct(a), 1)}%;background:${C[who]}`;
+  g.append(r);
+}
+for (const [d, t] of [["2026-11-06", "11-06 cut-off"], ["2026-11-20", "11-20 route"], ["2026-11-27", "11-27 demo"]]) {
+  const m = document.createElement("div"); m.className = "mark";
+  m.style.left = `calc(15rem + (100% - 15rem) * ${pct(d) / 100})`;
+  m.innerHTML = `<span>${t}</span>`; g.append(m);
+}
+</script>
+</body>
+</html>

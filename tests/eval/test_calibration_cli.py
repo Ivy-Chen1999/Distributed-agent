@@ -1,0 +1,257 @@
+"""`womm calibrate sample|score` and `womm noise report` end to end (fake backends, no
+network): the human only fills in labels and commits the records file."""
+
+import asyncio
+import json
+import shutil
+
+import yaml
+
+from womm import cli
+from womm.eval import judge_calibration as jc
+from womm.eval.run_eval import write_report as write_eval_report
+from womm.evolve import promotion as pm
+
+from .calibration_factory import golden, make_report, write_report
+from .test_run_eval_fake import _evaluate, _script
+
+
+def _records(tmp_path):
+    path = tmp_path / "promotion_records.yaml"
+    shutil.copy(pm.RECORDS_PATH, path)
+    return path
+
+
+def _sv_file(tmp_path):
+    from ..graph.conftest import fake_sv
+
+    sv = fake_sv()
+    spec = sv.spec.model_dump(mode="json")
+    path = tmp_path / "fake_sv.yaml"
+    path.write_text(yaml.safe_dump(spec))
+    return path
+
+
+def test_calibrate_sample_then_score_and_record(fixture, tmp_path, capsys):
+    runs = tmp_path / "runs"
+    report = asyncio.run(_evaluate(fixture, _script(reps=2), repetitions=2, runs_dir=runs))
+    path = write_eval_report(report, runs)
+    out = tmp_path / "cal"
+    rc = cli.main(["calibrate", "sample", "--sv", str(_sv_file(tmp_path)), "--report", str(path),
+                   "--n", "4", "--seed", "3", "--annotator", "ann", "--annotator", "bob",
+                   "--out", str(out), "--json"])  # fmt: skip
+    assert rc == cli.EXIT_OK
+    summary = json.loads(capsys.readouterr().out)
+    assert summary["pairs"] == 4 and summary["judge_covered"] == 4  # the fake judge covers all
+    key = json.loads((out / jc.KEY_FILE).read_text())
+    for name, flip in (("ann", None), ("bob", sorted(key["pairs"])[0])):
+        answers_path = out / f"answers_{name}.yaml"
+        data = yaml.safe_load(answers_path.read_text())
+        for row in data["answers"]:
+            row["label"] = "not_covered" if row["pair_id"] == flip else "covered"
+        answers_path.write_text(yaml.safe_dump(data))
+    records = _records(tmp_path)
+    rc = cli.main(["calibrate", "score", "--dir", str(out), "--record", "--records",
+                   str(records)])  # fmt: skip
+    assert rc == cli.EXIT_OK, capsys.readouterr().err
+    text = capsys.readouterr().out
+    assert "gate agreement" in text and "recorded in" in text and "95% interval" in text
+    # Recorded for the audit, but 3 clear pairs and people agreeing on 75% do not count.
+    assert "does not count for promotion: only 3 pairs" in text and "below 80%" in text
+    calib = pm.load_records(records).judge_calibrations[-1]
+    assert calib.judge_version == key["judge_version"] and calib.annotators == ["ann", "bob"]
+    assert calib.pairs == 3 and calib.agreement == 1.0  # the tied pair is excluded
+    assert calib.excluded == 1
+    review = (out / "review.html").read_text()
+    assert "Grader check: review" in review and "Does not count" in review
+
+
+def test_score_refuses_to_record_blank_labels(tmp_path, capsys):
+    cases = golden(2)
+    runs = tmp_path / "runs"
+    report = write_report(runs / "eval.json", make_report(cases, runs_dir=runs))
+    out = tmp_path / "cal"
+    jc.write_sample(out, system_version="sv_test0000001", judge_version="jv_test0000001",
+                    reports=[report], cases=cases, runs_dirs=[], n=4, seed=1,
+                    annotators=["a"])  # fmt: skip
+    records = _records(tmp_path)
+    before = records.read_text()
+    rc = cli.main(["calibrate", "score", "--dir", str(out), "--record", "--records",
+                   str(records)])  # fmt: skip
+    assert rc == cli.EXIT_USAGE and "blank" in capsys.readouterr().err
+    assert records.read_text() == before
+
+
+def test_sample_refuses_a_holdout_report(tmp_path, capsys):
+    runs = tmp_path / "runs"
+    data = make_report(golden(1))
+    data["metadata"]["split"] = "holdout"
+    path = write_report(runs / "eval.json", data)
+    rc = cli.main(["calibrate", "sample", "--sv", str(_sv_file(tmp_path)), "--report", str(path),
+                   "--seed", "1", "--out", str(tmp_path / "cal")])  # fmt: skip
+    assert rc == cli.EXIT_USAGE and "holdout" in capsys.readouterr().err
+    assert not (tmp_path / "cal").exists()
+
+
+def _metric(case_id, metric, rep):
+    return 0.5 + 0.1 * ((rep + int(case_id[6])) % 3)
+
+
+def test_noise_report_records_a_formal_run_and_refuses_a_dev_one(tmp_path, capsys):
+    records = _records(tmp_path)
+    before = records.read_text()
+    dev = write_report(tmp_path / "dev.json", make_report(
+        golden(3, split="val"), reps=6, metric=_metric, backends=("claude_code",)))  # fmt: skip
+    args = ["noise", "report", "--holdout-cases", "8", "--holdout-proposals", "8", "--records",
+            str(records)]  # fmt: skip
+    rc = cli.main([*args, "--report", str(dev), "--record"])
+    assert rc == cli.EXIT_USAGE and "not a formal run" in capsys.readouterr().err
+    assert records.read_text() == before
+    rc = cli.main([*args, "--report", str(dev)])  # printing a dev noise run is fine
+    assert rc == cli.EXIT_OK and "not recordable" in capsys.readouterr().out
+
+    formal = write_report(tmp_path / "formal.json", make_report(
+        golden(3, split="val"), reps=6, metric=_metric, formal=True,
+        backends=("api",)))  # fmt: skip
+    rc = cli.main([*args, "--report", str(formal), "--record", "--json"])
+    assert rc == cli.EXIT_OK, capsys.readouterr().err
+    out = json.loads(capsys.readouterr().out)
+    assert out["design"]["repetitions"] == 3  # the policy's
+    loaded = pm.load_records(records)
+    assert len(loaded.formal_noise_runs) == 1 and loaded.formal_noise_runs[0].repetitions == 6
+    cov = loaded.mdd("coverage", "jv_test0000001")
+    assert cov is not None and cov.repetitions == 3 and cov.holdout_cases == 8
+    assert cov.mdd == round(out["metrics"]["coverage"]["mdd"], 4)
+
+
+# ----------------------------------------------------------------------------- data-driven R34
+
+
+def _formal_file(tmp_path, name, reps, experiment="womm-x-val-formal-1234", sha="abc"):
+    report = make_report(golden(3, split="val"), reps=reps, metric=_metric, formal=True,
+                         backends=("api",))  # fmt: skip
+    report["metadata"] |= {"langsmith_experiment": experiment, "git_sha": sha}
+    return write_report(tmp_path / name, report)
+
+
+R34_ARGS = ["noise", "report", "--holdout-cases", "8", "--holdout-proposals", "8"]
+
+
+def test_r34_first_run_extends_then_the_pooled_run_is_recorded(tmp_path, capsys):
+    records = _records(tmp_path)
+    first = _formal_file(tmp_path, "first.json", 3)
+    args = [*R34_ARGS, "--records", str(records)]
+    # without --record no part of the stop rule is shown: every attempt that reads it is recorded
+    assert cli.main([*args, "--report", str(first), "--json"]) == cli.EXIT_OK
+    assert "stop_rule" not in json.loads(capsys.readouterr().out)
+
+    assert cli.main([*args, "--report", str(first), "--record", "--json"]) == cli.EXIT_OK
+    out = json.loads(capsys.readouterr().out)
+    assert out["stop_rule"]["next_step"] == "extend"  # SD 0.1 over 6 dof straddles about 0.085
+    assert out["null_pass_rate"]["rate"] is not None
+    assert out["null_pass_rate"]["label"] == "lower bound: within-run noise only"
+    loaded = pm.load_records(records)
+    assert [a.next_step for a in loaded.noise_attempts] == ["extend"]
+    assert loaded.formal_noise_runs == [] and loaded.mdd_reports == []
+    inputs = loaded.noise_attempts[0].stop_inputs
+    assert (inputs["alpha"], inputs["power"]) == (0.05, 0.8)
+    assert loaded.noise_attempts[0].run_keys == ["womm-x-val-formal-1234"]
+
+    # the same report twice, or a second run of the wrong size, is no extension
+    assert cli.main([*args, "--report", str(first), "--report", str(first), "--record"]) == (
+        cli.EXIT_USAGE)  # fmt: skip
+    assert "differ" in capsys.readouterr().err
+    big = _formal_file(tmp_path, "big.json", 6, experiment="womm-x-val-formal-6666")
+    assert cli.main([*args, "--report", str(first), "--report", str(big), "--record"]) == (
+        cli.EXIT_USAGE)  # fmt: skip
+    assert "3 repetitions" in capsys.readouterr().err
+
+    again = _formal_file(tmp_path, "again.json", 3, experiment="womm-x-val-formal-9999")
+    assert cli.main([*args, "--report", str(again), "--record"]) == cli.EXIT_USAGE
+    assert "already" in capsys.readouterr().err
+
+    second = _formal_file(tmp_path, "second.json", 3, experiment="womm-x-val-formal-5678")
+    changed = ["noise", "report", "--holdout-cases", "9", "--holdout-proposals", "8"]
+    rc = cli.main([*changed, "--records", str(records), "--report", str(first), "--report",
+                   str(second), "--record"])  # fmt: skip
+    assert rc == cli.EXIT_USAGE and "stop-rule inputs" in capsys.readouterr().err
+
+    rc = cli.main([*args, "--report", str(first), "--report", str(second), "--record", "--json"])
+    assert rc == cli.EXIT_OK, capsys.readouterr().err
+    out = json.loads(capsys.readouterr().out)
+    assert out["attempt"] == {"kind": "extension", "next_step": "final"}
+    loaded = pm.load_records(records)
+    run = loaded.formal_noise_runs[0]
+    assert run.repetitions == 6 and run.experiment == (
+        "womm-x-val-formal-1234, womm-x-val-formal-5678")  # fmt: skip
+    assert [a.kind for a in loaded.noise_attempts] == ["first", "extension"]
+    assert loaded.noise_attempts[1].run_keys == ["womm-x-val-formal-1234",
+                                                 "womm-x-val-formal-5678"]  # fmt: skip
+    assert loaded.noise_chain_problems(run.judge_version) == []
+
+
+def test_r34_fallback_run_of_six_after_an_unfinished_extension(tmp_path, capsys):
+    records = _records(tmp_path)
+    args = [*R34_ARGS, "--records", str(records)]
+    first = _formal_file(tmp_path, "first.json", 3)
+    assert cli.main([*args, "--report", str(first), "--record"]) == cli.EXIT_OK
+    capsys.readouterr()
+    fresh = _formal_file(tmp_path, "fresh.json", 6, experiment="womm-x-val-formal-7777",
+                         sha="def")  # fmt: skip
+    assert cli.main([*args, "--report", str(fresh), "--record", "--json"]) == cli.EXIT_OK
+    out = json.loads(capsys.readouterr().out)
+    assert out["attempt"] == {"kind": "fallback", "next_step": "final"}
+    loaded = pm.load_records(records)
+    assert [a.kind for a in loaded.noise_attempts] == ["first", "fallback"]
+    assert loaded.formal_noise_runs[0].repetitions == 6
+
+
+def test_r34_record_refuses_another_design_or_an_unlogged_chain(tmp_path, capsys):
+    records = _records(tmp_path)
+    args = [*R34_ARGS, "--records", str(records)]
+    first = _formal_file(tmp_path, "first.json", 3)
+    rc = cli.main([*args, "--report", str(first), "--record", "--repetitions", "6"])
+    assert rc == cli.EXIT_USAGE and "repetitions" in capsys.readouterr().err
+    # a logged formal run that no attempt reads blocks recording
+    stray = pm.FormalRun(
+        experiment="womm-x-val-formal-0000",
+        report="eval_0.json",
+        git_sha="abc",
+        judge_version="jv_test0000001",
+        system_version="sv_test0000001",
+        split="val",
+        repetitions=3,
+        finished_at="2026-10-21T09:00:00",
+    )
+    pm.append_records(records, "formal_runs", [stray.model_dump()])
+    rc = cli.main([*args, "--report", str(first), "--record"])
+    assert rc == cli.EXIT_USAGE and "not part of" in capsys.readouterr().err
+
+
+def test_r34_fallback_must_match_the_first_run(tmp_path, capsys):
+    records = _records(tmp_path)
+    args = [*R34_ARGS, "--records", str(records)]
+    assert cli.main([*args, "--report", str(_formal_file(tmp_path, "f.json", 3)),
+                     "--record"]) == cli.EXIT_OK  # fmt: skip
+    capsys.readouterr()
+    other = make_report(golden(3, split="val"), reps=6, metric=_metric, formal=True,
+                        backends=("api",), sv="sv_other")  # fmt: skip
+    other["metadata"] |= {"langsmith_experiment": "womm-x-val-formal-8888", "git_sha": "def"}
+    path = write_report(tmp_path / "other.json", other)
+    assert cli.main([*args, "--report", str(path), "--record"]) == cli.EXIT_USAGE
+    assert "system_version" in capsys.readouterr().err
+
+
+def test_formal_eval_runs_are_logged(tmp_path):
+    from womm.eval import noise_report as nr
+
+    records = _records(tmp_path)
+    report = make_report(golden(3, split="val"), reps=3, metric=_metric, formal=True,
+                         backends=("api",))  # fmt: skip
+    report["metadata"]["git_sha"] = "abc"
+    nr.log_formal_run(records, report, tmp_path / "eval_x.json", "2026-10-21T09:00:00")
+    run = pm.load_records(records).formal_runs[0]
+    assert (run.run_key, run.repetitions, run.split) == ("womm-x-val-formal-1234", 3, "val")
+    report["metadata"]["langsmith_experiment"] = None
+    nr.log_formal_run(records, report, tmp_path / "eval_y.json", "2026-10-21T10:00:00")
+    assert pm.load_records(records).formal_runs[1].run_key == "eval_y.json"

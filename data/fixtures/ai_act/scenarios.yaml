@@ -68,6 +68,17 @@ scenarios:
   after_version: reg2024_1689_c20260727
   provision_keys: []
   ia_reference: null
+- scenario_id: final_vs_proposal
+  kind: demo
+  mode: explore
+  description: 'COM(2021) 206 proposal -> Regulation (EU) 2024/1689 as adopted, the whole act. The Planner
+    chooses the provisions to study from the index of the changed articles and annexes. With a cost-enabled
+    version, the dossier marks the cost records on obligations added after the proposal: costs the ex-ante
+    impact assessment could not see. A demo, never scored.'
+  before_version: com2021_206
+  after_version: reg2024_1689
+  provision_keys: []
+  ia_reference: null
 - scenario_id: omnibus_2026
   kind: demo
   mode: explore

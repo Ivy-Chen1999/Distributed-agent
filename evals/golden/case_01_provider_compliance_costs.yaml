@@ -33,6 +33,7 @@ expected_impacts:
       - ai_act/high_risk/data_governance
       - ai_act/high_risk/risk_management
     ia_section: SWD(2021) 84 Part 1 §6.1.3 (Table 8); Part 2 Annex 4
+    category: compliance_cost
   - expected_id: c01_e02
     affected_actor: Providers (suppliers) of high-risk AI systems
     mechanism: >-
@@ -47,6 +48,7 @@ expected_impacts:
       - ai_act/high_risk/record_keeping
       - ai_act/high_risk/provider_obligations
     ia_section: SWD(2021) 84 Part 1 §6.1.3 (Table 8); Part 2 Annex 4
+    category: administrative_burden
   - expected_id: c01_e03
     affected_actor: Providers (suppliers) of high-risk AI systems
     mechanism: >-
@@ -59,6 +61,7 @@ expected_impacts:
     provision_keys:
       - ai_act/high_risk/transparency_information
     ia_section: SWD(2021) 84 Part 1 §6.1.3 (Table 8); Part 2 Annex 4
+    category: administrative_burden
   - expected_id: c01_e04
     affected_actor: Providers (suppliers) of high-risk AI systems following standard business procedures
     mechanism: >-
@@ -73,6 +76,7 @@ expected_impacts:
       - ai_act/high_risk/compliance_with_requirements
       - ai_act/high_risk/provider_obligations
     ia_section: SWD(2021) 84 Part 1 §6.1.3; Part 2 Annex 3 (Table 5) and Annex 4
+    category: compliance_cost
   - expected_id: c01_e05
     affected_actor: Providers of high-risk AI systems that do not follow state-of-the-art business procedures
     mechanism: >-
@@ -85,6 +89,7 @@ expected_impacts:
     provision_keys:
       - ai_act/high_risk/accuracy_robustness_cybersecurity
     ia_section: SWD(2021) 84 Part 1 §6.1.3 (Table 8a); Part 2 Annex 4
+    category: compliance_cost
   - expected_id: c01_e06
     affected_actor: Users (deployers) of high-risk AI systems
     mechanism: >-
@@ -99,6 +104,7 @@ expected_impacts:
     provision_keys:
       - ai_act/high_risk/human_oversight
     ia_section: SWD(2021) 84 Part 1 §6.1.3 (Table 8b, Table 9 note); Part 2 Annex 3 (Table 5)
+    category: compliance_cost
   - expected_id: c01_e07
     affected_actor: Users (deployers) of high-risk AI systems
     mechanism: >-
@@ -109,6 +115,7 @@ expected_impacts:
     provision_keys:
       - ai_act/high_risk/record_keeping
     ia_section: SWD(2021) 84 Part 1 §6.1.3 and §6.1.4
+    category: administrative_burden
   - expected_id: c01_e08
     affected_actor: >-
       Providers whose high-risk AI systems require third-party conformity assessment (AI safety
@@ -125,6 +132,7 @@ expected_impacts:
       - ai_act/high_risk/quality_management_system
       - ai_act/high_risk/conformity_assessment
     ia_section: SWD(2021) 84 Part 1 §6.1.3 (verification costs); Part 2 Annex 3 (Table 5) and Annex 4
+    category: compliance_cost
   - expected_id: c01_e09
     affected_actor: >-
       Providers of high-risk AI systems subject to third-party conformity assessment, and
@@ -141,6 +149,7 @@ expected_impacts:
     provision_keys:
       - ai_act/high_risk/conformity_assessment
     ia_section: SWD(2021) 84 Part 1 §6.1.3 (verification costs, Table 9)
+    category: compliance_cost
   - expected_id: c01_e10
     affected_actor: Providers of high-risk AI systems in the EU (aggregate)
     mechanism: >-
@@ -155,6 +164,7 @@ expected_impacts:
       - ai_act/high_risk/compliance_with_requirements
       - ai_act/high_risk/provider_obligations
     ia_section: SWD(2021) 84 Part 1 §6.1.3 (Table 9)
+    category: compliance_cost
 important_omissions:
   - omission_id: c01_o01
     description: >-
@@ -170,6 +180,7 @@ important_omissions:
     source: >-
       RSB opinion (Annex 1.3), first submission, findings (3) and what to improve (4); response
       in SWD(2021) 84 Part 1 §6.1.3
+    category: compliance_cost
   - omission_id: c01_o02
     description: >-
       Human oversight cost falls on users as a recurring operating cost (about EUR 5 000-8 000
@@ -178,6 +189,7 @@ important_omissions:
     provision_keys:
       - ai_act/high_risk/human_oversight
     source: SWD(2021) 84 Part 1 §6.1.3 (Table 8b, Table 9 note); Part 2 Annex 4
+    category: compliance_cost
   - omission_id: c01_o03
     description: >-
       Estimates are theoretical maxima: costs are zero for requirements a provider already
@@ -189,6 +201,7 @@ important_omissions:
     source: >-
       SWD(2021) 84 Part 1 §6.1.3; Part 2 Annex 4 (business-as-usual factor, deviations from the
       support study), added in response to the RSB second-submission request on cost methodology
+    category: compliance_cost
   - omission_id: c01_o04
     description: >-
       Third-party conformity assessment (with QMS audit and notified-body documentation review)
@@ -197,3 +210,4 @@ important_omissions:
     provision_keys:
       - ai_act/high_risk/conformity_assessment
     source: SWD(2021) 84 Part 1 §6.1.3 (verification costs, Table 9)
+    category: compliance_cost

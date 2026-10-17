@@ -1,5 +1,9 @@
 # UI Design Prompt — WOMM demo frontend
 
+> **State on 2026-10-12:** all four pages exist in `web/` (the Evaluation and Evolution pages too),
+> plus a Costs tab on the run detail and a provision comparison view. For a redesign, read
+> `docs/ui/README.md` (Redesign handoff) first: it says which code to keep and what is free.
+
 > Copy the "Prompt" section below into a design tool (Claude Design, v0, Figma AI, etc.). Field names match `docs/ui/schema/*.json` and `docs/ui/sample_run.json`, so generated pages can use the mock data directly.
 
 ---

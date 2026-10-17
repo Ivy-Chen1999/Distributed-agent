@@ -1,0 +1,32 @@
+# Import settings for 52023PC0094; rerun scripts/import_proposal.py after editing.
+# strip_patterns / redactions / leak_allow / quant_allow are reviewed exceptions to the
+# memorandum leak guards (reasons stay here, never in sources.json).
+# IA identifiers live only in the gitignored evals/private/ia_index.yaml.
+celex: 52023PC0094
+regulation_id: gigabit
+title: Gigabit Infrastructure Act
+document_url: https://publications.europa.eu/resource/cellar/03b1958e-b362-11ed-8912-01aa75ed71a1.0001.03/DOC_1
+date: null
+strip_patterns: {}
+redactions:
+- section: 1.1.
+  sentence: The 2020 Communication on ‘Shaping Europe’s Digital Future’ estimated
+  reason: 'quantified estimate restated in the memorandum; manual review: redacted'
+- section: 1.1.
+  sentence: The share of households having access to 30 Mbps
+  reason: 'quantified background statistic of the kind used to size the problem; manual review: redacted'
+leak_allow: []
+quant_allow: []
+scenarios:
+- scenario_id: eval_infrastructure_access_and_permits
+  description: Access to and transparency on existing physical infrastructure, coordination and transparency
+    of civil works, permit-granting procedures, and in-building physical infrastructure, fibre wiring
+    and access to it (proposal only, no prior version).
+  articles:
+  - '3'
+  - '4'
+  - '5'
+  - '6'
+  - '7'
+  - '8'
+  - '9'

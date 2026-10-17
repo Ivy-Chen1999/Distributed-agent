@@ -6,7 +6,7 @@ import type { GroupMode } from './model/dossier';
 import type { RunView } from './model/pipeline';
 import type { RunDetail, RunSummary, Scenario, ScenarioSources, SystemInfo } from './types';
 
-export type DetailTab = 'impacts' | 'chains' | 'disagree' | 'questions' | 'log';
+export type DetailTab = 'impacts' | 'chains' | 'disagree' | 'questions' | 'costs' | 'log';
 
 export interface ChatMessage {
   bot: boolean;

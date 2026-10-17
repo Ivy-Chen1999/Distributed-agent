@@ -1,0 +1,44 @@
+name: v1.0-cost
+description: >
+  Cost-analysis candidate (EU cost plan, not a promotion): v1.0-unscoped plus the cost step,
+  which turns the run's duties and prohibitions into cost records (payer, effort type, ordinal
+  one-off and recurring bands, dates) in a separate dossier section. Experts, prompts, router and
+  retrieval caps are those of v1.0-unscoped, so the board, synthesis and judge input are
+  unchanged. The cost prompt is not evolvable and the self-evolution base stays v1.0-unscoped.
+planner:
+  backend: claude_code
+  model: claude-sonnet-5
+  prompt: prompts/planner.md
+  explore_prompt: prompts/v1/planner_explore.md
+synthesis:
+  backend: claude_code
+  model: claude-sonnet-5
+  prompt: prompts/v0.3/synthesis.md
+  timeout_s: 480
+judge:
+  backend: claude_code
+  model: claude-sonnet-5
+  prompt: prompts/judge_coverage.md
+experts:
+  - id: legal
+    domain: legal
+    role: {backend: claude_code, model: claude-sonnet-5, prompt: prompts/v0.3/legal.md, timeout_s: 480}
+  - id: fiscal
+    domain: fiscal
+    role: {backend: claude_code, model: claude-sonnet-5, prompt: prompts/v0.3/fiscal.md, timeout_s: 480}
+  - id: stakeholder
+    domain: stakeholder
+    role: {backend: claude_code, model: claude-sonnet-5, prompt: prompts/v0.3/stakeholder.md, timeout_s: 480}
+router:
+  mode: shadow
+  decider: stub
+max_parallel_llm_calls: 3
+retrieval:
+  max_provisions: 8
+  max_prompt_chars: 60000
+cost:
+  backend: claude_code
+  model: claude-sonnet-5
+  prompt: prompts/v1/cost.md
+  timeout_s: 480
+  max_records_per_call: 60

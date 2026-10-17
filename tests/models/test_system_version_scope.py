@@ -21,7 +21,7 @@ PINNED_IDS = {
     "v0.1-api.yaml": "sv_d4b62f8eabca",
     "v0.1-jev.yaml": "sv_3f5a7b41a35f",
     "v0.2-candidate.yaml": "sv_7ced81aab2d0",
-    "v0.3-api.yaml": "sv_052a818610f1",
+    "v0.3-api.yaml": "sv_9bb77fcff011",  # GPT-6 models pinned 2026-10-14
     "v0.3-candidate.yaml": "sv_c28e04120c37",
 }
 # Files added together with or after data scopes; their ids are new. They are pinned too, so a
@@ -31,12 +31,19 @@ NEW_FILES = {
     "v1.0-unscoped.yaml",
     "v1.0-scoped-api.yaml",
     "v1.0-unscoped-api.yaml",
+    "v1.0-cost.yaml",
+    "v1.0-cost-api.yaml",
+}
+# Cost-analysis candidates (EU cost plan U3): v1.0-unscoped and its api twin plus a cost role.
+COST_PINNED_IDS = {
+    "v1.0-cost.yaml": "sv_1f12d8afd1e7",
+    "v1.0-cost-api.yaml": "sv_1bde34aae112",
 }
 NEW_PINNED_IDS = {
     "v1.0-scoped.yaml": "sv_735b080cf78a",
     "v1.0-unscoped.yaml": "sv_73c6a3fdd013",
-    "v1.0-scoped-api.yaml": "sv_21cba366298d",
-    "v1.0-unscoped-api.yaml": "sv_761d872bb18e",
+    "v1.0-scoped-api.yaml": "sv_d5f294d7b5bd",
+    "v1.0-unscoped-api.yaml": "sv_43cee2e14602",
 }
 # api twins: the pre-registered scoped vs unscoped comparison runs on these.
 API_TWINS = {
@@ -77,22 +84,31 @@ def test_new_version_ids_are_pinned(name):
     assert load_system_version(SV_DIR / name, REPO_ROOT).version_id == NEW_PINNED_IDS[name]
 
 
+@pytest.mark.parametrize("name", sorted(COST_PINNED_IDS))
+def test_cost_version_ids_are_pinned(name):
+    assert load_system_version(SV_DIR / name, REPO_ROOT).version_id == COST_PINNED_IDS[name]
+
+
 @pytest.mark.parametrize("twin", sorted(API_TWINS))
 def test_api_twins_differ_from_their_versions_only_in_backend_and_model(twin):
     """Same prompts, scopes, router and retrieval caps; every role on the api backend with
-    v0.3-api's model id."""
-    api_model = load_system_version(SV_DIR / "v0.3-api.yaml", REPO_ROOT).spec.planner.model
+    v0.3-api's model and reasoning effort for that role."""
+    api = load_system_version(SV_DIR / "v0.3-api.yaml", REPO_ROOT).spec.model_dump()
     got = load_system_version(SV_DIR / twin, REPO_ROOT).spec.model_dump()
     base = load_system_version(SV_DIR / API_TWINS[twin], REPO_ROOT).spec.model_dump()
-    roles = [got[r] for r in ("planner", "synthesis", "judge")] + [
-        e["role"] for e in got["experts"]
-    ]
-    assert {(r["backend"], r["model"]) for r in roles} == {("api", api_model)}
+    pinned = ("backend", "model", "reasoning_effort")
+    for r in ("planner", "synthesis", "judge"):
+        assert {k: got[r][k] for k in pinned} == {k: api[r][k] for k in pinned}
+    api_experts = {e["id"]: e["role"] for e in api["experts"]}
+    for e in got["experts"]:
+        assert {k: e["role"][k] for k in pinned} == {k: api_experts[e["id"]][k] for k in pinned}
     for spec in (got, base):
         for r in ("planner", "synthesis", "judge"):
-            spec[r].pop("backend"), spec[r].pop("model")
+            for k in pinned:
+                spec[r].pop(k)
         for e in spec["experts"]:
-            e["role"].pop("backend"), e["role"].pop("model")
+            for k in pinned:
+                e["role"].pop(k)
         spec.pop("name"), spec.pop("description", None)
     assert got == base
 
@@ -199,3 +215,13 @@ def test_derive_keeps_scopes(tmp_path):
     derived = derive_system_version(sv, tmp_path, backends={"expert:fiscal": "api"})
     assert derived.spec.experts[0].scope == sv.spec.experts[0].scope
     assert derived.version_id != sv.version_id
+
+
+def test_reasoning_effort_is_hashed_only_when_set(tmp_path):
+    plain = load_system_version(_write(tmp_path, _spec(), "a.yaml"), tmp_path)
+    spec = _spec()
+    spec["judge"] = {**ROLE, "reasoning_effort": "medium"}
+    pinned = load_system_version(_write(tmp_path, spec, "b.yaml"), tmp_path)
+    assert "reasoning_effort" not in plain.spec.canonical_dump()["judge"]
+    assert pinned.spec.canonical_dump()["judge"]["reasoning_effort"] == "medium"
+    assert pinned.version_id != plain.version_id

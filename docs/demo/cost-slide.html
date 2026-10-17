@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WOMM Running Cost</title>
+<style>
+/* Demo slide #9 (hard question "what does it cost?"). Local file; numbers from logged usage. */
+:root { --bg:#f7f6f2; --panel:#fff; --fg:#1d2128; --muted:#5f6670; --rule:#dedbd2;
+  --api:#2456a6; --claude:#b4572e; --judge:#8a8f98; }
+@media (prefers-color-scheme: dark) { :root { --bg:#14171c; --panel:#1c2027; --fg:#e6e8ec;
+  --muted:#9aa2ae; --rule:#2e343d; --api:#7ea6e8; --claude:#e39a72; --judge:#6c727c; color-scheme:dark } }
+body { background:var(--bg); color:var(--fg); font:15px/1.55 system-ui, sans-serif; margin:0; }
+.wrap { max-width:880px; margin:0 auto; padding:32px 16px 56px; display:grid; gap:22px; }
+h1 { font:600 1.9rem/1.2 Georgia, serif; margin:0; }
+h2 { font:600 1.1rem/1.3 Georgia, serif; margin:0; }
+.eyebrow { font:500 .74rem ui-monospace, monospace; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
+.muted { color:var(--muted); } p { margin:0; max-width:70ch; }
+.box { background:var(--panel); border:1px solid var(--rule); border-radius:6px; padding:18px; display:grid; gap:12px; }
+.kpis { display:flex; flex-wrap:wrap; gap:10px; }
+.kpi { background:var(--panel); border:1px solid var(--rule); border-radius:6px; padding:12px 14px; min-width:150px; display:grid; gap:2px; }
+.kpi b { font:600 1.6rem Georgia, serif; font-variant-numeric:tabular-nums; }
+.bar-row { display:grid; grid-template-columns:11rem 1fr 4.5rem; gap:10px; align-items:center; }
+.track { background:var(--bg); border-radius:3px; height:18px; display:flex; overflow:hidden; }
+.seg { height:100%; } .num { font:500 .85rem ui-monospace, monospace; text-align:right; font-variant-numeric:tabular-nums; }
+.legend { display:flex; gap:14px; flex-wrap:wrap; font-size:.85rem; color:var(--muted); }
+.legend i { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:6px; vertical-align:-1px; }
+table { border-collapse:collapse; width:100%; font-size:.9rem; } td, th { padding:6px 8px; border-bottom:1px solid var(--rule); text-align:left; vertical-align:top; }
+td.r, th.r { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+@media (max-width:520px) { .bar-row { grid-template-columns:1fr 3.8rem; } .bar-row .lab { grid-column:1 / -1; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header style="display:grid;gap:8px">
+    <div class="eyebrow">WOMM v1 demo · running cost · numbers as of 2026-10-15</div>
+    <h1>What one run, one comparison and one cycle cost</h1>
+    <p class="muted">From logged token usage, priced at official list prices (USD per 1M tokens:
+      gpt-6.1-sol $2 input / $0.10 cached / $10 output; Claude figures are the API-equivalent cost the
+      Claude Code CLI reports for each call). Development runs on a flat subscription, so the Claude
+      column is what the same work would cost on the API, not money spent.</p>
+  </header>
+
+  <div class="kpis">
+    <div class="kpi"><span class="eyebrow">One case run, formal (sol)</span><b>~$0.45</b><span class="muted">$0.35 system + ~$0.10 judge · ~7 min</span></div>
+    <div class="kpi"><span class="eyebrow">One case run, dev (Claude)</span><b>$1.17</b><span class="muted">median API-equivalent, n=35 · $0 on subscription</span></div>
+    <div class="kpi"><span class="eyebrow">The one holdout comparison</span><b>$22–44</b><span class="muted">8 cases × 2 arms × 3–6 reps · 6–13 h</span></div>
+    <div class="kpi"><span class="eyebrow">Whole demo, API</span><b>$34–65</b><span class="muted">one holdout comparison; $65 with a calibration retry; OpenAI limit set to $100</span></div>
+  </div>
+
+  <section class="box">
+    <h2>One case run, by role</h2>
+    <div class="legend"><span><i style="background:var(--api)"></i>gpt-6.1-sol, pilot case_02 (measured)</span>
+      <span><i style="background:var(--claude)"></i>Claude dev runs, median by role (API-equivalent)</span>
+      <span><i style="background:var(--judge)"></i>judge (estimate)</span></div>
+    <div id="roles" style="display:grid;gap:8px"></div>
+    <p class="muted" style="font-size:.85rem">sol pilot: 43.8k input and 26.4k output tokens, no cached input
+      counted; the Planner ran on luna in the pilot and is priced here at sol. Claude: 35 saved runs of two
+      scenarios, $0.72–1.76 per run; experts are about 70% of the cost in both.</p>
+  </section>
+
+  <section class="box">
+    <h2>Where the demo's API money goes</h2>
+    <table>
+      <thead><tr><th>Step</th><th>Why it must be on the API</th><th class="r">Cost</th></tr></thead>
+      <tbody>
+        <tr><td>Step 4 train eval (calibration outputs)</td><td>the incumbent's outputs, scored by the api judge, are what the judge is calibrated on</td><td class="r">~$5</td></tr>
+        <tr><td>R34 noise run</td><td>noise of the system the gate compares</td><td class="r">$4–8</td></tr>
+        <tr><td>Val check of the candidate's api twin</td><td>prompts tuned on Claude must hold on sol</td><td class="r">~$3</td></tr>
+        <tr><td>Holdout comparison 1</td><td>the formal gate</td><td class="r">$22–44</td></tr>
+        <tr><td>Cross-judge re-score</td><td>runs on Claude</td><td class="r">$0</td></tr>
+        <tr><td>Evolution cycles</td><td>run on Claude</td><td class="r">$0</td></tr>
+        <tr><td>Calibration retry (only if the first fails)</td><td>new sample needs fresh api outputs</td><td class="r">~$5</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="box">
+    <h2>One evolution cycle, if it were paid for</h2>
+    <p>The cycle has not run against a real model yet, so this is an estimate. A cycle is capped at
+      40 GEPA metric calls (owner 2026-10-15); with the train replays and val replays that is about
+      78 case runs. At the measured 12.5 minutes and $1.17 API-equivalent per Claude run, that is
+      about <b>13–16 hours</b> over two days and about <b>$90</b> of API-equivalent usage, paid by
+      the flat subscription ($0). Cached replays make it cheaper; the first real cycle's logged
+      usage replaces this estimate.</p>
+  </section>
+
+  <section class="box">
+    <h2>Safeguards</h2>
+    <p>Every api call now records its list-price cost (2026-10-15 fix), so <code>--max-usd</code> on cost
+      sweeps and the evolve budget are enforced on api runs; a model without a known price is refused
+      by any USD cap. Eval reports also record the judge's tokens and cost per case
+      (<code>judge_cost_usd</code>), so the first formal run replaces the judge estimate above. The OpenAI
+      account carries a monthly limit as the outer cap.</p>
+  </section>
+</div>
+<script>
+const roles = [ // [role, sol measured, claude median]
+  ["Planner", 0.012, 0.069], ["Experts (3)", 0.249, 0.837], ["Synthesis", 0.090, 0.274], ["Judge", 0.10, null]];
+const max = 1.2, box = document.getElementById("roles");
+for (const [name, sol, cl] of roles) {
+  for (const [v, color, tag] of [[sol, name === "Judge" ? "var(--judge)" : "var(--api)", "sol"], [cl, "var(--claude)", "Claude"]]) {
+    if (v == null) continue;
+    const row = document.createElement("div"); row.className = "bar-row";
+    row.innerHTML = `<span class="lab"></span><div class="track"><div class="seg"></div></div><span class="num"></span>`;
+    row.querySelector(".lab").textContent = `${name} · ${tag}`;
+    const seg = row.querySelector(".seg"); seg.style.width = `${(v / max) * 100}%`; seg.style.background = color;
+    row.querySelector(".num").textContent = `$${v.toFixed(2)}`;
+    box.append(row);
+  }
+}
+</script>
+</body>
+</html>

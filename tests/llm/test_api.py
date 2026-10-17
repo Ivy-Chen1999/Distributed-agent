@@ -50,8 +50,8 @@ class FakeChatModel:
 def make(steps):
     created: dict[str, Any] = {}
 
-    def factory(model, provider):
-        created["model"], created["provider"] = model, provider
+    def factory(model, provider, **kwargs):
+        created["model"], created["provider"], created["kwargs"] = model, provider, kwargs
         created["chat"] = FakeChatModel(steps)
         return created["chat"]
 
@@ -80,6 +80,14 @@ async def test_structured_output_and_usage_from_raw_message():
     assert created["model"] == "openai:gpt-test"
     assert chat.schema is Out and chat.include_raw is True
     assert chat.structured.inputs[0] == [("system", "SYS"), ("human", "USER")]
+    assert created["kwargs"] == {}
+
+
+async def test_pinned_reasoning_effort_reaches_the_chat_model():
+    backend, created = make([raw(Out(value=1))])
+    cfg = CFG.model_copy(update={"reasoning_effort": "medium"})
+    await backend.call("judge", "SYS", "USER", Out, cfg, agent=None)
+    assert created["kwargs"] == {"reasoning_effort": "medium"}
 
 
 async def test_parsing_error_retries_then_schema_invalid():
@@ -124,3 +132,52 @@ async def test_timeout():
     with pytest.raises(LLMError) as ei:
         await backend.call("planner", "s", "u", Out, CFG.model_copy(update={"timeout_s": 0.05}))
     assert ei.value.error_kind == "timeout"
+
+
+async def test_known_model_cost_from_list_prices_with_cached_input():
+    backend, _ = make([{"raw": AIMessage(content="", usage_metadata={
+        "input_tokens": 1_000_000, "output_tokens": 100_000, "total_tokens": 1_100_000,
+        "input_token_details": {"cache_read": 400_000}}), "parsed": Out(value=1),
+        "parsing_error": None}])  # fmt: skip
+    cfg = CFG.model_copy(update={"model": "openai:gpt-6.1-sol"})
+    _, usage = await backend.call("judge", "SYS", "USER", Out, cfg, agent=None)
+    # 600k uncached x $2 + 400k cached x $0.10 + 100k output x $10, per 1M tokens
+    assert usage.cost_usd == pytest.approx(1.2 + 0.04 + 1.0)
+
+
+async def test_unknown_model_has_no_cost():
+    backend, _ = make([raw(Out(value=1))])
+    _, usage = await backend.call("planner", "SYS", "USER", Out, CFG, agent=None)
+    assert usage.cost_usd is None
+
+
+async def test_failed_parse_still_carries_cost():
+    backend, _ = make([raw(None, ValueError("bad json"), in_tok=1_000_000, out_tok=0)] * 3)
+    cfg = CFG.model_copy(update={"model": "openai:gpt-6-luna"})
+    with pytest.raises(LLMError) as ei:
+        await backend.call("planner", "SYS", "USER", Out, cfg, agent=None)
+    assert ei.value.usage.cost_usd == pytest.approx(3 * 0.10)
+
+
+def test_every_api_model_in_system_versions_has_a_list_price():
+    """Otherwise its runs record no cost and every --max-usd / budget cap refuses them."""
+    import pathlib
+
+    import yaml
+
+    from womm.llm.api import PRICES_PER_MTOK
+
+    def api_models(node):
+        if isinstance(node, dict):
+            if node.get("backend") == "api" and "model" in node:
+                yield node["model"]
+            for v in node.values():
+                yield from api_models(v)
+        elif isinstance(node, list):
+            for v in node:
+                yield from api_models(v)
+
+    root = pathlib.Path(__file__).resolve().parents[2] / "system_versions"
+    found = {m for f in root.glob("*.yaml") for m in api_models(yaml.safe_load(f.read_text()))}
+    assert found, "no api roles found"
+    assert found <= PRICES_PER_MTOK.keys(), found - PRICES_PER_MTOK.keys()

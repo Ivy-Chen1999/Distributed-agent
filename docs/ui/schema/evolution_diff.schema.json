@@ -1,0 +1,46 @@
+{
+  "properties": {
+    "version_id": {
+      "title": "Version Id",
+      "type": "string"
+    },
+    "parent_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Parent Id"
+    },
+    "summary": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Summary"
+    },
+    "prompts": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Prompts",
+      "type": "object"
+    }
+  },
+  "required": [
+    "version_id",
+    "parent_id",
+    "summary",
+    "prompts"
+  ],
+  "title": "CandidateDiff",
+  "type": "object"
+}

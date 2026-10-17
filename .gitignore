@@ -10,3 +10,6 @@ runs/
 .cache/
 .claude/worktrees/
 .langgraph_api/
+
+# Local-only evaluation data (IA identifiers, holdout material); never committed.
+evals/private/

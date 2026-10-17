@@ -146,4 +146,9 @@ async def assemble_node(state: RIAState, runtime: Runtime[WommContext]) -> dict:
     header = {"law_version": state.get("law_version")}
     if planner_notes := state.get("planner_notes"):
         header["notes"] = [*planner_notes, *dossier.notes]
+    if (cost := state.get("cost")) is not None:
+        # A separate section; the cost step's failure notes join the dossier notes, the
+        # run status is unchanged.
+        header["costs"] = cost
+        header["notes"] = [*header.get("notes", dossier.notes), *cost.notes]
     return {"dossier": dossier.model_copy(update=header)}
