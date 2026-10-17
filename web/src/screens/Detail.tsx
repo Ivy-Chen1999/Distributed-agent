@@ -1,11 +1,12 @@
-import { useEffect } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { useConsole, type DetailTab } from '../ctx';
-import { ACC, CARD, FONT, LABEL, RED, TABULAR, WARN_BG, WARN_INK, ag, fmtS } from '../design';
+import { ACC, CARD, FONT, GREEN, LABEL, RED, TABULAR, WARN_BG, WARN_INK, ag, fmtS } from '../design';
 import { Arrow, Dot, EmptyCard, ErrorCard, HButton, LoadingCard, Seg } from '../components/ui';
 import { chainVMs, disagreementVMs, findingSteps, groupImpacts, questionVMs, type GroupMode, type ImpactVM } from '../model/dossier';
+import { hasComparableChanges, provisionComparisons, type ComparisonSide, type ComparisonVM, type Segment } from '../model/compare';
 import { logLines } from '../model/pipeline';
 import { failedExperts, shortRunId } from '../model/overview';
-import { regulationTitle, scenarioName } from '../model/scenario';
+import { humanize, regulationTitle, scenarioName } from '../model/scenario';
 import { elapsedAt } from '../model/trace';
 import type { ImpactDossier, ProvisionChange } from '../types';
 import { useNarrow } from '../hooks';
@@ -74,6 +75,8 @@ export function Detail() {
           ))}
         </div>
       </div>
+
+      <ProvisionComparison />
 
       {!done && (
         <div style={{ ...CARD, border: '1px dashed var(--line)', padding: '40px 24px', textAlign: 'center' }}>
@@ -348,5 +351,129 @@ function ImpactCard({ im, changes }: { im: ImpactVM; changes: ProvisionChange[] 
         </div>
       )}
     </div>
+  );
+}
+
+// Deletions and additions are told apart by strike-through / underline and by screen-reader text,
+// not by colour alone.
+const DEL: CSSProperties = { background: 'rgba(229,72,77,.16)', color: 'var(--ink)', textDecoration: 'line-through', textDecorationColor: RED, textDecorationThickness: 2, borderRadius: 2 };
+const INS: CSSProperties = { background: 'rgba(30,158,106,.18)', color: 'var(--ink)', textDecoration: 'underline', textDecorationColor: GREEN, textDecorationThickness: 2, textUnderlineOffset: 3, borderRadius: 2 };
+
+/** R36 page 2: proposal / final-text comparison, shown for diff scenarios only. */
+function ProvisionComparison() {
+  const C = useConsole();
+  const [open, setOpen] = useState<Record<string, boolean>>({});
+  const scenarioId = C.run?.scenario_id;
+  const src = C.sources;
+  // Data of another scenario can linger while the new one loads; never show it.
+  const data = src.data && src.data.scenario_id === scenarioId ? src.data : undefined;
+  const isDiff = !!C.scenario?.before_version || hasComparableChanges(data?.changes);
+  if (!scenarioId || !isDiff) return null;
+
+  const vms = provisionComparisons(data);
+  const comparable = vms.some((v) => v.before && v.after);
+  let body;
+  if (src.status === 'error' && !data) body = <ErrorCard title="Could not load the provision texts" message={src.error} onRetry={C.reloadSources} />;
+  else if (!data) body = <LoadingCard title="Loading provision texts" sub="Fetching the proposal and final texts of the changed provisions." />;
+  else if (!comparable) body = <EmptyCard title="No provisions to compare" sub="No changed provision of this scenario exists in both the proposal and the final text." />;
+  else
+    body = (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {/* Collapsed by default: full articles are long and the dossier below is the main content. */}
+        {vms.map((v) => (
+          <ComparisonCard key={v.provisionKey} v={v} open={!!open[v.provisionKey]} onToggle={() => setOpen((o) => ({ ...o, [v.provisionKey]: !o[v.provisionKey] }))} />
+        ))}
+      </div>
+    );
+
+  const first = vms.find((v) => v.before && v.after);
+  return (
+    <section aria-labelledby="provision-comparison" data-testid="provision-comparison" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px 14px', flexWrap: 'wrap' }}>
+        <h2 id="provision-comparison" style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>
+          Provision comparison
+        </h2>
+        {first && (
+          <span style={{ fontSize: 12, color: 'var(--n1)' }}>
+            {first.before!.stage} {first.before!.version} → {first.after!.stage.toLowerCase()} {first.after!.version}, word by word
+          </span>
+        )}
+        {comparable && (
+          <span style={{ marginLeft: 'auto', display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 12, color: 'var(--n1)' }} aria-hidden="true">
+            <span>
+              <del style={DEL}>struck through</del> removed
+            </span>
+            <span>
+              <ins style={INS}>underlined</ins> added
+            </span>
+          </span>
+        )}
+      </div>
+      {body}
+    </section>
+  );
+}
+
+function ComparisonCard({ v, open, onToggle }: { v: ComparisonVM; open: boolean; onToggle: () => void }) {
+  const stats = v.missingText ? 'text unavailable' : v.identical ? 'wording unchanged' : `−${v.removed} / +${v.added} words`;
+  const panel = `cmp-${v.provisionKey.replace(/[^\w-]/g, '_')}`;
+  return (
+    <div data-provision={v.provisionKey} style={{ ...CARD, borderColor: open ? ACC : 'var(--line)', overflow: 'hidden' }}>
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={panel}
+        onClick={onToggle}
+        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '6px 14px', flexWrap: 'wrap', padding: '12px 18px', border: 'none', background: 'transparent', color: 'var(--ink)', textAlign: 'left', cursor: 'pointer' }}
+      >
+        <span style={{ font: `700 14px ${FONT}`, ...TABULAR, whiteSpace: 'nowrap' }}>{v.label}</span>
+        <span style={{ font: `700 11px ${FONT}`, borderRadius: 4, padding: '3px 8px', background: 'var(--soft)', color: 'var(--n1)' }}>{humanize(v.kind)}</span>
+        <span style={{ font: `500 11px ${FONT}`, ...TABULAR, color: 'var(--n2)', overflowWrap: 'anywhere', minWidth: 0 }}>{v.provisionKey}</span>
+        <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--n1)', ...TABULAR, whiteSpace: 'nowrap' }}>{stats}</span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true" style={{ flex: 'none', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }}>
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </button>
+      {open && (
+        <div id={panel} style={{ borderTop: '1px solid var(--line)', padding: '14px 18px 16px', background: 'var(--soft)' }}>
+          {v.identical && v.before!.article !== v.after!.article && (
+            <div style={{ fontSize: 12, color: 'var(--n1)', marginBottom: 10 }}>
+              Same wording; only the article number changed ({v.before!.article} → {v.after!.article}).
+            </div>
+          )}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,300px),1fr))', gap: 12 }}>
+            <ComparisonColumn side={v.before} which="before" />
+            <ComparisonColumn side={v.after} which="after" />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ComparisonColumn({ side, which }: { side: ComparisonSide | null; which: 'before' | 'after' }) {
+  const head = side ? `${side.stage} · ${side.version} · ${side.article}` : which === 'before' ? 'Proposal' : 'Final text';
+  return (
+    <div data-side={which} style={{ background: 'var(--card)', border: `1px ${side ? 'solid' : 'dashed'} var(--line)`, borderRadius: 8, minWidth: 0 }}>
+      <div style={{ ...LABEL, padding: '9px 12px', borderBottom: '1px solid var(--line)', overflowWrap: 'anywhere' }}>{head}</div>
+      <div style={{ padding: '10px 12px', fontSize: 13, lineHeight: 1.6, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+        {!side && <span style={{ color: 'var(--n1)' }}>{which === 'before' ? 'Not in the proposal: the provision was added.' : 'Not in the final text: the provision was removed.'}</span>}
+        {side && !side.segments && <span style={{ color: 'var(--n1)' }}>The text of {side.sourceId} is not among the scenario sources.</span>}
+        {side?.segments?.map((sg, i) => <SegmentText key={i} sg={sg} />)}
+      </div>
+    </div>
+  );
+}
+
+function SegmentText({ sg }: { sg: Segment }) {
+  if (sg.op === 'same') return <>{sg.text}</>;
+  const del = sg.op === 'del';
+  const Tag = del ? 'del' : 'ins';
+  return (
+    <Tag style={del ? DEL : INS}>
+      <span className="sr-only">{del ? '[removed: ' : '[added: '}</span>
+      {sg.text}
+      <span className="sr-only">]</span>
+    </Tag>
   );
 }

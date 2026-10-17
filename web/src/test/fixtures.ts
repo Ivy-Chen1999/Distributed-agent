@@ -80,6 +80,32 @@ export const scenarios: Scenario[] = [
   },
 ];
 
+/** The demo diff scenario (proposal → adopted text across renumbering). */
+export const demoScenario: Scenario = {
+  scenario_id: 'demo_penalties_amended',
+  kind: 'demo',
+  description: 'Proposal -> adopted Regulation for SME measures (Art 55 -> 62) and penalties (Art 71 -> 99).',
+  before_version: 'com2021_206',
+  after_version: 'reg2024_1689',
+  provision_keys: ['ai_act/innovation/sme_measures', 'ai_act/penalties/penalties'],
+  ia_reference: null,
+};
+
+/** Shortened sources of the demo scenario: one reworded provision, one renumbered without change. */
+export const demoSources: ScenarioSources = {
+  scenario_id: 'demo_penalties_amended',
+  changes: [
+    { provision_key: 'ai_act/innovation/sme_measures', kind: 'modified', before: { article: '55', source_id: 'com2021_206/art_55' }, after: { article: '62', source_id: 'reg2024_1689/art_62' } },
+    { provision_key: 'ai_act/penalties/penalties', kind: 'modified', before: { article: '71', source_id: 'com2021_206/art_71' }, after: { article: '99', source_id: 'reg2024_1689/art_99' } },
+  ],
+  sources: [
+    { source_id: 'com2021_206/art_55', title: 'Article 55', kind: 'provision', text: '1. Member States shall undertake the following actions:\n(a) provide small-scale providers and start-ups with priority access to the AI regulatory sandboxes;' },
+    { source_id: 'com2021_206/art_71', title: 'Article 71', kind: 'provision', text: 'Member States shall lay down the rules on penalties.' },
+    { source_id: 'reg2024_1689/art_62', title: 'Article 62', kind: 'provision', text: '1. Member States shall undertake the following actions:\n(a) provide SMEs, including start-ups, with priority access to the AI regulatory sandboxes;' },
+    { source_id: 'reg2024_1689/art_99', title: 'Article 99', kind: 'provision', text: 'Member States shall lay down the rules on penalties.' },
+  ],
+};
+
 const role = (prompt: string, hash: string) => ({ backend: 'claude_code', model: 'claude-sonnet-5', prompt, prompt_hash: hash });
 
 export const system: SystemInfo = {
@@ -130,8 +156,9 @@ export function mockApi(overrides: Record<string, (call: MockCall) => { status: 
     }
     const path = url.split('?')[0];
     if (path === '/system') return json(200, system);
-    if (path === '/scenarios') return json(200, scenarios);
+    if (path === '/scenarios') return json(200, [...scenarios, demoScenario]);
     if (path === '/scenarios/eval_sme_impacts/sources') return json(200, smeSources);
+    if (path === '/scenarios/demo_penalties_amended/sources') return json(200, demoSources);
     if (path === '/runs' && call.method === 'GET')
       return json(200, {
         runs: [

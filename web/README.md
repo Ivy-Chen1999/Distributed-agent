@@ -66,6 +66,7 @@ Ask answers cite the first impact and finding; a question mentioning "weather" i
 | `replay` | Replay at 1×/2×/3×/4×/8×, Stop replay, "Watch pipeline" |
 | `overview` | KPIs, latency bars, flow pills, "Needs your review" navigation, Recent runs rows |
 | `detail` | counts, all five tabs, grouping, provenance, source panel, chains, disagreements, questions, event log, demo diff |
+| `comparison` | demo diff provision comparison (proposal / final text): every change, side-by-side columns with struck deletions and underlined additions at 1280/1024 px, exact source texts, axe in both themes, hidden for evaluation scenarios, error + retry |
 | `degraded` | the timed-out expert on Overview, Pipeline, Agents, Topology and Run detail |
 | `agents-topology` | agent cards, "Open in topology", inspector facts, chips, edges, no clipped nodes (1440/1024/820 px) |
 | `ask` | suggestions, typed questions, "Reading the dossier…", citation chips, uncovered answers, new run |
@@ -82,8 +83,9 @@ screenshots to the report on every run and rewrites the reference set only with
 
 - `src/api.ts`: typed client, token storage, 401 handling. `src/types.ts`: API shapes.
 - `src/model/`: pure view-model derivations (event trace and node status, board feed, dossier
-  grouping and provenance, quote highlighting, overview KPIs, scenario labels). Tested in
-  `src/model/model.test.ts` against `../docs/ui/sample_run.json`.
+  grouping and provenance, quote highlighting, word-level proposal / final-text comparison,
+  overview KPIs, scenario labels). Tested in `src/model/model.test.ts` against
+  `../docs/ui/sample_run.json`.
 - `src/screens/`: Overview, Run pipeline, Run detail, Agents, Topology, Ask WOMM, Settings.
 - `src/components/`: design primitives (hover/focus styles, segmented controls, state cards) and
   overlays (source panel, token prompt, run picker, toast).

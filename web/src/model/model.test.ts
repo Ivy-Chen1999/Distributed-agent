@@ -5,7 +5,8 @@ import { attention, kpis, runRows } from './overview';
 import { actorGroup, chainVMs, disagreementVMs, findingSteps, groupImpacts, questionVMs, shortLabel, unresolvedIds } from './dossier';
 import { highlightQuote, normalizeWithMap } from './quote';
 import { articleRanges, regulationSub, regulationTitle, scenarioBlurb, scenarioHeadline, scenarioKind, scenarioName } from './scenario';
-import { UNRESOLVED_ID, degradedRun, sampleRun, scenarios, smeSources, syntheticEvents, system } from '../test/fixtures';
+import { MAX_CELLS, diffWords, hasComparableChanges, provisionComparisons, sideOf, tokenize, type Segment } from './compare';
+import { UNRESOLVED_ID, demoSources, degradedRun, sampleRun, scenarios, smeSources, syntheticEvents, system } from '../test/fixtures';
 import type { RunDetail } from '../types';
 
 const EX = ['legal', 'fiscal', 'stakeholder'];
@@ -250,5 +251,149 @@ describe('scenario labels', () => {
     const run = sampleRun();
     const rows = runRows([{ run_id: run.run_id, scenario_id: run.scenario_id, status: 'succeeded', system_version: 'sv_x', duration_s: 287.5, impacts: 25, grounding: { passed: 64, total: 64 } }], scenarios);
     expect(rows[0]).toMatchObject({ id: run.run_id.slice(0, 12), name: 'SME impacts', status: 'Succeeded', impacts: '25', grounding: '64/64', time: '4m 48s' });
+  });
+});
+
+describe('provision comparison (word diff)', () => {
+  const join = (segs: Segment[], skip: 'add' | 'del') => segs.filter((x) => x.op !== skip).map((x) => x.text).join('');
+  const roundTrip = (a: string, b: string) => {
+    const segs = diffWords(a, b);
+    expect(join(segs, 'add')).toBe(a);
+    expect(join(segs, 'del')).toBe(b);
+    // Adjacent segments never share an op, and no segment is empty.
+    for (let i = 0; i < segs.length; i++) {
+      expect(segs[i].text.length).toBeGreaterThan(0);
+      if (i) expect(segs[i].op).not.toBe(segs[i - 1].op);
+    }
+    return segs;
+  };
+
+  it('tokenizes into words, whitespace runs and single punctuation, losslessly', () => {
+    expect(tokenize('Art 5(1)(a),  shall\n apply.')).toEqual(['Art', ' ', '5', '(', '1', ')', '(', 'a', ')', ',', '  ', 'shall', '\n ', 'apply', '.']);
+    expect(tokenize('')).toEqual([]);
+    expect(tokenize('EUR 35 000 000 — or 7 %').join('')).toBe('EUR 35 000 000 — or 7 %');
+    expect(tokenize('Behörde ändert')).toEqual(['Behörde', ' ', 'ändert']);
+  });
+
+  it('marks same, deleted and added words', () => {
+    const segs = roundTrip('Member States shall lay down rules.', 'Member States shall lay down the rules.');
+    expect(segs).toEqual([
+      { op: 'same', text: 'Member States shall lay down ' },
+      { op: 'add', text: 'the ' },
+      { op: 'same', text: 'rules.' },
+    ]);
+    expect(roundTrip('provide small-scale providers with access', 'provide SMEs with access')).toEqual([
+      { op: 'same', text: 'provide ' },
+      { op: 'del', text: 'small-scale providers' },
+      { op: 'add', text: 'SMEs' },
+      { op: 'same', text: ' with access' },
+    ]);
+    expect(roundTrip('a b c', 'a c')).toEqual([
+      { op: 'same', text: 'a ' },
+      { op: 'del', text: 'b ' },
+      { op: 'same', text: 'c' },
+    ]);
+  });
+
+  it('folds a lone space between two changes into one replacement', () => {
+    expect(roundTrip('fine of 30 000 000', 'fine of 35 000 000')).toEqual([
+      { op: 'same', text: 'fine of ' },
+      { op: 'del', text: '30' },
+      { op: 'add', text: '35' },
+      { op: 'same', text: ' 000 000' },
+    ]);
+    expect(roundTrip('the old big rule', 'the new small rule')).toEqual([
+      { op: 'same', text: 'the ' },
+      { op: 'del', text: 'old big' },
+      { op: 'add', text: 'new small' },
+      { op: 'same', text: ' rule' },
+    ]);
+  });
+
+  it('handles identical and empty texts', () => {
+    expect(diffWords('same text.', 'same text.')).toEqual([{ op: 'same', text: 'same text.' }]);
+    expect(diffWords('', '')).toEqual([]);
+    expect(diffWords('', 'new')).toEqual([{ op: 'add', text: 'new' }]);
+    expect(diffWords('old', '')).toEqual([{ op: 'del', text: 'old' }]);
+  });
+
+  it('treats punctuation and whitespace changes as changes, and keeps both texts exact', () => {
+    expect(roundTrip('rules; and', 'rules, and')).toEqual([
+      { op: 'same', text: 'rules' },
+      { op: 'del', text: ';' },
+      { op: 'add', text: ',' },
+      { op: 'same', text: ' and' },
+    ]);
+    expect(roundTrip('(a) one\n(b) two', '(a) one (b) two')).toEqual([
+      { op: 'same', text: '(a) one' },
+      { op: 'del', text: '\n' },
+      { op: 'add', text: ' ' },
+      { op: 'same', text: '(b) two' },
+    ]);
+    roundTrip('  leading and trailing  ', 'leading, and trailing');
+    roundTrip('x', 'y');
+  });
+
+  it('is deterministic and splits sides for the columns', () => {
+    const a = 'In compliance with the terms laid down in this Regulation, Member States shall lay down the rules on penalties.';
+    const b = 'In accordance with the terms and conditions laid down in this Regulation, Member States shall lay down the rules on penalties and other enforcement measures.';
+    const s1 = roundTrip(a, b);
+    expect(diffWords(a, b)).toEqual(s1);
+    expect(sideOf(s1, 'before').every((x) => x.op !== 'add')).toBe(true);
+    expect(sideOf(s1, 'after').every((x) => x.op !== 'del')).toBe(true);
+    expect(sideOf(s1, 'before').map((x) => x.text).join('')).toBe(a);
+    expect(sideOf(s1, 'after').map((x) => x.text).join('')).toBe(b);
+  });
+
+  it('diffs two ~5k-character articles quickly, and falls back to one replacement when too large', () => {
+    const words = Array.from({ length: 1100 }, (_, i) => `w${(i * 7919) % 613}`);
+    const a = words.join(' ') + '.';
+    const b = words.map((w, i) => (i % 9 === 0 ? 'changed' : w)).join(' ') + ' extra.';
+    expect(a.length).toBeGreaterThan(4500);
+    const t0 = performance.now();
+    roundTrip(a, b);
+    expect(performance.now() - t0).toBeLessThan(1500);
+    const side = Math.ceil(Math.sqrt(MAX_CELLS)) + 10;
+    const big = (p: string) => Array.from({ length: side }, (_, i) => `${p}${i}`).join('');
+    const segs = roundTrip(big('a') + ' end', big('b') + ' end');
+    expect(segs.map((x) => x.op)).toEqual(['del', 'add', 'same']);
+  });
+
+  it('pairs each change with its proposal and final texts', () => {
+    const vms = provisionComparisons(demoSources);
+    expect(vms.map((v) => v.label)).toEqual(['Art 55 → Art 62', 'Art 71 → Art 99']);
+    const [sme, pen] = vms;
+    expect(sme.kind).toBe('modified');
+    expect(sme.before).toMatchObject({ article: 'Art 55', version: 'COM(2021) 206', stage: 'Proposal', sourceId: 'com2021_206/art_55' });
+    expect(sme.after).toMatchObject({ article: 'Art 62', version: 'Regulation (EU) 2024/1689', stage: 'Final text' });
+    expect(sme.before!.segments!.find((x) => x.op === 'del')?.text).toBe('small-scale providers and');
+    expect(sme.after!.segments!.find((x) => x.op === 'add')?.text).toBe('SMEs, including');
+    expect([sme.removed, sme.added]).toEqual([4, 2]); // "small-scale" counts as two words
+    expect(sme.identical).toBe(false);
+    expect(pen.identical).toBe(true);
+    expect([pen.removed, pen.added]).toEqual([0, 0]);
+    expect(hasComparableChanges(demoSources.changes)).toBe(true);
+  });
+
+  it('shows added and removed provisions on one side, and flags missing texts', () => {
+    expect(hasComparableChanges(smeSources.changes)).toBe(false);
+    expect(hasComparableChanges(undefined)).toBe(false);
+    const added = provisionComparisons(smeSources)[0];
+    expect(added.label).toBe('— → Art 53');
+    expect(added.before).toBeNull();
+    expect(added.after!.segments!.map((x) => x.op)).toEqual(['add']);
+    const removed = provisionComparisons({
+      scenario_id: 'x',
+      changes: [
+        { provision_key: 'k/removed', kind: 'removed', before: { article: '12', source_id: 'com2021_206/art_12' }, after: null },
+        { provision_key: 'k/missing', kind: 'modified', before: { article: '1', source_id: 'com2021_206/art_1' }, after: { article: '2', source_id: 'reg2024_1689/art_2' } },
+      ],
+      sources: [{ source_id: 'com2021_206/art_12', title: 'Article 12', kind: 'provision', text: 'Gone.' }],
+    });
+    expect(removed[0]).toMatchObject({ label: 'Art 12 → —', after: null, removed: 1, added: 0, missingText: false });
+    expect(removed[0].before!.segments).toEqual([{ op: 'del', text: 'Gone.' }]);
+    expect(removed[1]).toMatchObject({ missingText: true, identical: false });
+    expect(removed[1].before!.segments).toBeNull();
+    expect(provisionComparisons(null)).toEqual([]);
   });
 });

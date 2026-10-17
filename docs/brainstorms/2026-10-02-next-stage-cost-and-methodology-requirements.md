@@ -61,7 +61,7 @@ Sources read in full: their `README.md`, `docs/project-status.md`, `docs/org-gra
 
 ## Stages and requirements
 
-**Stage A: Obligation enrichment and the adversarial reviewer** (directly after plan 002)
+**Stage A: Obligation enrichment and the adversarial reviewer** (v1.1; moved from v1 on 2026-10-03)
 - R1. An offline LLM pass enriches every duty and prohibition. It adds the implied addressee where
   the rule pass says `unspecified`, a normalised action, one or more effort types from a fixed list,
   and resolved cross-references. These are added as new fields with `source = agent:<name>` and a
@@ -76,7 +76,10 @@ Sources read in full: their `README.md`, `docs/project-status.md`, `docs/org-gra
 - Open decision: run enrichment on all 975 duties or only the 430 `unspecified` ones (their open
   decision §7.1). It is one offline run, and its cost is measured before deciding.
 
-**Stage B: EU-level cost estimation**
+**Stage B: EU-level cost estimation** (v1; moved into v1 on 2026-10-07, user decision)
+- *Note 2026-10-07: plan `docs/plans/2026-10-07-001-feat-eu-cost-estimation-plan.md`. Stage A
+  stays in v1.1, so the plan adds a fallback for the 430 `unspecified` duties (a cited rule table,
+  then an inferred payer with a verbatim quote, stored as agent output).*
 - R4. A cost estimation step turns each relevant obligation into a cost record: who pays (actor
   category, public or private), effort type, magnitude class (one-off or recurring, plus an
   ordinal size), and when (applies_from). Every record cites the obligation and the unit.
@@ -107,7 +110,8 @@ Sources read in full: their `README.md`, `docs/project-status.md`, `docs/org-gra
 - R12. A field-level validator report for the corpus and the enrichment layers.
 - R13. Point-level source ids for citations, introduced together with a planned re-baseline.
 - R14. Application dates updated for the Digital Omnibus. Consolidated versions become a supported
-  version status.
+  version status. *Moved into v1 on 2026-10-04: plan 002 adds the 2026-07-27 consolidated text as a
+  corpus version.*
 - R15. A per-act configuration file, so another act can be imported without code changes. This
   ties in with origin R33 (other EU proposals as evaluation corpus).
 
@@ -144,6 +148,11 @@ Sources read in full: their `README.md`, `docs/project-status.md`, `docs/org-gra
   located but not read. Whether the PBLQ model and figures are available is unknown (their §6).
 - Assumption: SWD(2021) 84 gives enough cost figures per obligation group to score Stage B. This
   must be checked when Stage B is planned.
+  *Checked 2026-10-07: partly true.* The IA quantifies about 11 cost items, all for the high-risk
+  requirements, conformity assessment and governance (about 130 of the proposal's 506 duties).
+  Overlap (recall over those items) and band agreement are scorable; rank agreement covers only
+  five comparable items and is descriptive; precision is not definable, because IA silence does
+  not mean no cost. Details: the plan's "IA figure audit".
 
 ---
 
@@ -154,6 +163,9 @@ Sources read in full: their `README.md`, `docs/project-status.md`, `docs/org-gra
 - [Stage A] Enrichment on all 975 duties or on the 430 `unspecified` only.
 - [Stage B] The effort-type list and the magnitude scale: take the colleague's seven effort types
   as they are, or adapt them to the IA's cost categories.
+  *Default set 2026-10-07 (user may revise): the seven types as they are, with a fixed mapping to
+  `administrative_burden` / `compliance_cost` (and `public_enforcement_cost` for public payers);
+  magnitude is one-off vs recurring times an ordinal band with EUR edges anchored on the IA.*
 - [Stage C] Unit of cost location: budget line or department (their open question). Systems out of
   use: keep or drop. Reference figure: budget or annual accounts.
 

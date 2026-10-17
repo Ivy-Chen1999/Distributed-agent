@@ -40,6 +40,7 @@ export interface ConsoleCtx {
   reloadRun: () => void;
   scenario: Scenario | null;
   sources: Loadable<ScenarioSources>;
+  reloadSources: () => void;
   rv: RunView;
   runLabel: string;
   runDot: string;
