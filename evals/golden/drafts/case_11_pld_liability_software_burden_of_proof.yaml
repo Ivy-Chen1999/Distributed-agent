@@ -541,7 +541,7 @@ expected_impacts:
     reviewer: null
     note: null
 - expected_id: c11_e10
-  affected_actor: Importers, authorised representatives and fulfilment service providers of non-EU manufacturers
+  affected_actor: authorised representatives and fulfilment service providers of non-EU manufacturers
   mechanism: Where the manufacturer is established outside the Union, the importer and authorised representative,
     and failing them the fulfilment service provider, can be held liable (Art. 7(2)–(3); definitions in
     Art. 4)
@@ -585,6 +585,20 @@ expected_impacts:
     audit: false
     reviewer: null
     note: null
+  sweep:
+    action: trim
+    before:
+      affected_actor: Importers, authorised representatives and fulfilment service providers of non-EU
+        manufacturers
+    reason: 'full-text review 2026-10-16/17 after the failed reference check 2026-10-14-75af237c (assistant
+      reviewers on owner delegation; accepted by the Codex review of 2026-10-17): ''New liability exposure''
+      is false for importers, who are already liable today. Deleting ''Importers, '' makes the actor start
+      lowercase (''authorised representatives and fulfilment service providers of non-EU manufacturers'');
+      capitalisation is the only cosmetic issue. Alternative if a lowercase start is unacceptable: delete
+      ''impact: These operators bear new liability exposure.'' instead (keeps importers but loses the
+      supported AR/FSP exposure).'
+    model: full-text review (assistant reviewers, owner delegation), Codex review 2026-10-17
+    'on': '2026-10-17'
 important_omissions:
 - omission_id: c11_o01
   description: Court-ordered disclosure under Art. 8 may require producers to reveal confidential technical
@@ -942,8 +956,8 @@ possibly_missing:
   affected_actor: Consumers of complex products (as purchasers and users)
   mechanism: Making the presumptions in Art. 9 explicit and visible increases consumer confidence and
     trust in complex products and their willingness to bring claims.
-  impact: Better consumer trust in, and uptake of, complex and digital products, and more confidence to
-    claim compensation in complex cases.
+  impact: Better consumer trust in complex products, and more confidence to claim compensation in complex
+    cases.
   why_missing: The drafted consumer pairs cover information asymmetry and easier proof, not trust in products
     or willingness to buy them.
   provision_keys:
@@ -988,3 +1002,15 @@ possibly_missing:
     audit: false
     reviewer: null
     note: null
+  sweep:
+    action: trim
+    before:
+      impact: Better consumer trust in, and uptake of, complex and digital products, and more confidence
+        to claim compensation in complex cases.
+    reason: 'full-text review 2026-10-16/17 after the failed reference check 2026-10-14-75af237c (assistant
+      reviewers on owner delegation; accepted by the Codex review of 2026-10-17): Exact deletions: remove
+      '', and uptake of,'' (leading comma included) and '' and digital'' (leading space). Result: ''Better
+      consumer trust in complex products, and more confidence to claim compensation in complex cases.''
+      The flag was half right: ''confidence to claim'' is supported at 610.'
+    model: full-text review (assistant reviewers, owner delegation), Codex review 2026-10-17
+    'on': '2026-10-17'

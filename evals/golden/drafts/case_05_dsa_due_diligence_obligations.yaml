@@ -600,8 +600,7 @@ important_omissions:
 - omission_id: c05_o01
   description: Micro and small hosting providers are not exempt from notice and action. Article 16 exempts
     only online platforms from the platform section, and Article 14 has no SME carve-out. A micro-enterprise
-    receiving about 50 notices a year would still bear roughly EUR 15 000 per annum, which is large relative
-    to its turnover.
+    receiving about 50 notices a year would still bear roughly EUR 15 000 per annum.
   source: ia
   provision_keys:
   - dsa/proposal/art/14
@@ -643,6 +642,19 @@ important_omissions:
     audit: false
     reviewer: null
     note: null
+  sweep:
+    action: trim
+    before:
+      description: Micro and small hosting providers are not exempt from notice and action. Article 16
+        exempts only online platforms from the platform section, and Article 14 has no SME carve-out.
+        A micro-enterprise receiving about 50 notices a year would still bear roughly EUR 15 000 per annum,
+        which is large relative to its turnover.
+    reason: 'full-text review 2026-10-16/17 after the failed reference check 2026-10-14-75af237c (assistant
+      reviewers on owner delegation; accepted by the Codex review of 2026-10-17): The IA frames the EUR
+      15 000 as proportionate; the turnover comparison in the IA is for a different cost (fragmentation).
+      After the cut the sentence ends ''...roughly EUR 15 000 per annum.'''
+    model: full-text review (assistant reviewers, owner delegation), Codex review 2026-10-17
+    'on': '2026-10-17'
 - omission_id: c05_o02
   description: Platforms' costs from notice handling, complaints and out-of-court dispute settlement scale
     with the volume of notices, complaints and escalations. Platforms also pay the recipient's fees when

@@ -605,6 +605,17 @@ important_omissions:
     audit: false
     reviewer: null
     note: null
+  sweep:
+    action: drop
+    before: {}
+    reason: 'full-text review 2026-10-16/17 after the failed reference check 2026-10-14-75af237c (assistant
+      reviewers on owner delegation; accepted by the Codex review of 2026-10-17): The point''s substance
+      is a causal chain (Art 42(4) reductions, so partial fee coverage, so a residual for MS budgets and
+      a gain for reduced-fee users) that the IA does not make. The anchor is the rejected PO1 and concerns
+      network costs. The only supported fragment is generic partial coverage, and cutting down to it would
+      change the point''s meaning.'
+    model: full-text review (assistant reviewers, owner delegation), Codex review 2026-10-17
+    'on': '2026-10-17'
 possibly_missing:
 - candidate_id: c12_m01
   affected_actor: Data holders / data owners making datasets available

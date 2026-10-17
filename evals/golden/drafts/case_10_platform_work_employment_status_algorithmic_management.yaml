@@ -692,8 +692,8 @@ important_omissions:
     note: null
 - omission_id: c10_o03
   description: Reclassified workers gain protection but may lose the flexibility and autonomy of independent
-    contractor status, such as choosing their hours or working for several platforms at the same time.
-    The IA puts this at around 1.72 – 4.09 million people.
+    contractor status, such as working for several platforms at the same time. The IA puts this at around
+    1.72 – 4.09 million people.
   source: ia
   provision_keys:
   - platform_work/proposal/art/4
@@ -732,6 +732,18 @@ important_omissions:
     audit: true
     reviewer: null
     note: null
+  sweep:
+    action: trim
+    before:
+      description: Reclassified workers gain protection but may lose the flexibility and autonomy of independent
+        contractor status, such as choosing their hours or working for several platforms at the same time.
+        The IA puts this at around 1.72 – 4.09 million people.
+    reason: 'full-text review 2026-10-16/17 after the failed reference check 2026-10-14-75af237c (assistant
+      reviewers on owner delegation; accepted by the Codex review of 2026-10-17): IA never states reclassified
+      workers lose the choice of hours; it only lists set-own-working-time as a gain for the genuinely
+      self-employed. After cut: ''...such as working for several platforms at the same time.'''
+    model: full-text review (assistant reviewers, owner delegation), Codex review 2026-10-17
+    'on': '2026-10-17'
 - omission_id: c10_o04
   description: Businesses that rely on platforms, especially SME restaurants that use delivery platforms,
     bear part of the reclassification costs indirectly through higher commissions or fewer orders. On

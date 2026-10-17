@@ -293,3 +293,22 @@ def test_a_failure_in_a_later_draft_writes_no_earlier_one(tmp_path):
     with pytest.raises(ks.SweepError, match="nothing written"):
         ks.apply_corrections([ok, broken], ruled_by="a", on=ON)
     assert first.read_text() == a and second.read_text() == b
+
+
+def test_a_hedge_only_restores_modality():
+    before = "Recalls work better and fewer unsafe products stay in consumers' hands."
+    after = ("Recalls are expected to work better, and fewer unsafe products are expected to "
+             "stay in consumers' hands.")  # fmt: skip
+    assert gr.is_hedge(after, before)
+    assert not gr.is_hedge("Recalls are expected to work much better.", "Recalls work better.")
+    assert not gr.is_hedge("Recalls work.", "Recalls work better.")
+    assert not gr.is_hedge(before, before)
+
+
+def test_a_hedge_overlay_passes_and_a_reworded_one_fails():
+    data = _swept(fully_decided(), "c90_e01", "hedge", {"impact": "Impact 1"},
+                  impact="Impact may be 1")  # fmt: skip
+    assert _problems(data) == []
+    data = _swept(fully_decided(), "c90_e01", "hedge", {"impact": "Impact 1"},
+                  impact="Impact 1 doubles")  # fmt: skip
+    assert any("not a hedge of" in p for p in _problems(data))

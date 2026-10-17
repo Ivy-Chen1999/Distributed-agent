@@ -420,8 +420,7 @@ expected_impacts:
     corrective action, informing authorities and record-keeping (Art. 13, 14)
   impact: Their main costs are familiarisation with the new requirements. These were not quantified; as
     a benchmark, under the Toy Safety Directive it took 110 man-hours per type for importers and 86 for
-    distributors. Because security must already be ensured by the manufacturer, the burden is not expected
-    to be significant.
+    distributors.
   provision_keys:
   - cra/proposal/art/13
   - cra/proposal/art/14
@@ -460,6 +459,20 @@ expected_impacts:
     audit: false
     reviewer: null
     note: null
+  sweep:
+    action: trim
+    before:
+      impact: Their main costs are familiarisation with the new requirements. These were not quantified;
+        as a benchmark, under the Toy Safety Directive it took 110 man-hours per type for importers and
+        86 for distributors. Because security must already be ensured by the manufacturer, the burden
+        is not expected to be significant.
+    reason: 'full-text review 2026-10-16/17 after the failed reference check 2026-10-14-75af237c (assistant
+      reviewers on owner delegation; accepted by the Codex review of 2026-10-17): Group mismatch: the
+      ''not significant'' conclusion is in 6.3.2 and limited to SME importers/distributors as voiced by
+      SME representatives; the point generalises it to all importers and distributors. The first two sentences
+      stand on their own.'
+    model: full-text review (assistant reviewers, owner delegation), Codex review 2026-10-17
+    'on': '2026-10-17'
 - expected_id: c04_e08
   affected_actor: SME manufacturers that need notified-body assessment
   mechanism: Notified bodies must take SMEs' interests into account and reduce conformity assessment fees
@@ -744,8 +757,7 @@ possibly_missing:
     SMEs harder. They have smaller customer bases, little in-house expertise and limited lab capacity,
     so they turn to external consultants and testing labs (Art. 5, 10).
   impact: SME manufacturers face higher relative compliance costs than large firms. Some may struggle
-    to bear them and could leave the market, which puts them at a competitive disadvantage against large
-    and non-EU firms.
+    to bear them and could leave the market.
   why_missing: The draft covers SMEs only through the fee reduction for notified bodies, not the disproportionate
     size of their overall compliance costs.
   provision_keys:
@@ -793,6 +805,20 @@ possibly_missing:
     audit: false
     reviewer: null
     note: null
+  sweep:
+    action: trim
+    before:
+      impact: SME manufacturers face higher relative compliance costs than large firms. Some may struggle
+        to bear them and could leave the market, which puts them at a competitive disadvantage against
+        large and non-EU firms.
+    reason: 'full-text review 2026-10-16/17 after the failed reference check 2026-10-14-75af237c (assistant
+      reviewers on owner delegation; accepted by the Codex review of 2026-10-17): The flagged effects
+      do appear in the IA (line 849), but only as hedged stakeholder concerns, and the IA reports SMEs
+      as neutral on the disadvantage question. ''could leave the market'' is hedged and can stay; the
+      definite ''which puts them at a competitive disadvantage'' asserts as fact what the IA leaves open,
+      so cut it. The remaining text reads: ''... Some may struggle to bear them and could leave the market.'''
+    model: full-text review (assistant reviewers, owner delegation), Codex review 2026-10-17
+    'on': '2026-10-17'
 - candidate_id: c04_m02
   affected_actor: Specialised SME manufacturers of critical products
   mechanism: Mandatory third-party conformity assessment for Annex III critical products (Art. 6(4), 24(2)-(3)).

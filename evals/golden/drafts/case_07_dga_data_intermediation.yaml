@@ -113,9 +113,7 @@ expected_impacts:
   mechanism: 'Providers must meet the conditions for providing data sharing services: no use of the data
     for other purposes, a separate legal entity, fair and non-discriminatory access, fraud prevention,
     continuity and insolvency safeguards, security measures and competition-compliance procedures.'
-  impact: Intermediaries pay implementation costs to comply with the requirements. For the comparable
-    certification options the IA puts these at a one-off EUR 20 000-50 000 (voluntary) or EUR 35 000-75
-    000 (compulsory), plus annual renewal costs.
+  impact: Intermediaries pay implementation costs to comply with the requirements.
   provision_keys:
   - dga/proposal/art/11
   ia_section: '6.1.3. Policy option 2: Lower intensity legislation'
@@ -154,6 +152,18 @@ expected_impacts:
     audit: true
     reviewer: null
     note: null
+  sweep:
+    action: trim
+    before:
+      impact: Intermediaries pay implementation costs to comply with the requirements. For the comparable
+        certification options the IA puts these at a one-off EUR 20 000-50 000 (voluntary) or EUR 35 000-75
+        000 (compulsory), plus annual renewal costs.
+    reason: 'full-text review 2026-10-16/17 after the failed reference check 2026-10-14-75af237c (assistant
+      reviewers on owner delegation; accepted by the Codex review of 2026-10-17): The figures are real,
+      but the sentence assigns them to the wrong cost item. Deleting the second sentence leaves the supported
+      ''Intermediaries pay implementation costs to comply with the requirements.'''
+    model: full-text review (assistant reviewers, owner delegation), Codex review 2026-10-17
+    'on': '2026-10-17'
 - expected_id: c07_e02
   affected_actor: Providers of data sharing services (data intermediaries)
   mechanism: Binding neutrality and trust conditions, combined with notification and supervision, make

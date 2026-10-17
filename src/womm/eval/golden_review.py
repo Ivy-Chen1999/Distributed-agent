@@ -653,6 +653,27 @@ def is_deletion(after: str, before: str) -> bool:
     return bool(words) and all(w in rest for w in words)
 
 
+# The words a hedge may insert: modality the source states that a point dropped (r07, 2026-10-16).
+HEDGE_WORDS = frozenset(
+    {"are", "is", "be", "expected", "to", "may", "might", "could", "would", "likely"}
+)
+
+
+def is_hedge(after: str, before: str) -> bool:
+    """``after`` keeps every word of ``before`` in order and inserts only ``HEDGE_WORDS``."""
+    rest = iter(_words(after))
+    extra = []
+    for w in _words(before):
+        for a in rest:
+            if a == w:
+                break
+            extra.append(a)
+        else:
+            return False
+    extra.extend(rest)
+    return bool(extra) and all(w in HEDGE_WORDS for w in extra)
+
+
 def sweep_problems(item: _DraftItem, where: str) -> list[str]:
     """A sweep edit only deletes words from the fields the page judges, on a kept item."""
     sw = item.sweep
@@ -663,14 +684,16 @@ def sweep_problems(item: _DraftItem, where: str) -> list[str]:
         problems.append(f"{where}: the fidelity sweep edited an item that is not kept")
     if sw.action == "drop" and sw.before:
         problems.append(f"{where}: a sweep drop changes no text (before must be empty)")
-    if sw.action == "trim":
+    if sw.action in ("trim", "hedge"):
         if not sw.before:
-            problems.append(f"{where}: a sweep trim names no field it cut")
+            problems.append(f"{where}: a sweep {sw.action} names no field it changed")
+        ok, what = (is_deletion, "a deletion from") if sw.action == "trim" else (
+            is_hedge, "a hedge of")  # fmt: skip
         for field, text in sw.before.items():
             if field not in SWEEP_TRIMMABLE or not hasattr(item, field):
                 problems.append(f"{where}: the sweep may not edit {field!r}")
-            elif not is_deletion(getattr(item, field), text) or getattr(item, field) == text:
-                problems.append(f"{where}: the sweep's {field!r} is not a deletion from its text")
+            elif not ok(getattr(item, field), text) or getattr(item, field) == text:
+                problems.append(f"{where}: the sweep's {field!r} is not {what} its text")
     return problems
 
 
@@ -732,7 +755,7 @@ def review_notes(
     swept = {i.item_id: i.sweep for i in items if i.sweep is not None}
     if swept:
         on = min(sw.on for sw in swept.values()).isoformat()
-        trimmed = [k for k, sw in swept.items() if sw.action == "trim"]
+        trimmed = [k for k, sw in swept.items() if sw.action in ("trim", "hedge")]
         cut = [k for k, sw in swept.items() if sw.action == "drop"]
         parts.append(
             f"Tightened by a model fidelity check on {on} after a failed reference check (not "

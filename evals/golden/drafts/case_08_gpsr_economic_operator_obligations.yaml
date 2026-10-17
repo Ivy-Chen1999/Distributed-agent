@@ -510,9 +510,9 @@ expected_impacts:
   affected_actor: Consumers and public health systems
   mechanism: Traceability systems for high-risk products, product identification numbers, and alerts to
     consumers through the Safety Business Gateway (Arts 8(6), 8(11), 17)
-  impact: Recalls work better and fewer unsafe products stay in consumers' hands. Informing affected consumers
-    directly was estimated to save €73 million in 2019, and the health-care costs of product-related injuries
-    (about EUR 6.7 billion a year) could come down.
+  impact: Recalls are expected to work better, and fewer unsafe products are expected to stay in consumers'
+    hands. Informing affected consumers directly was estimated to save €73 million in 2019, and the health-care
+    costs of product-related injuries (about EUR 6.7 billion a year) could come down.
   provision_keys:
   - gpsr/proposal/art/17
   - gpsr/proposal/art/8
@@ -560,6 +560,18 @@ expected_impacts:
     audit: true
     reviewer: null
     note: null
+  sweep:
+    action: hedge
+    before:
+      impact: Recalls work better and fewer unsafe products stay in consumers' hands. Informing affected
+        consumers directly was estimated to save €73 million in 2019, and the health-care costs of product-related
+        injuries (about EUR 6.7 billion a year) could come down.
+    reason: 'full-text review 2026-10-16/17 after the failed reference check 2026-10-14-75af237c (assistant
+      reviewers on owner delegation; accepted by the Codex review of 2026-10-17): reference check r07:
+      the IA says the recall requirements ''are expected to improve the effectiveness of recalls'' (gpsr
+      ia_full); the point stated it as fact.'
+    model: full-text review (assistant reviewers, owner delegation), Codex review 2026-10-17
+    'on': '2026-10-17'
 - expected_id: c08_e10
   affected_actor: Law-abiding EU businesses competing with rogue traders
   mechanism: All operators in the supply chain, including the EU responsible person for direct imports,
@@ -708,10 +720,8 @@ important_omissions:
     reviewer: null
     note: null
 - omission_id: c08_o03
-  description: 'Market surveillance authorities take on extra work: receiving alerts through the Safety
-    Business Gateway, issuing and following up removal orders to online marketplaces, supervising sample
-    testing, and handling documentation requests. This adds recurrent public enforcement costs, partly
-    offset by efficiency gains.'
+  description: Market surveillance authorities take on extra work. This adds recurrent public enforcement
+    costs, partly offset by efficiency gains.
   source: ia
   provision_keys:
   - gpsr/proposal/art/20
@@ -753,6 +763,21 @@ important_omissions:
     audit: false
     reviewer: null
     note: null
+  sweep:
+    action: trim
+    before:
+      description: 'Market surveillance authorities take on extra work: receiving alerts through the Safety
+        Business Gateway, issuing and following up removal orders to online marketplaces, supervising
+        sample testing, and handling documentation requests. This adds recurrent public enforcement costs,
+        partly offset by efficiency gains.'
+    reason: 'full-text review 2026-10-16/17 after the failed reference check 2026-10-14-75af237c (assistant
+      reviewers on owner delegation; accepted by the Codex review of 2026-10-17): The four named tasks
+      come from the GPSR proposal articles (law), not from the IA, and the IA never ties MSA costs to
+      them. Cutting the colon clause leaves: ''Market surveillance authorities take on extra work. This
+      adds recurrent public enforcement costs, partly offset by efficiency gains.'' That text is supported,
+      but it is generic; dropping the point would be the alternative if a figure-free point is too weak.'
+    model: full-text review (assistant reviewers, owner delegation), Codex review 2026-10-17
+    'on': '2026-10-17'
 possibly_missing:
 - candidate_id: c08_m01
   affected_actor: Consumers, in particular low-income consumers buying cheap non-harmonised products from

@@ -738,8 +738,7 @@ possibly_missing:
   affected_actor: High-tech SMEs and start-ups using cloud and edge services
   mechanism: Harmonised switching conditions across the EU ease the technical portability problems and
     re-architecting costs that SMEs cannot handle as well as larger firms
-  impact: 'SMEs and start-ups are the main demand-side winners: they avoid the costly work of rebuilding
-    digital assets to move them off proprietary platforms'
+  impact: SMEs and start-ups are the main demand-side winners
   why_missing: The draft covers business customers in general, not the SME-specific mechanism of lacking
     resources to re-architect and handle missing standards.
   provision_keys:
@@ -786,6 +785,19 @@ possibly_missing:
     audit: false
     reviewer: null
     note: null
+  sweep:
+    action: trim
+    before:
+      impact: 'SMEs and start-ups are the main demand-side winners: they avoid the costly work of rebuilding
+        digital assets to move them off proprietary platforms'
+    reason: 'full-text review 2026-10-16/17 after the failed reference check 2026-10-14-75af237c (assistant
+      reviewers on owner delegation; accepted by the Codex review of 2026-10-17): The IA gives SMEs''
+      lack of resources to re-architect as a reason they benefit, but never states that the intervention
+      lets them avoid re-architecting; the preferred PO2 has no mandatory interoperability (line 698),
+      so ''avoid'' is an inference. After the cut the impact reads ''SMEs and start-ups are the main demand-side
+      winners'', fully supported. If the reviewer accepts the implicit reading, keep instead.'
+    model: full-text review (assistant reviewers, owner delegation), Codex review 2026-10-17
+    'on': '2026-10-17'
 - candidate_id: c03_m02
   affected_actor: SMEs contracting with cloud providers
   mechanism: Mandatory written contract terms on switching rights, transition periods, exportable data

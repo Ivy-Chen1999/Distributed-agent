@@ -693,8 +693,7 @@ important_omissions:
     note: null
 - omission_id: c09_o03
   description: Recycled-content targets may be hard to meet for large EV battery makers if there are not
-    enough secondary raw materials, given fast-growing demand. This could constrain supply and competition,
-    which the amendment power in Art 8(4) is meant to address.
+    enough secondary raw materials, given fast-growing demand.
   source: ia
   provision_keys:
   - batteries/proposal/art/8
@@ -739,6 +738,18 @@ important_omissions:
     audit: false
     reviewer: null
     note: null
+  sweep:
+    action: trim
+    before:
+      description: Recycled-content targets may be hard to meet for large EV battery makers if there are
+        not enough secondary raw materials, given fast-growing demand. This could constrain supply and
+        competition, which the amendment power in Art 8(4) is meant to address.
+    reason: 'full-text review 2026-10-16/17 after the failed reference check 2026-10-14-75af237c (assistant
+      reviewers on owner delegation; accepted by the Codex review of 2026-10-17): The adjustment idea
+      has IA support (4532), but it is grammatically tied to the unsupported ''constrain supply and competition''
+      clause, so the whole second sentence goes. The remaining first sentence is fully supported.'
+    model: full-text review (assistant reviewers, owner delegation), Codex review 2026-10-17
+    'on': '2026-10-17'
 - omission_id: c09_o04
   description: Maximum life-cycle carbon footprint thresholds work as a market-access restriction. If
     they are set badly, they could cause unintended supply restrictions for EV and industrial batteries
