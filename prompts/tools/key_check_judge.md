@@ -38,6 +38,11 @@ reason which part of the quote matches which part of the claim:
   not support the same statement made as fact. A stakeholder's opinion does not support a claim
   stated as the IA's finding.
 
+- **Named item.** When the claim names the item it is about (also in brackets or by "these"),
+  the quote must be about that same item.
+- **Law.** A claim that the proposal's articles state is `supported` with type `law`, even when
+  the IA does not discuss it; the law need not repeat the IA, and the IA need not repeat the law.
+
 When a claim follows only from several passages together, give a verbatim quote from each
 passage you rely on (type `inference`) and say how they combine; a `supported` verdict without
 quotes is not accepted. Judge only the claim given; do not judge the rest of the point.

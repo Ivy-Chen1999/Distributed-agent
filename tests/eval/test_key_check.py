@@ -194,8 +194,12 @@ def test_a_board_point_reads_only_the_opinion_and_the_law(tmp_path):
 
 
 def test_the_commission_never_matches_a_commission_fee():
-    assert "^commission" in kc.tokens("costs for the Commission and Member States")
-    assert "^commission" not in kc.tokens("an increase in commissions")
+    assert "^commis" in kc.tokens("costs for the Commission and Member States")
+    assert "^commis" not in kc.tokens("an increase in commissions")
+
+
+def test_inflections_meet_in_retrieval():
+    assert set(kc.tokens("account suspension")) == set(kc.tokens("suspend accounts"))
 
 
 def test_the_check_version_covers_retrieval(monkeypatch):

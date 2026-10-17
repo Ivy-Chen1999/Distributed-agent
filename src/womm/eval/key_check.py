@@ -44,6 +44,7 @@ TOP_PER_SEARCH = 3
 MAX_PER_CLAIM = 8
 BM25_K1, BM25_B = 1.4, 0.75
 RETRIEVAL = {
+    "prefix": 6,
     "top_per_search": TOP_PER_SEARCH,
     "max_per_claim": MAX_PER_CLAIM,
     "k1": BM25_K1,
@@ -95,11 +96,15 @@ _TOKEN = re.compile(r"[A-Za-z][A-Za-z'’-]*|\d[\d.,%]*")
 _SUFFIXES = ("ations", "ation", "ings", "ing", "ies", "ied", "es", "ed", "ly", "s")
 
 
+PREFIX = 6  # stems are cut to this many letters, so "suspension" meets "suspend"
+
+
 def _stem(word: str) -> str:
     for suf in _SUFFIXES:
         if len(word) > len(suf) + 3 and word.endswith(suf):
-            return word[: -len(suf)]
-    return word
+            word = word[: -len(suf)]
+            break
+    return word[:PREFIX]
 
 
 def tokens(text: str) -> list[str]:
@@ -117,7 +122,7 @@ def tokens(text: str) -> list[str]:
             r"[.!?:;(]\s*$", text[max(0, m.start() - 3) : m.start()]
         )
         word = _stem(raw.lower().replace("’", "'"))
-        out.append(f"^{word}" if raw[0].isupper() and not start and word == "commission" else word)
+        out.append(f"^{word}" if raw[0].isupper() and not start and word == "commis" else word)
     return out
 
 
