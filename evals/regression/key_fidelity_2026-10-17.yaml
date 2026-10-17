@@ -13,9 +13,10 @@
 # included: a prediction stated as fact is not supported (see m01), so supported claims keep the
 # source's "expected", "may" or "likely". These are acceptance cases for a checker; the test
 # beside them checks only the data, not any checker's verdicts.
-# j01-j04 were added after Codex ruled their labels (2026-10-17). Each case freezes its input: the full point as drafted, before any fix (`input.point`), its
+# j01-j04 were added after Codex ruled their labels (2026-10-17); w12 was relabelled by Codex the same
+# day (a possibility stated as fact, like m01; an amount the source estimates keeps "estimated"). Each case freezes its input: the full point as drafted, before any fix (`input.point`), its
 # anchor and the sha256 of every source it may be checked against. `claim` names the clause
-# this case judges; one point can hold a supported and an unsupported clause (w12 and o01).
+# this case judges; one point can hold a supported and an unsupported clause (o01).
 cases:
 - id: w01
   case: case_04_cra_manufacturer_obligations
@@ -306,11 +307,13 @@ cases:
 - id: w12
   case: case_11_pld_liability_software_burden_of_proof
   point: c11_m05
-  kind: window
-  expected: supported
+  kind: modality
+  expected: not_supported
   claim: more confidence to claim compensation in complex cases
   source: pld/ia_full.txt:610
-  why: '"give consumers greater confidence to make compensation claims in more complex cases"'
+  why: '"could, however, potentially give consumers greater confidence to make compensation claims
+    in more complex cases": a possibility stated as fact (Codex ruling 2026-10-17; with "could"
+    restored it is supported)'
   input:
     fixture: pld
     companion: false
