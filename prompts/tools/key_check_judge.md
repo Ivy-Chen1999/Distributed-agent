@@ -46,6 +46,14 @@ reason which part of the quote matches which part of the claim:
   the quote must be about that same item.
 - **Law.** A claim that the proposal's articles state is `supported` with type `law`, even when
   the IA does not discuss it; the law need not repeat the IA, and the IA need not repeat the law.
+- **New or changed.** A claim that something is new, added, increased or reduced needs a source
+  that says it changes. A duty or figure that the source states, without saying it is new or
+  different from today, does not support a claim that it is new.
+
+For every claim, fill `checks` before the verdict, comparing the claim with your best quote:
+`group`, `item` (the cost, benefit or thing named), `kind` (of judgement), `degree` (including
+comparisons) and `modality`, each `same`, `different` or `n/a`. A `supported` verdict needs every
+check `same` or `n/a`; a `supported` verdict with any `different` check is not accepted.
 
 When a claim follows only from several passages together, give a verbatim quote from each
 passage you rely on (type `inference`) and say how they combine; a `supported` verdict without

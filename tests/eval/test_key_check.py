@@ -61,7 +61,8 @@ def point(**over):
 
 
 def run(p, srcs, split, judge):
-    fake = FakeBackend({kc.SPLIT_ROLE: [split], kc.JUDGE_ROLE: [judge]})
+    judges = judge if isinstance(judge, list) else [judge] * kc.JUDGE_VOTES
+    fake = FakeBackend({kc.SPLIT_ROLE: [split], kc.JUDGE_ROLE: judges})
     return asyncio.run(kc.check_point(p, srcs, config(), {"fake": fake})), fake
 
 
@@ -82,6 +83,13 @@ def test_a_supported_claim_keeps_its_verified_quote_and_where(tmp_path):
         "claims": [
             {
                 "id": "c1",
+                "checks": {
+                    "group": "same",
+                    "item": "same",
+                    "kind": "same",
+                    "degree": "n/a",
+                    "modality": "same",
+                },
                 "verdict": "supported",
                 "reason": "stated",
                 "evidence": [
@@ -109,6 +117,13 @@ def test_a_quote_not_in_its_passage_becomes_cant_tell(tmp_path):
         "claims": [
             {
                 "id": "c1",
+                "checks": {
+                    "group": "same",
+                    "item": "same",
+                    "kind": "same",
+                    "degree": "n/a",
+                    "modality": "same",
+                },
                 "verdict": "supported",
                 "reason": "r",
                 "evidence": [
@@ -174,6 +189,13 @@ def test_a_board_point_reads_only_the_opinion_and_the_law(tmp_path):
         "claims": [
             {
                 "id": "c1",
+                "checks": {
+                    "group": "same",
+                    "item": "same",
+                    "kind": "same",
+                    "degree": "n/a",
+                    "modality": "same",
+                },
                 "verdict": "supported",
                 "reason": "r",
                 "evidence": [
@@ -255,6 +277,13 @@ def test_an_empty_or_token_quote_never_supports(tmp_path, quote):
         "claims": [
             {
                 "id": "c1",
+                "checks": {
+                    "group": "same",
+                    "item": "same",
+                    "kind": "same",
+                    "degree": "n/a",
+                    "modality": "same",
+                },
                 "verdict": "supported",
                 "reason": "r",
                 "evidence": [{"passage": "p1", "quote": quote, "type": "ia"}],
@@ -341,3 +370,73 @@ def test_the_split_cases_quote_their_elements_from_the_frozen_point():
         for e in c["must_cover"]:
             assert e["expected"] in ("supported", "not_supported")
             assert all(w.lower() in text for w in e["element"].split()), (c["id"], e)
+
+
+def test_judgements_must_agree_or_the_claim_goes_to_review(tmp_path):
+    q = "improve consumer confidence and trust in more complex products"
+    yes = {
+        "claims": [
+            {
+                "id": "c1",
+                "checks": {
+                    "group": "same",
+                    "item": "same",
+                    "kind": "same",
+                    "degree": "n/a",
+                    "modality": "same",
+                },
+                "verdict": "supported",
+                "reason": "r",
+                "evidence": [{"passage": "p1", "quote": q, "type": "ia"}],
+            },
+            {"id": "c2", "verdict": "not_found", "reason": "r"},
+        ]
+    }
+    no = {
+        "claims": [
+            {"id": "c1", "verdict": "not_found", "reason": "r"},
+            {"id": "c2", "verdict": "not_found", "reason": "r"},
+        ]
+    }
+    res, fake = run(point(), sources(tmp_path), SPLIT, [yes, no, yes])
+    assert res["claims"][0]["verdict"] == "cant_tell"
+    assert "differ" in res["claims"][0]["reason"]
+    assert res["claims"][1]["verdict"] == "not_found"
+    assert len(fake.calls) == 1 + kc.JUDGE_VOTES
+
+
+def test_only_wrong_direction_and_unchecked_elements_are_dangerous():
+    acc = _acceptance()
+    row = lambda exp, got: {"pass": exp == got, "expected": exp, "got": got}  # noqa: E731
+    assert acc.dangerous(row("not_supported", "supported"))
+    assert acc.dangerous(row("supported", "not_supported"))
+    assert acc.dangerous(row("supported", "missing"))
+    assert not acc.dangerous(row("not_supported", "cant_tell"))
+    assert not acc.dangerous(row("supported", "supported"))
+
+
+def test_a_supported_verdict_with_a_different_part_goes_to_review(tmp_path):
+    q = "improve consumer confidence and trust in more complex products"
+    j = {
+        "claims": [
+            {
+                "id": "c1",
+                "verdict": "supported",
+                "reason": "r",
+                "checks": {
+                    "group": "same",
+                    "item": "different",
+                    "kind": "same",
+                    "degree": "n/a",
+                    "modality": "same",
+                },
+                "evidence": [{"passage": "p1", "quote": q, "type": "ia"}],
+            },
+            {"id": "c2", "verdict": "not_found", "reason": "r"},
+        ]
+    }
+    res, _ = run(point(), sources(tmp_path), SPLIT, j)
+    assert res["claims"][0]["verdict"] == "cant_tell" and "item" in res["claims"][0]["reason"]
+    j["claims"][0].pop("checks")
+    res, _ = run(point(), sources(tmp_path / "again"), SPLIT, j)
+    assert res["claims"][0]["verdict"] == "cant_tell" and "no check" in res["claims"][0]["reason"]

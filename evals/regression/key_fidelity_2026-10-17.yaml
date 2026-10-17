@@ -13,7 +13,7 @@
 # included: a prediction stated as fact is not supported (see m01), so supported claims keep the
 # source's "expected", "may" or "likely". These are acceptance cases for a checker; the test
 # beside them checks only the data, not any checker's verdicts.
-# Each case freezes its input: the full point as drafted, before any fix (`input.point`), its
+# j01-j04 were added after Codex ruled their labels (2026-10-17). Each case freezes its input: the full point as drafted, before any fix (`input.point`), its
 # anchor and the sha256 of every source it may be checked against. `claim` names the clause
 # this case judges; one point can hold a supported and an unsupported clause (w12 and o01).
 cases:
@@ -719,3 +719,80 @@ cases:
       ia: 2cf6fb890d0ead6310613c68da3c50e3a65fe25513eb6df23c7dba8604e6ffba
       rsb_opinion: 0ada4456250c3a02687325951626aab689a6052845439be992dcb41040fd6ca4
       law: 5029fcb7d4bcafb3706f5835070cc3ebe4fa50ffc363f693e201d37fefde3a1c
+- id: j01
+  kind: same_group_kind
+  expected: supported
+  claim: Low-skilled on-location workers face a higher risk of misclassification than high-skilled on-location
+    workers.
+  source: platform_work/ia_full.txt:1604
+  why: '"48% of those doing low-skilled on-location work are likely to be at risk of misclassification"
+    against 18% high-skilled: a likelihood, stated'
+  input:
+    fixture: platform_work
+    anchored_on: ia
+    anchor: Low-skill on-location platforms are much more likely to exert control or sub-ordination over
+      people working through them.
+    point:
+      impact: Low-skilled on-location workers face a higher risk of misclassification than high-skilled
+        on-location workers.
+    sources: &id001
+      ia: 2cf6fb890d0ead6310613c68da3c50e3a65fe25513eb6df23c7dba8604e6ffba
+      rsb_opinion: 0ada4456250c3a02687325951626aab689a6052845439be992dcb41040fd6ca4
+      law: 5029fcb7d4bcafb3706f5835070cc3ebe4fa50ffc363f693e201d37fefde3a1c
+  ruled_by: Codex 2026-10-17 (j01_j04_m02_codex_rulings_2026-10-17.json)
+- id: j02
+  kind: same_group_kind
+  expected: not_supported
+  claim: Low-skilled on-location workers lose more flexibility from reclassification than high-skilled
+    on-location workers.
+  source: platform_work/ia_full.txt:1604; 974
+  why: the IA states higher control and misclassification risk for this group, and that these services
+    are 'affected the most'; a larger loss of flexibility for the workers is a different judgement (proposed
+    label; Codex to rule)
+  input:
+    fixture: platform_work
+    anchored_on: ia
+    anchor: Low-skill on-location platforms are much more likely to exert control or sub-ordination over
+      people working through them.
+    point:
+      impact: Low-skilled on-location workers lose more flexibility from reclassification than high-skilled
+        on-location workers.
+    sources: *id001
+  ruled_by: Codex 2026-10-17 (j01_j04_m02_codex_rulings_2026-10-17.json)
+- id: j03
+  kind: modality
+  expected: supported
+  claim: The new traceability and recall requirements are expected to make recalls of unsafe products
+    more effective.
+  source: gpsr/ia_full.txt:864
+  why: '"are expected to improve the effectiveness of recalls of unsafe products": the prediction kept
+    as a prediction'
+  input:
+    fixture: gpsr
+    anchored_on: ia
+    anchor: The introduction of additional requirements for traceability and product recalls are expected
+      to improve the effectiveness of recalls of unsafe products from consumers.
+    point:
+      impact: The new traceability and recall requirements are expected to make recalls of unsafe products
+        more effective.
+    sources: &id002
+      ia: 63ef4f3d9973e0539c3070ee9ebc1a8d728cdf67d32f97e8b76474865b2cd1cc
+      rsb_opinion: 9469c0a6a17f0171eeabbea45455dbf52931a14ac31c8f7ddc44e781e2a01ce4
+      law: 8c7056698c4fe42076b56cb7ca43bd43b870a61cb74a341d300cd27a8d32e43c
+  ruled_by: Codex 2026-10-17 (j01_j04_m02_codex_rulings_2026-10-17.json)
+- id: j04
+  kind: modality
+  expected: not_supported
+  claim: Health-care costs for product-related injuries will fall below EUR 6.7 billion a year.
+  source: gpsr/ia_full.txt:864
+  why: 'the IA says the current EUR 6.7 billion ''could be further reduced'': a possibility, not a stated
+    outcome below that level'
+  input:
+    fixture: gpsr
+    anchored_on: ia
+    anchor: The introduction of additional requirements for traceability and product recalls are expected
+      to improve the effectiveness of recalls of unsafe products from consumers.
+    point:
+      impact: Health-care costs for product-related injuries will fall below EUR 6.7 billion a year.
+    sources: *id002
+  ruled_by: Codex 2026-10-17 (j01_j04_m02_codex_rulings_2026-10-17.json)

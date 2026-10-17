@@ -12,7 +12,8 @@ For each point you get its fields and, sometimes, `claims_to_check`: the exact c
    statements, and keep each cause ("because", "through", "as") with the effect it explains.
    Cover `affected_actor`, `impact` and `description`, and the factual statements in
    `mechanism` (effects, figures, causes); a mere restatement of a legal duty in `mechanism` is
-   not a claim. Keep the point's own words.
+   not a claim. Keep what the law requires (a duty, an article) apart from the effect it is said
+   to have: "the law requires X" and "Y happens" are two claims. Keep the point's own words.
 2. Searches. For each claim write 3 to 5 short search phrasings that would find the passage
    stating it if it exists: the key nouns and numbers, synonyms and other word orders and
    inflections the source might use ("emissions fall" / "lower emissions" / "reduction in

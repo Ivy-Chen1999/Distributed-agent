@@ -12,7 +12,15 @@ import yaml
 from womm.config import REPO_ROOT
 
 CASES = REPO_ROOT / "evals/regression/key_fidelity_2026-10-17.yaml"
-KINDS = {"window", "law_context", "over_inference", "group_mismatch", "amount_mismatch", "modality"}
+KINDS = {
+    "window",
+    "law_context",
+    "over_inference",
+    "group_mismatch",
+    "amount_mismatch",
+    "modality",
+    "same_group_kind",
+}
 IA_ROOTS = [REPO_ROOT / ".cache/ia", REPO_ROOT.parent.parent.parent / ".cache/ia"]
 
 
@@ -22,10 +30,13 @@ def _cases() -> list[dict]:
 
 def test_every_case_is_well_formed():
     cases = _cases()
-    assert len(cases) == 27 and len({c["id"] for c in cases}) == len(cases)
+    assert len(cases) == 31 and len({c["id"] for c in cases}) == len(cases)
     for c in cases:
         assert c["kind"] in KINDS and c["expected"] in {"supported", "not_supported"}
-        assert (c["kind"] in ("window", "law_context")) == (c["expected"] == "supported")
+        if c["kind"] in ("window", "law_context"):
+            assert c["expected"] == "supported"
+        elif c["kind"] in ("over_inference", "group_mismatch", "amount_mismatch"):
+            assert c["expected"] == "not_supported"
         assert c["claim"].strip() and c["why"].strip() and re.search(r":\d", c["source"])
 
 

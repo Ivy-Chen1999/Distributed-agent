@@ -5,11 +5,13 @@
 
 Runs the check on each case of evals/regression/key_fidelity_2026-10-17.yaml, on its frozen input
 (the full point before any fix) and only on the clause the case judges, and compares the verdict
-with ``expected`` (supported -> supported; not_found -> not_supported; cant_tell is a miss).
+with ``expected`` (supported -> supported; not_found -> not_supported). Acceptance (owner
+decision 2026-10-17): no dangerous miss (``supported`` for an unsupported claim, ``not_supported``
+for a supported one, or a split element never checked) in each of two independent runs;
+``cant_tell`` goes to review and is reported as a rate.
 Refused when a source's sha256 differs from the frozen one. Each run writes a new directory and
-reads no earlier run, so two runs are independent. The check passes acceptance when two runs
-each get every case right with the same check version. Exit codes: 0 every case right, 1 a miss,
-2 bad input.
+reads no earlier run, so two runs are independent. Exit codes: 0 no dangerous miss, 1 a
+dangerous miss, 2 bad input.
 """
 
 from __future__ import annotations
@@ -136,6 +138,17 @@ def score_split(cases: list[dict], results: list[dict]) -> list[dict]:
     return rows
 
 
+def dangerous(row: dict) -> bool:
+    """A miss that would change a key wrongly or let an over-reach stand: `supported` for an
+    unsupported claim, `not_supported` for a supported one, or an element the split never
+    checked. `cant_tell` goes to review and is not dangerous."""
+    if row["pass"]:
+        return False
+    if row["got"] in ("missing", "incomplete"):
+        return True
+    return {row["expected"], row["got"]} == {"supported", "not_supported"}
+
+
 def _sha(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
@@ -172,22 +185,28 @@ def main(argv: list[str] | None = None) -> int:
     results = asyncio.run(kc.check_points(pts + split_pts, config, backends))
     rows = score(cases, results[: len(pts)]) + score_split(split_cases, results[len(pts) :])
     passed = sum(r["pass"] for r in rows)
+    for r in rows:
+        r["dangerous"] = dangerous(r)
+    danger = sum(r["dangerous"] for r in rows)
+    to_review = sum(r["got"] == "cant_tell" for r in rows)
     args.out.mkdir(parents=True)
     record = {"check_version": version,
               "ran_at": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
               "cases": {str(args.cases): _sha(args.cases), str(args.split_cases): _sha(args.split_cases)},
               "sources": {c["input"]["fixture"]: c["input"]["sources"] for c in cases},
-              "passed": passed, "total": len(rows),
+              "passed": passed, "total": len(rows), "dangerous": danger,
+              "cant_tell": to_review,
               "misses_by_stage": dict(Counter(r["stage"] for r in rows if not r["pass"])),
               "rows": rows, "raw": results}  # fmt: skip
     (args.out / "run.json").write_text(json.dumps(record, indent=1, ensure_ascii=False), "utf-8")
-    print(f"check {version}: {passed}/{len(rows)} right "
-          f"({len(cases)} given clauses, {len(rows) - len(cases)} split elements)")  # fmt: skip
+    print(f"check {version}: {passed}/{len(rows)} right, {danger} dangerous, {to_review} to "
+          f"review ({len(cases)} given clauses, {len(rows) - len(cases)} split elements)")  # fmt: skip
     for r in rows:
         if not r["pass"]:
-            print(f"  MISS {r['id']} [{r['stage']}] ({r['kind']}): expected {r['expected']}, "
+            tag = "DANGER" if r["dangerous"] else "review"
+            print(f"  {tag} {r['id']} [{r['stage']}] ({r['kind']}): expected {r['expected']}, "
                   f"got {r['got']}: {r['reason'][:150]}")  # fmt: skip
-    return 0 if passed == len(rows) else 1
+    return 0 if danger == 0 else 1
 
 
 if __name__ == "__main__":

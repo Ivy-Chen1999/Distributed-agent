@@ -44,11 +44,15 @@ MIN_QUOTE_WORDS = 6  # an empty or token quote never supports a claim
 FUSE_DEPTH = 10  # each search's top passages merged by reciprocal rank
 RRF_K = 60
 MAX_PER_CLAIM = 8
+JUDGE_VOTES = 3  # independent judgements per point; they must agree (owner decision 2026-10-17)
 BM25_K1, BM25_B = 1.4, 0.75
 RETRIEVAL = {
     "prefix": 6,
     "fuse_depth": FUSE_DEPTH,
     "rrf_k": RRF_K,
+    "judge_votes": JUDGE_VOTES,
+    "keep_each_search_best": True,
+    "number_boost": True,
     "max_per_claim": MAX_PER_CLAIM,
     "k1": BM25_K1,
     "b": BM25_B,
@@ -82,8 +86,14 @@ class Evidence(StrictModel):
     type: Literal["ia", "law", "inference"]
 
 
+Match = Literal["same", "different", "n/a"]
+CHECKS = ("group", "item", "kind", "degree", "modality")
+
+
 class ClaimVerdict(StrictModel):
     id: str
+    # The claim against the quote, part by part; filled before the verdict.
+    checks: dict[str, Match] = {}
     verdict: Verdict
     evidence: list[Evidence] = []
     reason: str
@@ -213,13 +223,37 @@ def _retrieve(index: Index, point: PointInput, claim: SplitClaim) -> list[Passag
         (i for i, p in enumerate(index.passages) if anchor and anchor in _norm(p.text)), None
     )
     fused: dict[int, float] = {}
+    bests: list[int] = []
     for q in dict.fromkeys([claim.text, *claim.searches]):
-        for rank, i in enumerate(index.search(q, FUSE_DEPTH)):
-            if _allowed(index.passages[i].source, point.anchored_on):
-                fused[i] = fused.get(i, 0.0) + 1.0 / (RRF_K + rank + 1)
+        ranked = [
+            i
+            for i in index.search(q, FUSE_DEPTH)
+            if _allowed(index.passages[i].source, point.anchored_on)
+        ]
+        if ranked and ranked[0] not in bests:
+            bests.append(ranked[0])  # each phrasing's best passage is always kept
+        for rank, i in enumerate(ranked):
+            fused[i] = fused.get(i, 0.0) + 1.0 / (RRF_K + rank + 1)
+    numbers = {t for t in tokens(claim.text) if t[0].isdigit()}
+    if numbers:  # a passage that states the claim's figures is a strong candidate
+        for i in fused:
+            hit = numbers & set(index.docs[i])
+            fused[i] += len(hit) / len(numbers) / (RRF_K + 1)
     order = sorted(fused, key=lambda i: (-fused[i], i))
-    picked = ([first] if first is not None else []) + [i for i in order if i != first]
+    head = ([first] if first is not None else []) + [i for i in bests if i != first]
+    picked = head + [i for i in order if i not in head]
     return [index.passages[i] for i in picked[:MAX_PER_CLAIM]]
+
+
+def _agreed(cid: str, ballots: list[dict[str, ClaimVerdict]]) -> ClaimVerdict:
+    """The verdict all independent judgements give, or ``cant_tell`` when they differ (or one
+    gave none): a split vote goes to review instead of deciding."""
+    got = [b.get(cid) for b in ballots]
+    if all(g is not None for g in got) and len({g.verdict for g in got}) == 1:  # type: ignore[union-attr]
+        return got[0]  # type: ignore[return-value]
+    seen = ", ".join(g.verdict if g else "none" for g in got)
+    return ClaimVerdict(id=cid, verdict="cant_tell", evidence=[],
+                        reason=f"independent judgements differ ({seen})")  # fmt: skip
 
 
 def _validated(v: ClaimVerdict, shown: dict[str, Passage], board: bool) -> ClaimVerdict:
@@ -227,6 +261,12 @@ def _validated(v: ClaimVerdict, shown: dict[str, Passage], board: bool) -> Claim
     board point, at least one comes from the board's own opinion."""
     if v.verdict != "supported":
         return v
+    off = sorted(k for k in CHECKS if v.checks.get(k) == "different")
+    missing = [k for k in CHECKS if k not in v.checks]
+    if off or missing:
+        why = f"marked different: {', '.join(off)}" if off else f"no check of {', '.join(missing)}"
+        return ClaimVerdict(id=v.id, verdict="cant_tell", evidence=v.evidence,
+                            reason=f"supported but {why} ({v.reason})")  # fmt: skip
     bad = [
         e
         for e in v.evidence
@@ -341,14 +381,17 @@ async def check_point(
         "point_context": point.fields,
         "claims": per_claim,
     }
-    judged, _ = await backends[judge_role.backend].call(
-        JUDGE_ROLE,
-        config.prompts[judge_role.prompt],
-        "## Claims\n\n" + json.dumps(judge_in, indent=1, ensure_ascii=False),
-        JudgeOutput,
-        judge_role,
+    user = "## Claims\n\n" + json.dumps(judge_in, indent=1, ensure_ascii=False)
+    votes = await asyncio.gather(
+        *(
+            backends[judge_role.backend].call(
+                JUDGE_ROLE, config.prompts[judge_role.prompt], user, JudgeOutput, judge_role
+            )
+            for _ in range(JUDGE_VOTES)
+        )
     )
-    got = {v.id: _validated(v, shown, board) for v in judged.claims}
+    ballots = [{v.id: _validated(v, shown, board) for v in out.claims} for out, _ in votes]
+    got = {c.id: _agreed(c.id, ballots) for c in claims}
     for c, pc in zip(claims, per_claim, strict=True):
         v = got.get(c.id) or ClaimVerdict(
             id=c.id, verdict="cant_tell", reason="no verdict returned"
