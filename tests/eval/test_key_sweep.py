@@ -219,10 +219,12 @@ def test_holdout_drafts_need_the_holdout_switch(tmp_path, monkeypatch):
 
 def test_manual_corrections_write_overlays_or_nothing(tmp_path):
     path, _ = _setup(tmp_path)
-    good = [{"path": str(path), "item_id": "c90_e01", "action": "trim",
+    dg = ks.digest(path)
+    good = [{"path": str(path), "draft_digest": dg, "item_id": "c90_e01", "action": "trim",
              "after": {"impact": "Impact"}, "reason": "full report: no 1"},
-            {"path": str(path), "item_id": "c90_e02", "action": "drop", "reason": "r"}]  # fmt: skip
-    bad = good + [{"path": str(path), "item_id": "c90_e03", "action": "trim",
+            {"path": str(path), "draft_digest": dg, "item_id": "c90_e02", "action": "drop",
+             "reason": "r"}]  # fmt: skip
+    bad = good + [{"path": str(path), "draft_digest": dg, "item_id": "c90_e03", "action": "trim",
                    "after": {"impact": "Impact 3 more"}, "reason": "r"}]  # fmt: skip
     before = path.read_text()
     with pytest.raises(ks.SweepError, match="not a deletion"):
@@ -234,3 +236,60 @@ def test_manual_corrections_write_overlays_or_nothing(tmp_path):
     assert items["c90_e01"].impact == "Impact"
     assert items["c90_e02"].sweep.action == "drop"
     assert written == {str(path.resolve()): ks.digest(path)}
+
+
+# ------------------------------------------------------------ binding and batch writes (review)
+
+
+def test_a_ruling_on_an_older_draft_is_refused(tmp_path):
+    path, _ = _setup(tmp_path)
+    stale = [{"path": str(path), "draft_digest": ks.digest(path), "item_id": "c90_e02",
+              "action": "drop", "reason": "r"}]  # fmt: skip
+    path.write_text(path.read_text().replace("Impact 2", "Impact 2 fixed by hand"))
+    before = path.read_text()
+    with pytest.raises(ks.SweepError, match="changed since the rulings"):
+        ks.apply_corrections(stale, ruled_by="a", on=ON)
+    assert path.read_text() == before
+
+
+def test_trim_and_apply_refuse_a_draft_changed_after_the_sweep(tmp_path):
+    path, out, *_ = _run(tmp_path, TRIMS)
+    path.write_text(path.read_text().replace("Impact 3", "Impact 3 fixed by hand"))
+    before = path.read_text()
+    with pytest.raises(ks.SweepError, match="changed since the sweep"):
+        ks.apply(out, rejected=set(), rulings=RULINGS, wrong_keeps=0, ruled_by="a", on=ON)
+    with pytest.raises(ks.SweepError, match="changed since the sweep"):
+        asyncio.run(ks.trim(out, config(), {}, ia_root=tmp_path))
+    assert path.read_text() == before and not (out / ks.RECORD_FILE).exists()
+
+
+def test_proposals_from_another_batch_are_refused(tmp_path):
+    path, out, *_ = _run(tmp_path, TRIMS)
+    edits = json.loads((out / ks.EDITS_FILE).read_text())
+    edits["sweep_batch"] = "0000000000000000"
+    (out / ks.EDITS_FILE).write_text(json.dumps(edits))
+    with pytest.raises(ks.SweepError, match="another sweep batch"):
+        ks.apply(out, rejected=set(), rulings=RULINGS, wrong_keeps=0, ruled_by="a", on=ON)
+
+
+def test_the_record_names_every_swept_draft_even_one_left_unchanged(tmp_path):
+    path, out, *_ = _run(tmp_path, TRIMS)
+    rejected = {"case_90_widget_switching/c90_e01", "case_90_widget_switching/c90_e02"}
+    before = path.read_text()
+    record = ks.apply(out, rejected=rejected, rulings=RULINGS, wrong_keeps=0, ruled_by="a", on=ON)
+    assert path.read_text() == before  # nothing accepted, nothing written
+    assert record["drafts"] == {str(path.resolve()): ks.digest(path)}
+
+
+def test_a_failure_in_a_later_draft_writes_no_earlier_one(tmp_path):
+    first, _ = _setup(tmp_path / "a")
+    second, _ = _setup(tmp_path / "b")
+    ok = {"path": str(first), "draft_digest": ks.digest(first), "item_id": "c90_e01",
+          "action": "trim", "after": {"impact": "Impact"}, "reason": "r"}  # fmt: skip
+    broken = {"path": str(second), "draft_digest": ks.digest(second), "item_id": "c90_e01",
+              "action": "trim", "after": {"impact": "Impact 1 and more"},
+              "reason": "r"}  # fmt: skip
+    a, b = first.read_text(), second.read_text()
+    with pytest.raises(ks.SweepError, match="nothing written"):
+        ks.apply_corrections([ok, broken], ruled_by="a", on=ON)
+    assert first.read_text() == a and second.read_text() == b

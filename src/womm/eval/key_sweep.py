@@ -27,6 +27,7 @@ import hashlib
 import html
 import json
 import random
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
@@ -42,6 +43,7 @@ from womm.eval.drafting import (
     GoldenDraft,
     SweepBlock,
     _DraftItem,
+    draft_path,
     load_draft,
     require_under_cache,
     write_draft,
@@ -158,6 +160,23 @@ def _write_json(path: Path, data: Any) -> None:
     path.write_text(json.dumps(data, indent=1, ensure_ascii=False, default=str), encoding="utf-8")
 
 
+def _inputs(paths: list[Path]) -> dict[str, str]:
+    """Each input draft's digest, keyed by its resolved path: what a ruling was made against."""
+    return {str(p.resolve()): digest(p) for p in sorted(paths)}
+
+
+def _check_inputs(inputs: dict[str, str], what: str) -> None:
+    changed = sorted(Path(p).name for p, d in inputs.items()
+                     if not Path(p).exists() or digest(Path(p)) != d)  # fmt: skip
+    if changed:
+        raise SweepError(f"{', '.join(changed)} changed since {what}; nothing written, sweep again")
+
+
+def _batch(inputs: dict[str, str], items: dict[str, Any]) -> str:
+    blob = json.dumps({"inputs": inputs, "items": items}, sort_keys=True, ensure_ascii=False)
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:16]
+
+
 async def sweep(
     paths: list[Path],
     out_dir: Path,
@@ -183,7 +202,9 @@ async def sweep(
     entries = {k: {"path": str(s.path), "case_id": s.draft.case_id, "item_id": s.item.item_id,
                    "verdict": verdicts[k].verdict, "reason": verdicts[k].reason}
                for k, s in ((s.key, s) for s in items)}  # fmt: skip
+    inputs = _inputs([p for p, _ in drafts])
     _write_json(out_dir / SWEEP_FILE, {"model": config.roles.tiebreak.model,  # type: ignore[union-attr]
+                                       "inputs": inputs, "batch": _batch(inputs, entries),
                                        "items": entries})  # fmt: skip
     return {
         "swept": len(entries),
@@ -203,6 +224,7 @@ async def trim(
 ) -> dict[str, Any]:
     """Propose a deletion-only cut, or a drop, for every ``drop`` of the sweep."""
     swept = json.loads((out_dir / SWEEP_FILE).read_text(encoding="utf-8"))
+    _check_inputs(swept["inputs"], "the sweep")
     flagged = {k: e for k, e in swept["items"].items() if e["verdict"] == "drop"}
     paths = sorted({Path(e["path"]) for e in swept["items"].values()})
     drafts = load(paths, holdout=holdout)
@@ -254,6 +276,7 @@ async def trim(
                       "before": before})  # fmt: skip
     under = _under_minimum(drafts, edits)
     _write_json(out_dir / EDITS_FILE, {"sweep_model": swept["model"], "trim_model": role.model,
+                                       "sweep_batch": swept["batch"], "inputs": swept["inputs"],
                                        "edits": edits, "under_minimum": under})  # fmt: skip
     if not holdout:
         (out_dir / "edits.html").write_text(edits_page(edits, shown, under), encoding="utf-8")
@@ -335,6 +358,10 @@ def apply(
     exported by the review page (U0); ``wrong_keeps`` the owner's count in ``keep_sample``."""
     on = on or dt.date.today()
     edits = json.loads((out_dir / EDITS_FILE).read_text(encoding="utf-8"))
+    swept = json.loads((out_dir / SWEEP_FILE).read_text(encoding="utf-8"))
+    if edits.get("sweep_batch") != swept.get("batch") or edits.get("inputs") != swept["inputs"]:
+        raise SweepError("the proposals come from another sweep batch; trim again")
+    _check_inputs(swept["inputs"], "the sweep")
     sampled = keep_sample(out_dir)
     if rulings.get("sample") != SAMPLE:
         raise SweepError(f"the rulings are for {rulings.get('sample')!r}, not {SAMPLE}")
@@ -352,24 +379,19 @@ def apply(
     if unknown := sorted(rejected - {e["key"] for e in edits["edits"]}):
         raise SweepError(f"rejected ids not among the proposals: {', '.join(unknown)}")
     accepted = [e for e in edits["edits"] if e["key"] not in rejected]
-    paths = sorted({Path(e["path"]) for e in accepted})
-    under = _under_minimum(load(paths, holdout=holdout),
+    all_paths = [Path(p) for p in sorted(swept["inputs"])]
+    under = _under_minimum(load(all_paths, holdout=holdout),
                            [e for e in accepted if e["action"] == "drop"])  # fmt: skip
     if under:
         raise SweepError(f"under {MIN_KEPT_IMPACTS} kept impacts: {', '.join(under)}; reject some "
                          "drops of these cases or retire them first")  # fmt: skip
-    written = {}
-    for path in paths:
-        draft = load_draft(path)
-        mine = {e["item_id"]: e for e in accepted if e["path"] == str(path)}
-        draft = _overlaid(draft, mine, edits, on)
-        original = path.read_text(encoding="utf-8")
-        out = write_draft(draft, path.parent)
-        if out.resolve() != path.resolve():
-            out.unlink()
-            raise SweepError(f"{path.name}: the draft would be written as {out.name}")
-        _keep_layout(path, original)
-        written[str(path.resolve())] = digest(path)
+    staged = {}
+    for path in all_paths:
+        mine = {e["item_id"]: e for e in accepted if Path(e["path"]).resolve() == path}
+        if mine:
+            staged[path] = _overlaid(load_draft(path), mine, edits, on)
+    _write_all(staged)
+    written = {str(p): digest(p) for p in all_paths}  # every swept draft, edited or not
     record = {"sample": SAMPLE, "basis": "tightened, not re-checked", "on": on.isoformat(),
               "ruled_by": ruled_by, "holdout": holdout,
               "sweep_model": edits["sweep_model"], "trim_model": edits["trim_model"],
@@ -418,31 +440,53 @@ def _overlaid(draft: GoldenDraft, mine: dict[str, dict], edits: dict, on: dt.dat
     return draft.model_copy(update={s: [edit(i) for i in getattr(draft, s)] for s in sections})
 
 
+def _rendered(draft: GoldenDraft, path: Path) -> str:
+    """The bytes ``write_draft`` would put at ``path``, refused when it would write elsewhere."""
+    target = draft_path(draft.case_id, draft.split, path.parent, draft.companion)
+    if target != path.resolve():
+        raise SweepError(f"{path.name}: the draft would be written as {target.name}")
+    with tempfile.TemporaryDirectory() as tmp:
+        text = write_draft(draft, Path(tmp)).read_text(encoding="utf-8")
+    if "raised_by:" not in path.read_text(encoding="utf-8"):
+        text = text.replace(_LATER_NULLS, "")
+    return text
+
+
+def _write_all(staged: dict[Path, GoldenDraft]) -> None:
+    """Check every new draft and render it before writing any, so a failure writes nothing."""
+    from womm.eval.golden_review import check_draft
+
+    texts = {}
+    for path, draft in staged.items():
+        if problems := check_draft(draft, None):
+            raise SweepError(f"{path.name}: nothing written:\n  " + "\n  ".join(problems))
+        texts[path] = _rendered(draft, path)
+    for path, text in texts.items():
+        path.write_text(text, encoding="utf-8")
+
+
 _LATER_NULLS = "    raised_by: null\n    feedback_id: null\n    analyst_digest: null\n"
-
-
-def _keep_layout(path: Path, original: str) -> None:
-    """``write_draft`` spells out provenance fields older drafts leave out; keep them out."""
-    if "raised_by:" not in original:
-        path.write_text(path.read_text(encoding="utf-8").replace(_LATER_NULLS, ""), "utf-8")
 
 
 def apply_corrections(
     corrections: list[dict[str, Any]], *, ruled_by: str, on: dt.date | None = None
 ) -> dict[str, str]:
     """Write rulings made by reading the whole report (not by the sweep) as sweep overlays:
-    each entry names ``path``, ``item_id``, ``action`` (trim|drop), ``after`` (field -> text,
-    a deletion of the current text) and ``reason``. Every draft must still pass ``check_draft``;
-    nothing is written if one fails. Returns each written draft's digest."""
-    from womm.eval.golden_review import check_draft
-
+    each entry names ``path``, ``draft_digest`` (the draft the ruling was made on), ``item_id``,
+    ``action`` (trim|drop), ``after`` (field -> text, a deletion of the current text) and
+    ``reason``. A draft changed since its ruling is refused; every draft must still pass
+    ``check_draft``; nothing is written unless all pass. Returns each written draft's digest."""
     on = on or dt.date.today()
-    by_path: dict[str, dict[str, dict]] = {}
+    by_path: dict[Path, dict[str, dict]] = {}
+    expected: dict[Path, str] = {}
     for c in corrections:
-        by_path.setdefault(c["path"], {})[c["item_id"]] = c
-    staged: dict[Path, tuple[GoldenDraft, str]] = {}
-    for p, mine in by_path.items():
-        path = Path(p)
+        path = Path(c["path"]).resolve()
+        if expected.setdefault(path, c["draft_digest"]) != c["draft_digest"]:
+            raise SweepError(f"{path.name}: rulings made on different versions of the draft")
+        by_path.setdefault(path, {})[c["item_id"]] = c
+    _check_inputs({str(p): d for p, d in expected.items()}, "the rulings")
+    staged = {}
+    for path, mine in by_path.items():
         draft = load_draft(path)
         items = {i.item_id: i for i in draft.items()}
         if missing := sorted(set(mine) - set(items)):
@@ -451,15 +495,8 @@ def apply_corrections(
             iid: c | {"before": {f: getattr(items[iid], f) for f in c.get("after", {})}}
             for iid, c in mine.items()
         }
-        new = _overlaid(draft, entries, {"trim_model": ruled_by, "sweep_model": ruled_by}, on)
-        if problems := check_draft(new, None):
-            raise SweepError(f"{path.name}: nothing written:\n  " + "\n  ".join(problems))
-        staged[path] = (new, path.read_text(encoding="utf-8"))
-    written = {}
-    for path, (new, original) in staged.items():
-        out = write_draft(new, path.parent)
-        if out.resolve() != path.resolve():
-            raise SweepError(f"{path.name}: the draft would be written as {out.name}")
-        _keep_layout(path, original)
-        written[str(path.resolve())] = digest(path)
-    return written
+        staged[path] = _overlaid(
+            draft, entries, {"trim_model": ruled_by, "sweep_model": ruled_by}, on
+        )
+    _write_all(staged)
+    return {str(p): digest(p) for p in staged}
