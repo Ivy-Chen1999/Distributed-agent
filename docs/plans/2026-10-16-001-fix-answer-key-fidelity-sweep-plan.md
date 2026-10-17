@@ -59,9 +59,12 @@ amends: docs/plans/2026-10-04-001-feat-golden-case-expansion-plan.md (human chec
 > - **F3 Modality is part of the claim.** A prediction stated as fact fails (case m01).
 > - **F4 Acceptance.** (a) Data, in the unit tests: each of the 27 cases in
 >   `evals/regression/key_fidelity_2026-10-17.yaml` gets a frozen input (the full point text
->   before any fix, the fixture, each source's sha256) in the same file. (b) Behaviour, offline on
+>   before any fix, the fixture, each source's sha256) in the same file, and `claim` names the
+>   clause the case judges: one point can hold a supported and an unsupported clause (w12, o01),
+>   so a verdict is compared clause by clause, never for the point as a whole. (b) Behaviour, offline on
 >   the subscription: F2 on those frozen inputs gives every `expected` verdict in each of 2 runs;
->   any miss is fixed and the 2 runs repeated. Two of the 27 are legal background that must be
+>   any miss is fixed and the 2 runs repeated. The two runs are independent: the second reads
+>   nothing the first produced. Two of the 27 are legal background that must be
 >   kept (CRA class I/II scope, c04_e03; PLD trade secrets, c11_o01): a check that drops what the
 >   law states fails. The result is recorded next to the cases before F2
 >   is used on any draft.
@@ -75,9 +78,11 @@ amends: docs/plans/2026-10-04-001-feat-golden-case-expansion-plan.md (human chec
 > - **F8 The gate.** A new record type, not a change to the old counts: the window sweep's
 >   `key_tightened.json` and its U0/U3 rules stay as written and are not used for this sample.
 >   `robust_reference_check` passes the pinned sample only with a valid `key_checked.json`:
->   the check's model and prompt hash match the version that passed F4b, F4b passed, every source
+>   the **check version** (model, prompt hash, and the hash of the retrieval code and its
+>   configuration: a change to any of them needs a new F4b run) matches the version that passed
+>   F4b, F4b passed, every source
 >   sha256 and every checked draft's digest are current, every proposed edit and every
->   `cant_tell` has Codex's recorded ruling, and the record names the failed reference check it
+>   `cant_tell` has a recorded ruling (train/val: Codex; holdout: the owner only, boundary 3), and the record names the failed reference check it
 >   follows. The reference check's own result (NOT ROBUST) is never rewritten. Tests: each
 >   condition refused alone; a valid record passes with basis `corrected after feedback, not
 >   re-checked`.
