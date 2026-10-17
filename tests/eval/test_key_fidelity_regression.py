@@ -52,3 +52,21 @@ def test_each_quoted_passage_is_on_its_line():
 
 def _norm(text: str) -> str:
     return " ".join(text.replace("\u2019", "'").replace("\u2018", "'").split()).lower()
+
+
+def test_every_case_freezes_its_input():
+    for c in _cases():
+        inp = c["input"]
+        assert inp["point"] and inp["anchor"] and inp["fixture"], c["id"]
+        assert set(inp["sources"]) >= {"ia"} and all(len(d) == 64 for d in inp["sources"].values())
+
+
+@pytest.mark.skipif(_root() is None, reason="the IA texts are not cached on this machine")
+def test_the_frozen_sources_are_the_texts_on_this_machine():
+    """A changed source text invalidates the acceptance run: freeze and run it again."""
+    from womm.eval.key_sources import load_sources
+
+    for fixture in sorted({c["input"]["fixture"] for c in _cases()}):
+        now = load_sources(fixture, ia_root=_root()).digests
+        for c in (c for c in _cases() if c["input"]["fixture"] == fixture):
+            assert c["input"]["sources"] == now, c["id"]
