@@ -20,10 +20,12 @@ amends: docs/plans/2026-10-04-001-feat-golden-case-expansion-plan.md (human chec
 > change a key. U2's automatic trim is withdrawn; its under-minimum rule (a case under 3 kept
 > impacts is not published, `MIN_KEPT_IMPACTS`) stays and applies to every edit.
 >
-> **U0 and U3 as they ran.** The owner delegated the rulings (2026-10-16): the assistant ruled the
-> 24 errors (AI wrong 4, unclear 3; the U0 stop rule would fire) and Codex reviewed them. The
-> remedy was not a prompt fix but the full-text review below, so U0's and U3's owner counts do not
-> exist; the U4 gate's U0/U3 conditions are replaced by the F5 record. No second sitting.
+> **U0 and U3 as they ran.** The owner delegated the rulings (2026-10-16) to the assistant and
+> Codex; no blind owner ruling and no owner keep sample exist. On 4 of the 24 errors, evidence
+> outside the card window supports the key where the page AI's card verdict said `drop`. That shows
+> a window check cannot settle the key; it does not show the page AI answered its card wrongly
+> (boundary 1: people and the AI were judged on the same card). The remedy is the full-text check
+> below, not a prompt fix. No second sitting.
 >
 > **Done (2026-10-16/17).** The disagreements were checked on the key side only; the annotators'
 > answers and the NOT ROBUST result stay as recorded. 19 proposals (the reviewers' 17 from the 55
@@ -55,11 +57,13 @@ amends: docs/plans/2026-10-04-001-feat-golden-case-expansion-plan.md (human chec
 >   by itself: every proposed edit goes to Codex. A board point whose opinion text is missing
 >   gets `cant_tell`.
 > - **F3 Modality is part of the claim.** A prediction stated as fact fails (case m01).
-> - **F4 Acceptance.** (a) Data, in the unit tests: each of the 25 cases in
+> - **F4 Acceptance.** (a) Data, in the unit tests: each of the 27 cases in
 >   `evals/regression/key_fidelity_2026-10-17.yaml` gets a frozen input (the full point text
 >   before any fix, the fixture, each source's sha256) in the same file. (b) Behaviour, offline on
 >   the subscription: F2 on those frozen inputs gives every `expected` verdict in each of 2 runs;
->   any miss is fixed and the 2 runs repeated. The result is recorded next to the cases before F2
+>   any miss is fixed and the 2 runs repeated. Two of the 27 are legal background that must be
+>   kept (CRA class I/II scope, c04_e03; PLD trade secrets, c11_o01): a check that drops what the
+>   law states fails. The result is recorded next to the cases before F2
 >   is used on any draft.
 > - **F5 Re-check and record.** F2 runs on the 38 kept points, the 19 already-edited points and a
 >   seeded 10% of the never-flagged keeps per draft; Codex reviews every proposed edit and every
@@ -67,9 +71,16 @@ amends: docs/plans/2026-10-04-001-feat-golden-case-expansion-plan.md (human chec
 >   text. The record (`key_checked.json`; train/val in the reference-check dir, holdout in
 >   `.cache/holdout_sweep/`) holds: sample, basis `corrected after feedback, not re-checked`, check
 >   model and prompt hash, source sha256s, the F4b result, counts, the reviewer, and every checked
->   draft's digest. `record_problems` and `robust_reference_check` accept this record in place
->   of the U0/U3 counts: F4b passed, every checked draft's digest current, no `cant_tell` left
->   unreviewed.
+>   draft's digest.
+> - **F8 The gate.** A new record type, not a change to the old counts: the window sweep's
+>   `key_tightened.json` and its U0/U3 rules stay as written and are not used for this sample.
+>   `robust_reference_check` passes the pinned sample only with a valid `key_checked.json`:
+>   the check's model and prompt hash match the version that passed F4b, F4b passed, every source
+>   sha256 and every checked draft's digest are current, every proposed edit and every
+>   `cant_tell` has Codex's recorded ruling, and the record names the failed reference check it
+>   follows. The reference check's own result (NOT ROBUST) is never rewritten. Tests: each
+>   condition refused alone; a valid record passes with basis `corrected after feedback, not
+>   re-checked`.
 > - **F6 Drafting, for new drafts only.** `draft_golden_case.md` and the tie-break emit claims with
 >   evidence per claim, typed as in F2, and keep modality. The new field is optional and left out
 >   of the item digest when unset, so existing drafts and digests hold. Existing keys are covered

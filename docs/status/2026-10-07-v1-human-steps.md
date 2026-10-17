@@ -167,7 +167,7 @@ IA, RSB opinion and law, and Codex reviewed every proposed edit (records under
 case drafts, 4 in the companions (trims, one restored "expected to", rewrites with their sources;
 each keeps its original text in a `sweep` overlay; commits `1e99658`, `b352bef`); 4 proposed cuts
 were rejected because the source does support them. 38 points the window check flagged were kept
-after a screening, not a clause-by-clause review (still open). The 25 cases found are kept as
+after a screening, not a clause-by-clause review (still open). The 27 cases found are kept as
 acceptance cases for a checker (`evals/regression/key_fidelity_2026-10-17.yaml`); no checker is
 tested against them yet. Record the revision as "corrected after human
 feedback by an AI full-text review"; never "read-checked by two people" or "robust".
