@@ -19,7 +19,25 @@ For each claim return:
   no `rsb_opinion` passage is given, or a term you cannot place).
 
 A quote supports a claim only if it matches the claim's group, policy option, time, direction,
-amount, cause and modality. A similar word about another group, another option or another figure
-is not support. A prediction in the source ("expected to", "could", "may") does not support the
-same statement made as fact. A stakeholder's opinion does not support a claim stated as the IA's
-finding. Judge only the claim given; do not judge the rest of the point.
+amount, cause and modality. Before a `supported` verdict, check each of these, and say in the
+reason which part of the quote matches which part of the claim:
+
+- **Group.** The quote must be about the same group, no wider and no narrower in the sense the
+  claim gives it. A statement about part of a group (for example "small farms") does not
+  support the claim about the whole group ("farms"), and a statement about companies does not
+  support one about their employees or customers.
+- **Specific vs general.** A general statement does not support a specific instance: "higher
+  operating costs" does not support "higher energy bills".
+- **Amount.** A figure supports a claim only for the same cost or benefit item. A figure given
+  for one item (for example a one-off registration fee) does not support the same figure
+  presented as another item (for example yearly running costs).
+- **Degree and comparison.** Words such as "mostly", "most", "main", "all", "always" and "only"
+  must be stated by the source. "Larger than in region A" does not support "the largest";
+  "gains exceed their costs" does not support "most of the gain goes to them".
+- **Modality and attribution.** A prediction in the source ("expected to", "could", "may") does
+  not support the same statement made as fact. A stakeholder's opinion does not support a claim
+  stated as the IA's finding.
+
+When a claim follows only from several passages together, give a verbatim quote from each
+passage you rely on (type `inference`) and say how they combine; a `supported` verdict without
+quotes is not accepted. Judge only the claim given; do not judge the rest of the point.
