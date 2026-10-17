@@ -53,6 +53,8 @@ RETRIEVAL = {
     "judge_votes": JUDGE_VOTES,
     "keep_each_search_best": True,
     "number_boost": True,
+    "split_keeps_point_words": True,
+    "quote_modality_rule": True,
     "max_per_claim": MAX_PER_CLAIM,
     "k1": BM25_K1,
     "b": BM25_B,
@@ -245,6 +247,28 @@ def _retrieve(index: Index, point: PointInput, claim: SplitClaim) -> list[Passag
     return [index.passages[i] for i in picked[:MAX_PER_CLAIM]]
 
 
+# Words a claim may add to the point's own: joining words, never content or modality. Kept as
+# tokens, so they compare with tokens().
+JOINERS = frozenset(
+    tokens(
+        "a an the and or of to in for on by with as is are be this that these those it its their "
+        "they which who from at than make makes cause causes lead leads result results "
+        "impact assessment"  # "the IA" written out
+    )
+)
+HEDGES = ("expect", "could", "may", "might", "likely", "would", "estimat", "potentia", "possib")
+
+
+def invented(claim: str, point_words: set[str]) -> set[str]:
+    """Content words in a claim that the point does not use (the split must not rewrite)."""
+    return {w for w in tokens(claim) if w not in point_words and w not in JOINERS
+            and not w[0].isdigit()}  # fmt: skip
+
+
+def _hedged(text: str) -> bool:
+    return any(t.startswith(HEDGES) for t in tokens(text))
+
+
 def _agreed(cid: str, ballots: list[dict[str, ClaimVerdict]]) -> ClaimVerdict:
     """The verdict all independent judgements give, or ``cant_tell`` when they differ (or one
     gave none): a split vote goes to review instead of deciding."""
@@ -256,13 +280,18 @@ def _agreed(cid: str, ballots: list[dict[str, ClaimVerdict]]) -> ClaimVerdict:
                         reason=f"independent judgements differ ({seen})")  # fmt: skip
 
 
-def _validated(v: ClaimVerdict, shown: dict[str, Passage], board: bool) -> ClaimVerdict:
+def _validated(
+    v: ClaimVerdict, shown: dict[str, Passage], board: bool, claim_text: str = ""
+) -> ClaimVerdict:
     """A supported verdict stands only if every quote is in the passage it cites, and, for a
     board point, at least one comes from the board's own opinion."""
     if v.verdict != "supported":
         return v
-    off = sorted(k for k in CHECKS if v.checks.get(k) == "different")
-    missing = [k for k in CHECKS if k not in v.checks]
+    checks = dict(v.checks)
+    if any(_hedged(e.quote) for e in v.evidence) and not _hedged(claim_text):
+        checks["modality"] = "different"  # the source predicts; the claim states it as fact
+    off = sorted(k for k in CHECKS if checks.get(k) == "different")
+    missing = [k for k in CHECKS if k not in checks]
     if off or missing:
         why = f"marked different: {', '.join(off)}" if off else f"no check of {', '.join(missing)}"
         return ClaimVerdict(id=v.id, verdict="cant_tell", evidence=v.evidence,
@@ -305,17 +334,33 @@ async def check_point(
         raise KeyCheckError("the drafting config has no key_split / key_judge role")
     board = point.anchored_on == "rsb_opinion"
     split_in = {"point": point.fields, "claims_to_check": list(point.claims) or None}
-    split, _ = await backends[split_role.backend].call(
-        SPLIT_ROLE,
-        config.prompts[split_role.prompt],
-        "## Point\n\n" + json.dumps(split_in, indent=1, ensure_ascii=False),
-        SplitOutput,
-        split_role,
-    )
-    claims = split.claims
-    ids = [c.id for c in claims]
-    if not point.claims and (not claims or len(set(ids)) != len(ids)):
-        why = "the split returned no claims" if not claims else "the split repeated a claim id"
+    point_words = set(tokens(" ".join(point.fields.values())))
+    note, why = "", ""
+    for _attempt in range(2):  # one retry when the split rewrites the point
+        split, _ = await backends[split_role.backend].call(
+            SPLIT_ROLE,
+            config.prompts[split_role.prompt],
+            "## Point\n\n" + json.dumps(split_in, indent=1, ensure_ascii=False) + note,
+            SplitOutput,
+            split_role,
+        )
+        claims = split.claims
+        ids = [c.id for c in claims]
+        if point.claims:
+            break
+        added = sorted({w for c in claims for w in invented(c.text, point_words)})
+        if not claims:
+            why = "the split returned no claims"
+        elif len(set(ids)) != len(ids):
+            why = "the split repeated a claim id"
+        elif added:
+            why = f"the split added words the point does not use: {', '.join(added)}"
+            note = (f"\n\nYour last split added words the point does not use ({', '.join(added)})."
+                    " Use only the point's own words.")  # fmt: skip
+        else:
+            why = ""
+            break
+    if why:
         return {
             "key": point.key,
             "sources": sources.digests,
@@ -390,7 +435,11 @@ async def check_point(
             for _ in range(JUDGE_VOTES)
         )
     )
-    ballots = [{v.id: _validated(v, shown, board) for v in out.claims} for out, _ in votes]
+    texts = {c.id: c.text for c in claims}
+    ballots = [
+        {v.id: _validated(v, shown, board, texts.get(v.id, "")) for v in out.claims}
+        for out, _ in votes
+    ]
     got = {c.id: _agreed(c.id, ballots) for c in claims}
     for c, pc in zip(claims, per_claim, strict=True):
         v = got.get(c.id) or ClaimVerdict(

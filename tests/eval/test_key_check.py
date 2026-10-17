@@ -162,7 +162,15 @@ def test_a_board_point_without_the_opinion_is_cant_tell_with_no_call(tmp_path):
         anchor="which markets are affected",
     )
     fake = FakeBackend(
-        {kc.SPLIT_ROLE: [{"claims": [{"id": "c1", "text": "markets", "searches": ["markets"]}]}]}
+        {
+            kc.SPLIT_ROLE: [
+                {
+                    "claims": [
+                        {"id": "c1", "text": "Which markets are affected", "searches": ["markets"]}
+                    ]
+                }
+            ]
+        }
     )
     res = asyncio.run(kc.check_point(p, sources(tmp_path, opinion=False), config(), {"fake": fake}))
     assert res["opinion_missing"] and [c["verdict"] for c in res["claims"]] == ["cant_tell"]
@@ -209,7 +217,10 @@ def test_a_board_point_reads_only_the_opinion_and_the_law(tmp_path):
         ]
     }
     res, _ = run(
-        p, srcs, {"claims": [{"id": "c1", "text": "markets", "searches": ["markets"]}]}, judge
+        p,
+        srcs,
+        {"claims": [{"id": "c1", "text": "Competition effects", "searches": ["markets"]}]},
+        judge,
     )
     assert res["claims"][0]["verdict"] == "supported"
     assert res["claims"][0]["evidence"][0]["source"] == "rsb_opinion"
@@ -300,9 +311,9 @@ def test_an_empty_or_token_quote_never_supports(tmp_path, quote):
     [[], [{"id": "c1", "text": "a", "searches": []}, {"id": "c1", "text": "b", "searches": []}]],
 )
 def test_an_empty_or_duplicate_split_is_incomplete_and_judges_nothing(tmp_path, claims):
-    fake = FakeBackend({kc.SPLIT_ROLE: [{"claims": claims}]})
+    fake = FakeBackend({kc.SPLIT_ROLE: [{"claims": claims}, {"claims": claims}]})
     res = asyncio.run(kc.check_point(point(), sources(tmp_path), config(), {"fake": fake}))
-    assert res["incomplete"] and res["claims"] == [] and len(fake.calls) == 1
+    assert res["incomplete"] and res["claims"] == [] and len(fake.calls) == 2  # one retry
 
 
 def test_an_empty_case_set_never_passes_acceptance(tmp_path, capsys):
@@ -440,3 +451,40 @@ def test_a_supported_verdict_with_a_different_part_goes_to_review(tmp_path):
     j["claims"][0].pop("checks")
     res, _ = run(point(), sources(tmp_path / "again"), SPLIT, j)
     assert res["claims"][0]["verdict"] == "cant_tell" and "no check" in res["claims"][0]["reason"]
+
+
+def test_a_split_that_rewrites_the_point_is_retried_then_incomplete(tmp_path):
+    rewritten = {
+        "claims": [
+            {"id": "c1", "text": "Consumers are expected to buy complex goods", "searches": ["x"]}
+        ]
+    }
+    fake = FakeBackend({kc.SPLIT_ROLE: [rewritten, rewritten]})
+    res = asyncio.run(kc.check_point(point(), sources(tmp_path), config(), {"fake": fake}))
+    assert "added words" in res["incomplete"] and "expect" in res["incomplete"]
+    assert "Use only the point's own words" in fake.calls[1].user_content
+
+
+def test_a_prediction_never_supports_the_same_statement_as_fact(tmp_path):
+    srcs = sources(tmp_path)
+    q = "could improve consumer confidence and trust in more complex products"
+    j = {
+        "claims": [
+            {
+                "id": "c1",
+                "verdict": "supported",
+                "reason": "r",
+                "checks": {
+                    "group": "same",
+                    "item": "same",
+                    "kind": "same",
+                    "degree": "n/a",
+                    "modality": "same",
+                },
+                "evidence": [{"passage": "p1", "quote": q, "type": "ia"}],
+            },
+            {"id": "c2", "verdict": "not_found", "reason": "r"},
+        ]
+    }
+    res, _ = run(point(), srcs, SPLIT, j)
+    assert res["claims"][0]["verdict"] == "cant_tell" and "modality" in res["claims"][0]["reason"]
