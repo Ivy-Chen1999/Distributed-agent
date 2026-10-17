@@ -7,7 +7,8 @@
 #
 # Fields: id; case and point; claim (the clause at issue, as the point stated it before any
 # fix); expected (supported | not_supported); kind; source (file:line under .cache/ia/<fixture>/
-# or the proposal article) and why. `window` marks a claim supported outside the ~900-character
+# or the proposal article) and why. `law_context` marks a claim the key keeps because the
+# proposal's text states it: a check must not drop it for want of an IA sentence. `window` marks a claim supported outside the ~900-character
 # card window: a window-only check gets it wrong. Each claim is judged as written, modality
 # included: a prediction stated as fact is not supported (see m01), so supported claims keep the
 # source's "expected", "may" or "likely". These are acceptance cases for a checker; the test
@@ -50,6 +51,13 @@ cases:
   - {id: w12, case: case_11_pld_liability_software_burden_of_proof, point: c11_m05, kind: window, expected: supported,
      claim: "more confidence to claim compensation in complex cases",
      source: "pld/ia_full.txt:610", why: "\"give consumers greater confidence to make compensation claims in more complex cases\""}
+  # --- legal background the key keeps: the IA does not state it, the proposal's text does ---
+  - {id: l01, case: case_04_cra_manufacturer_obligations, point: c04_e03, kind: law_context, expected: supported,
+     claim: "manufacturers of critical products (Annex III class I without harmonised standards, and class II) bear third-party assessment costs",
+     source: "proposal Art 6(1), Art 24(2)-(3); cra/ia_full.txt:706,714", why: "the proposal: \"Categories of critical products with digital elements shall be divided into class I and class II\"; Art 24 sets the third-party procedure for class I without standards and for class II. Dropping the scope would widen the group"}
+  - {id: l02, case: case_11_pld_liability_software_burden_of_proof, point: c11_o01, kind: law_context, expected: supported,
+     claim: "disclosure duties put confidential information and trade secrets at risk",
+     source: "proposal Art 8(3)-(4); pld/ia_full.txt:396,608", why: "the proposal: \"in particular in relation to the protection of confidential information and trade secrets\"; the IA covers confidentiality and IP risk in general"}
   # --- over-inference: an effect, cause or reading the source does not state ---
   - {id: o01, case: case_11_pld_liability_software_burden_of_proof, point: c11_m05, kind: over_inference, expected: not_supported,
      claim: "better consumer uptake of complex and digital products",
