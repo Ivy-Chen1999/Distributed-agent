@@ -594,8 +594,8 @@ important_omissions:
 - omission_id: c03_o01
   description: Provider compliance costs are not quantified (Table 6 shows 'n/a'), and the IA admits that
     costs from Article 27 safeguards cannot be separated from baseline investment. The net-benefit claim
-    therefore rests on an assumption that initial costs are outweighed by extra demand, which goes mostly
-    to providers, not on a costed comparison.
+    therefore rests on an assumption that initial costs are outweighed by extra demand, not on a costed
+    comparison.
   source: ia
   provision_keys:
   - data_act/proposal/art/24
@@ -636,6 +636,20 @@ important_omissions:
     audit: false
     reviewer: null
     note: null
+  sweep:
+    action: trim
+    before:
+      description: Provider compliance costs are not quantified (Table 6 shows 'n/a'), and the IA admits
+        that costs from Article 27 safeguards cannot be separated from baseline investment. The net-benefit
+        claim therefore rests on an assumption that initial costs are outweighed by extra demand, which
+        goes mostly to providers, not on a costed comparison.
+    reason: 'Corrected after the failed reference check 2026-10-14-75af237c (human feedback), by the Codex
+      full-text review of 2026-10-17: the IA says extra demand outweighs providers'' initial costs; it
+      does not say the benefit goes mostly to providers.'
+    model: Codex full-text review 2026-10-17 (after human feedback)
+    'on': '2026-10-17'
+    sources:
+    - data_act/ia_full.txt:698-700
 - omission_id: c03_o02
   description: The IA's claim of 'manageable' and 'no fixed' costs assumes voluntary, industry-led standardisation.
     Yet Article 26(1) requires functional equivalence for infrastructure services, and Article 26(3) makes
@@ -798,6 +812,7 @@ possibly_missing:
       winners'', fully supported. If the reviewer accepts the implicit reading, keep instead.'
     model: full-text review (assistant reviewers, owner delegation), Codex review 2026-10-17
     'on': '2026-10-17'
+    sources: []
 - candidate_id: c03_m02
   affected_actor: SMEs contracting with cloud providers
   mechanism: Mandatory written contract terms on switching rights, transition periods, exportable data

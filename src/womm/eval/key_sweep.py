@@ -429,11 +429,11 @@ def _overlaid(draft: GoldenDraft, mine: dict[str, dict], edits: dict, on: dt.dat
         e = mine.get(item.item_id)
         if e is None:
             return item
-        if e["action"] == "trim" and any(getattr(item, f) != t for f, t in e["before"].items()):
+        if e["action"] != "drop" and any(getattr(item, f) != t for f, t in e["before"].items()):
             raise SweepError(f"{draft.case_id}/{item.item_id} changed since the trim; trim again")
         model = edits["trim_model"] if e["action"] == "trim" else edits["sweep_model"]
         block = SweepBlock(action=e["action"], before=e["before"], reason=e["reason"],
-                           model=model, on=on)  # fmt: skip
+                           model=model, on=on, sources=e.get("sources", []))  # fmt: skip
         return item.model_copy(update={**e.get("after", {}), "sweep": block})
 
     sections = ("expected_impacts", "important_omissions", "possibly_missing")

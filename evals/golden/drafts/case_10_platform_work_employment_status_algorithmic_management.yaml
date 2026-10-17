@@ -744,10 +744,13 @@ important_omissions:
       self-employed. After cut: ''...such as working for several platforms at the same time.'''
     model: full-text review (assistant reviewers, owner delegation), Codex review 2026-10-17
     'on': '2026-10-17'
+    sources: []
 - omission_id: c10_o04
-  description: Businesses that rely on platforms, especially SME restaurants that use delivery platforms,
-    bear part of the reclassification costs indirectly through higher commissions or fewer orders. On
-    the Spanish experience, the IA estimates the loss at around 0.16% - 1.0% of restaurant revenue.
+  description: 'Businesses that rely on platforms may bear indirect costs from reclassification. SME restaurants
+    may be less able than large restaurants to withstand higher commissions if platforms pass on higher
+    expenses. Reduced delivery coverage and fewer orders are another potential channel: estimates based
+    on the Spanish Riders’ Law put restaurant revenue losses at about 0.16%–1.0% of total restaurant revenue
+    in Spain.'
   source: ia
   provision_keys:
   - platform_work/proposal/art/4
@@ -792,13 +795,29 @@ important_omissions:
     audit: false
     reviewer: null
     note: null
+  sweep:
+    action: rewrite
+    before:
+      description: Businesses that rely on platforms, especially SME restaurants that use delivery platforms,
+        bear part of the reclassification costs indirectly through higher commissions or fewer orders.
+        On the Spanish experience, the IA estimates the loss at around 0.16% - 1.0% of restaurant revenue.
+    reason: 'Corrected after the failed reference check 2026-10-14-75af237c (human feedback), by the Codex
+      full-text review of 2026-10-17: keeps both channels (commissions, fewer orders) as possibilities
+      and ties the 0.16%-1.0% figure to the Spanish scenario.'
+    model: Codex full-text review 2026-10-17 (after human feedback)
+    'on': '2026-10-17'
+    sources:
+    - platform_work/ia_full.txt:1068
+    - platform_work/ia_full.txt:1824-1836
 possibly_missing:
 - candidate_id: c10_m01
   affected_actor: People working through platforms who are reclassified as employees
-  mechanism: Being reclassified under the presumption means losing the flexibility and autonomy of independent
-    contractor status, including the option to work for several platforms at the same time.
-  impact: About 1.72 to 4.09 million reclassified people lose some flexibility and autonomy. Low-skill
-    on-location workers are hit hardest.
+  mechanism: Reclassification under the presumption can reduce the flexibility and autonomy associated
+    with independent contractor status. For reclassified on-location workers, this includes fewer opportunities
+    to work through several platforms simultaneously.
+  impact: Around 1.72 to 4.09 million people are expected to be reclassified and experience some loss
+    of flexibility and autonomy. Low-skill on-location workers are likely to be more affected than people
+    working through platforms online.
   why_missing: The drafted pair on reclassified workers covers only the rights they gain, not the flexibility
     and autonomy they lose.
   provision_keys:
@@ -843,6 +862,23 @@ possibly_missing:
     audit: false
     reviewer: null
     note: null
+  sweep:
+    action: rewrite
+    before:
+      mechanism: Being reclassified under the presumption means losing the flexibility and autonomy of
+        independent contractor status, including the option to work for several platforms at the same
+        time.
+      impact: About 1.72 to 4.09 million reclassified people lose some flexibility and autonomy. Low-skill
+        on-location workers are hit hardest.
+    reason: 'Corrected after the failed reference check 2026-10-14-75af237c (human feedback), by the Codex
+      full-text review of 2026-10-17: restores the expected/likely modality and the IA''s comparison group
+      instead of "hit hardest".'
+    model: Codex full-text review 2026-10-17 (after human feedback)
+    'on': '2026-10-17'
+    sources:
+    - platform_work/ia_full.txt:1051
+    - platform_work/ia_full.txt:1106
+    - platform_work/ia_full.txt:1109
 - candidate_id: c10_m02
   affected_actor: Self-employed people working through platforms, including EU-based online freelancers
   mechanism: Platforms cut their workforce under new business models or leave EU or local markets. This

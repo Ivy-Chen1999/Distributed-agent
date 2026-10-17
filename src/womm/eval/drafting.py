@@ -285,14 +285,16 @@ class SweepBlock(StrictModel):
     """The fidelity sweep's edit of a kept item (plan 2026-10-16-001): ``trim`` deleted words
     the item's source does not state from the fields in ``before`` (their text before the cut);
     ``hedge`` only inserted words that restore the source's modality ("expected to", "may");
+    ``rewrite`` replaced the text with wording a reviewer checked against ``sources`` (file:line);
     ``drop`` leaves the item out of the published case. The item's review, tie-break and audit
     stay as they were; the tool digest is taken over ``before``."""
 
-    action: Literal["trim", "hedge", "drop"]
+    action: Literal["trim", "hedge", "rewrite", "drop"]
     before: dict[str, str] = Field(default_factory=dict)
     reason: str
     model: str
     on: dt.date
+    sources: list[str] = Field(default_factory=list)
 
 
 class ItemProvenance(StrictModel):

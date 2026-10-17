@@ -40,7 +40,7 @@ def test_a_trim_on_a_judge_accepted_item_passes_and_publishes_the_trimmed_text()
     assert item.review.decision == "auto_accepted"  # the earlier decision stays on record
     case = gr.build_case(draft, published_on=ON, audit=gr.audit_result([draft]))
     assert next(i for i in case.expected_impacts if i.expected_id == "c90_e01").impact == "Impact"
-    assert "Tightened by a model fidelity check on 2026-10-16" in case.notes
+    assert "Corrected after a failed reference check (human feedback)" in case.notes
     assert "trimmed ['c90_e01']" in case.notes and "not re-checked by people" in case.notes
 
 
@@ -312,3 +312,15 @@ def test_a_hedge_overlay_passes_and_a_reworded_one_fails():
     data = _swept(fully_decided(), "c90_e01", "hedge", {"impact": "Impact 1"},
                   impact="Impact 1 doubles")  # fmt: skip
     assert any("not a hedge of" in p for p in _problems(data))
+
+
+def test_a_rewrite_needs_its_sources_and_may_restate_the_mechanism():
+    data = _swept(fully_decided(), "c90_e01", "rewrite",
+                  {"mechanism": "Mechanism 1", "impact": "Impact 1"},
+                  mechanism="Reworded mechanism", impact="Reworded impact")  # fmt: skip
+    data["expected_impacts"][0]["sweep"]["sources"] = ["ia_full.txt:1051"]
+    assert _problems(data) == []
+    case = gr.build_case(to_draft(data), published_on=ON, audit=gr.audit_result([to_draft(data)]))
+    assert "rewritten ['c90_e01']" in case.notes
+    data["expected_impacts"][0]["sweep"]["sources"] = []
+    assert any("needs the text it replaced and its sources" in p for p in _problems(data))

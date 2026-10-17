@@ -653,6 +653,8 @@ def is_deletion(after: str, before: str) -> bool:
     return bool(words) and all(w in rest for w in words)
 
 
+# A rewrite (checked by a reviewer against named sources) may also restate the mechanism.
+SWEEP_REWRITABLE = (*SWEEP_TRIMMABLE, "mechanism")
 # The words a hedge may insert: modality the source states that a point dropped (r07, 2026-10-16).
 HEDGE_WORDS = frozenset(
     {"are", "is", "be", "expected", "to", "may", "might", "could", "would", "likely"}
@@ -682,6 +684,14 @@ def sweep_problems(item: _DraftItem, where: str) -> list[str]:
     problems = []
     if item.review.decision not in KEPT_DECISIONS:
         problems.append(f"{where}: the fidelity sweep edited an item that is not kept")
+    if sw.action == "rewrite":
+        if not sw.before or not sw.sources:
+            problems.append(f"{where}: a sweep rewrite needs the text it replaced and its sources")
+        for field, text in sw.before.items():
+            if field not in SWEEP_REWRITABLE or not hasattr(item, field):
+                problems.append(f"{where}: the sweep may not edit {field!r}")
+            elif getattr(item, field) == text:
+                problems.append(f"{where}: the sweep's {field!r} rewrite changes nothing")
     if sw.action == "drop" and sw.before:
         problems.append(f"{where}: a sweep drop changes no text (before must be empty)")
     if sw.action in ("trim", "hedge"):
@@ -755,11 +765,13 @@ def review_notes(
     swept = {i.item_id: i.sweep for i in items if i.sweep is not None}
     if swept:
         on = min(sw.on for sw in swept.values()).isoformat()
-        trimmed = [k for k, sw in swept.items() if sw.action in ("trim", "hedge")]
-        cut = [k for k, sw in swept.items() if sw.action == "drop"]
+        by = {a: [k for k, sw in swept.items() if sw.action == a]
+              for a in ("trim", "hedge", "rewrite", "drop")}  # fmt: skip
         parts.append(
-            f"Tightened by a model fidelity check on {on} after a failed reference check (not "
-            f"re-checked by people): trimmed {trimmed or 'none'}, dropped {cut or 'none'}."
+            f"Corrected after a failed reference check (human feedback), by an AI full-text review "
+            f"from {on}; not re-checked by people: trimmed {by['trim'] or 'none'}, modality "
+            f"restored {by['hedge'] or 'none'}, rewritten {by['rewrite'] or 'none'}, dropped "
+            f"{by['drop'] or 'none'}."
         )
     return " ".join(parts)
 
