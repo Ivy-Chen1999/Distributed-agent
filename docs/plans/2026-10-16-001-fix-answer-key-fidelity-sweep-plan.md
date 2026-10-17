@@ -1,7 +1,7 @@
 ---
 title: "fix: Tighten the answer keys after the failed reference check (fidelity sweep, no repeat of the reference check)"
 type: fix
-status: active (doc review 2026-10-16, two rounds, applied: coherence, feasibility, adversarial)
+status: active (Revision 2026-10-17 below; doc review of the revision pending)
 date: 2026-10-16
 origin: docs/status/2026-10-16-reference-check-result.html (reference check scored NOT ROBUST on 2026-10-16); owner decisions 2026-10-16
 requirements: docs/brainstorms/2026-09-28-womm-phased-requirements.md R22, R23, R28, R30
@@ -9,6 +9,92 @@ amends: docs/plans/2026-10-04-001-feat-golden-case-expansion-plan.md (human chec
 ---
 
 # fix: Tighten the answer keys after the failed reference check
+
+> **Revision 2026-10-17: what happened, and the pipeline fix** (doc review 2026-10-17 applied:
+> coherence, feasibility). Where this block conflicts with a section below, this block wins.
+> Names: the **window sweep** is U1-U3 below; the **full-text check** is the new check (F2).
+>
+> **What the window sweep got wrong.** It judged each point on the card's ~900-character window.
+> Of the 55 points it flagged, the full-text reviewers kept 38 and proposed 17 edits; an earlier
+> keyword-based review had been wrong on 5 of 8 proposed deletions. No window-only verdict may
+> change a key. U2's automatic trim is withdrawn; its under-minimum rule (a case under 3 kept
+> impacts is not published, `MIN_KEPT_IMPACTS`) stays and applies to every edit.
+>
+> **U0 and U3 as they ran.** The owner delegated the rulings (2026-10-16): the assistant ruled the
+> 24 errors (AI wrong 4, unclear 3; the U0 stop rule would fire) and Codex reviewed them. The
+> remedy was not a prompt fix but the full-text review below, so U0's and U3's owner counts do not
+> exist; the U4 gate's U0/U3 conditions are replaced by the F5 record. No second sitting.
+>
+> **Done (2026-10-16/17).** The disagreements were checked on the key side only; the annotators'
+> answers and the NOT ROBUST result stay as recorded. 19 proposals (the reviewers' 17 from the 55
+> flags, plus r56 and r59 from the reference check) went to Codex: 13 accepted, 4 rejected (the
+> source supports them), 2 deferred. Written so far, 19 edits as `sweep` overlays keeping the
+> original text: 12 trims, 1 restored "expected to" (r07, hedge), 4 rewrites bound to their
+> sources (the 2 deferred RSB points and c10_m01, c10_o04 from Codex's follow-up), 2 drops; 15 in
+> the train/val case drafts, 4 in the companions. Codex approved every edit (owner delegation).
+> The 38 kept points had a screening, not a clause-by-clause review (open). Wording everywhere:
+> "checked by two people on a sample, which failed; corrected after their feedback by an AI
+> full-text review; not re-checked by people". This replaces decision 3's sentence below.
+>
+> **The pipeline fix.** Traces: R22 (keys say only what the IA or the proposal's text supports;
+> an inference only where the item rules allow it), R23 (holdout sealed), R28 (promotion on a valid
+> holdout key), R30 (what the demo may claim).
+>
+> - **F1 Sources per fixture.** `ia_full.txt` (the IA with its annex volumes), `rsb_opinion.txt`
+>   (falling back to `rsb.txt`, the fallback marked in every result) and the proposal's articles
+>   (`data/fixtures/<f>/proposal.json`). Each source's sha256 is recorded with every result.
+> - **F2 The full-text check** (new role `key_check` in `evals/drafting.yaml`, claude-sonnet-5,
+>   not the drafter's model; prompt `prompts/tools/key_check.md`). The roles have no tools, so
+>   retrieval is in Python: (1) a call splits the point into claims (group, effect, direction,
+>   figure, time, policy option, cause, modality) and writes 3-5 search phrasings per claim;
+>   (2) passage retrieval over F1's sources (paragraph-level, case- and inflection-normalised,
+>   "Commission" never matching "commission") returns the top passages per claim; (3) a call
+>   judges each claim on those passages: `supported` (quote and file:line, typed `ia`, `law` or
+>   `inference`), `not_found`, or `cant_tell`. A quote supports a claim only if it matches its
+>   group, option, time, direction, amount, cause and modality. `not_found` never edits anything
+>   by itself: every proposed edit goes to Codex. A board point whose opinion text is missing
+>   gets `cant_tell`.
+> - **F3 Modality is part of the claim.** A prediction stated as fact fails (case m01).
+> - **F4 Acceptance.** (a) Data, in the unit tests: each of the 25 cases in
+>   `evals/regression/key_fidelity_2026-10-17.yaml` gets a frozen input (the full point text
+>   before any fix, the fixture, each source's sha256) in the same file. (b) Behaviour, offline on
+>   the subscription: F2 on those frozen inputs gives every `expected` verdict in each of 2 runs;
+>   any miss is fixed and the 2 runs repeated. The result is recorded next to the cases before F2
+>   is used on any draft.
+> - **F5 Re-check and record.** F2 runs on the 38 kept points, the 19 already-edited points and a
+>   seeded 10% of the never-flagged keeps per draft; Codex reviews every proposed edit and every
+>   `cant_tell`. A second edit of an overlaid item keeps the original `before` and replaces the
+>   text. The record (`key_checked.json`; train/val in the reference-check dir, holdout in
+>   `.cache/holdout_sweep/`) holds: sample, basis `corrected after feedback, not re-checked`, check
+>   model and prompt hash, source sha256s, the F4b result, counts, the reviewer, and every checked
+>   draft's digest. `record_problems` and `robust_reference_check` accept this record in place
+>   of the U0/U3 counts: F4b passed, every checked draft's digest current, no `cant_tell` left
+>   unreviewed.
+> - **F6 Drafting, for new drafts only.** `draft_golden_case.md` and the tie-break emit claims with
+>   evidence per claim, typed as in F2, and keep modality. The new field is optional and left out
+>   of the item digest when unset, so existing drafts and digests hold. Existing keys are covered
+>   only by F5.
+> - **F7 The labelling page.** "Can't tell" gets an optional reason (missing material, unclear
+>   scope, unknown term); "the source does not support it" stays **No**; the three answers do not
+>   change. Built before the calibration sitting.
+>
+> **Boundaries.** (1) Full-text evidence is for reviewing the key; when people and an AI are
+> compared on cards, both see the same material, and no full-text finding marks the people wrong.
+> (2) A full-text review never says the card showed enough. (3) Holdout: F2 runs on the owner's
+> machine with tracing off, outputs only under `.cache/holdout_sweep/`; only the owner reviews its
+> findings, and nothing from them feeds development, prompts or the acceptance cases. (4) The gate
+> stays pinned to sample `2026-10-14-75af237c`.
+>
+> **Human steps to change (U7):** step 3b (companions wait for the F5 record, not a ROBUST check);
+> step 4 (publishing does not wait for F5: the corrected keys are published now and F5's later
+> edits are re-published as a new version, so calibration keeps its 2026-11-06 cut-off); step 5
+> (the tightened basis replaces ROBUST; the holdout F2 check replaces the tie-break re-run; the spot
+> check asks 5 items per draft, not 3).
+>
+> **Order.** F4a and F1 first, then F2 and F4b (about two days on the subscription, retrieval
+> included), then F5 (train/val, then the owner's holdout run), F7 before the calibration sitting,
+> F6 before the next drafting round.
+
 
 ## What happened
 
