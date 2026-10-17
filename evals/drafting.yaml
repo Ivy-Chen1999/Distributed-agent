@@ -40,3 +40,15 @@ roles:
     model: claude-sonnet-5
     prompt: prompts/tools/tiebreak_golden_case.md
     timeout_s: 900
+  # The full-text key check (womm.eval.key_check, plan 2026-10-16-001 F2): split a point into
+  # claims with search phrasings, retrieve passages in Python, then judge each claim on them.
+  key_split:
+    backend: claude_code
+    model: claude-sonnet-5
+    prompt: prompts/tools/key_check_split.md
+    timeout_s: 600
+  key_judge:
+    backend: claude_code
+    model: claude-sonnet-5
+    prompt: prompts/tools/key_check_judge.md
+    timeout_s: 900

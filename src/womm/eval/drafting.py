@@ -144,13 +144,17 @@ class DraftingRoles(StrictModel):
     judge_category: RoleConfig
     # Settles what the three judges left open (womm.eval.tiebreak); None turns it off.
     tiebreak: RoleConfig | None = None
+    # The full-text key check (womm.eval.key_check, plan 2026-10-16-001 F2): split, then judge.
+    key_split: RoleConfig | None = None
+    key_judge: RoleConfig | None = None
 
     @model_validator(mode="after")
     def _graders_differ_from_authors(self) -> DraftingRoles:
         # A grader must not grade its own output: the judges and the tie-break use a different
         # model from the drafter and recall (Anthropic, "Develop your tests").
         authors = {self.drafter.model, self.recall.model}
-        graders = ("judge_anchor", "judge_derivability", "judge_category", "tiebreak")
+        graders = ("judge_anchor", "judge_derivability", "judge_category", "tiebreak",
+                   "key_split", "key_judge")  # fmt: skip
         for name in graders:
             role = getattr(self, name)
             if role is not None and role.model in authors:
