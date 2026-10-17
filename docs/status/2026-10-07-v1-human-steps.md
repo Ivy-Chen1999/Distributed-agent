@@ -163,12 +163,13 @@ Breakdown and chart: `docs/status/2026-10-16-reference-check-result.html` (aggre
 sitting. The annotators' answers stay as recorded and the result stays NOT ROBUST. Their feedback
 was used as leads: each disagreement and 55 window-flagged points were checked against the whole
 IA, RSB opinion and law, and Codex reviewed every proposed edit (records under
-`.cache/reference_check/round1_v6/`, private). 17 key points were corrected in the train/val
-drafts and companions (trims, one restored "expected to", four rewrites with their sources; each
-keeps its original text in a `sweep` overlay; commits `1e99658`, `b352bef`); 4 proposed cuts were
-rejected because the source does support them. 38 points the window check flagged were kept after
-a screening, not yet a clause-by-clause review. The cases found are regression tests
-(`evals/regression/key_fidelity_2026-10-17.yaml`). Record the revision as "corrected after human
+`.cache/reference_check/round1_v6/`, private). 19 key points were corrected: 15 in the train/val
+case drafts, 4 in the companions (trims, one restored "expected to", rewrites with their sources;
+each keeps its original text in a `sweep` overlay; commits `1e99658`, `b352bef`); 4 proposed cuts
+were rejected because the source does support them. 38 points the window check flagged were kept
+after a screening, not a clause-by-clause review (still open). The 25 cases found are kept as
+acceptance cases for a checker (`evals/regression/key_fidelity_2026-10-17.yaml`); no checker is
+tested against them yet. Record the revision as "corrected after human
 feedback by an AI full-text review"; never "read-checked by two people" or "robust".
 
 Then read "Where the answer key and the page verdict differ" (21 of 59 items) and rule on each
