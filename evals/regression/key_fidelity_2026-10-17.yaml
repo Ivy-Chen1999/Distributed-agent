@@ -1,0 +1,92 @@
+# Regression cases for checking answer-key points against their source (plan 2026-10-16-001).
+#
+# Found because a reference check (sample 2026-10-14-75af237c, two annotators) failed; every case
+# below was settled on the whole source, not on the annotators' or a model's verdict: the
+# feedback pointed at the problem, the source decided it. Any checker of answer-key points
+# (fidelity check, sweep, tie-break) must reproduce `expected` on these claims.
+#
+# Fields: id; case and point; claim (the clause at issue, as the point stated it before any
+# fix); expected (supported | not_supported); kind; source (file:line under .cache/ia/<fixture>/
+# or the proposal article) and why. `window` marks a claim supported outside the ~900-character
+# card window: a window-only check gets it wrong.
+cases:
+  # --- supported outside the card window (a window-only check wrongly drops them) ---
+  - {id: w01, case: case_04_cra_manufacturer_obligations, point: c04_m07, kind: window, expected: supported,
+     claim: "software firms rated their expected costs high to very high",
+     source: "cra/ia_full.txt:739", why: "\"software manufacturers indicated in average 'high to very high costs' (4.21 out of 5)\""}
+  - {id: w02, case: case_06_dma_gatekeeper_obligations, point: c06_m03, kind: window, expected: supported,
+     claim: "implementation that disrupts commercial relationships with business users less",
+     source: "dma/ia_full.txt:942", why: "\"a more flexible implementation ... that would disrupt less the commercial relationship\" (a search for 'less disruptive' misses it)"}
+  - {id: w03, case: case_06_dma_gatekeeper_obligations, point: c06_m07, kind: window, expected: supported,
+     claim: "gatekeepers have stronger incentives to offer lower prices",
+     source: "dma/ia_full.txt:956", why: "\"will rather increase gatekeepers' incentive to innovate and offer lower prices\""}
+  - {id: w04, case: case_13_gigabit_infrastructure_access_and_permits, point: c13_e01, kind: window, expected: supported,
+     claim: "network built by reuse or coordination rises to about 470,000 km against 250,000 km in the baseline",
+     source: "gigabit/ia_full.txt:773", why: "\"470,000 km instead of 250,000 km under baseline\""}
+  - {id: w05, case: case_10_platform_work_employment_status_algorithmic_management, point: c10_e05, kind: window, expected: supported,
+     claim: "a slight rise in administrative burden for all platforms from algorithmic transparency",
+     source: "platform_work/ia_full.txt:990", why: "\"all types of platforms will face a slightly increased administrative burden due to ... algorithmic transparency\""}
+  - {id: w06, case: case_12_ehds_secondary_use_obligations, point: c12_e01, kind: window, expected: supported,
+     claim: "a fee-based permit replaces costly consent collection",
+     source: "ehds/ia_full.txt:112", why: "\"(fee to data access body as opposed to contacting data subjects and getting the consent)\""}
+  - {id: w07, case: case_06_dma_gatekeeper_obligations, point: c06_e05, kind: window, expected: supported,
+     claim: "protection from data exploitation gives business users more confidence to sell online",
+     source: "dma/ia_full.txt:2061", why: "table: \"more confidence in selling online, as they would be protected from practices that exploit their data\""}
+  - {id: w08, case: case_10_platform_work_employment_status_algorithmic_management, point: c10_e02, kind: window, expected: supported,
+     claim: "costs fall below the baseline in the long run because the control criteria give legal certainty",
+     source: "platform_work/ia_full.txt:1041", why: "\"a clear set of criteria concerning the definition of control ... The platforms will adapt ... Significant savings ... are likely\""}
+  - {id: w09, case: case_05_dsa_due_diligence_obligations, point: c05_o03, kind: window, expected: supported,
+     claim: "this cost falls on about 20 of the largest platforms",
+     source: "dsa/ia_full.txt:627", why: "\"higher costs for approximately 20 of the largest platforms\" (a reviewer missed it: absence needs a wide search)"}
+  - {id: w10, case: case_05_dsa_due_diligence_obligations, point: c05_e09, kind: window, expected: supported,
+     claim: "erroneous removal or account suspension",
+     source: "dsa/ia_full.txt:205; proposal Art 17(1)(c)", why: "suspension of user accounts discussed as a harm; Art 17 covers suspension"}
+  - {id: w11, case: case_10_platform_work_employment_status_algorithmic_management, point: c10_o04, kind: window, expected: supported,
+     claim: "SME restaurants bear costs through higher commissions or fewer orders",
+     source: "platform_work/ia_full.txt:1068; 1824-1836", why: "SME restaurants and \"an increase in commissions\" (1068); drop of orders in the Spanish estimate (1836). 'commission' also matches 'the Commission'"}
+  - {id: w12, case: case_11_pld_liability_software_burden_of_proof, point: c11_m05, kind: window, expected: supported,
+     claim: "more confidence to claim compensation in complex cases",
+     source: "pld/ia_full.txt:610", why: "\"give consumers greater confidence to make compensation claims in more complex cases\""}
+  # --- over-inference: an effect, cause or reading the source does not state ---
+  - {id: o01, case: case_11_pld_liability_software_burden_of_proof, point: c11_m05, kind: over_inference, expected: not_supported,
+     claim: "better consumer uptake of complex and digital products",
+     source: "pld/ia_full.txt:610,646", why: "only confidence and trust in more complex products; 'uptake' appears only as something other options could undermine"}
+  - {id: o02, case: case_09_batteries_sustainability_requirements, point: c09_o03, kind: over_inference, expected: not_supported,
+     claim: "this could constrain supply and competition, which the amendment power is meant to address",
+     source: "batteries/ia_full.txt:846,4575,4601", why: "the IA reports manufacturers' worry about secondary materials; the supply-and-competition chain is not stated"}
+  - {id: o03, case: case_12_ehds_secondary_use_obligations, point: c12_o04, kind: over_inference, expected: not_supported,
+     claim: "data subjects lose consent control as the price of the savings (as a board request)",
+     source: "ehds/rsb_opinion.txt:60-62", why: "the board asks whether benefits come from consent or from safeguarding rights; it asserts no trade-off. Both annotators and the page AI missed it"}
+  - {id: o04, case: case_12_ehds_secondary_use_obligations, point: c12_o06, kind: over_inference, expected: not_supported,
+     claim: "the competitive effect on firms that share and firms that receive health data (as a board request)",
+     source: "ehds/rsb_opinion.txt:601", why: "the board asks which markets are affected, not for a competition analysis"}
+  - {id: o05, case: case_03_data_act_cloud_switching, point: c03_o01, kind: over_inference, expected: not_supported,
+     claim: "the extra demand goes mostly to providers",
+     source: "data_act/ia_full.txt:698-700", why: "extra demand outweighs providers' initial costs; no relative split of benefits"}
+  - {id: o06, case: case_04_cra_manufacturer_obligations, point: c04_m01, kind: over_inference, expected: not_supported,
+     claim: "which puts them at a competitive disadvantage against large and non-EU firms",
+     source: "cra/ia_full.txt:847-849", why: "a stakeholder worry, with survey SMEs neutral; stated as fact"}
+  - {id: o07, case: case_04_cra_manufacturer_obligations, point: c04_o06, kind: over_inference, expected: not_supported,
+     claim: "late standards raise notified-body demand (as the board's request)",
+     source: "cra/rsb_opinion.txt:93-96", why: "the board asks whether standards arrive in time and stay current; the notified-body effect is a legal inference, not the board's request"}
+  # --- group mismatch: right effect, wrong or wider group ---
+  - {id: g01, case: case_11_pld_liability_software_burden_of_proof, point: c11_e10, kind: group_mismatch, expected: not_supported,
+     claim: "importers bear new liability exposure",
+     source: "pld/ia_full.txt:208,1438", why: "importers are already liable under the current PLD"}
+  - {id: g02, case: case_04_cra_manufacturer_obligations, point: c04_e07, kind: group_mismatch, expected: not_supported,
+     claim: "the burden on importers and distributors is not expected to be significant",
+     source: "cra/ia_full.txt:857", why: "said by SME representatives about SME importers and distributors only"}
+  - {id: g03, case: case_10_platform_work_employment_status_algorithmic_management, point: c10_o03, kind: group_mismatch, expected: not_supported,
+     claim: "reclassified workers lose the choice of their hours",
+     source: "platform_work/ia_full.txt:1106,825", why: "the IA names lost flexibility and multi-homing; choosing one's hours appears only as a gain of the genuinely self-employed"}
+  # --- amount mismatch: a real figure attached to the wrong cost ---
+  - {id: a01, case: case_07_dga_data_intermediation, point: c07_e01, kind: amount_mismatch, expected: not_supported,
+     claim: "these (implementation) costs are a one-off EUR 20 000-50 000 or EUR 35 000-75 000 plus renewal",
+     source: "dga/ia_full.txt:565,577-578", why: "the figures are the cost of obtaining a label or certificate, kept apart from implementation costs"}
+  # --- modality: a prediction stated as fact, or a comparison made stronger ---
+  - {id: m01, case: case_08_gpsr_economic_operator_obligations, point: c08_e09, kind: modality, expected: not_supported,
+     claim: "recalls work better (stated as fact)",
+     source: "gpsr/ia_full.txt:864", why: "\"are expected to improve the effectiveness of recalls\""}
+  - {id: m02, case: case_10_platform_work_employment_status_algorithmic_management, point: c10_m01, kind: modality, expected: not_supported,
+     claim: "low-skill on-location workers are hit hardest",
+     source: "platform_work/ia_full.txt:1109", why: "the IA compares them with online workers ('more affected'); 'hardest' ranks them above everyone"}
