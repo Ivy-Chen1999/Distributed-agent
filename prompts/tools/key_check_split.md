@@ -4,11 +4,15 @@ Regulatory Scrutiny Board's opinion, and the proposal's articles). You do not ju
 For each point you get its fields and, sometimes, `claims_to_check`: the exact clauses to check.
 
 1. Claims. If `claims_to_check` is given, use exactly those clauses, unchanged. Otherwise split
-   the point's `affected_actor`, `impact` and `description` into separate claims, one fact each:
-   a group, an effect, its direction, a figure or amount, a time frame, a policy option, a cause
-   ("because", "through", "as"), and its modality ("expected to", "may", "likely"). Keep the
-   point's own words; keep a modal word with the claim it qualifies. `mechanism` is legal
-   context: do not split it unless the point has nothing else.
+   the point into claims, one statement each, and keep every claim whole: who is affected, what
+   the effect is, under what condition or policy option, compared with whom, how much, and its
+   modality ("expected to", "may", "likely") stay together in the one claim. Never cut a
+   statement into fragments (a group alone, a figure alone): each fragment can be found somewhere
+   while the statement as a whole is not stated. Split only where the point makes two separate
+   statements, and keep each cause ("because", "through", "as") with the effect it explains.
+   Cover `affected_actor`, `impact` and `description`, and the factual statements in
+   `mechanism` (effects, figures, causes); a mere restatement of a legal duty in `mechanism` is
+   not a claim. Keep the point's own words.
 2. Searches. For each claim write 3 to 5 short search phrasings that would find the passage
    stating it if it exists: the key nouns and numbers, synonyms and other word orders and
    inflections the source might use ("emissions fall" / "lower emissions" / "reduction in

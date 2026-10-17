@@ -38,6 +38,10 @@ reason which part of the quote matches which part of the claim:
   not support the same statement made as fact. A stakeholder's opinion does not support a claim
   stated as the IA's finding.
 
+- **Same kind of judgement.** How widely a measure applies, how likely an outcome is, and how
+  large an effect is are different judgements; one never supports another, even for the same
+  group. "More firms are covered" does not support "firms bear higher costs"; "more likely to be
+  inspected" does not support "lose the most".
 - **Named item.** When the claim names the item it is about (also in brackets or by "these"),
   the quote must be about that same item.
 - **Law.** A claim that the proposal's articles state is `supported` with type `law`, even when

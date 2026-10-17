@@ -40,12 +40,15 @@ from womm.llm.base import LLMBackend
 from womm.models.base import StrictModel
 
 SPLIT_ROLE, JUDGE_ROLE = "key_check_split", "key_check_judge"
-TOP_PER_SEARCH = 3
+MIN_QUOTE_WORDS = 6  # an empty or token quote never supports a claim
+FUSE_DEPTH = 10  # each search's top passages merged by reciprocal rank
+RRF_K = 60
 MAX_PER_CLAIM = 8
 BM25_K1, BM25_B = 1.4, 0.75
 RETRIEVAL = {
     "prefix": 6,
-    "top_per_search": TOP_PER_SEARCH,
+    "fuse_depth": FUSE_DEPTH,
+    "rrf_k": RRF_K,
     "max_per_claim": MAX_PER_CLAIM,
     "k1": BM25_K1,
     "b": BM25_B,
@@ -200,17 +203,23 @@ def _allowed(src: str, anchored_on: str) -> bool:
 
 
 def _retrieve(index: Index, point: PointInput, claim: SplitClaim) -> list[Passage]:
-    hits: list[int] = []
+    """The anchor's passage, then the passages all searches rank highest together: each search's
+    top ``FUSE_DEPTH`` merged by reciprocal rank, deduplicated, then cut. A passage several
+    phrasings find outranks one found once, and a late phrasing's best passage is not crowded out
+    by an early phrasing's tail. Retrieval only proposes candidates: whether a passage states the
+    claim is the judge's call, on the passage's own words."""
     anchor = _norm(point.anchor)[:120]
-    for i, p in enumerate(index.passages):
-        if anchor and anchor in _norm(p.text):
-            hits.append(i)
-            break
-    for q in [claim.text, *claim.searches]:
-        for i in index.search(q, TOP_PER_SEARCH):
-            if i not in hits and _allowed(index.passages[i].source, point.anchored_on):
-                hits.append(i)
-    return [index.passages[i] for i in hits[:MAX_PER_CLAIM]]
+    first = next(
+        (i for i, p in enumerate(index.passages) if anchor and anchor in _norm(p.text)), None
+    )
+    fused: dict[int, float] = {}
+    for q in dict.fromkeys([claim.text, *claim.searches]):
+        for rank, i in enumerate(index.search(q, FUSE_DEPTH)):
+            if _allowed(index.passages[i].source, point.anchored_on):
+                fused[i] = fused.get(i, 0.0) + 1.0 / (RRF_K + rank + 1)
+    order = sorted(fused, key=lambda i: (-fused[i], i))
+    picked = ([first] if first is not None else []) + [i for i in order if i != first]
+    return [index.passages[i] for i in picked[:MAX_PER_CLAIM]]
 
 
 def _validated(v: ClaimVerdict, shown: dict[str, Passage], board: bool) -> ClaimVerdict:
@@ -221,7 +230,9 @@ def _validated(v: ClaimVerdict, shown: dict[str, Passage], board: bool) -> Claim
     bad = [
         e
         for e in v.evidence
-        if e.passage not in shown or _norm(e.quote) not in _norm(shown[e.passage].text)
+        if e.passage not in shown
+        or len(e.quote.split()) < MIN_QUOTE_WORDS
+        or _norm(e.quote) not in _norm(shown[e.passage].text)
     ]
     if not v.evidence or bad:
         return ClaimVerdict(
@@ -262,6 +273,16 @@ async def check_point(
         split_role,
     )
     claims = split.claims
+    ids = [c.id for c in claims]
+    if not point.claims and (not claims or len(set(ids)) != len(ids)):
+        why = "the split returned no claims" if not claims else "the split repeated a claim id"
+        return {
+            "key": point.key,
+            "sources": sources.digests,
+            "opinion_missing": sources.opinion_missing,
+            "claims": [],
+            "incomplete": why,
+        }
     if point.claims:  # the clauses given are judged as given
         claims = [
             SplitClaim(
@@ -307,6 +328,8 @@ async def check_point(
                         "id": i,
                         "source": shown[i].source,
                         "where": shown[i].where,
+                        "section": shown[i].section,
+                        "context_before": shown[i].before,
                         "text": shown[i].text,
                     }
                     for i in ids

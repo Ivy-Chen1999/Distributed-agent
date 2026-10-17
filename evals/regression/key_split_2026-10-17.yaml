@@ -1,0 +1,134 @@
+# Full-point acceptance for the key check's own split (plan 2026-10-16-001, F4; Codex 2026-10-17).
+# Each case runs the whole point through the check with no clauses given. Every `must_cover`
+# element must land in one claim whole (all its words in that claim), and that claim must get the
+# element's `expected` verdict. A missing element is a split failure. Inputs are the frozen
+# full points of the regression cases named in `from`; labels follow those cases' rulings.
+cases:
+- id: s01
+  guards: a supported and an unsupported clause in one sentence kept apart
+  from: w12/o01
+  input:
+    fixture: pld
+    companion: false
+    anchored_on: ia
+    section: 6.4. Policy option 2.a – Easing the burden of proof and reducing disproportionate restrictions
+      to make claims
+    anchor: The greater visibility of the possibility to ease the burden of proof could improve consumer
+      confidence and trust in more complex products.
+    point:
+      affected_actor: Consumers of complex products (as purchasers and users)
+      mechanism: Making the presumptions in Art. 9 explicit and visible increases consumer confidence
+        and trust in complex products and their willingness to bring claims.
+      impact: Better consumer trust in, and uptake of, complex and digital products, and more confidence
+        to claim compensation in complex cases.
+    sources:
+      ia: 80767222aa101c0608e14facc455651911b85e38a3962d074e2d6d94a3941142
+      rsb_opinion: c8b2a8ccf5440c5c93b8973a699238b742051a79f59b1d2f5a8224d4e3294a53
+      law: c6565c176bcbc5d7e23c3d1977b8e0ea51f76a349501a7a6bd15fe9c15759f56
+  must_cover:
+  - element: uptake
+    expected: not_supported
+  - element: confidence to claim compensation
+    expected: supported
+- id: s02
+  guards: a cause kept with the effect it explains
+  from: w08
+  input:
+    fixture: platform_work
+    companion: false
+    anchored_on: ia
+    section: A3.2 Overview of costs of the preferred option
+    anchor: As Policy Option A3b would make it easier and less costly for people working through platforms
+      to challenge their legal status, the legal and non-compliance costs are likely to be even higher
+      in the short to medium term.
+    point:
+      affected_actor: Digital labour platforms
+      mechanism: The presumption applies in all administrative and legal proceedings. Rebutting it puts
+        the burden of proof on the platform, and a rebuttal does not suspend the presumption. This makes
+        it easier and cheaper for workers and authorities to challenge employment status.
+      impact: Legal and non-compliance costs, currently tens to hundreds of millions of euros for on-location
+        platforms, rise in the short to medium term. The IA expects them to fall below the baseline in
+        the long run because the control criteria give legal certainty.
+    sources:
+      ia: 2cf6fb890d0ead6310613c68da3c50e3a65fe25513eb6df23c7dba8604e6ffba
+      rsb_opinion: 0ada4456250c3a02687325951626aab689a6052845439be992dcb41040fd6ca4
+      law: 5029fcb7d4bcafb3706f5835070cc3ebe4fa50ffc363f693e201d37fefde3a1c
+  must_cover:
+  - element: because the control criteria give legal certainty
+    expected: supported
+- id: s03
+  guards: a prediction stated as fact; a figure checked on its own
+  from: m01
+  input:
+    fixture: gpsr
+    companion: false
+    anchored_on: ia
+    section: 6.3. Impacts of Option 3 – Social impacts
+    anchor: The introduction of additional requirements for traceability and product recalls are expected
+      to improve the effectiveness of recalls of unsafe products from consumers.
+    point:
+      affected_actor: Consumers and public health systems
+      mechanism: Traceability systems for high-risk products, product identification numbers, and alerts
+        to consumers through the Safety Business Gateway (Arts 8(6), 8(11), 17)
+      impact: Recalls work better and fewer unsafe products stay in consumers' hands. Informing affected
+        consumers directly was estimated to save €73 million in 2019, and the health-care costs of product-related
+        injuries (about EUR 6.7 billion a year) could come down.
+    sources:
+      ia: 63ef4f3d9973e0539c3070ee9ebc1a8d728cdf67d32f97e8b76474865b2cd1cc
+      rsb_opinion: 9469c0a6a17f0171eeabbea45455dbf52931a14ac31c8f7ddc44e781e2a01ce4
+      law: 8c7056698c4fe42076b56cb7ca43bd43b870a61cb74a341d300cd27a8d32e43c
+  must_cover:
+  - element: Recalls work better
+    expected: not_supported
+  - element: 73 million
+    expected: supported
+- id: s04
+  guards: a stakeholder worry stated as the IA's finding
+  from: o06
+  input:
+    fixture: cra
+    companion: false
+    anchored_on: ia
+    section: 6.3.2. Impact on SMEs
+    anchor: In terms of costs, SMEs as manufacturers would in principle be more affected than large companies
+      for several reasons.
+    point:
+      affected_actor: SME manufacturers of products with digital elements
+      mechanism: Fixed costs of secure development, getting to know the new rules and showing conformity
+        hit SMEs harder. They have smaller customer bases, little in-house expertise and limited lab capacity,
+        so they turn to external consultants and testing labs (Art. 5, 10).
+      impact: SME manufacturers face higher relative compliance costs than large firms. Some may struggle
+        to bear them and could leave the market, which puts them at a competitive disadvantage against
+        large and non-EU firms.
+    sources:
+      ia: a053047db53c117468cbc66692bc19ab6e7149689f56caf4c82aa75cb5570d7f
+      rsb_opinion: 4bb5a6c54bc5f9a5fbc8df9996d21f8180bda07e067bca6b0808d13bde51233a
+      law: 40b40802f61edd83c484305d26e35b81ecae7fbaf0c45f00becaddcba480ac1a
+  must_cover:
+  - element: competitive disadvantage
+    expected: not_supported
+- id: s05
+  guards: a fact inside mechanism is checked
+  from: w01
+  input:
+    fixture: cra
+    companion: false
+    anchored_on: ia
+    section: 6.3.1. Impacts on manufacturers of products with digital elements and other economic operators
+    anchor: For software manufacturers, it is assumed that the BaU factor would be lower, given that less
+      software products are today covered by NLF legislation.
+    point:
+      affected_actor: Software manufacturers, especially of non-embedded software
+      mechanism: Fewer software products are covered by existing product-safety (NLF) laws, so their existing
+        compliance baseline (business-as-usual costs) is lower. Conformity assessment and secure development
+        therefore add proportionally more cost (Art. 10, 24).
+      impact: Software manufacturers bear higher extra compliance costs than hardware manufacturers. The
+        IA assumes 25% of software testing costs are already incurred, against 40% for hardware, and software
+        firms rated their expected costs high to very high.
+    sources:
+      ia: a053047db53c117468cbc66692bc19ab6e7149689f56caf4c82aa75cb5570d7f
+      rsb_opinion: 4bb5a6c54bc5f9a5fbc8df9996d21f8180bda07e067bca6b0808d13bde51233a
+      law: 40b40802f61edd83c484305d26e35b81ecae7fbaf0c45f00becaddcba480ac1a
+  must_cover:
+  - element: Fewer software products are covered by existing product-safety
+    expected: supported

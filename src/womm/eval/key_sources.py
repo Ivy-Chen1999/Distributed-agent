@@ -37,6 +37,8 @@ class Passage:
     source: SourceName
     where: str  # what a verdict cites: "ia_full.txt:610", "proposal Art 8(3)"
     text: str
+    section: str = ""  # the nearest heading above it, for context
+    before: str = ""  # the end of the paragraph before it, for context
 
 
 @dataclass(frozen=True)
@@ -81,6 +83,21 @@ def _cut(text: str) -> list[str]:
         pieces.append(rest[:cut].strip())
         rest = rest[cut:].strip()
     return [*pieces, rest] if rest else pieces
+
+
+_HEADING = re.compile(r"^(\d+(\.\d+)*\.?|Annex [0-9A-Z]+|ANNEX [0-9A-Z]+|\([A-D]\))\s+\S")
+CONTEXT_BEFORE = 300
+
+
+def _with_context(passages: list[Passage]) -> list[Passage]:
+    """Each passage with the nearest heading above it and the end of the one before."""
+    out, heading, prev = [], "", ""
+    for p in passages:
+        if len(p.text) < 160 and _HEADING.match(p.text):
+            heading = p.text
+        out.append(Passage(p.source, p.where, p.text, heading, prev[-CONTEXT_BEFORE:]))
+        prev = p.text
+    return out
 
 
 def _line_passages(name: SourceName, path: Path, text: str, *, wrapped: bool) -> list[Passage]:
@@ -131,13 +148,13 @@ def load_sources(
     if not ia.exists() or not ia.stat().st_size:
         raise KeySourceError(f"{fixture}: no cached IA text at {ia}")
     raw = ia.read_bytes()
-    ia_passages = _line_passages("ia", ia, raw.decode("utf-8"), wrapped=False)
+    ia_passages = _with_context(_line_passages("ia", ia, raw.decode("utf-8"), wrapped=False))
     items.append(Source("ia", ia, _sha(raw), tuple(ia_passages)))
     opinion, annex = directory / "rsb_opinion.txt", directory / "rsb.txt"
     for name, path in (("rsb_opinion", opinion), ("rsb_annex", annex)):
         if path.exists() and path.stat().st_size:
             raw = path.read_bytes()
-            found = _line_passages(name, path, raw.decode("utf-8"), wrapped=True)  # type: ignore[arg-type]
+            found = _with_context(_line_passages(name, path, raw.decode("utf-8"), wrapped=True))  # type: ignore[arg-type]
             items.append(Source(name, path, _sha(raw), tuple(found)))  # type: ignore[arg-type]
             break
     law = (fixtures_root or FIXTURES_ROOT) / fixture / "proposal.json"

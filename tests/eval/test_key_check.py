@@ -244,3 +244,100 @@ def test_the_acceptance_runner_builds_frozen_points_and_scores_clause_by_clause(
         [case], [{"claims": [{"verdict": "cant_tell", "reason": "r", "evidence": [], "shown": []}]}]
     )
     assert not rows[0]["pass"]  # cant_tell is a miss
+
+
+# ------------------------------------------------------------ boundary cases (Codex 2026-10-17)
+
+
+@pytest.mark.parametrize("quote", ["", "   ", "consumer trust"])
+def test_an_empty_or_token_quote_never_supports(tmp_path, quote):
+    judge = {
+        "claims": [
+            {
+                "id": "c1",
+                "verdict": "supported",
+                "reason": "r",
+                "evidence": [{"passage": "p1", "quote": quote, "type": "ia"}],
+            },
+            {"id": "c2", "verdict": "not_found", "reason": "r"},
+        ]
+    }
+    res, _ = run(point(), sources(tmp_path), SPLIT, judge)
+    assert res["claims"][0]["verdict"] == "cant_tell"
+
+
+@pytest.mark.parametrize(
+    "claims",
+    [[], [{"id": "c1", "text": "a", "searches": []}, {"id": "c1", "text": "b", "searches": []}]],
+)
+def test_an_empty_or_duplicate_split_is_incomplete_and_judges_nothing(tmp_path, claims):
+    fake = FakeBackend({kc.SPLIT_ROLE: [{"claims": claims}]})
+    res = asyncio.run(kc.check_point(point(), sources(tmp_path), config(), {"fake": fake}))
+    assert res["incomplete"] and res["claims"] == [] and len(fake.calls) == 1
+
+
+def test_an_empty_case_set_never_passes_acceptance(tmp_path, capsys):
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "key_check_acceptance", REPO_ROOT / "scripts/key_check_acceptance.py"
+    )
+    acc = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(acc)
+    empty = tmp_path / "cases.yaml"
+    empty.write_text("cases: []\n")
+    assert acc.main(["--out", str(tmp_path / "run"), "--cases", str(empty)]) == 2
+    assert "empty case set" in capsys.readouterr().err
+    rows = acc.score(
+        [{"id": "x", "kind": "window", "claim": "c", "expected": "supported"}],
+        [{"claims": [], "incomplete": "the split returned no claims"}],
+    )
+    assert rows[0]["got"] == "incomplete" and not rows[0]["pass"] and rows[0]["stage"] == "split"
+
+
+def _acceptance():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "key_check_acceptance", REPO_ROOT / "scripts/key_check_acceptance.py"
+    )
+    acc = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(acc)
+    return acc
+
+
+def test_each_miss_names_its_stage():
+    acc = _acceptance()
+    case = {"expected": "supported", "source": "dsa/ia_full.txt:205"}
+    assert acc.stage(case, "cant_tell", {"reason": "quote not found in its passage (x)"}) == "quote"
+    assert (
+        acc.stage(case, "not_supported", {"reason": "r", "shown": ["ia_full.txt:9"]}) == "retrieval"
+    )
+    shown = {"reason": "r", "shown": ["ia_full.txt:205"]}
+    assert acc.stage(case, "not_supported", shown) == "judgement"
+
+
+def test_split_elements_must_land_whole_in_one_claim():
+    acc = _acceptance()
+    case = {"id": "s1", "must_cover": [{"element": "uptake", "expected": "not_supported"},
+                                       {"element": "confidence to claim compensation",
+                                        "expected": "supported"}]}  # fmt: skip
+    claims = [{"text": "Better consumer trust in, and uptake of, complex products",
+               "verdict": "not_found", "reason": "r", "evidence": [], "shown": []},
+              {"text": "more confidence", "verdict": "supported", "reason": "r",
+               "evidence": [], "shown": []}]  # fmt: skip
+    rows = acc.score_split([case], [{"claims": claims}])
+    assert rows[0]["pass"] and rows[1]["got"] == "missing" and rows[1]["stage"] == "split"
+
+
+def test_the_split_cases_quote_their_elements_from_the_frozen_point():
+    import yaml
+
+    cases = yaml.safe_load((REPO_ROOT / "evals/regression/key_split_2026-10-17.yaml").read_text())
+    assert cases["cases"]
+    for c in cases["cases"]:
+        text = " ".join(c["input"]["point"].values()).lower()
+        assert c["must_cover"] and c["input"]["sources"]
+        for e in c["must_cover"]:
+            assert e["expected"] in ("supported", "not_supported")
+            assert all(w.lower() in text for w in e["element"].split()), (c["id"], e)
