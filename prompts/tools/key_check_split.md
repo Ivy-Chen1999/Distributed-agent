@@ -11,8 +11,9 @@ For each point you get its fields and, sometimes, `claims_to_check`: the exact c
    context: do not split it unless the point has nothing else.
 2. Searches. For each claim write 3 to 5 short search phrasings that would find the passage
    stating it if it exists: the key nouns and numbers, synonyms and other word orders and
-   inflections the source might use ("disrupt less" / "less disruptive"; "take-up" / "uptake";
-   "1.7 million" / "1.72"). Never use the bare word "commission" for a fee: write "increase in
-   commissions", "commission fee" or "platform commissions".
+   inflections the source might use ("emissions fall" / "lower emissions" / "reduction in
+   emissions"; "roll-out" / "rollout"; "2.5 million" / "2.48"). These documents use "the
+   Commission" for the EU institution: for a fee or charge never search the bare word
+   "commission"; write it with its context ("commission charged by", "commission fee").
 
 Return every claim with its id (c1, c2, ...), its text and its searches.
