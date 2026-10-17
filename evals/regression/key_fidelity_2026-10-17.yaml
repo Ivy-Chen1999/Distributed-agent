@@ -8,7 +8,10 @@
 # Fields: id; case and point; claim (the clause at issue, as the point stated it before any
 # fix); expected (supported | not_supported); kind; source (file:line under .cache/ia/<fixture>/
 # or the proposal article) and why. `window` marks a claim supported outside the ~900-character
-# card window: a window-only check gets it wrong.
+# card window: a window-only check gets it wrong. Each claim is judged as written, modality
+# included: a prediction stated as fact is not supported (see m01), so supported claims keep the
+# source's "expected", "may" or "likely". These are acceptance cases for a checker; the test
+# beside them checks only the data, not any checker's verdicts.
 cases:
   # --- supported outside the card window (a window-only check wrongly drops them) ---
   - {id: w01, case: case_04_cra_manufacturer_obligations, point: c04_m07, kind: window, expected: supported,
@@ -33,7 +36,7 @@ cases:
      claim: "protection from data exploitation gives business users more confidence to sell online",
      source: "dma/ia_full.txt:2061", why: "table: \"more confidence in selling online, as they would be protected from practices that exploit their data\""}
   - {id: w08, case: case_10_platform_work_employment_status_algorithmic_management, point: c10_e02, kind: window, expected: supported,
-     claim: "costs fall below the baseline in the long run because the control criteria give legal certainty",
+     claim: "the IA expects the costs to fall below the baseline in the long run because the clear control criteria give platforms certainty",
      source: "platform_work/ia_full.txt:1041", why: "\"a clear set of criteria concerning the definition of control ... The platforms will adapt ... Significant savings ... are likely\""}
   - {id: w09, case: case_05_dsa_due_diligence_obligations, point: c05_o03, kind: window, expected: supported,
      claim: "this cost falls on about 20 of the largest platforms",
@@ -42,7 +45,7 @@ cases:
      claim: "erroneous removal or account suspension",
      source: "dsa/ia_full.txt:205; proposal Art 17(1)(c)", why: "suspension of user accounts discussed as a harm; Art 17 covers suspension"}
   - {id: w11, case: case_10_platform_work_employment_status_algorithmic_management, point: c10_o04, kind: window, expected: supported,
-     claim: "SME restaurants bear costs through higher commissions or fewer orders",
+     claim: "SME restaurants may bear costs through higher commissions or fewer orders",
      source: "platform_work/ia_full.txt:1068; 1824-1836", why: "SME restaurants and \"an increase in commissions\" (1068); drop of orders in the Spanish estimate (1836). 'commission' also matches 'the Commission'"}
   - {id: w12, case: case_11_pld_liability_software_burden_of_proof, point: c11_m05, kind: window, expected: supported,
      claim: "more confidence to claim compensation in complex cases",

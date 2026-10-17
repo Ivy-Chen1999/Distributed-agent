@@ -1,5 +1,7 @@
-"""The regression cases from the failed reference check (evals/regression/): well formed, and
-each quoted passage is where it says when the source texts are cached on this machine."""
+"""Data checks of the acceptance cases from the failed reference check (evals/regression/): well
+formed, and where a case quotes its source in double quotes, the first words of that quote are on
+the first line it cites (when the texts are cached here). This does not run any checker or
+compare a verdict with ``expected``; that acceptance is separate (plan 2026-10-16-001)."""
 
 import re
 from pathlib import Path
