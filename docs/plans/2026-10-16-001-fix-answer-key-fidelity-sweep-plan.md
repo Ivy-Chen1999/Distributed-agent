@@ -64,7 +64,17 @@ amends: docs/plans/2026-10-04-001-feat-golden-case-expansion-plan.md (human chec
 >   so a verdict is compared clause by clause, never for the point as a whole. (b) Behaviour, offline on
 >   the subscription: F2 on those frozen inputs gives every `expected` verdict in each of 2 runs;
 >   any miss is fixed and the 2 runs repeated. The two runs are independent: the second reads
->   nothing the first produced. Two of the 27 are legal background that must be
+>   nothing the first produced.
+>   **Changed 2026-10-17 (owner decision, after four versions failed "every case right"):** each
+>   point's claims are judged 3 times independently on the same evidence; a verdict stands only
+>   when all 3 agree, otherwise `cant_tell`. Acceptance: in each of 2 independent runs, no
+>   dangerous miss (`supported` for an unsupported claim, `not_supported` for a supported one, or
+>   a split element never checked); `cant_tell` is allowed, reported as a rate, and every
+>   `cant_tell` goes to Codex. Agreement shows a verdict is stable, not that it is right (Codex):
+>   stable errors are fixed first, an agreed verdict still has its evidence reviewed before any
+>   edit, and nothing edits a key automatically. The cases (now 31, plus 5 full-point split cases)
+>   were used to debug the check: they are a regression set, and the check is tested for real on
+>   the 38 open points. Two of the 27 are legal background that must be
 >   kept (CRA class I/II scope, c04_e03; PLD trade secrets, c11_o01): a check that drops what the
 >   law states fails. The result is recorded next to the cases before F2
 >   is used on any draft.
