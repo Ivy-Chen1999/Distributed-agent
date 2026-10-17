@@ -27,8 +27,9 @@ sealed holdout.
   proposal text**; it does not draft impact assessments or compare policy options. The cycle is
   **automated prompt and config optimization with a sealed holdout gate**; show the literal diff
   (`womm evolve show <candidate>`).
-- Say how the answer keys were made: **AI-drafted, read-checked by two people, owner-ruled on
-  the differences, holdout spot-checked** (3 items per draft). The judge was calibrated on the
+- Say how the answer keys were made: **AI-drafted; a two-person sample check failed; corrected
+  after that feedback by an AI full-text review, not re-checked by people; holdout spot-checked**
+  (5 items per draft after the tightening, 3 with a ROBUST check). The judge was calibrated on the
   incumbent's output, and the judge and the system under test are the same model
   (`gpt-6.1-sol`).
 - A weak-mode pass is **"not rejected (directional)"**. Quote the A/A null pass rate that
