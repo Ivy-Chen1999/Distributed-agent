@@ -53,7 +53,7 @@ export function kpis(rv: RunView, runLabel: string, runDot: string, fallbackMode
     { label: 'Tokens', value: kTok(tokens), sub: 'Input and output' },
     { label: 'Cost', value: '$' + cost.toFixed(2), sub: 'Model: ' + modelsUsed(rv.run, fallbackModel) },
     {
-      label: 'Grounding',
+      label: 'Citation check',
       value: citeDone && g ? pct : '—',
       sub: citeDone && g ? `${g.passed}/${g.total} quotes verified` : 'Waiting for citation check',
     },

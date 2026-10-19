@@ -71,7 +71,7 @@ export function crossJudgeText(x: CrossJudge | null | undefined): string {
 export const METRIC_NAMES: Record<string, string> = {
   coverage: 'Coverage',
   omissions_addressed: 'Omissions addressed',
-  grounding: 'Grounding',
+  grounding: 'Citation check rate',
 };
 
 export const metricName = (m: string): string => METRIC_NAMES[m] ?? m.replace(/_/g, ' ');
