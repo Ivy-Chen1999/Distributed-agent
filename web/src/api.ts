@@ -1,6 +1,9 @@
 // Typed client for the WOMM API. Same origin in production; proxied by Vite in development.
 import type {
   AskAnswer,
+  CandidateDetail,
+  CandidateDiff,
+  Lineage,
   EventsPage,
   RunAccepted,
   RunDetail,
@@ -119,6 +122,9 @@ export const api = {
     }),
   ask: (runId: string, question: string) =>
     request<AskAnswer>(`/runs/${enc(runId)}/ask`, { method: 'POST', body: JSON.stringify({ question }) }, ASK_TIMEOUT_MS),
+  lineage: () => request<Lineage>('/evolution/lineage'),
+  candidate: (versionId: string) => request<CandidateDetail>(`/evolution/candidates/${enc(versionId)}`),
+  candidateDiff: (versionId: string) => request<CandidateDiff>(`/evolution/candidates/${enc(versionId)}/diff`),
 };
 
 /** Human message for a failed call, in the console's voice. */

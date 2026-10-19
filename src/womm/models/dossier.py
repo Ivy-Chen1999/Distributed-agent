@@ -7,6 +7,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from womm.models.base import StrictModel
+from womm.models.cost import CostSection
 from womm.models.findings import ExpertFailure, ImpactFinding
 
 # --- Synthesis LLM output: references findings by id, never re-emits quote text ---
@@ -72,11 +73,27 @@ class DiscardedFinding(BaseModel):
 DossierStatus = Literal["succeeded", "degraded", "failed", "no_changes"]
 
 
+class LawVersion(BaseModel):
+    """Header metadata: the version of the law a run analyses (its after version)."""
+
+    version_id: str
+    status: str
+    source: str = Field(description="CELEX number or URL of the published text.")
+    date: str
+    pre_omnibus: bool = Field(
+        default=False,
+        description="True for the 2024 text as adopted, which Regulation (EU) 2026/1744 has "
+        "since amended.",
+    )
+    note: str | None = None
+
+
 class ImpactDossier(BaseModel):
     run_id: str
     scenario_id: str
     status: DossierStatus
     system_version: str
+    law_version: LawVersion | None = None
     impacts: list[DossierImpact] = Field(default_factory=list)
     chains: list[ImpactChain] = Field(default_factory=list)
     disagreements: list[Disagreement] = Field(default_factory=list)
@@ -87,3 +104,8 @@ class ImpactDossier(BaseModel):
     )
     failed_experts: list[ExpertFailure] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)
+    costs: CostSection | None = Field(
+        default=None,
+        description="Cost records and hotspots (cost-enabled versions only). Never read by "
+        "synthesis or the coverage judge.",
+    )

@@ -1,0 +1,48 @@
+# Audit outcomes of published golden-case drafts, per proposal fixture: counts only.
+# Written by scripts/publish_golden_cases.py; read by the review gate so that escalation
+# (audit error rate over 10%) spans PRs. Holdout proposals never appear here.
+fixtures:
+  batteries:
+    sampled: 4
+    decided: 0
+    errors: 0
+  cra:
+    sampled: 5
+    decided: 0
+    errors: 0
+  data_act:
+    sampled: 4
+    decided: 0
+    errors: 0
+  dga:
+    sampled: 2
+    decided: 0
+    errors: 0
+  dma:
+    sampled: 4
+    decided: 0
+    errors: 0
+  dsa:
+    sampled: 5
+    decided: 0
+    errors: 0
+  ehds:
+    sampled: 3
+    decided: 0
+    errors: 0
+  gigabit:
+    sampled: 4
+    decided: 0
+    errors: 0
+  gpsr:
+    sampled: 4
+    decided: 0
+    errors: 0
+  platform_work:
+    sampled: 4
+    decided: 0
+    errors: 0
+  pld:
+    sampled: 3
+    decided: 0
+    errors: 0

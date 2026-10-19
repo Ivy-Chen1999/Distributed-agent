@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { App } from './App';
 import { TOKEN_KEY } from './api';
-import { mockApi, system } from './test/fixtures';
+import { mockApi, sampleRun, system, type MockCall } from './test/fixtures';
 
 let mock: ReturnType<typeof mockApi>;
 
@@ -162,6 +162,93 @@ describe('WOMM Console', () => {
     expect(screen.getByText('No run selected')).toBeTruthy();
     nav('Ask WOMM');
     expect(screen.getByText('No run to ask about')).toBeTruthy();
+  });
+
+  describe('provision comparison', () => {
+    const DEMO = 'demo_penalties_amended';
+    /** The fixture run, re-labelled as a run of the demo diff scenario. */
+    const demoRoutes = (sources?: (call: MockCall) => { status: number; body: unknown } | undefined) => {
+      const run = { ...sampleRun(), scenario_id: DEMO };
+      return {
+        '/runs': (c: MockCall) => {
+          const path = c.url.split('?')[0];
+          if (c.method !== 'GET') return undefined;
+          if (path === '/runs') return { status: 200, body: { runs: [{ run_id: run.run_id, scenario_id: DEMO, status: 'succeeded', system_version: run.system_version, duration_s: 287.5, impacts: 25, grounding: run.grounding }] } };
+          if (path === `/runs/${run.run_id}`) return { status: 200, body: run };
+          return undefined;
+        },
+        ...(sources ? { [`/scenarios/${DEMO}/sources`]: sources } : {}),
+      };
+    };
+    const bootDemo = async () => {
+      localStorage.setItem(TOKEN_KEY, 'test-token-1234567890');
+      render(<App />);
+      await waitFor(() => expect(screen.getAllByText('Succeeded').length).toBeGreaterThan(0));
+      nav('Run detail');
+    };
+
+    it('is hidden for a scenario without a proposal → final-text diff', async () => {
+      await boot();
+      nav('Run detail');
+      await screen.findByRole('tab', { name: /Impacts/ });
+      expect(screen.queryByRole('heading', { name: 'Provision comparison' })).toBeNull();
+      expect(screen.queryByTestId('provision-comparison')).toBeNull();
+    });
+
+    it('shows the demo diff side by side with marked deletions and additions', async () => {
+      mock = mockApi(demoRoutes());
+      vi.stubGlobal('fetch', vi.fn(mock.fn));
+      await bootDemo();
+      const section = await screen.findByTestId('provision-comparison');
+      expect(within(section).getByRole('heading', { name: 'Provision comparison' })).toBeTruthy();
+      await within(section).findByText('Art 55 → Art 62');
+      expect(section.textContent).toContain('Proposal COM(2021) 206 → final text Regulation (EU) 2024/1689');
+      // Changes start collapsed; opening one shows both columns, the deletion struck in the
+      // proposal and the addition in the final text.
+      const sme = section.querySelector('[data-provision="ai_act/innovation/sme_measures"]') as HTMLElement;
+      expect(sme.querySelector('[data-side]')).toBeNull();
+      expect(within(sme).getByText('−4 / +2 words')).toBeTruthy();
+      fireEvent.click(within(sme).getByRole('button', { expanded: false }));
+      const before = sme.querySelector('[data-side="before"]')!;
+      const after = sme.querySelector('[data-side="after"]')!;
+      expect(before.textContent).toMatch(/^Proposal · COM\(2021\) 206 · Art 55/);
+      expect(after.textContent).toMatch(/^Final text · Regulation \(EU\) 2024\/1689 · Art 62/);
+      expect(before.querySelector('del')?.textContent).toBe('[removed: small-scale providers and]');
+      expect(before.querySelector('ins')).toBeNull();
+      expect(after.querySelector('ins')?.textContent).toBe('[added: SMEs, including]');
+      expect(after.querySelector('del')).toBeNull();
+      expect(getComputedStyle(before.querySelector('del')!).textDecoration).toMatch(/line-through/);
+      expect(getComputedStyle(after.querySelector('ins')!).textDecoration).toMatch(/underline/);
+      // The renumbered, unchanged article opens on demand.
+      const pen = section.querySelector('[data-provision="ai_act/penalties/penalties"]') as HTMLElement;
+      const toggle = within(pen).getByRole('button', { expanded: false });
+      expect(toggle.textContent).toMatch(/Art 71 → Art 99.*Modified.*wording unchanged/);
+      fireEvent.click(toggle);
+      expect(within(pen).getByText(/Same wording; only the article number changed \(Art 71 → Art 99\)/)).toBeTruthy();
+      expect(pen.querySelectorAll('del, ins')).toHaveLength(0);
+      fireEvent.click(within(sme).getByRole('button', { expanded: true }));
+      expect(sme.querySelector('[data-side]')).toBeNull();
+    });
+
+    it('shows an error with a retry when the provision texts fail to load', async () => {
+      let fail = true;
+      mock = mockApi(demoRoutes(() => (fail ? { status: 500, body: { detail: 'sources unavailable' } } : undefined)));
+      vi.stubGlobal('fetch', vi.fn(mock.fn));
+      await bootDemo();
+      const section = await screen.findByTestId('provision-comparison');
+      await within(section).findByText('Could not load the provision texts');
+      expect(within(section).getByRole('alert').textContent).toContain('sources unavailable');
+      fail = false;
+      fireEvent.click(within(section).getByText('Retry'));
+      await within(section).findByText('Art 55 → Art 62');
+    });
+
+    it('shows an empty state when no change has both a proposal and a final text', async () => {
+      mock = mockApi(demoRoutes(() => ({ status: 200, body: { scenario_id: DEMO, changes: [], sources: [] } })));
+      vi.stubGlobal('fetch', vi.fn(mock.fn));
+      await bootDemo();
+      await within(await screen.findByTestId('provision-comparison')).findByText('No provisions to compare');
+    });
   });
 
   it('switches theme', async () => {

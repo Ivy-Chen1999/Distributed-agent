@@ -30,13 +30,35 @@ async def router_node(state: RIAState, runtime: Runtime[WommContext]) -> dict:
 
 def router_state(state: RIAState) -> str:
     """What the decider sees: the changed provisions (key, change kind, article, opening text)
-    and the planner's focus areas. Full texts stay out to keep the bounded decision cheap."""
+    and the planner's focus areas. Full texts stay out to keep the bounded decision cheap.
+
+    Explore runs cover a whole act, so the decider sees the index summary and the index lines
+    of the Planner's selected provisions instead (no text)."""
+    if state.get("mode") == "explore":
+        return _explore_router_state(state)
     lines = [f"Scenario {state['scenario_id']}: {len(state['diff'].changes)} changed provisions."]
     for c in state["diff"].changes:
         p = c.after or c.before
         lines.append(f"- [{c.kind}] {c.provision_key} (Art {p.article}): {p.text[:300]}")
     focus = state.get("focus")
     lines.append("Planner focus areas:\n" + (focus.render() if focus else "(none)"))
+    return "\n".join(lines)
+
+
+def _explore_router_state(state: RIAState) -> str:
+    focus = state.get("focus")
+    keys = (
+        list(dict.fromkeys(k for a in focus.focus_areas for k in a.provision_keys)) if focus else []
+    )
+    index = state.get("index_lines", {})
+    lines = [
+        f"Scenario {state['scenario_id']} (explore): {len(state['diff'].changes)} changed "
+        f"provisions in the index; the Planner selected {len(keys)}.",
+        state.get("index_header", ""),
+        "Selected provisions (index lines, no text):",
+        *(f"- {index.get(k, k)}" for k in keys),
+        "Planner focus areas:\n" + (focus.render() if focus else "(none)"),
+    ]
     return "\n".join(lines)
 
 

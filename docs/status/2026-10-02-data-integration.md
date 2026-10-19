@@ -48,9 +48,15 @@ mean guessing sentence boundaries, so we did not try.
 2. In the proposal, unnumbered subparagraphs are merged into the paragraph text. The final act has
    them as `subparagraph` units, so the two versions are inconsistent.
 3. A stray backtick in the heading of final Art 1 ("Subject matter`").
-4. The repository has no LICENSE file.
-5. `docs/project-status.md` links to `../project-plan.md`, which is not in the repository.
-6. Please tag the delivered commit (for example `v0-delivery`), so that a force push cannot remove
+4. Superscripts are flattened. Final Art 51(2) sets the systemic-risk threshold at 10^25
+   floating point operations, but the provision unit and the obligation record read
+   "greater than 1025". It is the only superscript outside footnote calls in the Official
+   Journal and consolidated texts.
+   - WOMM restores it with an explicit fixup in `scripts/build_corpus.py` (`KNOWN_FIXUPS`). The
+     build fails if the phrase is no longer found.
+5. The repository has no LICENSE file.
+6. `docs/project-status.md` links to `../project-plan.md`, which is not in the repository.
+7. Please tag the delivered commit (for example `v0-delivery`), so that a force push cannot remove
    the commit we pinned.
 
 ## Next

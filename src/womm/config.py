@@ -30,6 +30,7 @@ class Settings:
     api_token: str | None
     typesafe_api_key: str | None = None
     jev_model: str = "jev-latest"
+    label_admin_token: str | None = None
 
     def require_langsmith(self) -> str:
         if not self.langsmith_api_key:
@@ -63,4 +64,5 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
         api_token=opt("WOMM_API_TOKEN"),
         typesafe_api_key=opt("TYPESAFE_API_KEY") or opt("JEV_API_KEY"),
         jev_model=opt("WOMM_JEV_MODEL") or "jev-latest",
+        label_admin_token=opt("WOMM_LABEL_ADMIN_TOKEN"),
     )

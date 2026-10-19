@@ -273,3 +273,17 @@ def test_other_source_articles_from_cache_only(monkeypatch):
     }
     other = build_fixture.other_source_articles("pipeline", bodies)
     assert [a.number for a in other["reg2024_1689"]] == ["7", "16", "99", "103"]
+
+
+def test_committed_scenarios_match_scenarios_in_the_script():
+    from womm.data.fixtures import DEFAULT_FIXTURE_DIR, load_crosswalk, load_fixture
+
+    built = build_fixture.build_scenarios(load_crosswalk(DEFAULT_FIXTURE_DIR / "crosswalk.yaml"))
+    assert {s.scenario_id: s for s in built} == load_fixture().scenarios
+    explore = [s for s in built if s.mode == "explore"]
+    assert {s.after_version for s in explore} == {
+        build_fixture.PROPOSAL.version_id, build_fixture.CONSOLIDATED_VERSION_ID,
+        build_fixture.FINAL.version_id,  # final_vs_proposal (EU cost plan U7, demo)
+    }  # fmt: skip
+    (r7,) = [s for s in explore if s.scenario_id == "final_vs_proposal"]
+    assert (r7.kind, r7.before_version) == ("demo", build_fixture.PROPOSAL.version_id)

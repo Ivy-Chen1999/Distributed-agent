@@ -40,7 +40,8 @@ npx playwright show-report        # HTML report with traces and screenshots of f
 Needs `uv` and the local Postgres from `docker-compose up -d` (`postgresql://womm:womm@localhost:55432`;
 override the server with `WOMM_E2E_PG_URL`). `playwright.config.ts` starts the API from the repo root
 with `uv run uvicorn --factory womm.api.e2e:create_e2e_app --port 8765`, after `npm run build` and
-`python -m womm.api.e2e create-db`, which creates a fresh database for the run (Playwright starts its
+`python -m womm.api.e2e create-db` and `seed-evolution` (a scripted self-evolution lineage for the
+Evolution page), which create a fresh database for the run (Playwright starts its
 webServer before `globalSetup`, so creation happens there; `e2e/global-setup.ts` checks that it is empty
 and `e2e/global-teardown.ts` drops it; `WOMM_E2E_KEEP_DB=1` keeps it). Specs run one at a time
 against that server, because the console always opens the newest run.
@@ -66,11 +67,13 @@ Ask answers cite the first impact and finding; a question mentioning "weather" i
 | `replay` | Replay at 1×/2×/3×/4×/8×, Stop replay, "Watch pipeline" |
 | `overview` | KPIs, latency bars, flow pills, "Needs your review" navigation, Recent runs rows |
 | `detail` | counts, all five tabs, grouping, provenance, source panel, chains, disagreements, questions, event log, demo diff |
+| `comparison` | demo diff provision comparison (proposal / final text): every change, side-by-side columns with struck deletions and underlined additions at 1280/1024 px, exact source texts, axe in both themes, hidden for evaluation scenarios, error + retry |
 | `degraded` | the timed-out expert on Overview, Pipeline, Agents, Topology and Run detail |
 | `agents-topology` | agent cards, "Open in topology", inspector facts, chips, edges, no clipped nodes (1440/1024/820 px) |
 | `ask` | suggestions, typed questions, "Reading the dossier…", citation chips, uncovered answers, new run |
 | `settings` | system facts, staged overrides and the derived version, self-check (also mocked with results) |
 | `header-errors` | copy version, theme, Run button states; 503/429/500/502/401 via `page.route` |
+| `evolution` | Evolution page on the seeded lineage: tree and badges, new-expert highlight, decisions verbatim, R37 warning, prompt diffs on demand, empty and error states, axe in both themes (desktop only) |
 | `tour` | both themes: design tokens, reference screenshots, clean console; ligatures; 1024/820 px without page scroll |
 | `live` | one real run against a deployed server; skipped unless `WOMM_E2E_LIVE=1`, `WOMM_E2E_LIVE_URL` and `WOMM_E2E_LIVE_TOKEN` are set (spends model budget) |
 
@@ -82,9 +85,12 @@ screenshots to the report on every run and rewrites the reference set only with
 
 - `src/api.ts`: typed client, token storage, 401 handling. `src/types.ts`: API shapes.
 - `src/model/`: pure view-model derivations (event trace and node status, board feed, dossier
-  grouping and provenance, quote highlighting, overview KPIs, scenario labels). Tested in
-  `src/model/model.test.ts` against `../docs/ui/sample_run.json`.
-- `src/screens/`: Overview, Run pipeline, Run detail, Agents, Topology, Ask WOMM, Settings.
+  grouping and provenance, quote highlighting, word-level proposal / final-text comparison,
+  overview KPIs, scenario labels). Tested in `src/model/model.test.ts` against
+  `../docs/ui/sample_run.json`.
+- `src/screens/`: Overview, Run pipeline, Run detail, Agents, Topology, Ask WOMM, Evolution,
+  Settings. Evolution (R36 page 4) reads `/evolution/*` and has its own view models in
+  `src/model/evolution.ts`.
 - `src/components/`: design primitives (hover/focus styles, segmented controls, state cards) and
   overlays (source panel, token prompt, run picker, toast).
 - `src/design.ts`: colours, themes, icons and labels from the design.

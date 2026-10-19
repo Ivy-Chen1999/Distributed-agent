@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import pytest
 import yaml
@@ -70,6 +71,19 @@ def test_run_json_success(fake_version, tmp_path, capsys, use_script):
     assert (tmp_path / "runs" / f"{data['run_id']}.json").is_file()
 
 
+def test_run_explore_scenario(fake_version, tmp_path, capsys, use_script):
+    plan = {"focus_areas": [{"provision_keys": ["ai_act/art/26"], "question": "q",
+                             "rationale": "r"}]}  # fmt: skip
+    empty = {"impacts": [], "chains": [], "disagreements": [], "open_questions": [],
+             "discarded": []}  # fmt: skip
+    use_script({"planner": [plan], "expert": [{"findings": []}] * 3, "synthesis": [empty]})
+    code = cli.main(_args(fake_version, tmp_path, "run", "consolidated_whole_act", "--json"))
+    data = json.loads(capsys.readouterr().out)
+    assert code == cli.EXIT_OK and data["status"] == "succeeded"
+    saved = json.loads(Path(data["result_path"]).read_text())
+    assert saved["dossier"]["law_version"]["version_id"] == "reg2024_1689_c20260727"
+
+
 def test_run_degraded_exit_code(fake_version, tmp_path, capsys, use_script):
     script = good_script()
     script["synthesis"] = [LLMError("schema_invalid", "bad", attempts=3)]
@@ -83,6 +97,30 @@ def test_eval_unknown_case(fake_version, tmp_path, capsys, use_script):
     use_script({})
     assert cli.main(_args(fake_version, tmp_path, "eval", "--case", "x")) == cli.EXIT_USAGE
     assert "unknown golden case" in capsys.readouterr().err
+
+
+def test_eval_empty_split_is_usage_error(fake_version, tmp_path, capsys, use_script, monkeypatch):
+    use_script({})
+    train_only = [c for c in cli.load_all_golden() if c.split == "train"]
+    monkeypatch.setattr(cli, "load_all_golden", lambda *_a, **_k: train_only)
+    assert cli.main(_args(fake_version, tmp_path, "eval", "--split", "val")) == cli.EXIT_USAGE
+    assert "no golden cases selected (split=val" in capsys.readouterr().err
+
+
+def test_eval_holdout_split_not_selectable(fake_version, tmp_path, capsys):
+    with pytest.raises(SystemExit) as exc:
+        cli.main(_args(fake_version, tmp_path, "eval", "--split", "holdout"))
+    assert exc.value.code == cli.EXIT_USAGE
+    assert "invalid choice" in capsys.readouterr().err
+
+
+def test_eval_split_train_selects_cases(fake_version, tmp_path, capsys, use_script):
+    use_script(_script())
+    code = cli.main(_args(fake_version, tmp_path, "eval", "--split", "train",
+                          "--case", "case_02_sme_impacts", "--local", "--json"))  # fmt: skip
+    data = json.loads(capsys.readouterr().out)
+    assert code == cli.EXIT_OK and data["summary"]["scored"] == 1
+    assert data["metadata"]["splits"] == ["train"]
 
 
 def test_eval_local_json_skips_langsmith(fake_version, tmp_path, capsys, use_script, monkeypatch):
@@ -108,6 +146,36 @@ def test_eval_baseline_on_dirty_tree_refused(
     code = cli.main(_args(fake_version, tmp_path, "eval", "--case", "case_02_sme_impacts",
                           "--baseline", "--local"))  # fmt: skip
     assert code == cli.EXIT_USAGE and "dirty" in capsys.readouterr().err
+
+
+def test_eval_formal_refuses_non_api_before_any_backend(
+    fake_version, tmp_path, capsys, monkeypatch
+):
+    async def must_not_run(*a, **k):
+        raise AssertionError("no backend or self-check before the formal refusal")
+
+    monkeypatch.setattr(cli, "prepare_backends", must_not_run)
+    code = cli.main(_args(fake_version, tmp_path, "eval", "--split", "train",
+                          "--repetitions", "6", "--formal", "--local"))  # fmt: skip
+    err = capsys.readouterr().err
+    assert code == cli.EXIT_USAGE and "api backend" in err
+
+
+@pytest.mark.parametrize("extra", [[], ["--split", "train", "--case", "case_02_sme_impacts"]])
+def test_eval_formal_needs_a_whole_split(fake_version, tmp_path, capsys, use_script, extra):
+    use_script(_script())
+    code = cli.main(_args(fake_version, tmp_path, "eval", "--formal", "--repetitions", "6",
+                          "--local", *extra))  # fmt: skip
+    assert code == cli.EXIT_USAGE and "--formal runs a whole split" in capsys.readouterr().err
+
+
+def test_eval_json_reports_split(fake_version, tmp_path, capsys, use_script):
+    use_script(_script())
+    code = cli.main(_args(fake_version, tmp_path, "eval", "--case", "case_02_sme_impacts",
+                          "--local", "--json"))  # fmt: skip
+    data = json.loads(capsys.readouterr().out)
+    assert code == cli.EXIT_OK and data["metadata"]["split"] == "train"
+    assert data["summary_by_split"]["train"]["summary"]["scored"] == 1
 
 
 def test_selfcheck_failure_reports_json(tmp_path, capsys, monkeypatch):
@@ -215,3 +283,46 @@ def test_eval_json_stdout_is_pure_json_with_langsmith(fake_version, tmp_path, ca
     out = capsys.readouterr()
     assert json.loads(out.out)["metadata"]["langsmith_experiment"] == "exp-x"
     assert "View the evaluation results" in out.err
+
+
+@pytest.mark.parametrize(("env", "extra"), [({}, []), ({"LANGSMITH_API_KEY": "k"}, ["--local"])])
+def test_eval_formal_refuses_without_langsmith_before_any_backend(tmp_path, capsys, monkeypatch,
+                                                                  env, extra):  # fmt: skip
+    """The R34 extension needs each formal run's own LangSmith experiment; a formal run that
+    cannot record one would be paid for and then block the extension."""
+    from womm.config import load_settings
+
+    async def must_not_run(*a, **k):
+        raise AssertionError("no backend or self-check before the refusal")
+
+    monkeypatch.setattr(cli, "prepare_backends", must_not_run)
+    monkeypatch.setattr(cli, "load_settings", lambda: load_settings(env))
+    api = str(cli.REPO_ROOT / "system_versions" / "v1.0-unscoped-api.yaml")
+    code = cli.main(["eval", "--system-version", api, "--split", "train", "--repetitions", "3",
+                     "--formal", "--runs-dir", str(tmp_path), *extra])  # fmt: skip
+    assert code == cli.EXIT_USAGE and "LangSmith" in capsys.readouterr().err
+
+
+def test_eval_formal_refuses_a_rejected_langsmith_key_before_any_backend(tmp_path, capsys,
+                                                                         monkeypatch):  # fmt: skip
+    """A key that is set but rejected (expired, wrong workspace) is found before the spend, by
+    the same dataset sync the recording does after the run."""
+    from womm.config import load_settings
+
+    async def must_not_run(*a, **k):
+        raise AssertionError("no backend or self-check before the refusal")
+
+    def rejected(*a, **k):
+        raise RuntimeError("401 Unauthorized")
+
+    synced = []
+    monkeypatch.setattr(cli, "prepare_backends", must_not_run)
+    monkeypatch.setattr(cli, "load_settings", lambda: load_settings({"LANGSMITH_API_KEY": "bad"}))
+    monkeypatch.setattr(cli, "langsmith_client", lambda: object())
+    monkeypatch.setattr(cli, "sync_dataset", lambda _c, cases: synced.append(cases) or rejected())
+    api = str(cli.REPO_ROOT / "system_versions" / "v1.0-unscoped-api.yaml")
+    code = cli.main(["eval", "--system-version", api, "--split", "train", "--repetitions", "3",
+                     "--formal", "--runs-dir", str(tmp_path)])  # fmt: skip
+    err = capsys.readouterr().err
+    assert code == cli.EXIT_USAGE and "401 Unauthorized" in err and "nothing was spent" in err
+    assert synced and all(c.split == "train" for c in synced[0])

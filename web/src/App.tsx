@@ -19,6 +19,7 @@ import { Agents } from './screens/Agents';
 import { Topology } from './screens/Topology';
 import { Ask } from './screens/Ask';
 import { Settings, overridesFrom } from './screens/Settings';
+import { Evolution } from './screens/Evolution';
 
 export const DEFAULT_SCENARIO = 'eval_sme_impacts';
 const THEME_KEY = 'womm.theme';
@@ -110,7 +111,7 @@ export function App() {
 
   const scenarioId = run?.scenario_id ?? runs.data?.runs?.find((r) => r.run_id === runId)?.scenario_id ?? DEFAULT_SCENARIO;
   const scenario = scenarios.data?.find((s) => s.scenario_id === scenarioId) ?? null;
-  const [sources] = useLoad(authed ? `sources:${scenarioId}:${token}` : null, () => api.sources(scenarioId));
+  const [sources, reloadSources] = useLoad(authed ? `sources:${scenarioId}:${token}` : null, () => api.sources(scenarioId));
 
   const systemExperts = system.data?.experts.map((e) => e.id);
   const experts = useMemo(() => expertsFor(runData.events, run, systemExperts), [runData.events, run, systemExperts?.join(',')]);
@@ -281,6 +282,7 @@ export function App() {
     reloadRun: runData.reload,
     scenario,
     sources,
+    reloadSources,
     rv,
     runLabel,
     runDot,
@@ -462,11 +464,12 @@ export function App() {
             {screen === 'agents' && <Agents />}
             {screen === 'topo' && <Topology />}
             {screen === 'chat' && <Ask />}
+            {screen === 'evolution' && <Evolution />}
             {screen === 'settings' && <Settings />}
           </main>
         </div>
 
-        {src && <SourcePanel sourceId={src.sourceId} quote={src.quote} sources={sources} onClose={() => setSrc(null)} />}
+        {src && <SourcePanel sourceId={src.sourceId} quote={src.quote} sources={sources} runSources={run?.citable_sources} onClose={() => setSrc(null)} />}
         {picker && authed && <RunPicker scenarios={scenarios} initial={scenarioId} staged={stagedText} busy={submitting} onRun={startRun} onClose={() => setPicker(false)} />}
         {!authed && (
           <TokenModal

@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import Literal
 
 from pydantic import BaseModel
@@ -19,7 +21,13 @@ MIN_TOTAL_WORDS = 6
 MIN_SEGMENT_WORDS = 4
 
 Reason = Literal[
-    "ok", "unknown_source", "not_found", "too_short", "too_fragmented", "provision_not_in_diff"
+    "ok",
+    "unknown_source",
+    "not_found",
+    "too_short",
+    "too_fragmented",
+    "provision_not_in_diff",
+    "provision_out_of_scope",
 ]
 
 _QUOTES = str.maketrans(
@@ -87,22 +95,45 @@ class ValidationOutcome(BaseModel):
     report: CitationReport
 
 
+@dataclass(frozen=True)
+class AgentSources:
+    """What one agent may cite (R11): the provision keys its scope granted, and the sources it
+    retrieved plus the memorandum sources it was given."""
+
+    granted_keys: frozenset[str]
+    sources: Mapping[str, Source]
+
+
+_NOTHING = AgentSources(granted_keys=frozenset(), sources={})
+
+
 def validate_findings(
-    findings: list[ImpactFinding], sources: dict[str, Source], diff_keys: set[str]
+    findings: list[ImpactFinding],
+    sources: Mapping[str, Source],
+    diff_keys: set[str],
+    per_agent: Mapping[str, AgentSources] | None = None,
 ) -> ValidationOutcome:
+    """Check every evidence item. With ``per_agent``, each finding is checked against its own
+    agent's view instead of ``sources``: its provision key must be one the agent was granted
+    (else ``provision_out_of_scope``), and its quote must come from a source that agent may
+    cite (else ``unknown_source``). An agent missing from ``per_agent`` may cite nothing."""
     verdicts: list[EvidenceVerdict] = []
     supported: list[ImpactFinding] = []
     unsupported: list[ImpactFinding] = []
 
     for f in findings:
+        view = per_agent.get(f.agent, _NOTHING) if per_agent is not None else None
+        citable = view.sources if view is not None else sources
         kept = []
         for ev in f.evidence:
             if f.provision_key not in diff_keys:
                 reason: Reason = "provision_not_in_diff"
-            elif ev.source_id not in sources:
+            elif view is not None and f.provision_key not in view.granted_keys:
+                reason = "provision_out_of_scope"
+            elif ev.source_id not in citable:
                 reason = "unknown_source"
             else:
-                reason = match_quote(ev.quote, sources[ev.source_id].text)
+                reason = match_quote(ev.quote, citable[ev.source_id].text)
             verdicts.append(
                 EvidenceVerdict(
                     finding_id=f.finding_id,

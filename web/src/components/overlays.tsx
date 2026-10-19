@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ACC, FONT, TABULAR } from '../design';
 import type { Loadable } from '../hooks';
-import type { Scenario, ScenarioSources } from '../types';
+import type { Scenario, ScenarioSources, SourceDoc } from '../types';
 import { highlightQuote } from '../model/quote';
 import { scenarioKind, scenarioName } from '../model/scenario';
 import { HButton, HInput, PRIMARY_BTN } from './ui';
@@ -18,9 +18,13 @@ function CloseBtn({ onClick }: { onClick: () => void }) {
   );
 }
 
-/** Right-hand source panel with the evidence quote highlighted in the source text. */
-export function SourcePanel({ sourceId, quote, sources, onClose }: { sourceId: string; quote: string; sources: Loadable<ScenarioSources>; onClose: () => void }) {
-  const doc = sources.data?.sources.find((s) => s.source_id === sourceId);
+/**
+ * Right-hand source panel with the evidence quote highlighted in the source text. The run's own
+ * citable sources (`runSources`) are preferred: they hold what the experts actually read,
+ * including obligation views that are not scenario sources. Older runs fall back to the scenario.
+ */
+export function SourcePanel({ sourceId, quote, sources, runSources, onClose }: { sourceId: string; quote: string; sources: Loadable<ScenarioSources>; runSources?: SourceDoc[] | null; onClose: () => void }) {
+  const doc = runSources?.find((s) => s.source_id === sourceId) ?? sources.data?.sources.find((s) => s.source_id === sourceId);
   const hl = doc ? highlightQuote(doc.text, quote) : null;
   const markRef = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -37,7 +41,7 @@ export function SourcePanel({ sourceId, quote, sources, onClose }: { sourceId: s
         {hl.after}
       </div>
     );
-  } else if (sources.status === 'loading' || sources.status === 'idle') {
+  } else if (!runSources?.length && (sources.status === 'loading' || sources.status === 'idle')) {
     note = 'Loading source text…';
     body = <div style={{ height: 14, borderRadius: 3, background: 'var(--soft)' }} />;
   } else {
@@ -136,7 +140,10 @@ export function RunPicker({
   onClose: () => void;
 }) {
   const list = scenarios.data ?? [];
-  const [pick, setPick] = useState(list.find((s) => s.scenario_id === initial)?.scenario_id ?? list[0]?.scenario_id ?? initial);
+  // Until the user clicks a scenario, follow `initial` (the current run's scenario): the picker can
+  // open before the runs or scenarios have loaded, and must not freeze the fallback it saw then.
+  const [chosen, setPick] = useState<string | null>(null);
+  const pick = chosen ?? list.find((s) => s.scenario_id === initial)?.scenario_id ?? list[0]?.scenario_id ?? initial;
   return (
     <Modal label="Start a run" onClose={onClose}>
       <div style={{ display: 'flex', alignItems: 'center' }}>

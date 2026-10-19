@@ -1,7 +1,7 @@
 // Shapes of the WOMM API (docs/ui/api-contract.md, docs/ui/schema/*.json).
 
 export type RunStatus = 'queued' | 'running' | 'succeeded' | 'degraded' | 'failed' | 'no_changes';
-export type ErrorKind = 'auth' | 'rate_limit' | 'timeout' | 'schema_invalid' | 'process_error' | string;
+export type ErrorKind = 'auth' | 'rate_limit' | 'timeout' | 'schema_invalid' | 'process_error' | 'no_data_in_scope' | string;
 export type RouterMode = 'off' | 'shadow' | 'active';
 
 export interface Provenance {
@@ -74,6 +74,74 @@ export interface ImpactDossier {
   unprocessed: ImpactFinding[];
   failed_experts: ExpertFailure[];
   notes: string[];
+  /** Cost records and hotspots (cost-enabled versions only; null or absent otherwise). */
+  costs?: CostSection | null;
+}
+
+// ---------- cost section (src/womm/models/cost.py) ----------
+
+export type EffortType = 'new_process' | 'documentation' | 'registration' | 'notification' | 'human_oversight' | 'training' | 'assessment';
+export type CostBand = 'negligible' | 'low' | 'medium' | 'high';
+export type PayerBasis = 'rule_field' | 'rule_table' | 'inferred' | 'unknown';
+export type CostStatus = 'estimated' | 'not_costed' | 'not_estimated';
+export type Recurrence = 'one_off' | 'recurring';
+export type HotspotDimension = 'provision' | 'payer' | 'effort_type';
+
+export interface CostRecord {
+  obligation_id: string;
+  unit_id: string;
+  provision_key: string;
+  source_id: string;
+  records_version: string;
+  statement_type?: string | null;
+  status: CostStatus;
+  payer?: string | null;
+  payer_basis: PayerBasis;
+  payer_legal_basis?: string | null;
+  payer_quote?: string | null;
+  sector?: 'private' | 'public' | null;
+  effort_type?: EffortType | null;
+  secondary_types: EffortType[];
+  ia_category?: 'compliance_cost' | 'administrative_burden' | 'public_enforcement_cost' | null;
+  one_off?: CostBand | null;
+  recurring?: CostBand | null;
+  applies_from?: string | null;
+  date_label?: string | null;
+  date_withheld?: string | null;
+  unit_delta?: string | null;
+  changed_after_proposal: boolean;
+  late_added: boolean;
+  rationale?: string | null;
+  reason?: string | null;
+}
+
+export interface CostHotspot {
+  dimension: HotspotDimension;
+  value: string;
+  recurrence: Recurrence;
+  medium_or_high: number;
+  low: number;
+  records: number;
+  provision_keys: string[];
+}
+
+export interface CostCoverage {
+  relevant: number;
+  estimated: number;
+  not_costed: number;
+  not_estimated: number;
+  invalid_dropped: number;
+  not_covered_keys: string[];
+  payers_by_basis: Record<string, number>;
+}
+
+export interface CostSection {
+  records: CostRecord[];
+  hotspots: CostHotspot[];
+  coverage: CostCoverage;
+  late_added: string[];
+  delta_basis?: string | null;
+  notes: string[];
 }
 
 export interface DecisionRecord {
@@ -130,6 +198,8 @@ export interface RunDetail {
   usage?: CallUsage[] | null;
   code_identity?: CodeIdentity | null;
   dossier?: ImpactDossier | null;
+  /** Every source an expert of the run could cite (texts, obligation views, memorandum). Absent on older runs. */
+  citable_sources?: SourceDoc[] | null;
 }
 
 export interface RunSummary {
@@ -158,6 +228,7 @@ export interface EventPayload {
   error?: string;
   status?: string;
   impacts?: number;
+  cost?: { records: number; estimated: number; not_costed: number; not_estimated: number };
 }
 
 export interface RunEvent {
@@ -248,4 +319,124 @@ export interface AskAnswer {
   answer: string;
   cites: string[];
   covered: boolean;
+}
+
+// Evolution page (R36 page 4): docs/ui/api-contract.md "Evolution page".
+
+export type EvolutionOrigin = 'seed' | 'gepa' | 'topology' | 'twin' | 'manual';
+export type GateMode = 'statistical' | 'weak' | 'dev';
+
+export interface LineageNode {
+  version_id: string;
+  name: string;
+  parent_id: string | null;
+  cycle_id: string | null;
+  origin: EvolutionOrigin;
+  created_at: string;
+  badges: string[];
+  twins: string[];
+  decision: 'promoted' | 'rejected' | null;
+  label: string | null;
+  new_expert: string | null;
+  r37_regression: boolean | null;
+}
+
+export interface Lineage {
+  nodes: LineageNode[];
+  publish_summary: boolean | null;
+}
+
+export interface MetricDeltaOut {
+  mean_delta: number | null;
+  ci95_low: number | null;
+  ci95_high: number | null;
+  n_cases: number;
+  noise_sd?: number | null;
+}
+
+/** The cross-family judge re-score of a gate's comparison (`womm evolve rescore`); report-only. */
+export interface CrossJudge {
+  label: 'agrees' | 'cross-judge-sensitive' | 'inconclusive';
+  mean_delta: number | null;
+  ci95_low: number | null;
+  ci95_high: number | null;
+  judge: string;
+  gate_delta: number | null;
+  rescored_on?: string | null;
+}
+
+export interface PromotionDecision {
+  gate_id: string;
+  created_at: string;
+  candidate_version: string;
+  incumbent_version: string;
+  mode: GateMode;
+  deployable: boolean;
+  decision: 'promoted' | 'rejected';
+  label: string;
+  reasons: string[];
+  notes: string[];
+  deltas: Record<string, MetricDeltaOut>;
+  n_proposals: number;
+  flags: string[];
+  cross_judge: CrossJudge | null;
+}
+
+export interface SplitMetrics {
+  split: 'train' | 'val';
+  judge_version: string;
+  metrics: Record<string, { mean: number | null; sd: number | null; n: number; noise_sd: number | null }>;
+}
+
+export interface DiffScore {
+  mean: number | null;
+  sd: number | null;
+  n: number;
+}
+
+export interface R37Check {
+  status: 'available' | 'not_run';
+  /** The judge both scores were recorded under; null when they were not compared. */
+  judge_version?: string | null;
+  score: DiffScore | null;
+  reference_version: string | null;
+  reference_score: DiffScore | null;
+  regression: boolean | null;
+  message: string;
+}
+
+export interface NewExpert {
+  id: string;
+  domain: string;
+  router_gloss: string;
+  prompt_text: string;
+  target_pattern: Record<string, string> | null;
+  rationale: string | null;
+}
+
+export interface DiffSummary {
+  experts_added: string[];
+  added_experts: Record<string, { domain: string; router_gloss: string | null }>;
+  prompts_changed: string[];
+  router_gloss_changed: Record<string, { from: string | null; to: string | null }>;
+  retrieval: { from: Record<string, number>; to: Record<string, number> } | null;
+}
+
+export interface CandidateDetail {
+  node: LineageNode;
+  experts: { id: string; domain: string; router_gloss: string | null }[];
+  summary: DiffSummary | null;
+  rationale: string | null;
+  proposer: Record<string, unknown> | null;
+  new_expert: NewExpert | null;
+  metrics: SplitMetrics[];
+  holdout: { status: 'published' | 'not_submitted' | 'sealed'; message: string; decisions: PromotionDecision[] };
+  r37: R37Check;
+}
+
+export interface CandidateDiff {
+  version_id: string;
+  parent_id: string | null;
+  summary: DiffSummary | null;
+  prompts: Record<string, string>;
 }

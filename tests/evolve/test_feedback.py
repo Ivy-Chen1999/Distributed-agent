@@ -1,0 +1,540 @@
+"""Analyst feedback (U11, R31): parsing marks, resolving them against train/val runs, Failure
+Memory events of the human kinds, and golden candidates staged into the review gate."""
+
+import datetime as dt
+import json
+from types import SimpleNamespace
+
+import pytest
+
+from womm.eval.drafting import load_draft
+from womm.eval.golden import GoldenError
+from womm.eval.golden_review import check_draft
+from womm.evolve.failure_memory import CaseRun, format_patterns, patterns
+from womm.evolve.feedback import (
+    FEEDBACK_KEY,
+    MARKS,
+    AnalystFeedback,
+    FeedbackError,
+    parse_feedback,
+    report_runs,
+    resolve_feedback,
+    stage_candidates,
+)
+
+from ..eval import draft_factory as df
+from .test_failure_memory import K1, K2, _finding, _run, _score
+
+NOW = dt.datetime(2026, 10, 7, tzinfo=dt.UTC)
+
+
+def _fb(value="missing_impact", comment="impact: SMEs pay twice", fid="fb1", run="t1", **kw):
+    return SimpleNamespace(**{
+        "id": fid, "run_id": run, "key": FEEDBACK_KEY, "value": value, "score": None,
+        "comment": comment, "correction": None, "created_at": NOW,
+        "feedback_source": SimpleNamespace(user_name="ana", user_id="u1"), **kw,
+    })  # fmt: skip
+
+
+def _case_run(split="train", run_id="r1", rep=2) -> CaseRun:
+    return CaseRun(case_id="case_x", fixture="ai_act", split=split, run_id=run_id,
+                   repetition=rep, system_version="sv", judge_version="jv",
+                   git_sha="g")  # fmt: skip
+
+
+BOARD = [_finding("legal", K1, "f1"), _finding("fiscal", K2, "f2")]
+
+
+# ----------------------------------------------------------------- parsing
+
+
+def test_parse_reads_the_mark_and_comment_fields():
+    comment = (
+        "Impact: SMEs pay twice\nprovisions: reg/a/2, reg/a/1\n"
+        "category: sme_specific\nactor: SMEs\nseen in two runs"
+    )
+    fb = parse_feedback(_fb(comment=comment))
+    assert (fb.mark, fb.impact, fb.provision_keys, fb.category, fb.affected_actor) == (
+        "missing_impact",
+        "SMEs pay twice",
+        ["reg/a/2", "reg/a/1"],
+        "sme_specific",
+        "SMEs",
+    )
+    assert (fb.note, fb.analyst, fb.trace_run_id, fb.created_at) == (
+        "seen in two runs",
+        "ana",
+        "t1",
+        NOW,
+    )
+
+
+def test_parse_takes_the_categorical_score_and_a_correction_dict():
+    fb = parse_feedback(_fb(value=None, score=MARKS.index("weak_evidence"), comment="finding: f0",
+                            correction={"finding": "f2"}))  # fmt: skip
+    assert (fb.mark, fb.finding_id) == ("weak_evidence", "f2")
+
+
+@pytest.mark.parametrize(
+    ("kw", "message"),
+    [
+        ({"key": "coverage"}, "is not"),
+        ({"value": "maybe"}, "unknown mark"),
+        ({"value": "weak_evidence", "comment": "no finding"}, "names the finding"),
+        ({"value": "edit", "comment": "finding: f1"}, "edited text"),
+        ({"value": "missing_impact", "comment": "something"}, "describes the impact"),
+        ({"comment": "impact: x\ncategory: vibes"}, "unknown category"),
+        ({"run_id": None}, "not attached to a run"),
+    ],
+)
+def test_parse_refuses_incomplete_marks(kw, message):
+    with pytest.raises(FeedbackError, match=message):
+        parse_feedback(_fb(**kw))
+
+
+def test_parse_reads_indented_continuation_lines():
+    comment = (
+        "impact: SMEs pay twice for the\n  same switching service\n\tunder option 2\n"
+        "provisions: reg/a/1,\n  reg/a/2\n"
+        "edited:\n  a corrected text\n  on two lines\n"
+        "a note line\n  that is indented after a note"
+    )
+    fb = parse_feedback(_fb(comment=comment))
+    assert fb.impact == "SMEs pay twice for the same switching service under option 2"
+    assert fb.provision_keys == ["reg/a/1", "reg/a/2"]
+    assert fb.edited == "a corrected text on two lines"
+    assert fb.note == "a note line\nthat is indented after a note"
+
+
+def test_parse_refuses_repeated_fields():
+    comment = "impact: one\nfinding: f1\nImpact: two\nfinding: f2\ncategory: other"
+    with pytest.raises(FeedbackError, match="repeated field.*finding, impact"):
+        parse_feedback(_fb(comment=comment))
+
+
+# ----------------------------------------------------------------- resolving
+
+
+def test_missing_impact_on_a_train_run_becomes_one_human_event():
+    """Plan U11 happy path: one row with source human, owner from the experts citing the keys."""
+    fb = parse_feedback(_fb(comment="impact: SMEs pay twice\nprovisions: reg/a/3"))
+    rec = resolve_feedback(fb, _case_run(), _run(board=BOARD))
+    e = rec.event
+    assert (e.kind, e.source, e.split, e.item_id, e.owner, e.category, e.repetition) == (
+        "analyst_missing_impact",
+        "human",
+        "train",
+        "human:reg/a/3",
+        "none",
+        "uncategorised",
+        2,
+    )
+    assert e.detail["feedback_id"] == "fb1" and e.judge_version == "jv"
+    assert rec.golden_candidate == "queued"
+
+
+def test_missing_impact_owner_is_the_expert_citing_its_keys():
+    fb = parse_feedback(_fb(comment="impact: x\nprovisions: reg/a/1\ncategory: sme_specific"))
+    e = resolve_feedback(fb, _case_run(), _run(board=BOARD)).event
+    assert (e.owner, e.touching_agents, e.category) == ("legal", ["legal"], "sme_specific")
+
+
+def test_weak_evidence_is_owned_by_the_finding_agent():
+    fb = parse_feedback(_fb(value="weak_evidence", comment="finding: f2\nthin quote"))
+    rec = resolve_feedback(fb, _case_run(split="val"), _run(board=BOARD))
+    e = rec.event
+    assert (e.kind, e.item_id, e.owner, e.split) == (
+        "analyst_weak_evidence",
+        f"fiscal:{K2}",
+        "fiscal",
+        "val",
+    )
+    assert e.detail["note"] == "thin quote" and rec.golden_candidate is None
+
+
+@pytest.mark.parametrize("mark", ["accept", "reject"])
+def test_accept_and_reject_are_recorded_without_an_event(mark):
+    rec = resolve_feedback(parse_feedback(_fb(value=mark, comment="finding: f1")), _case_run(),
+                           _run(board=BOARD))  # fmt: skip
+    assert rec.event is None and rec.golden_candidate is None and rec.feedback.mark == mark
+
+
+def test_a_mark_on_an_unknown_finding_is_refused():
+    fb = parse_feedback(_fb(value="edit", comment="finding: f9\nedited: better"))
+    with pytest.raises(FeedbackError, match="no finding 'f9'"):
+        resolve_feedback(fb, _case_run(), _run(board=BOARD))
+
+
+def test_feedback_on_a_sealed_run_is_refused():
+    """Plan U11 error path."""
+    fb = parse_feedback(_fb())
+    sealed = _case_run().model_copy(update={"split": "holdout"})
+    with pytest.raises(GoldenError, match="train/val runs only"):
+        resolve_feedback(fb, sealed, _run())
+
+
+def _report(tmp_path, split="train", sv="sv", name="eval_1_sv.json"):
+    run = _case_run(split=split).model_dump(mode="json")
+    scores = [
+        {"run_id": "r1", "graph_run_id": "t1"},
+        {"run_id": "r_unscored", "graph_run_id": "t2"},
+    ]
+    data = {"system_version": sv, "metadata": {"split": split, "splits": [split]},
+            "case_runs": [run], "scores": scores}  # fmt: skip
+    (tmp_path / name).write_text(json.dumps(data))
+
+
+def test_report_runs_index_scored_runs_by_trace_id(tmp_path):
+    _report(tmp_path)
+    _report(tmp_path, sv="other", name="eval_2_other.json")
+    assert {k: v.run_id for k, v in report_runs(tmp_path, "sv").items()} == {"t1": "r1"}
+
+
+def test_a_report_naming_a_holdout_split_is_refused(tmp_path):
+    _report(tmp_path)
+    data = json.loads((tmp_path / "eval_1_sv.json").read_text())
+    data["metadata"]["splits"] = ["holdout", "train"]
+    (tmp_path / "eval_1_sv.json").write_text(json.dumps(data))
+    with pytest.raises(GoldenError, match="holdout"):
+        report_runs(tmp_path, "sv")
+
+
+def test_analyst_rows_appear_in_the_patterns_view_marked_as_human():
+    """Plan U11 verification."""
+    fb = parse_feedback(_fb(comment="impact: x\nprovisions: reg/a/3"))
+    rec = resolve_feedback(fb, _case_run(), _run())
+    (row,) = patterns([rec.event], [_case_run()])
+    assert (row["kind"], row["source"], row["owner"]) == ("analyst_missing_impact", "human", "none")
+    assert "human" in format_patterns([row])
+
+
+# ----------------------------------------------------------------- golden candidates
+
+
+def _row(fid="fb1", case_id="case_90_widget_switching", fixture="data_act", **payload):
+    return {"feedback_id": fid, "case_id": case_id, "fixture": fixture, "run_id": "r1",
+            "system_version": "sv", "analyst": "ana", "note": "seen twice",
+            "payload": {"impact": "Widget buyers pay twice", "affected_actor": "Buyers",
+                        "provision_keys": [df.KEYS[0]], **payload}}  # fmt: skip
+
+
+def _drafts(tmp_path, split="train"):
+    path = tmp_path / "drafts" / "case_90_widget_switching.yaml"
+    df.write(path, df.fully_decided(split))
+    return path
+
+
+def test_a_staged_candidate_is_pending_and_blocks_publication(tmp_path):
+    path = _drafts(tmp_path)
+    assert check_draft(load_draft(path), set(df.KEYS)) == []  # publishable before staging
+    staged, problems = stage_candidates([_row()], path.parent, registry=tmp_path / "none.yaml")
+    assert staged == {"fb1": path} and problems == []
+    draft = load_draft(path)
+    cand = draft.possibly_missing[-1]
+    assert (cand.candidate_id, cand.impact, cand.provenance.origin, cand.review.decision) == (
+        "c90_fb01",
+        "Widget buyers pay twice",
+        "human_added",
+        "pending",
+    )
+    assert draft.stats.possibly_missing == 3 and "fb1" in cand.flags[0]
+    # Never auto-added: the strict gate refuses the draft until a reviewer decides the item.
+    assert any("c90_fb01: pending" in p for p in check_draft(draft, set(df.KEYS)))
+    assert check_draft(draft, set(df.KEYS), allow_pending=True) == []
+    decided = df.decide(draft.model_dump(mode="json"), "c90_fb01", "rejected", note="dup")
+    assert check_draft(df.to_draft(decided), set(df.KEYS)) == []
+
+
+def test_restaging_is_idempotent_and_a_case_without_a_draft_stays_queued(tmp_path):
+    path = _drafts(tmp_path)
+    rows = [_row(), _row("fb2", case_id="case_02_sme_impacts", fixture="ai_act")]
+    reg = tmp_path / "none.yaml"
+    assert stage_candidates(rows, path.parent, registry=reg)[0] == {"fb1": path}
+    assert stage_candidates(rows, path.parent, registry=reg)[0] == {"fb1": path}
+    assert len(load_draft(path).possibly_missing) == 3
+
+
+def test_staging_refuses_holdout_drafts_and_holdout_fixtures(tmp_path):
+    path = _drafts(tmp_path, split="holdout")
+    staged, problems = stage_candidates([_row()], path.parent, registry=tmp_path / "none.yaml")
+    assert staged == {} and "train/val runs only" in problems[0]
+    path = _drafts(tmp_path)
+    registry = tmp_path / "holdout_scenarios.yaml"
+    registry.write_text("data_act: {}\n")
+    staged, problems = stage_candidates([_row()], path.parent, registry=registry)
+    assert staged == {} and "holdout proposal" in problems[0]
+    assert len(load_draft(path).possibly_missing) == 2
+
+
+def test_analyst_feedback_model_requires_created_at():
+    with pytest.raises(ValueError):
+        AnalystFeedback(feedback_id="x", trace_run_id="t", mark="accept", finding_id="f")
+
+
+def test_analyst_rows_never_trigger_a_new_expert():
+    """Hand-entered marks cannot force the topology stage (runbook honesty rule): the trigger
+    takes the judge's missed_impact kind only, even for a persistent unowned human pattern."""
+    from womm.evolve.cycle import unowned_patterns
+
+    runs, events = [], []
+    for fixture in ("ai_act", "data_act"):
+        for n in (1, 2):
+            run = _case_run(run_id=f"{fixture}{n}", rep=n).model_copy(
+                update={"fixture": fixture, "case_id": f"case_{fixture}"}
+            )
+            fb = parse_feedback(_fb(fid=f"fb-{fixture}{n}", comment="impact: x\nprovisions: k"))
+            events.append(resolve_feedback(fb, run, _run(run.run_id)).event)
+            runs.append(run)
+    (row,) = patterns(events, runs)
+    assert (row["owner"], row["persistent_misses"], len(row["proposals"])) == ("none", 2, 2)
+    assert unowned_patterns([row]) == []
+
+
+# ----------------------------------------------------------------- analyst candidates: train only,
+# reviewed by someone else, anchored, and never a topology trigger
+
+ANCHOR = "widget buyers would pay twice for the same switching service under the option"
+IA_TEXT = f"6.2.3. Intervention on widget services. {ANCHOR}. Other text follows here."
+FILLED = {"ia_section": "6.2.3. Intervention on widget services", "ia_anchor": ANCHOR,
+          "affected_actor": "Widget buyers", "mechanism": "Double charging on switching",
+          "category": "consumers_users"}  # fmt: skip
+
+
+def _staged(tmp_path):
+    path = _drafts(tmp_path)
+    stage_candidates([_row()], path.parent, registry=tmp_path / "none.yaml")
+    return load_draft(path).model_dump(mode="json")
+
+
+def test_a_missing_impact_on_a_val_run_is_never_a_golden_candidate():
+    """Val is for selection: an analyst must not be able to change what val scores."""
+    fb = parse_feedback(_fb(comment="impact: x\nprovisions: reg/a/3"))
+    rec = resolve_feedback(fb, _case_run(split="val"), _run())
+    assert rec.event.kind == "analyst_missing_impact" and rec.golden_candidate is None
+
+
+def test_staging_refuses_val_drafts(tmp_path):
+    path = _drafts(tmp_path, split="val")
+    staged, problems = stage_candidates([_row()], path.parent, registry=tmp_path / "none.yaml")
+    assert staged == {} and "train drafts only" in problems[0]
+    assert len(load_draft(path).possibly_missing) == 2
+
+
+def test_a_staged_candidate_records_the_analyst(tmp_path):
+    cand = df.to_draft(_staged(tmp_path)).possibly_missing[-1]
+    assert cand.provenance.raised_by == "ana"
+
+
+@pytest.mark.parametrize(
+    ("decision", "edit", "reviewer", "message"),
+    [
+        ("verified", FILLED, "octo-cat", "only as 'edited'"),
+        ("edited", FILLED | {"ia_anchor": ""}, "octo-cat", "ia_anchor is empty"),
+        ("edited", FILLED | {"ia_section": " "}, "octo-cat", "ia_section is empty"),
+        ("edited", FILLED | {"mechanism": ""}, "octo-cat", "mechanism is empty"),
+        ("edited", FILLED | {"affected_actor": ""}, "octo-cat", "affected_actor is empty"),
+        ("edited", FILLED, "Ana", "raised it"),
+    ],
+)
+def test_a_human_added_candidate_needs_an_edited_anchored_decision_by_another_person(
+    tmp_path, decision, edit, reviewer, message
+):
+    data = df.decide(_staged(tmp_path), "c90_fb01", decision, reviewer=reviewer, **edit)
+    problems = check_draft(df.to_draft(data), set(df.KEYS))
+    assert any("c90_fb01" in p and message in p for p in problems), problems
+
+
+def test_a_human_added_candidate_without_an_analyst_is_refused(tmp_path):
+    data = df.decide(_staged(tmp_path), "c90_fb01", "edited", **FILLED)
+    data["possibly_missing"][-1]["provenance"]["raised_by"] = None
+    problems = check_draft(df.to_draft(data), set(df.KEYS))
+    assert any("names nobody who raised it" in p for p in problems), problems
+
+
+def test_a_staged_candidate_records_its_feedback_id_and_an_analyst_digest(tmp_path):
+    from womm.eval.drafting import analyst_digest
+
+    cand = df.to_draft(_staged(tmp_path)).possibly_missing[-1]
+    assert cand.provenance.feedback_id == "fb1"
+    assert cand.provenance.analyst_digest == analyst_digest(
+        "case_90_widget_switching", "c90_fb01", "fb1", "ana"
+    )
+
+
+@pytest.mark.parametrize(
+    ("field", "value"), [("raised_by", "bob"), ("feedback_id", "fb9"), ("analyst_digest", "0" * 64)]
+)
+@pytest.mark.parametrize("decision", ["edited", "pending"])
+def test_editing_who_raised_a_candidate_fails_the_gate(tmp_path, field, value, decision):
+    """``raised_by`` and ``feedback_id`` are analyst-written: changing them (e.g. so the analyst
+    can review their own item) breaks the analyst digest, even in a draft PR."""
+    data = _staged(tmp_path)
+    if decision == "edited":
+        data = df.decide(data, "c90_fb01", "edited", reviewer="ana", **FILLED)
+    data["possibly_missing"][-1]["provenance"][field] = value
+    problems = check_draft(df.to_draft(data), set(df.KEYS), allow_pending=True)
+    assert any("c90_fb01" in p and "analyst digest" in p for p in problems), problems
+
+
+def test_a_reviewer_may_still_edit_the_content_of_a_staged_candidate(tmp_path):
+    edit = FILLED | {
+        "impact": "Widget buyers pay twice for switching",
+        "provision_keys": [df.KEYS[1]],
+    }
+    data = df.decide(_staged(tmp_path), "c90_fb01", "edited", **edit)
+    assert check_draft(df.to_draft(data), set(df.KEYS)) == []
+
+
+@pytest.mark.parametrize("field", ["feedback_id", "analyst_digest"])
+def test_a_kept_human_added_candidate_without_its_feedback_link_is_refused(tmp_path, field):
+    data = df.decide(_staged(tmp_path), "c90_fb01", "edited", **FILLED)
+    data["possibly_missing"][-1]["provenance"][field] = None
+    problems = check_draft(df.to_draft(data), set(df.KEYS))
+    assert any("c90_fb01" in p and "feedback" in p for p in problems), problems
+
+
+def _db_row(**kw):
+    row = {"feedback_id": "fb1", "mark": "missing_impact", "case_id": "case_90_widget_switching",
+           "fixture": "data_act", "split": "train", "analyst": "ana", "retracted_at": None,
+           "golden_candidate": "staged"}  # fmt: skip
+    return row | kw
+
+
+def test_publish_cross_check_accepts_the_matching_feedback_row(tmp_path):
+    from womm.eval.golden_review import analyst_feedback_problems
+
+    data = df.decide(_staged(tmp_path), "c90_fb01", "edited", **FILLED)
+    assert analyst_feedback_problems(df.to_draft(data), {"fb1": _db_row()}) == []
+    # Analyst names compare like reviewer names (case, a leading @).
+    assert analyst_feedback_problems(df.to_draft(data), {"fb1": _db_row(analyst="@Ana")}) == []
+
+
+@pytest.mark.parametrize(
+    ("rows", "message"),
+    [
+        ({}, "no analyst_feedback row"),
+        ({"fb1": _db_row(retracted_at=NOW)}, "retracted"),
+        ({"fb1": _db_row(analyst="bob")}, "raised by 'bob'"),
+        ({"fb1": _db_row(analyst=None)}, "raised by None"),
+        ({"fb1": _db_row(split="val")}, "split 'val'"),
+        ({"fb1": _db_row(case_id="case_91_other")}, "case_91_other"),
+        ({"fb1": _db_row(fixture="ai_act")}, "ai_act"),
+        ({"fb1": _db_row(mark="weak_evidence")}, "weak_evidence"),
+    ],
+)
+def test_publish_cross_check_refuses_a_mismatching_feedback_row(tmp_path, rows, message):
+    """With the database at hand, the item must match the stored mark it came from; a forged
+    raised_by with a recomputed digest is caught here."""
+    from womm.eval.golden_review import analyst_feedback_problems
+
+    data = df.decide(_staged(tmp_path), "c90_fb01", "edited", **FILLED)
+    problems = analyst_feedback_problems(df.to_draft(data), rows)
+    assert any("c90_fb01" in p and message in p for p in problems), problems
+
+
+def test_publish_cross_check_ignores_dropped_and_tool_items(tmp_path):
+    from womm.eval.golden_review import analyst_feedback_ids, analyst_feedback_problems
+
+    data = df.decide(_staged(tmp_path), "c90_fb01", "rejected", note="not in the IA")
+    assert analyst_feedback_ids([df.to_draft(data)]) == []
+    assert analyst_feedback_problems(df.to_draft(data), {}) == []
+    kept = df.decide(_staged(tmp_path), "c90_fb01", "edited", **FILLED)
+    assert analyst_feedback_ids([df.to_draft(kept)]) == ["fb1"]
+
+
+def test_the_anchor_is_checked_against_the_cached_ia_when_available(tmp_path):
+    from womm.eval.golden_review import unchecked_human_anchors
+
+    data = df.decide(_staged(tmp_path), "c90_fb01", "edited", **FILLED)
+    draft = df.to_draft(data)
+    assert check_draft(draft, set(df.KEYS)) == []
+    # Without the IA here, the anchor is not blocking but flagged for the reviewer.
+    assert [n for n in unchecked_human_anchors(draft, None) if "c90_fb01" in n]
+    assert check_draft(draft, set(df.KEYS), ia_text=IA_TEXT) == []
+    assert unchecked_human_anchors(draft, IA_TEXT) == []
+    other = "an unrelated sentence that the analyst invented for this candidate item"
+    problems = check_draft(draft, set(df.KEYS), ia_text=IA_TEXT.replace(ANCHOR, other))
+    assert any("c90_fb01" in p and "anchor" in p for p in problems), problems
+
+
+def test_analyst_candidates_end_to_end_never_drive_the_topology_trigger(tmp_path):
+    """A missing impact staged, edited and published becomes an origin-human expected impact;
+    persistent unowned misses on it across two proposals never satisfy the new-expert trigger,
+    while the same misses on a tool-drafted impact do."""
+    from womm.eval.golden_review import AuditResult, build_case
+    from womm.evolve.cycle import trigger_events, unowned_patterns
+    from womm.evolve.failure_memory import failure_events
+
+    data = df.decide(_staged(tmp_path), "c90_fb01", "edited", **FILLED)
+    draft = df.to_draft(data)
+    assert check_draft(draft, set(df.KEYS), ia_text=IA_TEXT) == []
+    case = build_case(draft, published_on=NOW.date(), audit=AuditResult(0, 0, 0))
+    origins = {i.expected_id: i.origin for i in case.expected_impacts}
+    assert origins["c90_fb01"] == "human" and origins["c90_e01"] is None
+    assert "origin" not in case.expected_impacts[0].model_dump(exclude_none=True)
+
+    events, runs = [], []
+    for fixture in ("data_act", "other_act"):
+        other = case.model_copy(update={"fixture": fixture, "case_id": f"case_91_{fixture}"})
+        for rep in (1, 2):
+            run = _run(f"{fixture}{rep}")
+            score = _score(other, missed=("c90_fb01", "c90_e01"), run_id=run.run_id)
+            events += failure_events(other, score, run, split="train", repetition=rep,
+                                     system_version="sv")  # fmt: skip
+            runs.append(_case_run(run_id=run.run_id, rep=rep).model_copy(
+                update={"fixture": fixture, "case_id": other.case_id}))  # fmt: skip
+    human = [e for e in events if e.item_id == "c90_fb01"]
+    assert human and all(e.detail.get("golden_origin") == "human" for e in human)
+    cases = {f"case_91_{f}": case.model_copy(update={"fixture": f, "case_id": f"case_91_{f}"})
+             for f in ("data_act", "other_act")}  # fmt: skip
+    kept = trigger_events(events, cases)
+    assert {e.item_id for e in kept} == {"c90_e01"}
+    only_human = trigger_events(human, cases)
+    assert only_human == [] and unowned_patterns(patterns(only_human, runs)) == []
+    # Control: the same misses on a tool-drafted impact do trigger.
+    assert unowned_patterns(patterns(kept, runs))
+
+
+# ----------------------------------------------------------------- staging edits drafts in place
+
+
+def test_staging_appends_without_losing_reviewer_comments(tmp_path):
+    path = _drafts(tmp_path)
+    text = path.read_text()
+    text = text.replace(
+        "\npossibly_missing:\n", "\n# reviewer: m01 checked against 6.2.3\npossibly_missing:\n"
+    )
+    text = "# draft notes kept by the reviewer\n" + text
+    path.write_text(text)
+    staged, problems = stage_candidates([_row()], path.parent, registry=tmp_path / "none.yaml")
+    assert staged == {"fb1": path} and problems == []
+    old, new = text.splitlines(), path.read_text().splitlines()
+    # Everything before the appended candidate is untouched except the four counts.
+    changed = [b for a, b in zip(old, new[: len(old)], strict=True) if a != b]
+    counts = ("items", "possibly_missing", "pending", "human_decisions_needed")
+    assert sorted(line.split(":")[0].strip() for line in changed) == sorted(counts)
+    assert "# reviewer: m01 checked against 6.2.3" in new
+    draft = load_draft(path)
+    assert (draft.stats.possibly_missing, draft.possibly_missing[-1].candidate_id) == (
+        3,
+        "c90_fb01",
+    )
+
+
+def test_staging_refuses_a_draft_changed_while_it_was_staged(tmp_path, monkeypatch):
+    """P2 lost update: a reviewer saving the draft between our read and our write wins; the
+    candidate stays queued and is staged on the next run."""
+    import womm.evolve.feedback as feedback
+
+    path = _drafts(tmp_path)
+    real = feedback.golden_candidate
+
+    def racing(row, cid):
+        path.write_text(path.read_text() + "# saved by a reviewer meanwhile\n")
+        return real(row, cid)
+
+    monkeypatch.setattr(feedback, "golden_candidate", racing)
+    staged, problems = stage_candidates([_row()], path.parent, registry=tmp_path / "none.yaml")
+    assert staged == {} and "changed while" in problems[0]
+    assert path.read_text().endswith("# saved by a reviewer meanwhile\n")
+    assert len(load_draft(path).possibly_missing) == 2

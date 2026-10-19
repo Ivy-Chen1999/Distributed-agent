@@ -55,6 +55,9 @@ def test_runs_list_and_detail_fields(database_url):
         run_id, detail = _finished_run(c)
         for key in ("board", "failures", "usage", "code_identity", "started_at"):
             assert key in detail
+        ids = {s["source_id"] for s in detail["citable_sources"]}
+        assert "com2021_206/art_55" in ids
+        assert set(detail["citable_sources"][0]) == {"source_id", "title", "kind", "text"}
         (row,) = c.get("/runs", headers=AUTH).json()["runs"]
         assert row["run_id"] == run_id and row["status"] == "succeeded"
         assert row["impacts"] == len(detail["dossier"]["impacts"])
@@ -177,3 +180,24 @@ def test_console_served_when_built(database_url, tmp_path):
         assert c.get("/livez").status_code == 200  # API routes still win
     with _client(database_url, {}, web_dist=None) as c:
         assert c.get("/", follow_redirects=False).headers["location"] == "/docs"
+
+
+EXPLORE_SCENARIOS = {"eval_whole_proposal", "consolidated_whole_act", "omnibus_2026"}
+
+
+def test_explore_scenarios_hidden_from_console_but_runnable(database_url):
+    plan = {
+        "focus_areas": [{"provision_keys": ["ai_act/art/26"], "question": "q", "rationale": "r"}]
+    }
+    script = {"planner": [plan], "expert": [{"findings": []}] * 3, "synthesis": [synthesis_all()]}
+    with _client(database_url, script) as c:
+        listed = {s["scenario_id"] for s in c.get("/scenarios", headers=AUTH).json()}
+        assert "eval_sme_impacts" in listed and not listed & EXPLORE_SCENARIOS
+        for sid in EXPLORE_SCENARIOS:
+            assert c.get(f"/scenarios/{sid}/sources", headers=AUTH).status_code == 404
+        r = c.post("/runs", json={"scenario_id": "consolidated_whole_act"}, headers=AUTH)
+        assert r.status_code == 202
+        body = _wait(c, r.json()["run_id"])
+        assert body["status"] == "succeeded", body
+        assert body["dossier"]["law_version"]["version_id"] == "reg2024_1689_c20260727"
+        assert body["dossier"]["law_version"]["pre_omnibus"] is False

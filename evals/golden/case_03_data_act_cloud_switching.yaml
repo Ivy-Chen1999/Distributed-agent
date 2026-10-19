@@ -1,0 +1,227 @@
+# Published by scripts/publish_golden_cases.py from evals/golden/drafts/case_03_data_act_cloud_switching.yaml after human review.
+# Items record their provenance (llm_judged, human_verified, human_edited,
+# human_confirmed_candidate); notes record the reviewers and dates.
+case_id: case_03_data_act_cloud_switching
+scenario_id: eval_cloud_switching
+ia_reference: 'Impact assessment accompanying the Data Act proposal (identifiers in the local IA index);
+  sections: 6.2.3. Intervention on cloud and edge services; 6.3.3. Impacts on SMEs of cloud related measures;
+  Annex 3: Who is affected and how?'
+fixture: data_act
+split: train
+notes: 'Drafted on 2026-10-04 by claude-opus-5-5 (scripts/draft_golden_case.py) and checked by isolated
+  LLM judges, open items settled by a tie-break judge. Human review by nobody (all items auto-accepted);
+  published on 2026-10-19. Decisions: auto_accepted 10, verified 0, edited 0, llm_kept 7, rejected 0,
+  unclear 0, llm_dropped 2. Audit: 0/4 sampled items decided, 0 edited/rejected/unclear. Dropped by the
+  tie-break judge: [''c03_o03'', ''c03_m06'']. Corrected after a failed reference check (human feedback),
+  by an AI full-text review from 2026-10-17; not re-checked by people: trimmed [''c03_o01'', ''c03_m01''],
+  modality restored none, rewritten none, dropped none.'
+expected_impacts:
+- expected_id: c03_e01
+  affected_actor: Business customers of cloud and edge services
+  mechanism: 'Providers must remove obstacles to switching: a 30-day maximum notice period, a 30-day transition
+    period, set data retrieval periods, and switching charges reduced to cost and then removed'
+  impact: Customers pay less to switch providers. The IA puts today's switching cost at up to 125% of
+    annual subscription costs.
+  provision_keys:
+  - data_act/proposal/art/23
+  - data_act/proposal/art/24
+  - data_act/proposal/art/25
+  ia_section: 6.2.3. Intervention on cloud and edge services
+  category: market_competition
+  provenance: llm_tiebroken
+- expected_id: c03_e02
+  affected_actor: Cloud service providers whose services use proprietary standards and have no set switching
+    processes
+  mechanism: Binding contract terms, timeframes, functional equivalence and export duties force these
+    providers to redesign their services
+  impact: These providers face higher compliance costs, especially for redesigning services to meet the
+    switching timeframes. Costs stay manageable for providers whose services already include data export
+    features.
+  provision_keys:
+  - data_act/proposal/art/23
+  - data_act/proposal/art/24
+  - data_act/proposal/art/26
+  ia_section: 6.2.3. Intervention on cloud and edge services
+  category: compliance_cost
+  provenance: llm_judged
+- expected_id: c03_e03
+  affected_actor: The cloud services market (providers and the wider EU economy)
+  mechanism: Switching becomes an enforceable legal obligation, backed by a repository of open interoperability
+    standards. This makes switching easier and increases cloud take-up.
+  impact: Cloud demand rises by an extra 10.9% in 2025 (EUR 7.1 billion) compared with no action, which
+    could add 0.05 percentage points to EU GDP.
+  provision_keys:
+  - data_act/proposal/art/23
+  - data_act/proposal/art/25
+  - data_act/proposal/art/29
+  ia_section: 6.2.3. Intervention on cloud and edge services
+  category: market_competition
+  provenance: llm_judged
+- expected_id: c03_e04
+  affected_actor: Smaller, often EU-native cloud and edge providers
+  mechanism: Removing lock-in lets customers held in the integrated ecosystems of large providers move
+    to competitors
+  impact: Smaller providers gain access to a very large pool of potential customers and can compete with
+    hyperscalers on how easy it is to switch.
+  provision_keys:
+  - data_act/proposal/art/23
+  - data_act/proposal/art/24
+  - data_act/proposal/art/25
+  ia_section: 6.3.3. Impacts on SMEs of cloud related measures
+  category: market_competition
+  provenance: llm_judged
+- expected_id: c03_e05
+  affected_actor: SME cloud and edge providers
+  mechanism: Open interfaces must be published free of charge, and open interoperability specifications
+    and standards are referenced in a central Union repository
+  impact: SME providers can build on public open standards and interfaces without paying to develop them,
+    and can be confident their services will connect to customers and other cloud services.
+  provision_keys:
+  - data_act/proposal/art/26
+  - data_act/proposal/art/29
+  ia_section: 6.3.3. Impacts on SMEs of cloud related measures
+  category: sme_specific
+  provenance: llm_judged
+- expected_id: c03_e06
+  affected_actor: Cloud service providers (data processing service providers)
+  mechanism: Providers must take reasonable technical, legal and organisational measures to prevent third-country
+    access to or transfer of non-personal data that conflicts with EU law, and must notify data holders
+    of requests
+  impact: Providers pay for more advanced mitigating measures that are not yet common, such as canary
+    clauses, regular reporting to customers, split processing and external logging verification. The IA
+    treats these costs as 'advanced investment' that is hard to separate from what providers would spend
+    anyway.
+  provision_keys:
+  - data_act/proposal/art/27
+  ia_section: 'Annex 3: Who is affected and how?'
+  category: compliance_cost
+  provenance: llm_judged
+- expected_id: c03_e07
+  affected_actor: Users of cloud services concerned about extraterritorial access
+  mechanism: Safeguards against unlawful third-country access, together with conditions for recognising
+    foreign orders, increase trust in cloud services
+  impact: Confidence in cloud services rises (not quantified), reassuring the 76% of users who reported
+    concerns about extraterritorial access. A level playing field also means providers cannot compete
+    on price by cutting mitigating measures.
+  provision_keys:
+  - data_act/proposal/art/27
+  ia_section: 'Annex 3: Who is affected and how?'
+  category: consumers_users
+  provenance: llm_judged
+- expected_id: c03_e08
+  affected_actor: EU cloud providers selling to non-EU clients
+  mechanism: Unilateral EU restrictions on complying with third-country access orders may lead non-EU/EEA
+    authorities to retaliate
+  impact: Some stakeholders warn that EU providers could lose sales of EU services to non-EU clients,
+    and call for a multilateral approach such as the OECD's work on trusted government access.
+  provision_keys:
+  - data_act/proposal/art/27
+  ia_section: 6.2.3. Intervention on cloud and edge services
+  category: international
+  provenance: llm_judged
+- expected_id: c03_e09
+  affected_actor: European standardisation organisations
+  mechanism: The Commission may ask European standardisation organisations to draft interoperability standards
+    for specific types of data processing service
+  impact: Each standard developed costs approximately EUR 1 million.
+  provision_keys:
+  - data_act/proposal/art/29
+  ia_section: 'Annex 3: Who is affected and how?'
+  category: other
+  provenance: llm_tiebroken
+- expected_id: c03_e10
+  affected_actor: Software developers of cloud applications
+  mechanism: Export and switching duties for data processing services encourage export features to be
+    built in at the design stage
+  impact: Developers are pushed to design data export features into their applications from the start.
+  provision_keys:
+  - data_act/proposal/art/24
+  - data_act/proposal/art/26
+  ia_section: 6.2.3. Intervention on cloud and edge services
+  category: innovation_investment
+  provenance: llm_judged
+- expected_id: c03_m01
+  affected_actor: High-tech SMEs and start-ups using cloud and edge services
+  mechanism: Harmonised switching conditions across the EU ease the technical portability problems and
+    re-architecting costs that SMEs cannot handle as well as larger firms
+  impact: SMEs and start-ups are the main demand-side winners
+  provision_keys:
+  - data_act/proposal/art/23
+  - data_act/proposal/art/26
+  ia_section: 6.3.3. Impacts on SMEs of cloud related measures
+  category: sme_specific
+  provenance: llm_tiebroken
+- expected_id: c03_m02
+  affected_actor: SMEs contracting with cloud providers
+  mechanism: Mandatory written contract terms on switching rights, transition periods, exportable data
+    and retrieval periods, plus capped and then removed switching charges, rebalance contracts that currently
+    favour providers
+  impact: Expected to cut the EUR 653 million gross loss over two years caused by unbalanced cloud contracts,
+    and to even out cloud uptake between large and small companies
+  provision_keys:
+  - data_act/proposal/art/24
+  - data_act/proposal/art/25
+  ia_section: 6.3.3. Impacts on SMEs of cloud related measures
+  category: sme_specific
+  provenance: llm_tiebroken
+- expected_id: c03_m03
+  affected_actor: European smaller cloud and edge providers in federation partnerships
+  mechanism: Switching and interoperability rules let users combine services from several providers, which
+    supports cloud federation partnerships among smaller European providers
+  impact: Smaller European providers can scale up more easily, and dependence on non-EU/EEA providers
+    falls
+  provision_keys:
+  - data_act/proposal/art/23
+  - data_act/proposal/art/26
+  - data_act/proposal/art/29
+  ia_section: 6.3.3. Impacts on SMEs of cloud related measures
+  category: market_competition
+  provenance: llm_tiebroken
+- expected_id: c03_m04
+  affected_actor: Cloud service providers already investing in measures against third-country access
+  mechanism: Binding measures against unlawful third-country access create a level playing field, so competitors
+    cannot undercut on price by skipping these measures; compliance spending counts as advanced investment
+  impact: Providers are protected from price competition that would come at the expense of these protective
+    measures, and change happens faster than under voluntary action
+  provision_keys:
+  - data_act/proposal/art/27
+  ia_section: 6.2.3. Intervention on cloud and edge services
+  category: market_competition
+  provenance: llm_tiebroken
+- expected_id: c03_m05
+  affected_actor: Businesses (especially SMEs) deploying AI, big data and IoT technologies
+  mechanism: Easier switching and interoperability make a seamless, multi-vendor federated cloud space
+    possible, which advanced technologies need as a base
+  impact: Many new data processing functions become available; businesses become more competitive and
+    scalable and find it easier to deploy new technologies
+  provision_keys:
+  - data_act/proposal/art/23
+  - data_act/proposal/art/26
+  - data_act/proposal/art/29
+  ia_section: 6.2.3. Intervention on cloud and edge services
+  category: innovation_investment
+  provenance: llm_tiebroken
+important_omissions:
+- omission_id: c03_o01
+  description: Provider compliance costs are not quantified (Table 6 shows 'n/a'), and the IA admits that
+    costs from Article 27 safeguards cannot be separated from baseline investment. The net-benefit claim
+    therefore rests on an assumption that initial costs are outweighed by extra demand, not on a costed
+    comparison.
+  provision_keys:
+  - data_act/proposal/art/24
+  - data_act/proposal/art/26
+  - data_act/proposal/art/27
+  source: Impact assessment, 6.2.3. Intervention on cloud and edge services
+  category: compliance_cost
+  provenance: llm_judged
+- omission_id: c03_o02
+  description: The IA's claim of 'manageable' and 'no fixed' costs assumes voluntary, industry-led standardisation.
+    Yet Article 26(1) requires functional equivalence for infrastructure services, and Article 26(3) makes
+    compatibility with identified standards mandatory once they are published under Article 29(5). A good
+    assessment should flag that costs depend on which standards are adopted and when.
+  provision_keys:
+  - data_act/proposal/art/26
+  - data_act/proposal/art/29
+  source: Impact assessment, 6.2.3. Intervention on cloud and edge services
+  category: compliance_cost
+  provenance: llm_judged

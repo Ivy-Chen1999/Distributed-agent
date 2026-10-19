@@ -1,0 +1,67 @@
+# Published by scripts/publish_golden_cases.py from evals/golden/drafts/case_07_dga_data_intermediation.yaml after human review.
+# Items record their provenance (llm_judged, human_verified, human_edited,
+# human_confirmed_candidate); notes record the reviewers and dates.
+case_id: case_07_dga_data_intermediation
+scenario_id: eval_data_intermediation
+ia_reference: 'Impact assessment accompanying the Data Governance Act proposal (identifiers in the local
+  IA index); sections: 6.1. Economic impact; 6.3. Impact on SMEs'
+fixture: dga
+split: train
+notes: 'Drafted on 2026-10-06 by claude-opus-5-5 (scripts/draft_golden_case.py) and checked by isolated
+  LLM judges, open items settled by a tie-break judge. Human review by nobody (all items auto-accepted);
+  published on 2026-10-19. Decisions: auto_accepted 4, verified 0, edited 0, llm_kept 1, rejected 0, unclear
+  0, llm_dropped 10. Audit: 0/2 sampled items decided, 0 edited/rejected/unclear. Dropped by the tie-break
+  judge: [''c07_e02'', ''c07_e03'', ''c07_e04'', ''c07_o01'', ''c07_o02'', ''c07_o03'', ''c07_m01'', ''c07_m02'',
+  ''c07_m03'', ''c07_m05'']. Corrected after a failed reference check (human feedback), by an AI full-text
+  review from 2026-10-17; not re-checked by people: trimmed [''c07_e01''], modality restored none, rewritten
+  none, dropped [''c07_e07''].'
+expected_impacts:
+- expected_id: c07_e01
+  affected_actor: Providers of data sharing services (data intermediaries)
+  mechanism: 'Providers must meet the conditions for providing data sharing services: no use of the data
+    for other purposes, a separate legal entity, fair and non-discriminatory access, fraud prevention,
+    continuity and insolvency safeguards, security measures and competition-compliance procedures.'
+  impact: Intermediaries pay implementation costs to comply with the requirements.
+  provision_keys:
+  - dga/proposal/art/11
+  ia_section: '6.1.3. Policy option 2: Lower intensity legislation'
+  category: compliance_cost
+  provenance: llm_judged
+- expected_id: c07_e05
+  affected_actor: Data holders and data subjects making data available
+  mechanism: Intermediaries must act in data subjects' best interest, keep data and metadata uses separate,
+    secure the data and state the jurisdiction of data use. This gives holders and individuals trusted
+    channels for sharing.
+  impact: Data holders can earn more from data sharing, and more individuals become willing to share their
+    personal data through trusted intermediaries.
+  provision_keys:
+  - dga/proposal/art/9
+  - dga/proposal/art/11
+  ia_section: '6.1.3. Policy option 2: Lower intensity legislation'
+  category: consumers_users
+  provenance: llm_judged
+- expected_id: c07_e06
+  affected_actor: Data users and data providers across Member States
+  mechanism: One notification gives a right to provide services in all Member States, jurisdiction lies
+    with the main establishment, and the Commission keeps a register. Together these harmonise market
+    access across the EU.
+  impact: Harmonisation gives data users and data providers certainty across the EU and raises trust in
+    data intermediaries, which helps create an internal market for data.
+  provision_keys:
+  - dga/proposal/art/10
+  ia_section: 6.1. Economic impact
+  category: market_competition
+  provenance: llm_judged
+- expected_id: c07_m04
+  affected_actor: SMEs as data users
+  mechanism: Intermediation services and data marketplaces under the notification regime help match supply
+    and demand for data. This gives smaller firms access to data they could not negotiate for on their
+    own.
+  impact: SMEs that use data get better access to data and to the value of big data.
+  provision_keys:
+  - dga/proposal/art/9
+  - dga/proposal/art/11
+  ia_section: 6.3. Impact on SMEs
+  category: sme_specific
+  provenance: llm_tiebroken
+important_omissions: []

@@ -1,0 +1,63 @@
+# Import settings for 52020PC0798; rerun scripts/import_proposal.py after editing.
+# strip_patterns / redactions / leak_allow / quant_allow are reviewed exceptions to the
+# memorandum leak guards (reasons stay here, never in sources.json).
+# IA identifiers live only in the gitignored evals/private/ia_index.yaml.
+celex: 52020PC0798
+regulation_id: batteries
+title: Batteries Regulation
+document_url: https://publications.europa.eu/resource/cellar/4b5d88a6-3ad8-11eb-b27b-01aa75ed71a1.0001.03/DOC_1
+date: null
+strip_patterns: {}
+redactions:
+- section: 2.1.
+  sentence: The impact analysis of the proposed measures demonstrates
+  reason: states the impact analysis's conclusion on which objectives predominate (no marker, found by
+    hand)
+- section: 2.4.
+  sentence: The evaluation of the Batteries Directive and the analysis preceding
+  reason: states the IA's conclusion on the choice of instrument
+- section: 1.1.
+  sentence: According to estimates from the World Economic Forum
+  reason: 'quantified estimate restated in the memorandum; manual review: redacted'
+- section: 1.1.
+  sentence: The European Investment Bank also announced
+  reason: 'quantified background statistic of the kind used to size the problem; manual review: redacted'
+leak_allow:
+- section: 5.3.
+  text: results of a dedicated impact assessment
+quant_allow:
+- section: 1.1.
+  sentence: It builds on commitments and reports adopted by the European Commission
+  reason: a political target of another Union instrument or strategy, not an assessment finding
+- section: 1.2.
+  sentence: In line with the ‘one-in-one-out’ principle
+  reason: 'no figure: matches the ratio pattern only through the phrase ''one-in-one-out'''
+- section: 5.1.
+  sentence: This was set up for the current target of 45%
+  reason: a target or threshold of the existing legislation being revised, not an assessment finding
+- section: 5.1.
+  sentence: The recycling efficiency target for lithium batteries
+  reason: a target or threshold set by this proposal's own articles, not an assessment finding
+- section: 5.3.
+  sentence: As of 1 January 2030, those batteries shall contain
+  reason: a target or threshold set by this proposal's own articles, not an assessment finding
+- section: 5.3.
+  sentence: As of 1 January 2035, the minimum share
+  reason: a target or threshold set by this proposal's own articles, not an assessment finding
+- section: 5.3.
+  sentence: For lead the minimum share shall stay at 85%
+  reason: a target or threshold set by this proposal's own articles, not an assessment finding
+- section: 5.3.
+  sentence: The collection rates shall gradually increase
+  reason: a target or threshold set by this proposal's own articles, not an assessment finding
+scenarios:
+- scenario_id: eval_sustainability_requirements
+  description: 'Sustainability and performance requirements for batteries: carbon footprint, recycled
+    content, performance and durability of portable and of rechargeable industrial and electric vehicle
+    batteries, and supply-chain due diligence obligations (proposal only, no prior version).'
+  articles:
+  - '7'
+  - '8'
+  - '9'
+  - '10'
+  - '39'

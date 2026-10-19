@@ -12,3 +12,5 @@ button{font-family:inherit}
 button:disabled{cursor:default !important;opacity:.7}
 /* Keyboard focus must stay visible (WCAG 2.4.7); !important beats inline `outline: none`. */
 :focus-visible{outline:2px solid var(--accInk) !important;outline-offset:2px}
+/* Text for screen readers only (e.g. the start and end of a deletion in the provision comparison). */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}

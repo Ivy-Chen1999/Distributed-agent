@@ -1,14 +1,17 @@
-import { useEffect } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { useConsole, type DetailTab } from '../ctx';
-import { ACC, CARD, FONT, LABEL, RED, TABULAR, WARN_BG, WARN_INK, ag, fmtS } from '../design';
+import { ACC, CARD, FONT, GREEN, LABEL, NO_DATA_IN_SCOPE, RED, TABULAR, WARN_BG, WARN_INK, ag, fmtS } from '../design';
 import { Arrow, Dot, EmptyCard, ErrorCard, HButton, LoadingCard, Seg } from '../components/ui';
 import { chainVMs, disagreementVMs, findingSteps, groupImpacts, questionVMs, type GroupMode, type ImpactVM } from '../model/dossier';
+import { hasComparableChanges, provisionComparisons, type ComparisonSide, type ComparisonVM, type Segment } from '../model/compare';
 import { logLines } from '../model/pipeline';
 import { failedExperts, shortRunId } from '../model/overview';
-import { regulationTitle, scenarioName } from '../model/scenario';
+import { humanize, regulationTitle, scenarioName } from '../model/scenario';
 import { elapsedAt } from '../model/trace';
 import type { ImpactDossier, ProvisionChange } from '../types';
 import { useNarrow } from '../hooks';
+import { BANDS, NO_FILTER, bandWord, dateText, effortLabel, filterOptions, filterRecords, fiscalFindingsByKey, hotspotRows, payerText, type CostFilter } from '../model/costs';
+import type { HotspotDimension, Recurrence } from '../types';
 
 const MONO = { fontFamily: FONT, fontVariantNumeric: 'tabular-nums' } as const;
 
@@ -48,6 +51,7 @@ export function Detail() {
     ['chains', 'Impact chains', d ? String(chains.length) : ''],
     ['disagree', 'Disagreements', d ? String(disagreements.length) : ''],
     ['questions', 'Open questions', d ? String(questions.length) : ''],
+    ['costs', 'Costs', d?.costs ? String(d.costs.records.length) : ''],
     ['log', 'Event log', ''],
   ];
 
@@ -74,6 +78,8 @@ export function Detail() {
           ))}
         </div>
       </div>
+
+      <ProvisionComparison />
 
       {!done && (
         <div style={{ ...CARD, border: '1px dashed var(--line)', padding: '40px 24px', textAlign: 'center' }}>
@@ -201,13 +207,15 @@ export function Detail() {
                         error_kind: {f.kind}
                         {lat ? ` · ${fmtS(lat)}` : ''}
                       </span>
-                      <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--n1)' }}>Run continued as degraded</span>
+                      <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--n1)' }}>{f.kind === NO_DATA_IN_SCOPE ? 'Skipped: no data in scope' : 'Run continued as degraded'}</span>
                     </div>
                   );
                 })}
               </div>
             </div>
           )}
+
+          {C.tab === 'costs' && <CostsTab d={d} />}
 
           {C.tab === 'log' && <EventLog />}
         </div>
@@ -347,6 +355,280 @@ function ImpactCard({ im, changes }: { im: ImpactVM; changes: ProvisionChange[] 
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+// Deletions and additions are told apart by strike-through / underline and by screen-reader text,
+// not by colour alone.
+const DEL: CSSProperties = { background: 'rgba(229,72,77,.16)', color: 'var(--ink)', textDecoration: 'line-through', textDecorationColor: RED, textDecorationThickness: 2, borderRadius: 2 };
+const INS: CSSProperties = { background: 'rgba(30,158,106,.18)', color: 'var(--ink)', textDecoration: 'underline', textDecorationColor: GREEN, textDecorationThickness: 2, textUnderlineOffset: 3, borderRadius: 2 };
+
+/** R36 page 2: proposal / final-text comparison, shown for diff scenarios only. */
+function ProvisionComparison() {
+  const C = useConsole();
+  const [open, setOpen] = useState<Record<string, boolean>>({});
+  const scenarioId = C.run?.scenario_id;
+  const src = C.sources;
+  // Data of another scenario can linger while the new one loads; never show it.
+  const data = src.data && src.data.scenario_id === scenarioId ? src.data : undefined;
+  const isDiff = !!C.scenario?.before_version || hasComparableChanges(data?.changes);
+  if (!scenarioId || !isDiff) return null;
+
+  const vms = provisionComparisons(data);
+  const comparable = vms.some((v) => v.before && v.after);
+  let body;
+  if (src.status === 'error' && !data) body = <ErrorCard title="Could not load the provision texts" message={src.error} onRetry={C.reloadSources} />;
+  else if (!data) body = <LoadingCard title="Loading provision texts" sub="Fetching the proposal and final texts of the changed provisions." />;
+  else if (!comparable) body = <EmptyCard title="No provisions to compare" sub="No changed provision of this scenario exists in both the proposal and the final text." />;
+  else
+    body = (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {/* Collapsed by default: full articles are long and the dossier below is the main content. */}
+        {vms.map((v) => (
+          <ComparisonCard key={v.provisionKey} v={v} open={!!open[v.provisionKey]} onToggle={() => setOpen((o) => ({ ...o, [v.provisionKey]: !o[v.provisionKey] }))} />
+        ))}
+      </div>
+    );
+
+  const first = vms.find((v) => v.before && v.after);
+  return (
+    <section aria-labelledby="provision-comparison" data-testid="provision-comparison" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px 14px', flexWrap: 'wrap' }}>
+        <h2 id="provision-comparison" style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>
+          Provision comparison
+        </h2>
+        {first && (
+          <span style={{ fontSize: 12, color: 'var(--n1)' }}>
+            {first.before!.stage} {first.before!.version} → {first.after!.stage.toLowerCase()} {first.after!.version}, word by word
+          </span>
+        )}
+        {comparable && (
+          <span style={{ marginLeft: 'auto', display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 12, color: 'var(--n1)' }} aria-hidden="true">
+            <span>
+              <del style={DEL}>struck through</del> removed
+            </span>
+            <span>
+              <ins style={INS}>underlined</ins> added
+            </span>
+          </span>
+        )}
+      </div>
+      {body}
+    </section>
+  );
+}
+
+function ComparisonCard({ v, open, onToggle }: { v: ComparisonVM; open: boolean; onToggle: () => void }) {
+  const stats = v.missingText ? 'text unavailable' : v.identical ? 'wording unchanged' : `−${v.removed} / +${v.added} words`;
+  const panel = `cmp-${v.provisionKey.replace(/[^\w-]/g, '_')}`;
+  return (
+    <div data-provision={v.provisionKey} style={{ ...CARD, borderColor: open ? ACC : 'var(--line)', overflow: 'hidden' }}>
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={panel}
+        onClick={onToggle}
+        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '6px 14px', flexWrap: 'wrap', padding: '12px 18px', border: 'none', background: 'transparent', color: 'var(--ink)', textAlign: 'left', cursor: 'pointer' }}
+      >
+        <span style={{ font: `700 14px ${FONT}`, ...TABULAR, whiteSpace: 'nowrap' }}>{v.label}</span>
+        <span style={{ font: `700 11px ${FONT}`, borderRadius: 4, padding: '3px 8px', background: 'var(--soft)', color: 'var(--n1)' }}>{humanize(v.kind)}</span>
+        <span style={{ font: `500 11px ${FONT}`, ...TABULAR, color: 'var(--n2)', overflowWrap: 'anywhere', minWidth: 0 }}>{v.provisionKey}</span>
+        <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--n1)', ...TABULAR, whiteSpace: 'nowrap' }}>{stats}</span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true" style={{ flex: 'none', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }}>
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </button>
+      {open && (
+        <div id={panel} style={{ borderTop: '1px solid var(--line)', padding: '14px 18px 16px', background: 'var(--soft)' }}>
+          {v.identical && v.before!.article !== v.after!.article && (
+            <div style={{ fontSize: 12, color: 'var(--n1)', marginBottom: 10 }}>
+              Same wording; only the article number changed ({v.before!.article} → {v.after!.article}).
+            </div>
+          )}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,300px),1fr))', gap: 12 }}>
+            <ComparisonColumn side={v.before} which="before" />
+            <ComparisonColumn side={v.after} which="after" />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ComparisonColumn({ side, which }: { side: ComparisonSide | null; which: 'before' | 'after' }) {
+  const head = side ? `${side.stage} · ${side.version} · ${side.article}` : which === 'before' ? 'Proposal' : 'Final text';
+  return (
+    <div data-side={which} style={{ background: 'var(--card)', border: `1px ${side ? 'solid' : 'dashed'} var(--line)`, borderRadius: 8, minWidth: 0 }}>
+      <div style={{ ...LABEL, padding: '9px 12px', borderBottom: '1px solid var(--line)', overflowWrap: 'anywhere' }}>{head}</div>
+      <div style={{ padding: '10px 12px', fontSize: 13, lineHeight: 1.6, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+        {!side && <span style={{ color: 'var(--n1)' }}>{which === 'before' ? 'Not in the proposal: the provision was added.' : 'Not in the final text: the provision was removed.'}</span>}
+        {side && !side.segments && <span style={{ color: 'var(--n1)' }}>The text of {side.sourceId} is not among the scenario sources.</span>}
+        {side?.segments?.map((sg, i) => <SegmentText key={i} sg={sg} />)}
+      </div>
+    </div>
+  );
+}
+
+function SegmentText({ sg }: { sg: Segment }) {
+  if (sg.op === 'same') return <>{sg.text}</>;
+  const del = sg.op === 'del';
+  const Tag = del ? 'del' : 'ins';
+  return (
+    <Tag style={del ? DEL : INS}>
+      <span className="sr-only">{del ? '[removed: ' : '[added: '}</span>
+      {sg.text}
+      <span className="sr-only">]</span>
+    </Tag>
+  );
+}
+
+// ---------- Costs tab (EU cost plan R5) ----------
+
+const HOTSPOT_TITLES: [HotspotDimension, string][] = [
+  ['provision', 'By provision'],
+  ['payer', 'By payer'],
+  ['effort_type', 'By effort type'],
+];
+
+const SELECT: CSSProperties = { font: `600 12px ${FONT}`, border: '1px solid var(--line)', borderRadius: 6, padding: '5px 8px', background: 'var(--card)', color: 'var(--ink)' };
+const BADGE: CSSProperties = { font: `700 11px ${FONT}`, borderRadius: 4, padding: '2px 7px', whiteSpace: 'nowrap' };
+
+function CostsTab({ d }: { d: ImpactDossier }) {
+  const C = useConsole();
+  const [rec, setRec] = useState<Recurrence>('one_off');
+  const [filter, setFilter] = useState<CostFilter>(NO_FILTER);
+  const s = d.costs;
+  if (!s) return <EmptyCard title="No cost section" sub="This version has no cost step." />;
+  const cov = s.coverage;
+  const shown = filterRecords(s.records, filter);
+  const opts = filterOptions(s.records);
+  const fiscal = fiscalFindingsByKey(d);
+  const set = (k: keyof CostFilter) => (e: { target: { value: string } }) => setFilter({ ...filter, [k]: e.target.value });
+  const bases = Object.entries(cov.payers_by_basis).map(([b, n]) => `${n} ${b.replace(/_/g, ' ')}`).join(' · ');
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ ...CARD, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div style={LABEL}>Cost records</div>
+        <div style={{ fontSize: 14 }}>
+          {cov.relevant} obligations · {cov.estimated} estimated · {cov.not_costed} not costed · {cov.not_estimated} not estimated
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--n2)' }}>Payers: {bases || '—'}. Bands are ordinal classes per affected entity, never euro totals.</div>
+        {s.delta_basis && <div style={{ fontSize: 12, color: 'var(--n2)' }}>Change marks compare {s.delta_basis} · {s.late_added.length} added after the proposal</div>}
+        {cov.not_covered_keys.length > 0 && <div style={{ fontSize: 12, color: 'var(--n2)' }}>Not covered (no obligation records): {cov.not_covered_keys.join(', ')}</div>}
+        {s.notes.map((n) => (
+          <div key={n} style={{ fontSize: 12, color: WARN_INK }}>
+            {n}
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 12, color: 'var(--n2)' }}>Hotspots</span>
+        <Seg<Recurrence>
+          options={[
+            { v: 'one_off', label: 'One-off' },
+            { v: 'recurring', label: 'Recurring' },
+          ]}
+          value={rec}
+          onChange={setRec}
+        />
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,280px),1fr))', gap: 12 }}>
+        {HOTSPOT_TITLES.map(([dim, title]) => {
+          const rows = hotspotRows(s, dim, rec).slice(0, 8);
+          return (
+            <div key={dim} style={{ ...CARD, padding: '14px 16px' }} aria-label={`Hotspots ${title.toLowerCase()}`}>
+              <div style={LABEL}>{title}</div>
+              {rows.length === 0 && <div style={{ fontSize: 13, color: 'var(--n1)', marginTop: 8 }}>No {rec === 'one_off' ? 'one-off' : 'recurring'} bands.</div>}
+              {rows.map((h) => (
+                <div key={h.value} style={{ display: 'flex', gap: 10, alignItems: 'baseline', marginTop: 8, fontSize: 13 }}>
+                  <span style={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere', ...(dim === 'provision' ? MONO : {}) }}>{h.label}</span>
+                  <span style={{ ...MONO, color: 'var(--ink)' }} title="records at medium or high">
+                    {h.medium_or_high} med/high
+                  </span>
+                  <span style={{ ...MONO, color: 'var(--n2)' }} title="records at low">
+                    {h.low} low
+                  </span>
+                </div>
+              ))}
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <select aria-label="Payer" value={filter.payer} onChange={set('payer')} style={SELECT}>
+          <option value="all">All payers</option>
+          {opts.payers.map((p) => (
+            <option key={p} value={p}>
+              {p === 'unknown' ? 'Payer not identified' : p.replace(/_/g, ' ')}
+            </option>
+          ))}
+        </select>
+        <select aria-label="Effort type" value={filter.effort} onChange={set('effort')} style={SELECT}>
+          <option value="all">All effort types</option>
+          {opts.efforts.map((e) => (
+            <option key={e} value={e}>
+              {effortLabel(e)}
+            </option>
+          ))}
+        </select>
+        <select aria-label="Band" value={filter.band} onChange={set('band')} style={SELECT}>
+          <option value="all">All bands</option>
+          {BANDS.map((b) => (
+            <option key={b} value={b}>
+              {bandWord(b)}
+            </option>
+          ))}
+        </select>
+        <select aria-label="Change after the proposal" value={filter.change} onChange={set('change')} style={SELECT}>
+          <option value="all">Any change</option>
+          <option value="changed">Changed after the proposal</option>
+          <option value="added">Added after the proposal</option>
+        </select>
+        <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--n2)' }}>
+          Showing {shown.length} of {s.records.length} records
+        </span>
+      </div>
+
+      <div style={{ ...CARD, overflow: 'hidden' }}>
+        {shown.length === 0 && <div style={{ padding: '14px 18px', fontSize: 14, color: 'var(--n1)' }}>No records match these filters.</div>}
+        {shown.map((r) => {
+          const fs = fiscal[r.provision_key] ?? [];
+          return (
+            <div key={r.obligation_id} data-testid="cost-record" style={{ padding: '12px 18px', borderBottom: '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                <button type="button" onClick={() => C.openSource(r.source_id, `[${r.obligation_id}]`)} style={{ background: 'none', border: 'none', padding: 0, font: `600 12px ${FONT}`, ...TABULAR, color: 'var(--accInk)', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 }}>
+                  {r.obligation_id}
+                </button>
+                <span style={{ font: `500 12px ${FONT}`, ...TABULAR, color: 'var(--n2)' }}>{r.provision_key}</span>
+                {r.late_added && <span style={{ ...BADGE, background: WARN_BG, color: WARN_INK }}>Added after the proposal</span>}
+                {!r.late_added && r.changed_after_proposal && <span style={{ ...BADGE, background: 'var(--soft)', color: 'var(--n1)' }}>Changed after the proposal</span>}
+              </div>
+              <div style={{ fontSize: 13, display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+                <span>{payerText(r)}</span>
+                {r.status === 'estimated' ? (
+                  <>
+                    <span>{effortLabel(r.effort_type)}</span>
+                    <span>One-off: {bandWord(r.one_off)}</span>
+                    <span>Recurring: {bandWord(r.recurring)}</span>
+                  </>
+                ) : (
+                  <span style={{ color: 'var(--n2)' }}>{r.status === 'not_costed' ? 'Not costed' : 'Not estimated'}{r.reason ? `: ${r.reason}` : ''}</span>
+                )}
+                <span style={{ color: 'var(--n2)' }}>Applies from: {dateText(r)}</span>
+              </div>
+              {r.rationale && <div style={{ fontSize: 12, color: 'var(--n1)' }}>{r.rationale}</div>}
+              {fs.length > 0 && (
+                <div style={{ fontSize: 12, color: 'var(--n2)' }}>
+                  Fiscal findings on this provision: {fs.map((f) => f.impact).join(' · ')}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

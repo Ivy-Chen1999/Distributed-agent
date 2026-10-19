@@ -1,0 +1,11 @@
+# Synthetic IA index for tests: the identifiers are made up and match no real document.
+sample_act:
+  celex: 51999PC0901
+  ia_celex: 51999SC0902
+  ia_date: '1999-03-04'
+  rsb_ref: SEC(1999) 903
+sample_directive:
+  celex: 51999PC0911
+  ia_celex: 51999SC0912(01)
+  ia_date: null
+  rsb_ref: null

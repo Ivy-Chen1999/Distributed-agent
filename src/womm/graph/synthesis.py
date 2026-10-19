@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from langgraph.runtime import Runtime
 
-from womm.citations import validate_findings
+from womm.citations import AgentSources, validate_findings
 from womm.graph import render
 from womm.graph.state import RIAState, WommContext
 from womm.llm.base import LLMError
@@ -18,8 +18,18 @@ def board_findings(state: RIAState, runtime: Runtime[WommContext]) -> list:
 
 
 async def validate_node(state: RIAState, runtime: Runtime[WommContext]) -> dict:
+    """Per-agent validation (R11): a finding counts only against its own agent's granted keys
+    and citable sources."""
     findings = board_findings(state, runtime)
-    outcome = validate_findings(findings, state["sources"], set(state["diff"].keys()))
+    records = state.get("retrievals", {})
+    per_agent = {
+        agent: AgentSources(
+            granted_keys=frozenset(r.key for r in records.get(agent, []) if r.granted),
+            sources=sources,
+        )
+        for agent, sources in state.get("retrieved", {}).items()
+    }
+    outcome = validate_findings(findings, state["sources"], set(state["diff"].keys()), per_agent)
     return {"validation": outcome}
 
 

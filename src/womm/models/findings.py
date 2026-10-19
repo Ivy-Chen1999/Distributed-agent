@@ -9,7 +9,12 @@ from pydantic import BaseModel, Field
 
 from womm.models.base import StrictModel
 
-ErrorKind = Literal["auth", "rate_limit", "timeout", "schema_invalid", "process_error"]
+# ``no_data_in_scope``: a scoped expert whose retrieval granted no key was not called. It is not
+# an error of the expert; the dossier notes it and it does not degrade the run on its own.
+ErrorKind = Literal[
+    "auth", "rate_limit", "timeout", "schema_invalid", "process_error", "no_data_in_scope"
+]
+NO_DATA_IN_SCOPE = "no_data_in_scope"
 
 
 class EvidenceDraft(StrictModel):
@@ -88,6 +93,14 @@ class ExpertFailure(BaseModel):
     error_kind: ErrorKind
     message: str
     attempts: int = 1
+
+    @property
+    def no_data(self) -> bool:
+        return self.error_kind == NO_DATA_IN_SCOPE
+
+
+def no_data_note(agent: str) -> str:
+    return f"{agent}: no data within its scope for this run"
 
 
 def stable_id(prefix: str, *parts: str) -> str:

@@ -1,0 +1,102 @@
+# Promotion policy (self-evolution plan 2026-10-06-001, U7; origin R28). PRE-REGISTERED: it is
+# fixed before any holdout comparison and read by `womm evolve promote` only. Every field is
+# required; the gate refuses an incomplete file.
+#
+# HUMAN STEP: a person signs this policy before the first holdout comparison by setting
+# `signed_by` and `signed_on` and committing the file. Until then the gate refuses EVERY mode,
+# the dev mode included (any role not on the api backend, labelled "dev-only, not
+# deployable"): every mode reads the sealed holdout and spends its budget. Dev mode only skips
+# the coverage-judge calibration and the R34 formal noise run that the statistical and weak
+# modes also need. Every mode also refuses while this file or evals/promotion_records.yaml has
+# uncommitted changes, and every decision records this file's sha256, so a moved goalpost is
+# visible in the audit.
+#
+# The values below are the plan's proposed defaults for the user's open decisions (plan, Open
+# Questions, "Needs the User" 1-3). Change them before signing, never after a comparison.
+version: 1
+signed_by: "Chen Yuxin"
+signed_on: "2026-10-15"
+
+# Every change to this file before the first comparison, with its reason (newest last). Frozen
+# once a comparison has run.
+changelog:
+  - date: "2026-10-12"
+    change: "Signed with the plan's defaults (coverage primary; grounding and omissions guards;
+      statistical mode; expected_gain 0.08; 3 repetitions; budget 1 per cycle, 6 in total)."
+    reason: "Pre-registration before any holdout comparison (self-evolution plan U7)."
+  - date: "2026-10-14"
+    change: "Added the precision guard (one noise SD)."
+    reason: "Coverage is recall only and candidates are evolved against the judge that grades
+      them; listing unmatched impacts raises recall but lowers precision (doc review
+      2026-10-14; plan 2026-10-14-001)."
+  - date: "2026-10-14"
+    change: "Weak mode needs a coverage gain above weak_min_delta_se x SE (1.0), not above 0."
+    reason: "A candidate with no real effect passed 'mean delta > 0' about half the time (demo
+      review 2026-10-14)."
+  - date: "2026-10-14"
+    change: "Repetitions per holdout case and arm are data-driven: 3, extended to 6 when the
+      pooled noise says 6 can resolve expected_gain and 3 cannot."
+    reason: "Owner decision 2026-10-14: every repetition count adapts to the data; the rule
+      reads noise only, never a candidate-minus-incumbent value."
+  - date: "2026-10-15"
+    change: "Added the binding impact-count drop guard (max_drop_ratio 0.25,
+      impact_count_drop)."
+    reason: "Bundling: merging findings into a few broad impacts raises precision while
+      coverage holds; a new expert only adds impacts, so a large drop in impact count is not a
+      real improvement (owner decision 2026-10-15)."
+  - date: "2026-10-15"
+    change: "publish_summary on: the decision summary (aggregates only) is published to page 4.
+      A weak or dev pass is labelled 'not rejected (...)', never 'promoted', and is never made
+      the deployed default. At most one holdout comparison in the demo (holdout_budget.per_cycle
+      stays 1)."
+    reason: "R36 page 4 shows the holdout scores and the promote/reject decision; a weak-mode
+      pass is directional only, not evidence for deployment (owner decision 2026-10-15)."
+
+# Decision 1: coverage is the primary metric; omissions, grounding and precision are regression
+# guards.
+primary_metric: coverage
+guards:
+  grounding:
+    max_drop: 0.02            # the candidate's mean grounding may drop at most 0.02
+  omissions_addressed:
+    max_drop_noise_sd: 1.0    # at most one pooled run-to-run noise SD (larger arm's)
+  precision:
+    max_drop_noise_sd: 1.0    # share of dossier impacts matched to an expected impact
+
+# Against bundling: the candidate's mean impact count per dossier may fall at most this share
+# below the incumbent's (rises are only noted).
+impact_count_guard:
+  max_drop_ratio: 0.25
+
+# The formal mode registered before any result. 'statistical' still falls back to 'weak' when
+# the data cannot support it (no MDD report, MDD above expected_gain, null CIs or
+# insufficient proposals); the fallback is recorded in the decision. 'weak' registers the weak
+# threshold outright.
+formal_mode: statistical
+# The primary-metric gain one cycle is expected to achieve (R30). An MDD report above it means
+# the gate cannot resolve it: weak mode. AE4's example gain; confirm when signing.
+expected_gain: 0.08
+
+# Weak (and dev) mode: the coverage gain must exceed this many standard errors of the paired
+# mean, from the comparison's own run-to-run noise.
+weak_min_delta_se: 1.0
+
+repetitions:                  # runs per holdout case and version: min, extended to max when
+  min: 3                      # the pooled noise of both arms says max can resolve expected_gain
+  max: 6
+failure_policy: abort         # a case without a score on either side aborts: rejected, inconclusive
+
+# Decision 2: the holdout is a scarce resource (reusable-holdout problem).
+holdout_budget:
+  per_cycle: 1
+  total: 6                    # for the whole of v1
+
+# Decision 3: write an aggregate decision summary to the main database (promotion_decisions) so
+# the evolution page can show holdout aggregates (R36 page 4; on since the owner's decision of
+# 2026-10-15). With false, decisions live only in the holdout database's audit (`womm evolve
+# show <candidate>` reads them locally).
+publish_summary: true
+
+bootstrap:
+  n_boot: 2000
+  seed: 0

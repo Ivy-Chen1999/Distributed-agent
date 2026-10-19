@@ -3,6 +3,7 @@ deterministic. Infrastructure errors are kept apart from quality failures."""
 
 from __future__ import annotations
 
+import hashlib
 import json
 from typing import Literal
 
@@ -11,10 +12,23 @@ from pydantic import BaseModel, Field
 from womm.eval.golden import GoldenCase
 from womm.llm.base import LLMBackend, LLMError
 from womm.models.base import StrictModel
+from womm.models.dossier import ImpactDossier
 from womm.models.run import CallUsage, RunResult, RunStatus
-from womm.models.system_version import RoleConfig
+from womm.models.system_version import RoleConfig, SystemVersion
 
 INFRA_ERRORS = {"auth", "rate_limit", "timeout"}
+
+
+def judge_version(sv: SystemVersion) -> str:
+    """The judge's identity: backend, model, reasoning effort and prompt hash, nothing else of the
+    version."""
+    judge = sv.spec.judge
+    identity = {"backend": judge.backend, "model": judge.model,
+                "prompt": sv.prompt_hashes[judge.prompt]}  # fmt: skip
+    if judge.reasoning_effort is not None:  # judges without it keep their ids
+        identity["reasoning_effort"] = judge.reasoning_effort
+    blob = json.dumps(identity, sort_keys=True)
+    return f"jv_{hashlib.sha256(blob.encode()).hexdigest()[:12]}"
 
 
 class ExpectedVerdict(StrictModel):
@@ -47,9 +61,21 @@ class CaseScore(BaseModel):
     coverage: float | None = None
     omissions_addressed: float | None = None
     grounding: float | None = None
+    precision: float | None = Field(
+        default=None,
+        description="Share of dossier impacts the judge matched to an expected impact (each "
+        "impact once). 0 for a quality failure (as coverage); None without a complete judge "
+        "verdict.",
+    )
+    impact_count: int | None = Field(default=None, description="Dossier impacts (diagnostic).")
+    impact_chars: int | None = Field(
+        default=None, description="Characters of impact text the judge reads (diagnostic)."
+    )
     latency_s: float = 0.0
     tokens: int = 0
     cost_usd: float = 0.0
+    judge_tokens: int = Field(default=0, description="Coverage-judge tokens, apart from the run's.")
+    judge_cost_usd: float = 0.0
     judge: JudgeOutput | None = None
     judge_error: str | None = None
     decisions: list[dict] = Field(
@@ -58,6 +84,12 @@ class CaseScore(BaseModel):
     )
     trace_id: str | None = None
     trace_url: str | None = None
+    graph_run_id: str | None = Field(
+        default=None, description="LangSmith id of the graph run scored here, when traced."
+    )
+    trajectory: dict = Field(
+        default_factory=dict, description="womm.eval.trajectory metrics for this run."
+    )
 
 
 def infra_error(run: RunResult) -> str | None:
@@ -75,6 +107,24 @@ def infra_error(run: RunResult) -> str | None:
     if run.status == RunStatus.failed and kinds and kinds <= INFRA_ERRORS:
         return f"all experts failed with infrastructure errors: {sorted(kinds)}"
     return None
+
+
+def impact_chars(dossier: ImpactDossier) -> int:
+    """Characters of the impact text the judge reads: summaries and finding fields."""
+    return sum(
+        len(i.summary) + sum(len(f.affected_actor) + len(f.mechanism) + len(f.impact)
+                             for f in i.findings)
+        for i in dossier.impacts
+    )  # fmt: skip
+
+
+def precision(run: RunResult, judge: JudgeOutput) -> float | None:
+    """Distinct dossier impacts matched to any covered expected impact, over all impacts."""
+    if not run.dossier or not run.dossier.impacts:
+        return None
+    ids = {i.impact_id for i in run.dossier.impacts}
+    matched = {v.impact_id for v in judge.expected if v.covered and v.impact_id in ids}
+    return len(matched) / len(ids)
 
 
 def judge_input(case: GoldenCase, run: RunResult) -> str:
@@ -122,6 +172,21 @@ async def score_case(
     judge_role: RoleConfig,
     judge_prompt: str,
 ) -> tuple[CaseScore, CallUsage | None]:
+    score, usage = await _score_case(case, run, judge_backend, judge_role, judge_prompt)
+    if usage is not None:
+        score = score.model_copy(update={
+            "judge_tokens": usage.input_tokens + usage.output_tokens,
+            "judge_cost_usd": usage.cost_usd or 0.0})  # fmt: skip
+    return score, usage
+
+
+async def _score_case(
+    case: GoldenCase,
+    run: RunResult,
+    judge_backend: LLMBackend,
+    judge_role: RoleConfig,
+    judge_prompt: str,
+) -> tuple[CaseScore, CallUsage | None]:
     base = CaseScore(
         case_id=case.case_id,
         scenario_id=case.scenario_id,
@@ -133,12 +198,17 @@ async def score_case(
         tokens=sum(u.input_tokens + u.output_tokens for u in run.usage),
         cost_usd=sum(u.cost_usd or 0 for u in run.usage),
         grounding=run.grounding.rate,
+        impact_count=len(run.dossier.impacts) if run.dossier else 0,
+        impact_chars=impact_chars(run.dossier) if run.dossier else 0,
     )
     if reason := infra_error(run):
-        return base.model_copy(update={"outcome": "errored", "error": reason}), None
+        errored = {"outcome": "errored", "error": reason, "impact_count": None,
+                   "impact_chars": None}  # fmt: skip
+        return base.model_copy(update=errored), None
     if run.status == RunStatus.failed or not run.dossier or not run.dossier.impacts:
-        # quality failure: nothing to cover
-        return base.model_copy(update={"coverage": 0.0, "omissions_addressed": 0.0}), None
+        # quality failure: nothing to cover, nothing matched
+        zero = {"coverage": 0.0, "omissions_addressed": 0.0, "precision": 0.0}
+        return base.model_copy(update=zero), None
 
     try:
         out, usage = await judge_backend.call(
@@ -146,7 +216,9 @@ async def score_case(
         )
     except LLMError as exc:
         if exc.error_kind in INFRA_ERRORS:
-            return base.model_copy(update={"outcome": "errored", "error": str(exc)}), exc.usage
+            errored = {"outcome": "errored", "error": str(exc), "impact_count": None,
+                       "impact_chars": None}  # fmt: skip
+            return base.model_copy(update=errored), exc.usage
         return base.model_copy(update={"judge_error": str(exc)}), exc.usage
     if not _complete(case, out):
         return base.model_copy(update={"judge": out, "judge_error": "judge skipped ids"}), usage
@@ -154,7 +226,8 @@ async def score_case(
     labeled = label_decisions(run, out)
     cov = sum(v.covered for v in out.expected) / len(out.expected)
     om = sum(v.addressed for v in out.omissions) / len(out.omissions) if out.omissions else None
-    update = {"coverage": cov, "omissions_addressed": om, "judge": out, "decisions": labeled}
+    update = {"coverage": cov, "omissions_addressed": om, "judge": out, "decisions": labeled,
+              "precision": precision(run, out)}  # fmt: skip
     return base.model_copy(update=update), usage
 
 
@@ -269,4 +342,5 @@ def aggregate(scores: list[CaseScore]) -> dict:
         "latency_s": mean("latency_s"),
         "tokens": mean("tokens"),
         "cost_usd": mean("cost_usd"),
+        "judge_cost_usd": mean("judge_cost_usd"),
     }

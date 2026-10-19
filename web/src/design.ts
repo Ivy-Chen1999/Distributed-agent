@@ -17,6 +17,7 @@ export const AG: Record<string, AgentStyle> = {
   board: { n: 'Impact Board', c: '#00C4CC' },
   citation: { n: 'Citation check', c: '#00C4CC' },
   synthesis: { n: 'Synthesis', c: '#8B5CF6' },
+  cost: { n: 'Cost step', c: '#B5651D' },
   dossier: { n: 'Impact Dossier', c: '#8FA3A6' },
 };
 
@@ -50,7 +51,7 @@ export const TH: Record<'light' | 'dark', Theme> = {
   dark: { bg: '#0A1011', card: '#111A1C', soft: '#182326', line: '#253235', ink: '#EDF3F3', n1: '#A9B5B7', n2: '#8A9799', accInk: '#3ED9E0', accSoft: '#0C3033', side: '#050809', hl: '#0F4A4E' },
 };
 
-export type ScreenId = 'overview' | 'pipeline' | 'detail' | 'agents' | 'topo' | 'chat' | 'settings';
+export type ScreenId = 'overview' | 'pipeline' | 'detail' | 'agents' | 'topo' | 'chat' | 'evolution' | 'settings';
 
 export const ICON: Record<ScreenId, string> = {
   overview: 'M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z',
@@ -59,6 +60,7 @@ export const ICON: Record<ScreenId, string> = {
   agents: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8',
   topo: 'M12 7a2 2 0 1 0 0-4 2 2 0 0 0 0 4M5 21a2 2 0 1 0 0-4 2 2 0 0 0 0 4M19 21a2 2 0 1 0 0-4 2 2 0 0 0 0 4M12 7v5M12 12l-5.5 5.5M12 12l5.5 5.5',
   chat: 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z',
+  evolution: 'M6 3v12M18 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6M6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6M18 9a9 9 0 0 1-9 9',
   settings: 'M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6',
 };
 
@@ -69,6 +71,7 @@ export const TITLES: Record<ScreenId, string> = {
   agents: 'Agents',
   topo: 'Topology',
   chat: 'Ask WOMM',
+  evolution: 'Evolution',
   settings: 'Settings',
 };
 
@@ -89,7 +92,11 @@ export function kindText(errorKind: string): string {
   return errorKind === 'pipeline_failed' ? 'pipeline' : errorKind.replace(/_/g, ' ');
 }
 
+/** A scoped expert with no data in its scope is skipped (not called); it is not an error. */
+export const NO_DATA_IN_SCOPE = 'no_data_in_scope';
+
 export function statusText(s: NodeStatus, errorKind?: string | null): string {
+  if (s === 'failed' && errorKind === NO_DATA_IN_SCOPE) return 'Skipped · no data in scope';
   return s === 'failed' && errorKind ? `Failed · ${kindText(errorKind)}` : ST[s].t;
 }
 

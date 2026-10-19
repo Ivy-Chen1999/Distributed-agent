@@ -36,7 +36,8 @@ test('counts and tab badges match the dossier', async ({ page }) => {
   ] as const) {
     await expect(header.getByText(label, { exact: true }).locator('..')).toContainText(String(n));
   }
-  await expect(page.getByRole('tab')).toHaveCount(5);
+  await expect(page.getByRole('tab')).toHaveCount(6);
+  await expect(tab(page, 'Costs')).toHaveText(`Costs${d.costs?.records.length ?? ''}`);
   await expect(tab(page, 'Impacts')).toHaveText(`Impacts${d.impacts.length}`);
   await expect(tab(page, 'Impact chains')).toHaveText(`Impact chains${d.chains.length}`);
   await expect(tab(page, 'Disagreements')).toHaveText(`Disagreements${d.disagreements.length}`);
