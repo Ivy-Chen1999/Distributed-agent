@@ -1,0 +1,114 @@
+# Published by scripts/publish_golden_cases.py from evals/golden/drafts/case_12_ehds_secondary_use_obligations.yaml after human review.
+# Items record their provenance (llm_judged, human_verified, human_edited,
+# human_confirmed_candidate); notes record the reviewers and dates.
+case_id: case_12_ehds_secondary_use_obligations
+scenario_id: eval_secondary_use_obligations
+ia_reference: 'Impact assessment accompanying the European Health Data Space Regulation proposal (identifiers
+  in the local IA index); sections: 6.16.1 Economic impact CLXV; 88 Preferred option'
+fixture: ehds
+split: val
+notes: 'Drafted on 2026-10-06 by claude-opus-5-5 (scripts/draft_golden_case.py) and checked by isolated
+  LLM judges, open items settled by a tie-break judge. Human review by nobody (all items auto-accepted);
+  published on 2026-10-19. Decisions: auto_accepted 6, verified 0, edited 0, llm_kept 3, rejected 0, unclear
+  0, llm_dropped 3. Audit: 0/3 sampled items decided, 0 edited/rejected/unclear. Dropped by the tie-break
+  judge: [''c12_o01'', ''c12_m01'', ''c12_m02'']. Corrected after a failed reference check (human feedback),
+  by an AI full-text review from 2026-10-17; not re-checked by people: trimmed none, modality restored
+  none, rewritten [''c12_e01'', ''c12_e05''], dropped [''c12_o03''].'
+expected_impacts:
+- expected_id: c12_e01
+  affected_actor: Data reusers (researchers and innovators applying for data permits)
+  mechanism: Mandatory availability of listed data categories (Art 33), defined permitted purposes (Art
+    34) and a permit procedure with fixed deadlines that replaces individual consent gathering (Art 33(5),
+    Art 46) make access to health data cheaper
+  impact: Efficiency gains in data access, valued at EUR 3.4 billion over 10 years in the preferred option,
+    as a fee-based permit replaces costly consent collection
+  provision_keys:
+  - ehds/proposal/art/33
+  - ehds/proposal/art/34
+  - ehds/proposal/art/46
+  ia_section: 6.1.3.2 Impact of actions on secondary uses of health data
+  category: administrative_burden
+  provenance: llm_tiebroken
+- expected_id: c12_e02
+  affected_actor: Member States (health data access bodies)
+  mechanism: Health data access bodies must assess applications, issue or refuse permits within deadlines,
+    request and supply data (Art 46) and monitor, supervise and sanction data users and data holders (Art
+    43), which needs staff and organisation
+  impact: Establishment and operating costs of EUR 3.3-12.4 million per body for a 4- or 15-FTE unit up
+    to EUR 20.6-41.3 million for a 25- or 50-FTE independent entity over 10 years; EUR 39-157 million
+    for all countries
+  provision_keys:
+  - ehds/proposal/art/43
+  - ehds/proposal/art/46
+  ia_section: 6.1.3.2 Impact of actions on secondary uses of health data
+  category: public_enforcement_cost
+  provenance: llm_judged
+- expected_id: c12_e03
+  affected_actor: Health data access bodies (and Member State budgets)
+  mechanism: Art 42 lets health data access bodies charge cost-based fees for handling applications and
+    making data available, which recovers part of their costs
+  impact: Fee revenues of EUR 36-58 million partly offset the costs of setting up and running the bodies
+  provision_keys:
+  - ehds/proposal/art/42
+  ia_section: 6.1.3.2 Impact of actions on secondary uses of health data
+  category: public_enforcement_cost
+  provenance: llm_judged
+- expected_id: c12_e04
+  affected_actor: Data users (researchers, innovators, public bodies requesting data)
+  mechanism: Data users pay fees set out in the data permit (Art 42, Art 46(6)(e)) and bear costs of applying
+    for and processing data under permit conditions
+  impact: Costs for data reusers to access data through the EHDS of EUR 97-204 million over 10 years
+  provision_keys:
+  - ehds/proposal/art/42
+  - ehds/proposal/art/46
+  ia_section: 6.1.3.2 Impact of actions on secondary uses of health data
+  category: administrative_burden
+  provenance: llm_tiebroken
+- expected_id: c12_e05
+  affected_actor: Regulators, policy-makers, medicines agencies and HTA bodies
+  mechanism: Art 34(1)(a)-(c) and 34(2) reserve purposes such as public health, regulatory tasks and official
+    statistics for public sector bodies, giving them access to real-world data on the effectiveness of
+    medicinal products
+  impact: Savings, estimated at EUR 0.8 billion, from more transparency and real-world evidence in regulatory
+    processes, procurement and price renegotiation
+  provision_keys:
+  - ehds/proposal/art/34
+  - ehds/proposal/art/33
+  ia_section: 6.1.3.2 Impact of actions on secondary uses of health data
+  category: market_competition
+  provenance: llm_tiebroken
+- expected_id: c12_e06
+  affected_actor: Innovators, healthcare providers and patients
+  mechanism: Permitted purposes include development and innovation of products and services and training,
+    testing and evaluating algorithms and AI systems (Art 34(1)(f)-(g)) using the mandatory data categories
+    (Art 33)
+  impact: Increased value of EUR 1.2 billion from innovative data-intensive and AI-based health products
+    and services
+  provision_keys:
+  - ehds/proposal/art/34
+  - ehds/proposal/art/33
+  ia_section: 6.1.3.2 Impact of actions on secondary uses of health data
+  category: innovation_investment
+  provenance: llm_judged
+- expected_id: c12_e07
+  affected_actor: Commission and Member States (infrastructure operators)
+  mechanism: Data users must process data in a secure processing environment provided by health data access
+    bodies, with storage and deletion rules (Art 46(6)(d), 46(9)), which requires secure infrastructure
+  impact: Infrastructure costs of EUR 176-287 million, covering central network services and services
+    run by the health data access bodies
+  provision_keys:
+  - ehds/proposal/art/46
+  ia_section: 6.1.3.2 Impact of actions on secondary uses of health data
+  category: public_enforcement_cost
+  provenance: llm_judged
+important_omissions:
+- omission_id: c12_o02
+  description: Where a dataset carries a data quality and utility label, data holders must give documentation
+    so the health data access body can confirm the label is accurate (Art 41(3)). This creates a recurring
+    documentation cost for data holders. The IA puts the cost of obtaining a label at EUR 20,000-50,000
+    and of renewing it at EUR 20,000-35,000 per year.
+  provision_keys:
+  - ehds/proposal/art/41
+  source: Impact assessment, 6.1.3.2 Impact of actions on secondary uses of health data
+  category: administrative_burden
+  provenance: llm_judged

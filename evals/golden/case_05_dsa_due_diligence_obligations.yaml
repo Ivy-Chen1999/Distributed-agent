@@ -1,0 +1,226 @@
+# Published by scripts/publish_golden_cases.py from evals/golden/drafts/case_05_dsa_due_diligence_obligations.yaml after human review.
+# Items record their provenance (llm_judged, human_verified, human_edited,
+# human_confirmed_candidate); notes record the reviewers and dates.
+case_id: case_05_dsa_due_diligence_obligations
+scenario_id: eval_due_diligence_obligations
+ia_reference: 'Impact assessment accompanying the Digital Services Act proposal (identifiers in the local
+  IA index); sections: 6.1. Economic impacts; 8. Preferred option'
+fixture: dsa
+split: train
+notes: 'Drafted on 2026-10-06 by claude-opus-5-5 (scripts/draft_golden_case.py) and checked by isolated
+  LLM judges, open items settled by a tie-break judge. Human review by nobody (all items auto-accepted);
+  published on 2026-10-19. Decisions: auto_accepted 12, verified 0, edited 0, llm_kept 6, rejected 0,
+  unclear 0, llm_dropped 4. Audit: 0/5 sampled items decided, 0 edited/rejected/unclear. Dropped by the
+  tie-break judge: [''c05_o02'', ''c05_m02'', ''c05_m03'', ''c05_m07'']. Corrected after a failed reference
+  check (human feedback), by an AI full-text review from 2026-10-17; not re-checked by people: trimmed
+  [''c05_o01''], modality restored none, rewritten none, dropped none.'
+expected_impacts:
+- expected_id: c05_e01
+  affected_actor: Providers of hosting services
+  mechanism: Duty to set up easy-to-access electronic notice-and-action mechanisms, process notices in
+    a timely, diligent and objective way, confirm receipt and notify the notifier of decisions and redress
+    options
+  impact: One-off cost of up to EUR 15.000 for a notice-and-action technical system plus light maintenance.
+    Costs rise with notice volume, to about EUR 1 million for 200 notices a day, and personnel is the
+    main expense. For most companies this means adapting existing processes rather than a new cost.
+  provision_keys:
+  - dsa/proposal/art/14
+  ia_section: 6.1. Economic impacts – Costs and administrative burdens on digital services (Table 4)
+  category: compliance_cost
+  provenance: llm_judged
+- expected_id: c05_e02
+  affected_actor: Intermediary service providers not established in the EU but offering services in the
+    Union
+  mechanism: Obligation to designate a legal representative in a Member State, give it the powers and
+    resources to cooperate with authorities, and notify its contact details
+  impact: Estimated cost of EUR 50.000 to EUR 550.000 per annum, depending on the FTEs needed. Most companies
+    can partly or fully absorb this cost through representatives they already have under other EU rules.
+  provision_keys:
+  - dsa/proposal/art/11
+  ia_section: 6.1. Economic impacts – Costs and administrative burdens on digital services (Table 4)
+  category: compliance_cost
+  provenance: llm_judged
+- expected_id: c05_e03
+  affected_actor: Intermediary service providers other than micro and small enterprises
+  mechanism: Annual publication of detailed content moderation reports covering orders, notices, own-initiative
+    moderation and complaints
+  impact: 0.1 to 2 FTEs plus one-off development of data collection, absorbed into system development.
+    Micro and small enterprises are exempt.
+  provision_keys:
+  - dsa/proposal/art/13
+  ia_section: 6.1. Economic impacts – Costs and administrative burdens on digital services (Table 4)
+  category: administrative_burden
+  provenance: llm_judged
+- expected_id: c05_e04
+  affected_actor: Online platforms displaying advertising (excluding micro and small enterprises)
+  mechanism: 'Real-time disclosure to users for each ad: that it is an ad, on whose behalf it is shown,
+    and the main targeting parameters'
+  impact: Costs are absorbed in routine system development. Collecting and providing data on targeting
+    criteria is largely covered by existing GDPR compliance, with minor extra costs for publishing information
+    up front.
+  provision_keys:
+  - dsa/proposal/art/24
+  - dsa/proposal/art/16
+  ia_section: 6.1. Economic impacts – Costs and administrative burdens on digital services (Table 4)
+  category: compliance_cost
+  provenance: llm_judged
+- expected_id: c05_e05
+  affected_actor: Very large online platforms
+  mechanism: Annual identification, analysis and assessment of systemic risks (illegal content, fundamental
+    rights, intentional manipulation), including the role of recommender, moderation and ad systems
+  impact: Risk assessments estimated at EUR 40.000 to EUR 86.000 per annum, as a fixed organisational
+    cost.
+  provision_keys:
+  - dsa/proposal/art/26
+  ia_section: 6.1. Economic impacts – Costs and administrative burdens on digital services (Table 4)
+  category: compliance_cost
+  provenance: llm_judged
+- expected_id: c05_e06
+  affected_actor: Very large online platforms
+  mechanism: Annual independent audits of compliance with Chapter III and with code-of-conduct commitments,
+    carried out at the platform's own expense, plus audit implementation reports
+  impact: Audits estimated at EUR 55.000 to EUR 545.000 per annum.
+  provision_keys:
+  - dsa/proposal/art/28
+  ia_section: 6.1. Economic impacts – Costs and administrative burdens on digital services (Table 4)
+  category: compliance_cost
+  provenance: llm_judged
+- expected_id: c05_e07
+  affected_actor: Very large online platforms
+  mechanism: Duty to put in place reasonable, proportionate and effective mitigation measures tailored
+    to the systemic risks identified, such as adapting recommender or moderation systems or limiting ads
+  impact: Variable costs ranging from virtually nothing to significant amounts. Costs are highest where
+    the platform's own systems cause or worsen severe harms, and both duration and spending vary over
+    time.
+  provision_keys:
+  - dsa/proposal/art/27
+  ia_section: 6.1. Economic impacts – Costs and administrative burdens on digital services (Table 4)
+  category: compliance_cost
+  provenance: llm_judged
+- expected_id: c05_e08
+  affected_actor: Very large online platforms that display advertising
+  mechanism: Compiling a public, API-accessible ad repository that holds ad content, advertiser, display
+    period, targeting parameters and reach for one year after an ad was last displayed, with no personal
+    data
+  impact: Up to EUR 220.000 to build the APIs and quality controls for data completeness, accuracy, integrity,
+    security and availability.
+  provision_keys:
+  - dsa/proposal/art/30
+  ia_section: 6.1. Economic impacts – Costs and administrative burdens on digital services (Table 4)
+  category: compliance_cost
+  provenance: llm_judged
+- expected_id: c05_e09
+  affected_actor: Business users of online platforms (legitimate businesses and entrepreneurs)
+  mechanism: Right to an internal complaint-handling system, with reversal of unjustified decisions, and
+    access to certified out-of-court dispute settlement whose decisions bind the platform
+  impact: Better protection against wrongful removal or account suspension, which limits losses for legitimate
+    businesses and supports their competitiveness.
+  provision_keys:
+  - dsa/proposal/art/17
+  - dsa/proposal/art/18
+  ia_section: 6.1. Economic impacts – Competitiveness, innovation and investment
+  category: market_competition
+  provenance: llm_judged
+- expected_id: c05_e10
+  affected_actor: Users of very large online platforms
+  mechanism: Systemic risk assessment and mitigation that covers illegal content, fundamental rights and
+    manipulation
+  impact: A safer online environment and better respect for users' fundamental rights, which also benefits
+    compliant platforms.
+  provision_keys:
+  - dsa/proposal/art/26
+  - dsa/proposal/art/27
+  ia_section: 6.1. Economic impacts – Functioning of the internal market and competition
+  category: consumers_users
+  provenance: llm_tiebroken
+- expected_id: c05_m01
+  affected_actor: Very large online platforms
+  mechanism: Appointment of one or more qualified, independent compliance officers, given resources and
+    reporting to top management, to monitor compliance and organise audits
+  impact: Recurring staffing cost estimated at 1-5 FTEs per very large platform
+  provision_keys:
+  - dsa/proposal/art/32
+  ia_section: 6.1. Economic impacts
+  category: compliance_cost
+  provenance: llm_tiebroken
+- expected_id: c05_m04
+  affected_actor: Smaller and emerging online platforms (micro and small enterprises)
+  mechanism: Exemption from the online-platform section, with the heaviest obligations reserved for very
+    large platforms (asymmetric obligations)
+  impact: Smaller competitors avoid disproportionate obligations; this supports a level playing field
+    and lets new services scale up
+  provision_keys:
+  - dsa/proposal/art/16
+  - dsa/proposal/art/26
+  - dsa/proposal/art/27
+  - dsa/proposal/art/28
+  - dsa/proposal/art/30
+  ia_section: 6.1. Economic impacts
+  category: market_competition
+  provenance: llm_tiebroken
+- expected_id: c05_m05
+  affected_actor: Users and consumers of online platforms
+  mechanism: Ad labelling and targeting-parameter disclosure, plus public ad repositories, increase transparency
+    of how advertising reaches them
+  impact: More choice and agency for users and a more resilient, competitive online environment
+  provision_keys:
+  - dsa/proposal/art/24
+  - dsa/proposal/art/30
+  ia_section: 6.1. Economic impacts
+  category: consumers_users
+  provenance: llm_tiebroken
+- expected_id: c05_m06
+  affected_actor: Online intermediaries established in the EU
+  mechanism: Requiring non-EU providers that offer services in the Union to designate a legal representative
+    and fall under the same obligations
+  impact: A true regulatory level playing field between EU-based companies and non-EU companies targeting
+    the single market
+  provision_keys:
+  - dsa/proposal/art/11
+  ia_section: 6.1. Economic impacts
+  category: market_competition
+  provenance: llm_tiebroken
+- expected_id: c05_m08
+  affected_actor: Legitimate business users, manufacturers and brand owners
+  mechanism: Notice-and-action mechanisms let them flag illegal offerings, reducing the availability of
+    illegal products and services online
+  impact: Improved competitiveness of legitimate businesses through fewer illegal competing offers
+  provision_keys:
+  - dsa/proposal/art/14
+  ia_section: 6.1. Economic impacts
+  category: market_competition
+  provenance: llm_tiebroken
+important_omissions:
+- omission_id: c05_o01
+  description: Micro and small hosting providers are not exempt from notice and action. Article 16 exempts
+    only online platforms from the platform section, and Article 14 has no SME carve-out. A micro-enterprise
+    receiving about 50 notices a year would still bear roughly EUR 15 000 per annum.
+  provision_keys:
+  - dsa/proposal/art/14
+  - dsa/proposal/art/16
+  source: Impact assessment, 6.1. Economic impacts – SME test
+  category: sme_specific
+  provenance: llm_judged
+- omission_id: c05_o03
+  description: Very large online platforms bear a cumulative recurring cost from the full set of obligations
+    (risk assessment, audits, ad repository, compliance officers of 1–5 FTEs), estimated at EUR 300.000
+    to EUR 3.500.000 per annum before variable mitigation costs. This cost falls on about 20 of the largest
+    platforms.
+  provision_keys:
+  - dsa/proposal/art/26
+  - dsa/proposal/art/28
+  - dsa/proposal/art/30
+  - dsa/proposal/art/32
+  source: Impact assessment, 6.1. Economic impacts – Costs and administrative burdens on digital services
+  category: compliance_cost
+  provenance: llm_judged
+- omission_id: c05_o04
+  description: Third-country providers face the legal representative requirement, but much of the cost
+    is absorbed where representatives already exist under other EU law such as the GDPR. Compliance can
+    also act as a commercial trust signal, so legitimate non-EU platforms are not expected to be significantly
+    affected.
+  provision_keys:
+  - dsa/proposal/art/11
+  source: Impact assessment, 6.1. Economic impacts – Trade, third countries and international relations
+  category: international
+  provenance: llm_judged

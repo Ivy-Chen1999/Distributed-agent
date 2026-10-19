@@ -1,0 +1,254 @@
+# Published by scripts/publish_golden_cases.py from evals/golden/drafts/case_10_platform_work_employment_status_algorithmic_management.yaml after human review.
+# Items record their provenance (llm_judged, human_verified, human_edited,
+# human_confirmed_candidate); notes record the reviewers and dates.
+case_id: case_10_platform_work_employment_status_algorithmic_management
+scenario_id: eval_employment_status_algorithmic_management
+ia_reference: 'Impact assessment accompanying the Platform Work Directive proposal (identifiers in the
+  local IA index); sections: Annex 3: Who is affected and how?; Annex 4: Impacts of the policy options'
+fixture: platform_work
+split: train
+notes: 'Drafted on 2026-10-06 by claude-opus-5-5 (scripts/draft_golden_case.py) and checked by isolated
+  LLM judges, open items settled by a tie-break judge. Human review by nobody (all items auto-accepted);
+  published on 2026-10-19. Decisions: auto_accepted 10, verified 0, edited 0, llm_kept 9, rejected 0,
+  unclear 0, llm_dropped 3. Audit: 0/4 sampled items decided, 0 edited/rejected/unclear. Dropped by the
+  tie-break judge: [''c10_o02'', ''c10_m05'', ''c10_m08'']. Corrected after a failed reference check (human
+  feedback), by an AI full-text review from 2026-10-17; not re-checked by people: trimmed [''c10_o03''],
+  modality restored none, rewritten [''c10_e01'', ''c10_e02'', ''c10_e04'', ''c10_e09'', ''c10_o01'',
+  ''c10_o04'', ''c10_m01'', ''c10_m02'', ''c10_m03'', ''c10_m04'', ''c10_m06'', ''c10_m07''], dropped
+  none.'
+expected_impacts:
+- expected_id: c10_e01
+  affected_actor: Digital labour platforms that control the performance of work (mainly low-skill on-location
+    platforms, some online micro-tasking platforms)
+  mechanism: The legal presumption of employment, triggered when at least two control criteria are met,
+    may push platforms to reclassify the people working through them as employees, directly or through
+    temporary work agencies, either voluntarily or after losing court cases.
+  impact: One-off costs of changing the business model, plus higher recurrent wage costs (bringing pay
+    up to the minimum wage) and non-wage costs (employer social contributions). The IA puts the annual
+    cost of reclassification at EUR 1.87 – 4.46 billion.
+  provision_keys:
+  - platform_work/proposal/art/4
+  ia_section: 'Annex 3: Who is affected and how? – Impacts on platforms'
+  category: compliance_cost
+  provenance: llm_judged
+- expected_id: c10_e02
+  affected_actor: Digital labour platforms
+  mechanism: The presumption applies in all relevant administrative and legal proceedings. Rebutting it
+    puts the burden of proof on the platform, and a rebuttal does not suspend the presumption. This makes
+    it easier and cheaper for workers to challenge employment status.
+  impact: Legal and non-compliance costs, currently tens to hundreds of millions of euros for on-location
+    platforms, are likely to rise in the short to medium term. The IA expects them to fall below the baseline
+    in the long run because the control criteria give legal certainty.
+  provision_keys:
+  - platform_work/proposal/art/4
+  - platform_work/proposal/art/5
+  ia_section: A3.2 Overview of costs of the preferred option
+  category: compliance_cost
+  provenance: llm_judged
+- expected_id: c10_e03
+  affected_actor: People working through platforms who are reclassified as employees
+  mechanism: Applying the legal presumption gives misclassified people employee status and the employment
+    rights that come with it.
+  impact: Between 1.7 and 4.1 million people are reclassified. They gain more stable income, paid leave,
+    social protection and better health and safety. Net wages rise by EUR 203-484 million a year in total
+    (an average of EUR 121.07 per person per year), and paid leave is worth EUR 349-830 million a year.
+  provision_keys:
+  - platform_work/proposal/art/4
+  ia_section: A3.1 Overview of benefits of the preferred option
+  category: social_environmental
+  provenance: llm_judged
+- expected_id: c10_e04
+  affected_actor: Platform workers subject to algorithmic management
+  mechanism: Workers get rights to information on automated monitoring and decision-making systems, limits
+    on personal data processing, human monitoring of automated decisions, an explanation from a contact
+    person, a written statement of reasons, and review, rectification or compensation for significant
+    decisions.
+  impact: Workers can understand algorithmic criteria better, have more control over how their data are
+    used, and challenge decisions such as account suspension. This is expected to lead indirectly to better
+    working conditions. The IA says up to 28.29 million people working through platforms are covered.
+  provision_keys:
+  - platform_work/proposal/art/6
+  - platform_work/proposal/art/7
+  - platform_work/proposal/art/8
+  ia_section: A3.1 Overview of benefits of the preferred option
+  category: fundamental_rights
+  provenance: llm_judged
+- expected_id: c10_e05
+  affected_actor: Digital labour platforms (all types)
+  mechanism: Platforms must give workers a written document on their automated monitoring and decision-making
+    systems (main parameters and grounds for decisions), update it when the systems change substantially,
+    and supply it to worker representatives and labour authorities on request.
+  impact: One-off costs of providing algorithmic transparency and a slight rise in administrative burden
+    for all platforms. The IA does not quantify the cost.
+  provision_keys:
+  - platform_work/proposal/art/6
+  ia_section: A3.2 Overview of costs of the preferred option
+  category: administrative_burden
+  provenance: llm_tiebroken
+- expected_id: c10_e06
+  affected_actor: Digital labour platforms (all types)
+  mechanism: Platforms must provide enough competent human staff to monitor automated decisions, assess
+    the health and safety risks of the systems, designate trained contact persons, give written reasons,
+    review contested decisions within one week, and rectify decisions or pay compensation.
+  impact: Recurring costs for human oversight, written explanations, complaint handling and redress mechanisms.
+    The cost per platform depends on whether the platform already has complaint procedures and on how
+    many people work through it.
+  provision_keys:
+  - platform_work/proposal/art/7
+  - platform_work/proposal/art/8
+  ia_section: A3.2 Overview of costs of the preferred option
+  category: compliance_cost
+  provenance: llm_judged
+- expected_id: c10_e07
+  affected_actor: Consumers of on-location platform services
+  mechanism: Platforms that reclassify workers under the presumption pass the higher labour costs on to
+    customers through prices.
+  impact: Prices for on-location services rise by 0-40%, with 24% as the most realistic estimate. Services
+    may also become less available and waiting times longer.
+  provision_keys:
+  - platform_work/proposal/art/4
+  ia_section: 'Annex 3: Who is affected and how? – Impacts on consumers'
+  category: consumers_users
+  provenance: llm_judged
+- expected_id: c10_e08
+  affected_actor: National labour inspectorates and enforcement authorities
+  mechanism: Member States must publish information on the presumption, develop guidance, proactively
+    target non-compliant platforms and strengthen controls and field inspections. Courts and authorities
+    also handle more misclassification cases.
+  impact: New or changed enforcement procedures and extra resources for more inspections and court cases
+    in the short to medium term. The IA does not consider these costs significant relative to overall
+    spending on labour market supervision.
+  provision_keys:
+  - platform_work/proposal/art/4
+  - platform_work/proposal/art/5
+  ia_section: A3.2 Overview of costs of the preferred option
+  category: public_enforcement_cost
+  provenance: llm_judged
+- expected_id: c10_e09
+  affected_actor: Public budgets (tax authorities and social security institutions)
+  mechanism: Employees are taxed and pay social contributions at higher rates than the self-employed,
+    so reclassification under the presumption widens the tax and contribution base, at least in some Member
+    States.
+  impact: Extra public revenue of EUR 0.93-2.64 billion a year from on-location platforms and EUR 0.74-1.33
+    billion a year from online platforms.
+  provision_keys:
+  - platform_work/proposal/art/4
+  ia_section: 'Annex 3: Who is affected and how? – Impacts on public authorities'
+  category: other
+  provenance: llm_judged
+- expected_id: c10_e10
+  affected_actor: National labour and social protection authorities
+  mechanism: Platforms that are employers must declare platform work to the authorities of the Member
+    State where the work is performed and share relevant data with them, including in cross-border situations.
+  impact: Authorities get clarity on social protection coverage and on the contributions due, which helps
+    labour inspectorates, social protection institutions and tax authorities enforce the rules. Platforms
+    bear no cost above the baseline because they already have to comply with these rules as employers.
+  provision_keys:
+  - platform_work/proposal/art/11
+  ia_section: 'Annex 3: Who is affected and how? – Impacts on public authorities'
+  category: public_enforcement_cost
+  provenance: llm_judged
+- expected_id: c10_m01
+  affected_actor: People working through platforms who are reclassified as employees
+  mechanism: Reclassification under the presumption can reduce the flexibility and autonomy associated
+    with independent contractor status. For reclassified on-location workers, this includes fewer opportunities
+    to work through several platforms simultaneously.
+  impact: Around 1.72 to 4.09 million people are expected to be reclassified and experience some loss
+    of flexibility and autonomy. Low-skill on-location workers are likely to be more affected than people
+    working through platforms online.
+  provision_keys:
+  - platform_work/proposal/art/4
+  ia_section: A3.2 Overview of costs of the preferred option
+  category: social_environmental
+  provenance: llm_tiebroken
+- expected_id: c10_m02
+  affected_actor: Self-employed people working through platforms, including EU-based online freelancers
+  mechanism: If platforms cut their workforce under new business models or leave EU or local markets,
+    opportunities for part-time self-employment may fall and price competition may increase, including
+    competition from freelancers outside the EU.
+  impact: Platforms estimate that 41-80% of delivery and ride-hailing workers would have fewer work opportunities.
+    EU-based freelancers may see lower demand and lower income.
+  provision_keys:
+  - platform_work/proposal/art/4
+  ia_section: 'Annex 3: Who is affected and how? – Impacts on people working through platforms'
+  category: social_environmental
+  provenance: llm_tiebroken
+- expected_id: c10_m03
+  affected_actor: People working through platforms who become genuinely self-employed
+  mechanism: Platforms may rewrite their terms and conditions to reduce control so that they no longer
+    meet the presumption criteria. This gives the people working through them real autonomy, for example
+    to set their own working time and rates.
+  impact: The IA expects up to 3.78 million people currently at risk of misclassification to become genuinely
+    self-employed, with better working conditions.
+  provision_keys:
+  - platform_work/proposal/art/4
+  ia_section: 'Annex 3: Who is affected and how? – Impacts on people working through platforms'
+  category: social_environmental
+  provenance: llm_tiebroken
+- expected_id: c10_m04
+  affected_actor: Traditional businesses competing with platforms (e.g. taxi companies, nanny agencies)
+  mechanism: Reclassification removes the cost advantage that platforms gain from false self-employment
+    compared with businesses that employ their workers.
+  impact: A more level playing field. Competing SMEs might benefit more than large businesses.
+  provision_keys:
+  - platform_work/proposal/art/4
+  ia_section: A3.1 Overview of benefits of the preferred option
+  category: market_competition
+  provenance: llm_tiebroken
+- expected_id: c10_m06
+  affected_actor: Consumers of on-location platform services
+  mechanism: Platforms may leave less profitable or smaller markets and fewer workers may be available
+    at peak times. Supply is likely to fall and waiting times may get longer, while training and supervision
+    by platforms improves service quality.
+  impact: Possible reductions in service availability, especially in smaller towns, and longer waiting
+    times; the IA expects mixed but mostly positive effects on quality.
+  provision_keys:
+  - platform_work/proposal/art/4
+  ia_section: 'Annex 3: Who is affected and how? – Impacts on consumers'
+  category: consumers_users
+  provenance: llm_tiebroken
+- expected_id: c10_m07
+  affected_actor: Digital labour platforms and the wider market (competition and innovation)
+  mechanism: Some online platforms try to avoid litigation and fines, or find that employment undermines
+    their business model, so they go out of business or leave EU markets.
+  impact: Possible indirect costs from less competition and innovation, and possible negative effects
+    on GDP, investment and net exports.
+  provision_keys:
+  - platform_work/proposal/art/4
+  ia_section: 'Annex 3: Who is affected and how? – Impacts on platforms'
+  category: innovation_investment
+  provenance: llm_tiebroken
+important_omissions:
+- omission_id: c10_o01
+  description: The duties on algorithmic transparency, human oversight, risk assessment and review fall
+    harder on SME platforms, which the IA estimates make up 70-92% of digital labour platforms. Large
+    platforms often already disclose algorithm information and run dispute systems, so these duties cost
+    them relatively less. This is why Article 8(2) lets Member States allow SMEs a two-week deadline instead
+    of one week.
+  provision_keys:
+  - platform_work/proposal/art/6
+  - platform_work/proposal/art/7
+  - platform_work/proposal/art/8
+  source: Impact assessment, A3.3 The SME test
+  category: sme_specific
+  provenance: llm_tiebroken
+- omission_id: c10_o03
+  description: Reclassified workers gain protection but may lose the flexibility and autonomy of independent
+    contractor status, such as working for several platforms at the same time. The IA puts this at around
+    1.72 – 4.09 million people.
+  provision_keys:
+  - platform_work/proposal/art/4
+  source: 'Impact assessment, Annex 3: Who is affected and how? – Impacts on people working through platforms'
+  category: social_environmental
+  provenance: llm_judged
+- omission_id: c10_o04
+  description: 'Businesses that rely on platforms may bear indirect costs from reclassification. SME restaurants
+    may be less able than large restaurants to withstand higher commissions if platforms pass on higher
+    expenses. Reduced delivery coverage and fewer orders are another potential channel: estimates based
+    on the Spanish Riders’ Law put restaurant revenue losses at about 0.16%–1.0% of total restaurant revenue
+    in Spain.'
+  provision_keys:
+  - platform_work/proposal/art/4
+  source: Impact assessment, A3.2 Overview of costs of the preferred option
+  category: market_competition
+  provenance: llm_tiebroken

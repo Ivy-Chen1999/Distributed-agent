@@ -1,0 +1,200 @@
+# Published by scripts/publish_golden_cases.py from evals/golden/drafts/case_11_pld_liability_software_burden_of_proof.yaml after human review.
+# Items record their provenance (llm_judged, human_verified, human_edited,
+# human_confirmed_candidate); notes record the reviewers and dates.
+case_id: case_11_pld_liability_software_burden_of_proof
+scenario_id: eval_liability_software_burden_of_proof
+ia_reference: 'Impact assessment accompanying the Product Liability Directive proposal (identifiers in
+  the local IA index); sections: 6.3. Policy option 1c – Inclusion of software in its own right, new types
+  of damage and adaptations for circular economy; 6.4. Policy option 2.a – Easing the burden of proof
+  and reducing disproportionate restrictions to make claims; 8. Preferred option'
+fixture: pld
+split: val
+notes: 'Drafted on 2026-10-06 by claude-opus-5-5 (scripts/draft_golden_case.py) and checked by isolated
+  LLM judges, open items settled by a tie-break judge. Human review by nobody (all items auto-accepted);
+  published on 2026-10-19. Decisions: auto_accepted 10, verified 0, edited 0, llm_kept 4, rejected 0,
+  unclear 0, llm_dropped 4. Audit: 0/3 sampled items decided, 0 edited/rejected/unclear. Dropped by the
+  tie-break judge: [''c11_o02'', ''c11_o03'', ''c11_m01'', ''c11_m04'']. Corrected after a failed reference
+  check (human feedback), by an AI full-text review from 2026-10-17; not re-checked by people: trimmed
+  [''c11_e10''], modality restored none, rewritten [''c11_e06'', ''c11_m05''], dropped none.'
+expected_impacts:
+- expected_id: c11_e01
+  affected_actor: Software producers (including providers of standalone software and software updates)
+  mechanism: Software is defined as a 'product' (Art. 4(1)), so its manufacturers become subject to no-fault
+    liability under Art. 7, and the later-defect exemption does not apply to software and updates within
+    the manufacturer's control (Art. 10(2))
+  impact: Higher exposure to liability claims raises annual product liability insurance costs for software
+    producers by 15%.
+  provision_keys:
+  - pld/proposal/art/4
+  - pld/proposal/art/7
+  - pld/proposal/art/10
+  ia_section: 6.3. Policy option 1c – Inclusion of software in its own right, new types of damage and
+    adaptations for circular economy
+  category: compliance_cost
+  provenance: llm_judged
+- expected_id: c11_e02
+  affected_actor: Software producers and people harmed by defective software (litigants)
+  mechanism: Applying no-fault product liability to software (Art. 4(1), Art. 7) replaces fault-based
+    claims, which shortens proceedings and also opens a new route for claims
+  impact: Annual legal costs fall by 6% because proceedings are shorter, while the number of in-court
+    and out-of-court cases rises by about 3.5%.
+  provision_keys:
+  - pld/proposal/art/4
+  - pld/proposal/art/7
+  ia_section: 6.3. Policy option 1c – Inclusion of software in its own right, new types of damage and
+    adaptations for circular economy
+  category: other
+  provenance: llm_judged
+- expected_id: c11_e03
+  affected_actor: Manufacturers and other defendants in product liability cases
+  mechanism: Courts may order defendants to disclose relevant evidence at their disposal when the claimant
+    has made the claim plausible (Art. 8)
+  impact: Limited extra burden, because nearly all Member States already have disclosure rules. Industry
+    accepts harmonised rules provided requests are justified and intellectual property is protected.
+  provision_keys:
+  - pld/proposal/art/8
+  ia_section: 6.4. Policy option 2.a – Easing the burden of proof and reducing disproportionate restrictions
+    to make claims
+  category: administrative_burden
+  provenance: llm_judged
+- expected_id: c11_e04
+  affected_actor: Producers of complex products (pharmaceuticals, IoT and AI-enabled products)
+  mechanism: Disclosure of evidence (Art. 8) and rebuttable presumptions of defectiveness and causation,
+    including for technical or scientific complexity (Art. 9), make successful claims against them more
+    likely
+  impact: Annual product liability insurance costs rise by 4% for these producers.
+  provision_keys:
+  - pld/proposal/art/8
+  - pld/proposal/art/9
+  ia_section: 6.4. Policy option 2.a – Easing the burden of proof and reducing disproportionate restrictions
+    to make claims
+  category: compliance_cost
+  provenance: llm_judged
+- expected_id: c11_e05
+  affected_actor: National courts and parties to litigation
+  mechanism: Presumptions under Art. 9 and disclosure under Art. 8 put more of the onus on the producer,
+    which knows the product best
+  impact: Court cases become shorter. For complex products, legal costs fall by 10% while the number of
+    proceedings rises by 5%. No particular impact on the justice system, as these tools are already familiar.
+  provision_keys:
+  - pld/proposal/art/8
+  - pld/proposal/art/9
+  ia_section: 6.4. Policy option 2.a – Easing the burden of proof and reducing disproportionate restrictions
+    to make claims
+  category: public_enforcement_cost
+  provenance: llm_judged
+- expected_id: c11_e06
+  affected_actor: Consumers and injured persons harmed by complex products
+  mechanism: Access to the defendant's evidence (Art. 8) and presumptions easing proof of defect and causation
+    (Art. 9) reduce information asymmetry
+  impact: Claims for complex products that end in compensation are estimated to rise by 7%. Average pay-outs
+    are unchanged. Consumer protection becomes more uniform and confidence in complex products may improve.
+  provision_keys:
+  - pld/proposal/art/8
+  - pld/proposal/art/9
+  ia_section: 6.4. Policy option 2.a – Easing the burden of proof and reducing disproportionate restrictions
+    to make claims
+  category: consumers_users
+  provenance: llm_judged
+- expected_id: c11_e07
+  affected_actor: Injured persons (holders of the right to an effective remedy)
+  mechanism: Easing the burden of proof through presumptions and disclosure for complex products (Arts.
+    8–9)
+  impact: Strengthens the right to an effective remedy under Article 47 of the EU Charter of Fundamental
+    Rights.
+  provision_keys:
+  - pld/proposal/art/8
+  - pld/proposal/art/9
+  ia_section: 6.4. Policy option 2.a – Easing the burden of proof and reducing disproportionate restrictions
+    to make claims
+  category: fundamental_rights
+  provenance: llm_judged
+- expected_id: c11_e08
+  affected_actor: Manufacturers that keep control over products after placing them on the market (e.g.
+    robots, autonomous vehicles, software-updated products)
+  mechanism: The later-defect exemption does not apply to defects from software, updates, missing safety
+    updates or related services within the manufacturer's control (Art. 10(2)). The development-risk defence
+    and the relevant moment for defectiveness extend to the period of control (Art. 10(1)(e), Art. 6(1)(e))
+  impact: These manufacturers stay liable for defects that emerge after the product was put into circulation.
+    The adapted development-risk defence adds no impact beyond this.
+  provision_keys:
+  - pld/proposal/art/10
+  - pld/proposal/art/6
+  ia_section: 6.4. Policy option 2.a – Easing the burden of proof and reducing disproportionate restrictions
+    to make claims
+  category: compliance_cost
+  provenance: llm_judged
+- expected_id: c11_e09
+  affected_actor: Economic operators and consumers across the internal market
+  mechanism: Harmonised, explicit rules on disclosure (Art. 8) and on when defectiveness and causation
+    are presumed (Art. 9) replace divergent national practices
+  impact: More legal certainty, a more equal level of consumer protection across the EU, and a fairer
+    sharing of the burden of proof in cases involving complex products.
+  provision_keys:
+  - pld/proposal/art/8
+  - pld/proposal/art/9
+  ia_section: 6.4. Policy option 2.a – Easing the burden of proof and reducing disproportionate restrictions
+    to make claims
+  category: consumers_users
+  provenance: llm_tiebroken
+- expected_id: c11_e10
+  affected_actor: authorised representatives and fulfilment service providers of non-EU manufacturers
+  mechanism: Where the manufacturer is established outside the Union, the importer and authorised representative,
+    and failing them the fulfilment service provider, can be held liable (Art. 7(2)–(3); definitions in
+    Art. 4)
+  impact: There is always an EU-based person liable for defective products, in line with market surveillance
+    rules. These operators bear new liability exposure.
+  provision_keys:
+  - pld/proposal/art/7
+  - pld/proposal/art/4
+  ia_section: 8. Preferred option
+  category: international
+  provenance: llm_judged
+- expected_id: c11_m02
+  affected_actor: Liability insurers
+  mechanism: Wider no-fault liability (software as a product, Art. 4(1)/Art. 7) and easier proof (Arts.
+    8–9) raise the compensation insurers must pay. Insurers pass this on through higher premiums.
+  impact: Insurers pay more in compensation but raise premiums slightly to cover it, so their net income
+    is assumed to stay stable.
+  provision_keys:
+  - pld/proposal/art/7
+  - pld/proposal/art/9
+  ia_section: 8. Preferred option
+  category: market_competition
+  provenance: llm_tiebroken
+- expected_id: c11_m03
+  affected_actor: Consumers and other natural persons who suffer loss or corruption of non-professional
+    data
+  mechanism: Art. 4(6)(c) includes loss or corruption of data not used exclusively for professional purposes
+    in compensable 'damage'.
+  impact: Gives legal certainty that people can be compensated for damage to digital property under no-fault
+    product liability.
+  provision_keys:
+  - pld/proposal/art/4
+  ia_section: 8. Preferred option
+  category: consumers_users
+  provenance: llm_tiebroken
+- expected_id: c11_m05
+  affected_actor: Consumers of complex products (as purchasers and users)
+  mechanism: Making the presumptions in Art. 9 explicit and visible could increase consumer confidence
+    and trust in complex products and their willingness to bring claims.
+  impact: Consumer trust in complex products could improve, and consumers could have more confidence to
+    claim compensation in complex cases.
+  provision_keys:
+  - pld/proposal/art/9
+  ia_section: 6.4. Policy option 2.a – Easing the burden of proof and reducing disproportionate restrictions
+    to make claims
+  category: consumers_users
+  provenance: llm_tiebroken
+important_omissions:
+- omission_id: c11_o01
+  description: Court-ordered disclosure under Art. 8 may require producers to reveal confidential technical
+    information and trade secrets. A good assessment should cover the risk to producers' intellectual
+    property and confidentiality, and the role of the proportionality test and confidentiality safeguards
+    in Art. 8(3)–(4) in limiting it.
+  provision_keys:
+  - pld/proposal/art/8
+  source: Impact assessment, 6.4. Policy option 2.a – Easing the burden of proof and reducing disproportionate
+    restrictions to make claims
+  category: innovation_investment
+  provenance: llm_judged

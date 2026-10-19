@@ -41,14 +41,16 @@ def test_golden_file_loads_and_matches_scenario(filename: str, scenario_id: str)
 
 
 def test_all_golden_cases_are_loaded(cases: list[GoldenCase]) -> None:
-    assert {c.scenario_id for c in cases} == set(CASE_FILES.values())
+    # the two v0 AI Act cases and every published train/val case (one per file)
+    assert set(CASE_FILES.values()) <= {c.scenario_id for c in cases}
+    assert {c.case_id for c in cases} == {p.stem for p in GOLDEN_DIR.glob("case_*.yaml")}
 
 
 def test_golden_cases_trace_to_scenario_provisions(
     cases: list[GoldenCase], fixture: Fixture
 ) -> None:
     for case in cases:
-        check_against_fixture(case, fixture)
+        check_against_fixture(case)  # each case against its own fixture
 
 
 def test_golden_ids_are_unique(cases: list[GoldenCase]) -> None:
@@ -89,7 +91,8 @@ def test_demo_scenario_is_rejected(cases: list[GoldenCase], fixture: Fixture) ->
 
 
 def test_existing_cases_default_to_ai_act_train(cases: list[GoldenCase]) -> None:
-    assert {(c.fixture, c.split) for c in cases} == {("ai_act", "train")}
+    v0 = [c for c in cases if c.case_id + ".yaml" in CASE_FILES]
+    assert {(c.fixture, c.split) for c in v0} == {("ai_act", "train")}
 
 
 def test_case_is_checked_against_its_own_fixture(cases, second_fixture) -> None:

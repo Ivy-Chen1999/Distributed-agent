@@ -1,0 +1,229 @@
+# Published by scripts/publish_golden_cases.py from evals/golden/drafts/case_04_cra_manufacturer_obligations.yaml after human review.
+# Items record their provenance (llm_judged, human_verified, human_edited,
+# human_confirmed_candidate); notes record the reviewers and dates.
+case_id: case_04_cra_manufacturer_obligations
+scenario_id: eval_manufacturer_obligations
+ia_reference: 'Impact assessment accompanying the Cyber Resilience Act proposal (identifiers in the local
+  IA index); sections: 6.3.1. Impacts on manufacturers of products with digital elements and other economic
+  operators; 6.3.2. Impact on SMEs'
+fixture: cra
+split: train
+notes: 'CRA essential cybersecurity requirements and conformity-assessment modules sit in Annexes I-VIII,
+  which are not imported in v1; impacts resting only on annex content are out of scope. Drafted on 2026-10-06
+  by claude-opus-5-5 (scripts/draft_golden_case.py) and checked by isolated LLM judges, open items settled
+  by a tie-break judge. Human review by nobody (all items auto-accepted); published on 2026-10-19. Decisions:
+  auto_accepted 11, verified 0, edited 0, llm_kept 6, rejected 0, unclear 0, llm_dropped 3. Audit: 0/5
+  sampled items decided, 0 edited/rejected/unclear. Dropped by the tie-break judge: [''c04_o03'', ''c04_m03'',
+  ''c04_m06'']. Corrected after a failed reference check (human feedback), by an AI full-text review from
+  2026-10-17; not re-checked by people: trimmed [''c04_e07'', ''c04_m01''], modality restored none, rewritten
+  [''c04_e01'', ''c04_o02'', ''c04_m07''], dropped none.'
+expected_impacts:
+- expected_id: c04_e01
+  affected_actor: Manufacturers of hardware and software products with digital elements
+  mechanism: Essential requirements on secure design, development and production, a cybersecurity risk
+    assessment, and vulnerability handling for the product's expected lifetime or 5 years, whichever is
+    shorter (Art. 5, 10(1)-(2), 10(4), 10(6))
+  impact: Secure product development is estimated to add about 30.5% to product development costs where
+    no security practices exist. That is about EUR 42 700 per average product unit of EUR 140 000. The
+    costs are one-off and recurrent and cover security controls, skilled staff and potentially security
+    tools.
+  provision_keys:
+  - cra/proposal/art/5
+  - cra/proposal/art/10
+  ia_section: 6.3.1. Impacts on manufacturers of products with digital elements and other economic operators
+  category: compliance_cost
+  provenance: llm_judged
+- expected_id: c04_e02
+  affected_actor: Manufacturers of non-critical products with digital elements
+  mechanism: Duty to carry out a conformity assessment before placing on the market, using internal control
+    (module A) or another procedure (Art. 10(7), 24(1))
+  impact: Self-assessment costs on average EUR 18 400 per product, covering one-off and recurrent costs.
+    This includes setting up internal testing capacity and testing products internally.
+  provision_keys:
+  - cra/proposal/art/10
+  - cra/proposal/art/24
+  ia_section: 6.3.1. Impacts on manufacturers of products with digital elements and other economic operators
+  category: compliance_cost
+  provenance: llm_judged
+- expected_id: c04_e03
+  affected_actor: Manufacturers of critical products with digital elements (Annex III class I without
+    harmonised standards, and class II)
+  mechanism: Classification as critical products, which makes notified-body procedures mandatory (module
+    B+C or H) (Art. 6(1), 6(4), 24(2)-(3))
+  impact: Third-party assessment costs on average EUR 25 000 per product, including certification fees
+    and recurrent audits. It is expected to apply to a narrow share of the market, about 10% of products.
+  provision_keys:
+  - cra/proposal/art/6
+  - cra/proposal/art/24
+  ia_section: 6.3.1. Impacts on manufacturers of products with digital elements and other economic operators
+  category: compliance_cost
+  provenance: llm_judged
+- expected_id: c04_e04
+  affected_actor: Manufacturers
+  mechanism: Duties to draw up and keep updated technical documentation, issue the EU declaration of conformity,
+    affix CE marking and keep documentation for 10 years (Art. 10(7)-(8), 23)
+  impact: Documentation and other conformity obligations, together with reporting, are estimated at an
+    extra 9% of product development costs. This is EUR 3.1 billion for the hardware market. Internal systems
+    are needed to keep documents up to date.
+  provision_keys:
+  - cra/proposal/art/10
+  - cra/proposal/art/23
+  ia_section: 6.3.1. Impacts on manufacturers of products with digital elements and other economic operators
+  category: administrative_burden
+  provenance: llm_judged
+- expected_id: c04_e05
+  affected_actor: Manufacturers
+  mechanism: Obligation to notify ENISA within 24 hours of actively exploited vulnerabilities and of incidents,
+    and to inform users (Art. 11)
+  impact: One-off costs to set up reporting systems, and recurrent costs to report events to ENISA.
+  provision_keys:
+  - cra/proposal/art/11
+  ia_section: 6.3.1. Impacts on manufacturers of products with digital elements and other economic operators
+  category: administrative_burden
+  provenance: llm_judged
+- expected_id: c04_e06
+  affected_actor: Manufacturers
+  mechanism: Duty to supply Annex II information and instructions, in electronic or physical form, in
+    a language users can easily understand (Art. 10(10)-(11))
+  impact: Information and transparency obligations create one-off and recurrent costs. These were not
+    quantified, and the survey found they would not be significant if the information is provided digitally.
+  provision_keys:
+  - cra/proposal/art/10
+  ia_section: 6.3.1. Impacts on manufacturers of products with digital elements and other economic operators
+  category: administrative_burden
+  provenance: llm_judged
+- expected_id: c04_e07
+  affected_actor: Importers and distributors
+  mechanism: Verification duties (conformity assessment done, CE marking, documentation, contact details),
+    corrective action, informing authorities and record-keeping (Art. 13, 14)
+  impact: Their main costs are familiarisation with the new requirements. These were not quantified; as
+    a benchmark, under the Toy Safety Directive it took 110 man-hours per type for importers and 86 for
+    distributors.
+  provision_keys:
+  - cra/proposal/art/13
+  - cra/proposal/art/14
+  ia_section: 6.3.1. Impacts on manufacturers of products with digital elements and other economic operators
+  category: administrative_burden
+  provenance: llm_judged
+- expected_id: c04_e08
+  affected_actor: SME manufacturers that need notified-body assessment
+  mechanism: Notified bodies must take SMEs' interests into account and reduce conformity assessment fees
+    in proportion (Art. 24(5))
+  impact: This partly offsets SMEs' higher relative third-party assessment costs, because notified bodies
+    set fees according to company size.
+  provision_keys:
+  - cra/proposal/art/24
+  ia_section: 6.3.2. Impact on SMEs
+  category: sme_specific
+  provenance: llm_judged
+- expected_id: c04_e09
+  affected_actor: Businesses as users of products with digital elements
+  mechanism: Secure development and vulnerability handling required of manufacturers shrink the attack
+    surface of products (Art. 5, 10, 11)
+  impact: Cybersecurity incidents fall by about 20-33%, and EU companies' incident-related costs fall
+    by roughly EUR 180-290 billion a year.
+  provision_keys:
+  - cra/proposal/art/5
+  - cra/proposal/art/10
+  - cra/proposal/art/11
+  ia_section: 6.3.1. Impacts on manufacturers of products with digital elements and other economic operators
+  category: consumers_users
+  provenance: llm_judged
+- expected_id: c04_e10
+  affected_actor: Manufacturers of products with digital elements
+  mechanism: Fewer exploitable vulnerabilities in their products because of mandatory secure development
+    and vulnerability handling, plus a harmonised CE-marking framework (Art. 5, 10)
+  impact: Less reputational damage, because incidents affecting their products fall by about 33%. Trust
+    and uptake of CE-marked products also rise, and internal market fragmentation is avoided.
+  provision_keys:
+  - cra/proposal/art/5
+  - cra/proposal/art/10
+  ia_section: 6.3.1. Impacts on manufacturers of products with digital elements and other economic operators
+  category: market_competition
+  provenance: llm_judged
+- expected_id: c04_m01
+  affected_actor: SME manufacturers of products with digital elements
+  mechanism: Fixed costs of secure development, getting to know the new rules and showing conformity hit
+    SMEs harder. They have smaller customer bases, little in-house expertise and limited lab capacity,
+    so they turn to external consultants and testing labs (Art. 5, 10).
+  impact: SME manufacturers face higher relative compliance costs than large firms. Some may struggle
+    to bear them and could leave the market.
+  provision_keys:
+  - cra/proposal/art/5
+  - cra/proposal/art/10
+  ia_section: 6.3.2. Impact on SMEs
+  category: sme_specific
+  provenance: llm_tiebroken
+- expected_id: c04_m02
+  affected_actor: Specialised SME manufacturers of critical products
+  mechanism: Mandatory third-party conformity assessment for Annex III critical products (Art. 6(4), 24(2)-(3)).
+  impact: Third-party assessment could cost SMEs considerably. If the list of critical products is too
+    broad, specialised SMEs could be pushed to stop trading. Being free to choose the assessment procedure
+    helps offset this.
+  provision_keys:
+  - cra/proposal/art/6
+  - cra/proposal/art/24
+  ia_section: 6.3.2. Impact on SMEs
+  category: sme_specific
+  provenance: llm_tiebroken
+- expected_id: c04_m04
+  affected_actor: SMEs as end-users of products with digital elements
+  mechanism: Manufacturers must give users Annex II information on security properties and support (Art.
+    10(10)). This makes products more transparent, so buyers can tell secure products from insecure ones.
+  impact: SME users can make better-informed purchases. They gain the trust they need to invest in digitalisation
+    instead of holding back.
+  provision_keys:
+  - cra/proposal/art/10
+  ia_section: 6.3.2. Impact on SMEs
+  category: sme_specific
+  provenance: llm_tiebroken
+- expected_id: c04_m05
+  affected_actor: SME manufacturers, importers and distributors
+  mechanism: CE marking and the harmonised requirements build trust with end-users and give seamless access
+    to the internal market, which matters more to firms with smaller customer bases (Art. 5, 10, 13, 14).
+  impact: SMEs could win new customers and gain more in reputation than large firms. They also avoid the
+    costs of handling different rules across Member States.
+  provision_keys:
+  - cra/proposal/art/5
+  - cra/proposal/art/10
+  - cra/proposal/art/13
+  - cra/proposal/art/14
+  ia_section: 6.3.2. Impact on SMEs
+  category: sme_specific
+  provenance: llm_tiebroken
+- expected_id: c04_m07
+  affected_actor: Software manufacturers, especially of non-embedded software
+  mechanism: Fewer software products are covered by existing product-safety (NLF) laws, so their existing
+    compliance baseline (business-as-usual costs) is assumed to be lower. Conformity assessment therefore
+    adds proportionally more cost (Art. 10, 24).
+  impact: The IA assumes 25% of software testing costs are already incurred, against 40% for hardware,
+    and software firms rated their expected costs high to very high.
+  provision_keys:
+  - cra/proposal/art/10
+  - cra/proposal/art/24
+  ia_section: 6.3.1. Impacts on manufacturers of products with digital elements and other economic operators
+  category: compliance_cost
+  provenance: llm_tiebroken
+important_omissions:
+- omission_id: c04_o01
+  description: Manufacturers can pass the compliance costs created by the secure-development, conformity-assessment
+    and documentation duties on to end users through higher prices. Who finally bears the cost is therefore
+    partly consumers and business users, not only manufacturers.
+  provision_keys:
+  - cra/proposal/art/10
+  - cra/proposal/art/24
+  source: Impact assessment, 6.3.1. Impacts on manufacturers of products with digital elements and other
+    economic operators
+  category: consumers_users
+  provenance: llm_tiebroken
+- omission_id: c04_o02
+  description: More than 99% of manufacturers are SMEs. The IA expects SMEs generally to be more affected
+    by compliance costs than large firms. They have less capacity to absorb fixed familiarisation, testing
+    and development costs. They have limited in-house expertise and testing labs, so they rely on external
+    consultants and laboratories.
+  provision_keys:
+  - cra/proposal/art/10
+  - cra/proposal/art/24
+  source: Impact assessment, 6.3.2. Impact on SMEs
+  category: sme_specific
+  provenance: llm_judged

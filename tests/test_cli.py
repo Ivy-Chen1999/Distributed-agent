@@ -99,8 +99,10 @@ def test_eval_unknown_case(fake_version, tmp_path, capsys, use_script):
     assert "unknown golden case" in capsys.readouterr().err
 
 
-def test_eval_empty_split_is_usage_error(fake_version, tmp_path, capsys, use_script):
+def test_eval_empty_split_is_usage_error(fake_version, tmp_path, capsys, use_script, monkeypatch):
     use_script({})
+    train_only = [c for c in cli.load_all_golden() if c.split == "train"]
+    monkeypatch.setattr(cli, "load_all_golden", lambda *_a, **_k: train_only)
     assert cli.main(_args(fake_version, tmp_path, "eval", "--split", "val")) == cli.EXIT_USAGE
     assert "no golden cases selected (split=val" in capsys.readouterr().err
 

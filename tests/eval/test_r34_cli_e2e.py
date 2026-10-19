@@ -127,7 +127,9 @@ def env(monkeypatch, tmp_path):
     backends = Backends()
     val = [BASE.model_copy(update={"case_id": f"case_9{i}_val", "split": "val"})
            for i in range(N_VAL)]  # fmt: skip
-    monkeypatch.setattr(cli, "load_all_golden", lambda *_a, **_k: [*load_all_golden(), *val])
+    # the two v0 AI Act train cases only, so the published train/val cases do not change the counts
+    v0 = [c for c in load_all_golden() if c.fixture == "ai_act"]
+    monkeypatch.setattr(cli, "load_all_golden", lambda *_a, **_k: [*v0, *val])
     monkeypatch.setattr(cli, "prepare_backends", backends)
     monkeypatch.setattr(cli, "code_identity", git.code_identity)
     monkeypatch.setattr(nr, "_changed_files", git.changed_files)

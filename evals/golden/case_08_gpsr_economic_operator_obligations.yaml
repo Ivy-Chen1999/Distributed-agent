@@ -1,0 +1,214 @@
+# Published by scripts/publish_golden_cases.py from evals/golden/drafts/case_08_gpsr_economic_operator_obligations.yaml after human review.
+# Items record their provenance (llm_judged, human_verified, human_edited,
+# human_confirmed_candidate); notes record the reviewers and dates.
+case_id: case_08_gpsr_economic_operator_obligations
+scenario_id: eval_economic_operator_obligations
+ia_reference: 'Impact assessment accompanying the General Product Safety Regulation proposal (identifiers
+  in the local IA index); sections: 6.3. Impacts of Option 3; 8.1. Preferred option – Option 3'
+fixture: gpsr
+split: train
+notes: 'Drafted on 2026-10-06 by claude-opus-5-5 (scripts/draft_golden_case.py) and checked by isolated
+  LLM judges, open items settled by a tie-break judge. Human review by nobody (all items auto-accepted);
+  published on 2026-10-19. Decisions: auto_accepted 8, verified 0, edited 0, llm_kept 7, rejected 0, unclear
+  0, llm_dropped 3. Audit: 0/4 sampled items decided, 0 edited/rejected/unclear. Dropped by the tie-break
+  judge: [''c08_o02'', ''c08_m04'', ''c08_m05'']. Corrected after a failed reference check (human feedback),
+  by an AI full-text review from 2026-10-17; not re-checked by people: trimmed [''c08_o03''], modality
+  restored [''c08_e09''], rewritten none, dropped none.'
+expected_impacts:
+- expected_id: c08_e01
+  affected_actor: Manufacturers, wholesalers/importers and retailers/distributors of non-harmonised consumer
+    products
+  mechanism: 'New due-diligence duties: technical documentation, complaint registers, identification and
+    contact labelling, checks before placing or making products available, corrective action and alerts
+    via the Safety Business Gateway (Arts 8, 10, 11)'
+  impact: Higher recurrent costs for extra staff, due-diligence resources, IT systems and external services,
+    plus one-off familiarisation and adaptation costs. The IA puts total business costs at EUR 196.6 million
+    in the first year, falling to EUR 177.8 million a year after that.
+  provision_keys:
+  - gpsr/proposal/art/8
+  - gpsr/proposal/art/10
+  - gpsr/proposal/art/11
+  ia_section: 6.3. Impacts of Option 3 – Economic impacts
+  category: compliance_cost
+  provenance: llm_tiebroken
+- expected_id: c08_e02
+  affected_actor: Manufacturers (compared with wholesalers and retailers)
+  mechanism: 'Manufacturers carry the heaviest set of obligations: design to the general safety requirement,
+    technical documentation kept for 10 years, conformity procedures for series production, and complaint
+    handling (Art 8)'
+  impact: Manufacturers' recurrent compliance costs rise more than those of distributors, because they
+    may need to adjust several stages of the value-adding process. Table 11 shows EUR 111.7 million in
+    recurrent costs a year for manufacturing sectors.
+  provision_keys:
+  - gpsr/proposal/art/8
+  ia_section: 6.3. Impacts of Option 3 – Economic impacts
+  category: compliance_cost
+  provenance: llm_tiebroken
+- expected_id: c08_e03
+  affected_actor: SMEs among manufacturers, importers and distributors
+  mechanism: The same operator obligations apply whatever the size of the firm, so the fixed compliance
+    effort weighs more heavily on smaller firms
+  impact: SMEs face higher relative cost increases. The IA still judges the overall effect on SMEs moderate
+    and offset by about EUR 34 million in harmonisation savings.
+  provision_keys:
+  - gpsr/proposal/art/8
+  - gpsr/proposal/art/10
+  - gpsr/proposal/art/11
+  ia_section: 6.3. Impacts of Option 3 – Economic impacts
+  category: sme_specific
+  provenance: llm_judged
+- expected_id: c08_e04
+  affected_actor: Online marketplaces that have not signed the Product Safety Pledge
+  mechanism: 'Binding duties: a single contact point and registration on Safety Gate, acting on removal
+    orders within two working days, answering notices within five working days, and cooperating on recalls
+    and data access (Art 20)'
+  impact: Recurrent costs rise. The increase is limited for Pledge signatories, while non-signatory platforms
+    face extra compliance costs.
+  provision_keys:
+  - gpsr/proposal/art/20
+  ia_section: 6.3. Impacts of Option 3 – Economic impacts
+  category: compliance_cost
+  provenance: llm_tiebroken
+- expected_id: c08_e05
+  affected_actor: Small online platforms and potential new market entrants
+  mechanism: The fixed costs of meeting Article 20 duties (contact point, processing orders, interface
+    design, cooperation tools)
+  impact: These costs may hit small platforms hardest and discourage new entrants, which could weaken
+    competition between platforms.
+  provision_keys:
+  - gpsr/proposal/art/20
+  ia_section: 6.3. Impacts of Option 3 – Economic impacts
+  category: market_competition
+  provenance: llm_judged
+- expected_id: c08_e06
+  affected_actor: Online marketplaces and online sellers
+  mechanism: The marketplace interface must let traders show manufacturer details, the responsible person,
+    product identifiers and safety information on each listing (Art 20(5))
+  impact: Costs are very limited because the information already exists and goes no further than what
+    is on the packaging. Consumers get the same safety information online as offline.
+  provision_keys:
+  - gpsr/proposal/art/20
+  ia_section: 6.3. Impacts of Option 3 – Economic impacts
+  category: administrative_burden
+  provenance: llm_judged
+- expected_id: c08_e07
+  affected_actor: Non-EU manufacturers selling directly into the EU, and consumers and authorities dealing
+    with their products
+  mechanism: Every consumer product must have an EU-based responsible economic operator, named on the
+    product, packaging or parcel, with tasks including periodic sample testing (Art 15)
+  impact: Consumers and national authorities can always reach an operator based in the EU about product
+    safety issues, which tackles the problem of direct imports from outside the EU.
+  provision_keys:
+  - gpsr/proposal/art/15
+  ia_section: 8.1. Preferred option – Option 3
+  category: international
+  provenance: llm_judged
+- expected_id: c08_e08
+  affected_actor: Consumers
+  mechanism: Stronger operator duties, product identification, online listing information and marketplace
+    takedown and cooperation obligations reduce the number of unsafe products on the market
+  impact: 'Lower consumer detriment from unsafe products: about EUR 1.0 billion in the first year, rising
+    to about EUR 5.5 billion over the next decade.'
+  provision_keys:
+  - gpsr/proposal/art/8
+  - gpsr/proposal/art/10
+  - gpsr/proposal/art/11
+  - gpsr/proposal/art/20
+  ia_section: 6.3. Impacts of Option 3 – Economic impacts
+  category: consumers_users
+  provenance: llm_judged
+- expected_id: c08_e09
+  affected_actor: Consumers and public health systems
+  mechanism: Traceability systems for high-risk products, product identification numbers, and alerts to
+    consumers through the Safety Business Gateway (Arts 8(6), 8(11), 17)
+  impact: Recalls are expected to work better, and fewer unsafe products are expected to stay in consumers'
+    hands. Informing affected consumers directly was estimated to save €73 million in 2019, and the health-care
+    costs of product-related injuries (about EUR 6.7 billion a year) could come down.
+  provision_keys:
+  - gpsr/proposal/art/17
+  - gpsr/proposal/art/8
+  - gpsr/proposal/art/10
+  ia_section: 6.3. Impacts of Option 3 – Social impacts
+  category: social_environmental
+  provenance: llm_tiebroken
+- expected_id: c08_e10
+  affected_actor: Law-abiding EU businesses competing with rogue traders
+  mechanism: All operators in the supply chain, including the EU responsible person for direct imports,
+    must meet the same safety obligations, which deters non-compliant traders
+  impact: A more level playing field, because every operator bears product safety compliance costs and
+    rogue traders are deterred.
+  provision_keys:
+  - gpsr/proposal/art/8
+  - gpsr/proposal/art/10
+  - gpsr/proposal/art/11
+  - gpsr/proposal/art/15
+  ia_section: 6.3. Impacts of Option 3 – Economic impacts
+  category: market_competition
+  provenance: llm_judged
+- expected_id: c08_m01
+  affected_actor: Consumers, in particular low-income consumers buying cheap non-harmonised products from
+    non-EU/EEA traders via online platforms
+  mechanism: Businesses pass the compliance costs of the new operator, responsible-person and marketplace
+    obligations on to consumers through prices, which mostly affects products ordered cheaply online from
+    non-EU traders
+  impact: Overall effect on consumer prices is negligible, but prices of some cheap imported products
+    may rise. Price-sensitive low-income consumers may then buy less, with a possible limited effect on
+    affordability.
+  provision_keys:
+  - gpsr/proposal/art/15
+  - gpsr/proposal/art/20
+  - gpsr/proposal/art/8
+  - gpsr/proposal/art/10
+  ia_section: 6.3. Impacts of Option 3
+  category: consumers_users
+  provenance: llm_tiebroken
+- expected_id: c08_m02
+  affected_actor: Market surveillance authorities
+  mechanism: Manufacturer and responsible-person details, product identifiers and safety information shown
+    on online listings (Art 20(5)), plus identification labelling (Arts 8(6)-(7), 15(3)), make products
+    easier to trace for market surveillance
+  impact: Better traceability of products sold online, which supports enforcement against dangerous online
+    offers
+  provision_keys:
+  - gpsr/proposal/art/20
+  - gpsr/proposal/art/8
+  - gpsr/proposal/art/15
+  ia_section: 8.1. Preferred option – Option 3
+  category: public_enforcement_cost
+  provenance: llm_tiebroken
+- expected_id: c08_m03
+  affected_actor: Businesses developing information and traceability solutions (economic operators and
+    technology providers)
+  mechanism: Traceability requirements and greater legal certainty encourage businesses to develop new
+    information and traceability systems
+  impact: Positive effects on competition-driven innovation, with no significant harm to overall innovative
+    capacity
+  provision_keys:
+  - gpsr/proposal/art/17
+  - gpsr/proposal/art/8
+  ia_section: 6.3. Impacts of Option 3
+  category: innovation_investment
+  provenance: llm_tiebroken
+important_omissions:
+- omission_id: c08_o01
+  description: Part of the costs created for manufacturers, importers, distributors and marketplaces will
+    be passed on to consumers. The overall price effect is negligible, but some cheap non-harmonised products,
+    especially those ordered through online platforms from non-EU traders, may cost more, and price-sensitive
+    low-income consumers may buy less.
+  provision_keys:
+  - gpsr/proposal/art/15
+  - gpsr/proposal/art/20
+  - gpsr/proposal/art/10
+  source: Impact assessment, 6.3. Impacts of Option 3 – Economic impacts
+  category: consumers_users
+  provenance: llm_judged
+- omission_id: c08_o03
+  description: Market surveillance authorities take on extra work. This adds recurrent public enforcement
+    costs, partly offset by efficiency gains.
+  provision_keys:
+  - gpsr/proposal/art/20
+  - gpsr/proposal/art/15
+  - gpsr/proposal/art/8
+  source: Impact assessment, 6.3. Impacts of Option 3 – Impacts on Member States
+  category: public_enforcement_cost
+  provenance: llm_judged
