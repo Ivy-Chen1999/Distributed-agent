@@ -115,6 +115,35 @@ def test_a_reference_check_that_is_not_robust_is_refused(tmp_path, settled):
         _review(tmp_path, settled, wrong=5)
 
 
+def test_full_review_needs_no_robust_reference_check(tmp_path, settled):
+    # every item is decided by the owner, so the tool's reliability is not relied on
+    review = _review(tmp_path, settled, wrong=5, full=CASE)
+    _agree_all(review)
+    assert review.submit()["done"] == 1
+    no_round = hr.Review({settled: verify.load_holdout_draft(settled)}, reviewer="jdoe",
+                         reference_dir=None, full=CASE, out_dir=tmp_path / "cache" / "h2",
+                         state_dir=tmp_path / "cache" / "hr2", ia_root=tmp_path / "ia")  # fmt: skip
+    assert len(no_round.cards) == len(verify.load_holdout_draft(settled).items())
+
+
+def test_full_all_asks_every_item_of_every_draft(tmp_path, settled):
+    other = tmp_path / "cache" / "drafts" / "case_98_other.yaml"
+    prefix = drafting_module.case_prefix(CASE)  # item ids are unique across drafts
+    text = yaml.safe_dump(tvg._tiebroken_holdout()).replace(prefix + "_", "c98_")
+    write(other, {**yaml.safe_load(text), "case_id": "case_98_other"})
+    drafts = {p: verify.load_holdout_draft(p) for p in (settled, other)}
+    review = hr.Review(drafts, reviewer="jdoe", reference_dir=None, full="all",
+                       out_dir=tmp_path / "cache" / "h3", state_dir=tmp_path / "cache" / "hr3",
+                       ia_root=tmp_path / "ia")  # fmt: skip
+    assert len(review.cards) == sum(len(d.items()) for d in drafts.values())
+
+
+def test_a_spot_check_without_a_reference_check_is_refused(tmp_path, settled):
+    with pytest.raises(verify.VerifyError, match="--reference-check"):
+        hr.Review({settled: verify.load_holdout_draft(settled)}, reviewer="jdoe",
+                  reference_dir=None, out_dir=tmp_path / "o", state_dir=tmp_path / "s")  # fmt: skip
+
+
 def test_the_server_is_local_only_and_serves_the_page_and_api(tmp_path, settled):
     review = _review(tmp_path, settled)
     server = hr.serve(review)

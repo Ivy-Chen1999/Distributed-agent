@@ -3,6 +3,10 @@
     uv run python scripts/holdout_review.py --reference-check .cache/reference_check/round1 \\
         --reviewer "<your name>"
     uv run python scripts/holdout_review.py --reference-check ... --reviewer ... --full <case_id>
+    uv run python scripts/holdout_review.py --reviewer "<your name>" --full all
+
+A full review (``--full <case_id>`` or ``--full all``) asks every item and keeps only the owner's
+answers, so it needs no reference check; a spot check needs a ROBUST one.
 
 The same rules as ``verify_golden_case.py --spot-check``, on every tie-broken holdout draft in
 ``.cache/drafts/`` at once (or on ``--draft`` files): a ROBUST reference check is required, and
@@ -57,6 +61,7 @@ def _load_verify():
 
 
 verify = _load_verify()
+FULL_ALL = "all"
 
 DRAFTS_DIR = REPO_ROOT / ".cache" / "drafts"
 STATE_DIR = REPO_ROOT / ".cache" / "holdout_review"
@@ -77,7 +82,7 @@ class Review:
         drafts: dict[Path, GoldenDraft],
         *,
         reviewer: str,
-        reference_dir: Path,
+        reference_dir: Path | None,
         full: str | None = None,
         out_dir: Path = verify.HANDOFF_DIR,
         state_dir: Path = STATE_DIR,
@@ -88,8 +93,14 @@ class Review:
             raise verify.VerifyError("a reviewer name is required (--reviewer)")
         self.reviewer, self.full, self.out_dir = reviewer.strip(), full, out_dir
         self.today = today or dt.date.today()
-        self.reference = verify.robust_reference_check(reference_dir, list(drafts))
-        if full:
+        # A full review decides every item itself, so it relies on no reference check; only a
+        # spot check, which keeps the tool's decisions, needs a ROBUST one.
+        self.reference = None
+        if not full:
+            if reference_dir is None:
+                raise verify.VerifyError("a spot check needs --reference-check (a ROBUST round)")
+            self.reference = verify.robust_reference_check(reference_dir, list(drafts))
+        elif full != FULL_ALL:
             drafts = {p: d for p, d in drafts.items() if d.case_id == full}
             if not drafts:
                 raise verify.VerifyError(f"no holdout draft {full} among the drafts given")
@@ -287,12 +298,14 @@ def serve(review: Review, port: int = 0) -> ThreadingHTTPServer:
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--reference-check", type=Path, required=True,
-                        help="the reference-check round dir that scores ROBUST")  # fmt: skip
+    parser.add_argument("--reference-check", type=Path,
+                        help="the reference-check round dir that scores ROBUST (spot check only)")  # fmt: skip
     parser.add_argument("--reviewer", required=True, help="your name, recorded in the handoffs")
     parser.add_argument("--draft", type=Path, action="append",
                         help="holdout draft(s); default every *.yaml in .cache/drafts/")  # fmt: skip
-    parser.add_argument("--full", metavar="CASE_ID", help="ask every item of this one draft")
+    parser.add_argument("--full", metavar="CASE_ID",
+                        help=f"ask every item of this one draft, or of every draft ({FULL_ALL!r}); "
+                        "needs no reference check")  # fmt: skip
     parser.add_argument("--port", type=int, default=0)
     parser.add_argument("--no-browser", action="store_true")
     parser.add_argument("--out-dir", type=Path, default=verify.HANDOFF_DIR, help=argparse.SUPPRESS)
@@ -314,7 +327,7 @@ def main(argv: list[str] | None = None) -> int:
     server = serve(review, args.port)
     url = f"http://127.0.0.1:{server.server_address[1]}/"
     what = (
-        f"every item of {args.full}"
+        f"every item of {'every draft' if args.full == FULL_ALL else args.full}"
         if args.full
         else f"{len(review.cards)} items over {len(review.drafts)} drafts"
     )
