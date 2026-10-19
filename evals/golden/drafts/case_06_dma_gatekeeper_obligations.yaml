@@ -751,8 +751,9 @@ important_omissions:
 - omission_id: c06_o04
   description: 'The information and reporting duties on gatekeepers: notifying all intended digital-sector
     concentrations with turnover and user data (Art 12), submitting and updating every year an independently
-    audited description of profiling techniques (Art 13), and making reasoned submissions in specification
-    proceedings (Art 7). These create administrative burden separate from the substantive conduct changes.'
+    audited description of profiling techniques (Art 13), and optionally making reasoned submissions in
+    specification proceedings (Art 7). These create administrative burden separate from the substantive
+    conduct changes.'
   source: ia
   provision_keys:
   - dma/proposal/art/12
@@ -793,6 +794,23 @@ important_omissions:
     audit: false
     reviewer: null
     note: null
+  sweep:
+    action: rewrite
+    before:
+      description: 'The information and reporting duties on gatekeepers: notifying all intended digital-sector
+        concentrations with turnover and user data (Art 12), submitting and updating every year an independently
+        audited description of profiling techniques (Art 13), and making reasoned submissions in specification
+        proceedings (Art 7). These create administrative burden separate from the substantive conduct
+        changes.'
+    reason: 'Codex source closeout 2026-10-17: Arts 12 and 13 are duties as stated; the Art 7(7) reasoned
+      submission is optional (''may''), so the modality is restored.'
+    model: full-text review (assistant reviewers), Codex closeout ruling 2026-10-17
+    'on': '2026-10-17'
+    sources:
+    - .cache/ia/dma/ia_full.txt:922
+    - data/fixtures/dma/proposal.json:57
+    - data/fixtures/dma/proposal.json:92
+    - data/fixtures/dma/proposal.json:99
 possibly_missing:
 - candidate_id: c06_m01
   affected_actor: European Commission
@@ -898,8 +916,8 @@ possibly_missing:
 - candidate_id: c06_m03
   affected_actor: Designated gatekeepers
   mechanism: Under Art 7(7) a gatekeeper can ask for a regulatory dialogue and request a Commission decision
-    on whether its intended Art 6 measures are effective. This makes implementation more flexible and
-    gives more legal certainty.
+    on whether its intended Art 6 measures are effective. This could make implementation more flexible
+    and help create legal certainty.
   impact: Lower compliance costs, and implementation that disrupts commercial relationships with business
     users less than self-executing obligations would.
   why_missing: The drafted gatekeeper pair covers general compliance costs and dealing with the Commission,
@@ -944,6 +962,20 @@ possibly_missing:
     audit: false
     reviewer: null
     note: null
+  sweep:
+    action: rewrite
+    before:
+      mechanism: Under Art 7(7) a gatekeeper can ask for a regulatory dialogue and request a Commission
+        decision on whether its intended Art 6 measures are effective. This makes implementation more
+        flexible and gives more legal certainty.
+    reason: 'Codex source closeout 2026-10-17: 驳回删除法律确定性的理由。IA Table4的Option2-A/2-B明确把dialogue与legal certainty联系起来，改为保留条件语气。'
+    model: full-text review (assistant reviewers), Codex closeout ruling 2026-10-17
+    'on': '2026-10-17'
+    sources:
+    - .cache/ia/dma/ia_full.txt:2101
+    - .cache/ia/dma/ia_full.txt:942
+    - data/fixtures/dma/proposal.json:57
+    - dma/ia_full.txt:942,1031-1032; proposal Art7(7)
 - candidate_id: c06_m04
   affected_actor: Business users of gatekeeper platforms (especially SMEs)
   mechanism: Bans on parity clauses, tying and anti-steering (Art 5(b), (c), (f)) and fair access conditions
@@ -1100,7 +1132,7 @@ possibly_missing:
   mechanism: More contestable markets created by the Art 5 and 6 obligations increase competitive pressure
     on gatekeepers, which have to keep a large user base.
   impact: Stronger incentives for gatekeepers to innovate, bring new products to market and offer lower
-    prices, even though their business models are affected.
+    prices, even though their business models may be affected.
   why_missing: The drafted gatekeeper pairs cover only compliance costs and restrictions on business-model
     practices, not the innovation incentive.
   provision_keys:
@@ -1148,3 +1180,16 @@ possibly_missing:
     audit: false
     reviewer: null
     note: null
+  sweep:
+    action: rewrite
+    before:
+      impact: Stronger incentives for gatekeepers to innovate, bring new products to market and offer
+        lower prices, even though their business models are affected.
+    reason: 'Codex source closeout 2026-10-17: Mechanism and incentives are in paras 303 and 317; the
+      effect on business models is only ''may''/''expected''/''even in case'' in the IA, so the hedge
+      is restored.'
+    model: full-text review (assistant reviewers), Codex closeout ruling 2026-10-17
+    'on': '2026-10-17'
+    sources:
+    - .cache/ia/dma/ia_full.txt:924
+    - .cache/ia/dma/ia_full.txt:956

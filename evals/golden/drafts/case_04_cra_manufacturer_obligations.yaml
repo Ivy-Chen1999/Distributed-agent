@@ -153,11 +153,12 @@ expected_impacts:
 - expected_id: c04_e01
   affected_actor: Manufacturers of hardware and software products with digital elements
   mechanism: Essential requirements on secure design, development and production, a cybersecurity risk
-    assessment, and vulnerability handling for the product's lifetime or 5 years (Art. 5, 10(1)-(2), 10(4),
-    10(6))
-  impact: Secure product development adds about 30.5% to product development costs where no security practices
-    exist. That is about EUR 42 700 per average product unit of EUR 140 000. The costs are one-off and
-    recurrent and cover security controls, skilled staff and security tools.
+    assessment, and vulnerability handling for the product's expected lifetime or 5 years, whichever is
+    shorter (Art. 5, 10(1)-(2), 10(4), 10(6))
+  impact: Secure product development is estimated to add about 30.5% to product development costs where
+    no security practices exist. That is about EUR 42 700 per average product unit of EUR 140 000. The
+    costs are one-off and recurrent and cover security controls, skilled staff and potentially security
+    tools.
   provision_keys:
   - cra/proposal/art/5
   - cra/proposal/art/10
@@ -196,6 +197,24 @@ expected_impacts:
     audit: false
     reviewer: null
     note: null
+  sweep:
+    action: rewrite
+    before:
+      impact: Secure product development adds about 30.5% to product development costs where no security
+        practices exist. That is about EUR 42 700 per average product unit of EUR 140 000. The costs are
+        one-off and recurrent and cover security controls, skilled staff and security tools.
+      mechanism: Essential requirements on secure design, development and production, a cybersecurity
+        risk assessment, and vulnerability handling for the product's lifetime or 5 years (Art. 5, 10(1)-(2),
+        10(4), 10(6))
+    reason: 'Codex source closeout 2026-10-17: The 30.5% is a model estimate and security software is
+      a ''potential'' cost (ia_full.txt:702, 634); the rewrite restores both hedges, and everything else
+      matches the law and the IA.'
+    model: full-text review (assistant reviewers), Codex closeout ruling 2026-10-17
+    'on': '2026-10-17'
+    sources:
+    - data/fixtures/cra/proposal.json:cra/proposal/art/10
+    - ia_full.txt:634
+    - ia_full.txt:702
 - expected_id: c04_e02
   affected_actor: Manufacturers of non-critical products with digital elements
   mechanism: Duty to carry out a conformity assessment before placing on the market, using internal control
@@ -473,6 +492,7 @@ expected_impacts:
       stand on their own.'
     model: full-text review (assistant reviewers, owner delegation), Codex review 2026-10-17
     'on': '2026-10-17'
+    sources: []
 - expected_id: c04_e08
   affected_actor: SME manufacturers that need notified-body assessment
   mechanism: Notified bodies must take SMEs' interests into account and reduce conformity assessment fees
@@ -658,9 +678,10 @@ important_omissions:
     reviewer: null
     note: null
 - omission_id: c04_o02
-  description: More than 99% of manufacturers are SMEs, and the obligations hit them harder than large
-    firms. They have less capacity to absorb fixed familiarisation, testing and development costs. They
-    lack in-house expertise and testing labs, so they rely on external consultants and laboratories.
+  description: More than 99% of manufacturers are SMEs. The IA expects SMEs generally to be more affected
+    by compliance costs than large firms. They have less capacity to absorb fixed familiarisation, testing
+    and development costs. They have limited in-house expertise and testing labs, so they rely on external
+    consultants and laboratories.
   source: ia
   provision_keys:
   - cra/proposal/art/10
@@ -698,6 +719,19 @@ important_omissions:
     audit: true
     reviewer: null
     note: null
+  sweep:
+    action: rewrite
+    before:
+      description: More than 99% of manufacturers are SMEs, and the obligations hit them harder than large
+        firms. They have less capacity to absorb fixed familiarisation, testing and development costs.
+        They lack in-house expertise and testing labs, so they rely on external consultants and laboratories.
+    reason: 'Codex source closeout 2026-10-17: 保留比较结论，但恢复would in principle的总体预期限定；limited不是完全lack。'
+    model: full-text review (assistant reviewers), Codex closeout ruling 2026-10-17
+    'on': '2026-10-17'
+    sources:
+    - ia_full.txt:839
+    - ia_full.txt:851
+    - cra/ia_full.txt:839,851
 - omission_id: c04_o03
   description: How broadly the critical-product categories (Annex III, amendable by delegated act) are
     set decides how many specialised SMEs face mandatory third-party assessment. A broad scope could push
@@ -819,6 +853,7 @@ possibly_missing:
       so cut it. The remaining text reads: ''... Some may struggle to bear them and could leave the market.'''
     model: full-text review (assistant reviewers, owner delegation), Codex review 2026-10-17
     'on': '2026-10-17'
+    sources: []
 - candidate_id: c04_m02
   affected_actor: Specialised SME manufacturers of critical products
   mechanism: Mandatory third-party conformity assessment for Annex III critical products (Art. 6(4), 24(2)-(3)).
@@ -1089,11 +1124,10 @@ possibly_missing:
 - candidate_id: c04_m07
   affected_actor: Software manufacturers, especially of non-embedded software
   mechanism: Fewer software products are covered by existing product-safety (NLF) laws, so their existing
-    compliance baseline (business-as-usual costs) is lower. Conformity assessment and secure development
-    therefore add proportionally more cost (Art. 10, 24).
-  impact: Software manufacturers bear higher extra compliance costs than hardware manufacturers. The IA
-    assumes 25% of software testing costs are already incurred, against 40% for hardware, and software
-    firms rated their expected costs high to very high.
+    compliance baseline (business-as-usual costs) is assumed to be lower. Conformity assessment therefore
+    adds proportionally more cost (Art. 10, 24).
+  impact: The IA assumes 25% of software testing costs are already incurred, against 40% for hardware,
+    and software firms rated their expected costs high to very high.
   why_missing: The draft treats hardware and software manufacturers as one group and misses the IA's finding
     that software manufacturers' additional costs are higher.
   provision_keys:
@@ -1143,3 +1177,23 @@ possibly_missing:
     audit: false
     reviewer: null
     note: null
+  sweep:
+    action: rewrite
+    before:
+      mechanism: Fewer software products are covered by existing product-safety (NLF) laws, so their existing
+        compliance baseline (business-as-usual costs) is lower. Conformity assessment and secure development
+        therefore add proportionally more cost (Art. 10, 24).
+      impact: Software manufacturers bear higher extra compliance costs than hardware manufacturers. The
+        IA assumes 25% of software testing costs are already incurred, against 40% for hardware, and software
+        firms rated their expected costs high to very high.
+    reason: 'Codex source closeout 2026-10-17: The lower software baseline is an assumption that applies
+      to conformity assessment only (ia_full.txt:751, 597), and the IA never says software makers bear
+      higher extra costs than hardware makers; the rewrite restores the hedge and deletes the two unsupported
+      parts.'
+    model: full-text review (assistant reviewers), Codex closeout ruling 2026-10-17
+    'on': '2026-10-17'
+    sources:
+    - ia_full.txt:435
+    - ia_full.txt:597
+    - ia_full.txt:739
+    - ia_full.txt:751

@@ -355,8 +355,8 @@ expected_impacts:
   affected_actor: Consumers and injured persons harmed by complex products
   mechanism: Access to the defendant's evidence (Art. 8) and presumptions easing proof of defect and causation
     (Art. 9) reduce information asymmetry
-  impact: Claims for complex products that end in compensation rise by 7%. Average pay-outs are unchanged.
-    Consumer protection becomes more uniform and confidence in complex products may improve.
+  impact: Claims for complex products that end in compensation are estimated to rise by 7%. Average pay-outs
+    are unchanged. Consumer protection becomes more uniform and confidence in complex products may improve.
   provision_keys:
   - pld/proposal/art/8
   - pld/proposal/art/9
@@ -396,6 +396,23 @@ expected_impacts:
     audit: false
     reviewer: null
     note: null
+  sweep:
+    action: rewrite
+    before:
+      impact: Claims for complex products that end in compensation rise by 7%. Average pay-outs are unchanged.
+        Consumer protection becomes more uniform and confidence in complex products may improve.
+    reason: 'Codex source closeout 2026-10-17: Everything is supported by the law and the IA, but the
+      7% is an estimate (ia_full.txt:1256, 1264), so ''estimated'' is restored.'
+    model: full-text review (assistant reviewers), Codex closeout ruling 2026-10-17
+    'on': '2026-10-17'
+    sources:
+    - data/fixtures/pld/proposal.json:pld/proposal/art/8
+    - data/fixtures/pld/proposal.json:pld/proposal/art/9
+    - ia_full.txt:1099
+    - ia_full.txt:1256
+    - ia_full.txt:644
+    - ia_full.txt:646
+    - ia_full.txt:652
 - expected_id: c11_e07
   affected_actor: Injured persons (holders of the right to an effective remedy)
   mechanism: Easing the burden of proof through presumptions and disclosure for complex products (Arts.
@@ -599,6 +616,7 @@ expected_impacts:
       supported AR/FSP exposure).'
     model: full-text review (assistant reviewers, owner delegation), Codex review 2026-10-17
     'on': '2026-10-17'
+    sources: []
 important_omissions:
 - omission_id: c11_o01
   description: Court-ordered disclosure under Art. 8 may require producers to reveal confidential technical
@@ -954,10 +972,10 @@ possibly_missing:
     note: null
 - candidate_id: c11_m05
   affected_actor: Consumers of complex products (as purchasers and users)
-  mechanism: Making the presumptions in Art. 9 explicit and visible increases consumer confidence and
-    trust in complex products and their willingness to bring claims.
-  impact: Better consumer trust in complex products, and more confidence to claim compensation in complex
-    cases.
+  mechanism: Making the presumptions in Art. 9 explicit and visible could increase consumer confidence
+    and trust in complex products and their willingness to bring claims.
+  impact: Consumer trust in complex products could improve, and consumers could have more confidence to
+    claim compensation in complex cases.
   why_missing: The drafted consumer pairs cover information asymmetry and easier proof, not trust in products
     or willingness to buy them.
   provision_keys:
@@ -1003,14 +1021,18 @@ possibly_missing:
     reviewer: null
     note: null
   sweep:
-    action: trim
+    action: rewrite
     before:
       impact: Better consumer trust in, and uptake of, complex and digital products, and more confidence
         to claim compensation in complex cases.
-    reason: 'full-text review 2026-10-16/17 after the failed reference check 2026-10-14-75af237c (assistant
-      reviewers on owner delegation; accepted by the Codex review of 2026-10-17): Exact deletions: remove
-      '', and uptake of,'' (leading comma included) and '' and digital'' (leading space). Result: ''Better
-      consumer trust in complex products, and more confidence to claim compensation in complex cases.''
-      The flag was half right: ''confidence to claim'' is supported at 610.'
-    model: full-text review (assistant reviewers, owner delegation), Codex review 2026-10-17
+      mechanism: Making the presumptions in Art. 9 explicit and visible increases consumer confidence
+        and trust in complex products and their willingness to bring claims.
+    reason: 'Second edit, replacing the trim of 2026-10-17 (which cut '', and uptake of,'' and '' and
+      digital'' from impact; ''before'' keeps the original text). Codex modality ruling 2026-10-17: the
+      IA states the effect as a possibility (''could improve consumer confidence'', 646; ''could, however,
+      potentially give consumers greater confidence to make compensation claims'', 610), so the point
+      keeps ''could''; stated as fact it is not supported (regression case w12).'
+    model: full-text review (assistant reviewers), Codex modality ruling 2026-10-17
     'on': '2026-10-17'
+    sources:
+    - pld/ia_full.txt:610,646

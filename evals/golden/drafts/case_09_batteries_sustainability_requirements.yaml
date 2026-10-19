@@ -425,11 +425,14 @@ expected_impacts:
     reviewer: null
     note: null
 - expected_id: c09_e07
-  affected_actor: Users and buyers of rechargeable industrial and EV batteries
-  mechanism: Mandatory performance and durability information, and minimum values that take under-performing
-    batteries off the market.
-  impact: Users get economic benefits through better value for money and more informed purchasing decisions,
-    and the market shifts towards better-performing batteries.
+  affected_actor: Users and buyers of rechargeable industrial and EV batteries with internal storage and
+    a capacity above 2 kWh
+  mechanism: Mandatory performance and durability information for batteries covered by Article 10(1).
+    Under Article 10(2), from 1 January 2026 minimum performance and durability values apply to rechargeable
+    industrial batteries with internal storage and a capacity above 2 kWh, taking under-performing batteries
+    off the market.
+  impact: Users should get economic benefits through better value for money and more informed purchasing
+    decisions, and the market should shift towards better-performing batteries.
   provision_keys:
   - batteries/proposal/art/10
   ia_section: 'Measure 7: Performance and durability of rechargeable industrial and EV batteries'
@@ -467,6 +470,23 @@ expected_impacts:
     audit: true
     reviewer: null
     note: null
+  sweep:
+    action: rewrite
+    before:
+      mechanism: Mandatory performance and durability information, and minimum values that take under-performing
+        batteries off the market.
+      impact: Users get economic benefits through better value for money and more informed purchasing
+        decisions, and the market shifts towards better-performing batteries.
+      affected_actor: Users and buyers of rechargeable industrial and EV batteries
+    reason: 'Codex source closeout 2026-10-17: 同意补should及工业电池范围，另保留internal storage、above2kWh及提案规定的起始日期；该日期描述的是本案例提案，不是对当前生效法作判断。'
+    model: full-text review (assistant reviewers), Codex closeout ruling 2026-10-17
+    'on': '2026-10-17'
+    sources:
+    - .cache/ia/batteries/ia_full.txt:799
+    - .cache/ia/batteries/ia_full.txt:801
+    - .cache/ia/batteries/ia_full.txt:947
+    - data/fixtures/batteries/proposal.json:78
+    - batteries proposal Art10(1)-(2); IA:795,799,801
 - expected_id: c09_e08
   affected_actor: Consumers buying portable batteries of general use
   mechanism: From 2027 portable batteries of general use must meet minimum electrochemical performance
@@ -517,10 +537,10 @@ expected_impacts:
     50 battery and vehicle manufacturers)
   mechanism: 'Mandatory supply-chain due diligence: a supply-chain policy, management systems, traceability,
     risk assessment and mitigation, third-party verification by notified bodies, and annual public reporting.'
-  impact: €2–15 million in one-off costs and €2–20 million in annual costs. At company level this covers
-    policy changes (€3 150–205 000), IT systems (€36 000–90 000), data collection and verification, audits,
-    and due diligence and reporting. Companies also gain better knowledge of their supply chains and detect
-    risks earlier.
+  impact: An estimated €2–15 million in one-off costs and €2–20 million in annual costs. At company level
+    this covers policy changes (€3 150–205 000), IT systems (€36 000–90 000), data collection and verification,
+    audits, and due diligence and reporting. Companies also gain better knowledge of their supply chains
+    and detect risks earlier.
   provision_keys:
   - batteries/proposal/art/39
   ia_section: 'Measure 13: Supply-chain due diligence for raw materials in industrial and EV batteries'
@@ -558,6 +578,24 @@ expected_impacts:
     audit: false
     reviewer: null
     note: null
+  sweep:
+    action: rewrite
+    before:
+      impact: €2–15 million in one-off costs and €2–20 million in annual costs. At company level this
+        covers policy changes (€3 150–205 000), IT systems (€36 000–90 000), data collection and verification,
+        audits, and due diligence and reporting. Companies also gain better knowledge of their supply
+        chains and detect risks earlier.
+    reason: 'Codex source closeout 2026-10-17: Everything is in the source, but the sector totals are
+      an extrapolated estimate and must say so.'
+    model: full-text review (assistant reviewers), Codex closeout ruling 2026-10-17
+    'on': '2026-10-17'
+    sources:
+    - .cache/ia/batteries/ia_full.txt:910
+    - .cache/ia/batteries/ia_full.txt:915
+    - .cache/ia/batteries/ia_full.txt:916
+    - .cache/ia/batteries/ia_full.txt:919
+    - .cache/ia/batteries/ia_full.txt:921,5597
+    - data/fixtures/batteries/proposal.json:281
 - expected_id: c09_e10
   affected_actor: Workers and local communities in raw-material sourcing regions, including conflict-affected
     areas
@@ -750,6 +788,7 @@ important_omissions:
       clause, so the whole second sentence goes. The remaining first sentence is fully supported.'
     model: full-text review (assistant reviewers, owner delegation), Codex review 2026-10-17
     'on': '2026-10-17'
+    sources: []
 - omission_id: c09_o04
   description: Maximum life-cycle carbon footprint thresholds work as a market-access restriction. If
     they are set badly, they could cause unintended supply restrictions for EV and industrial batteries

@@ -156,8 +156,9 @@ expected_impacts:
   mechanism: The right to access existing physical infrastructure of network operators and public sector
     bodies on fair and reasonable terms, together with the right to coordinate civil works, lets operators
     reuse ducts and poles and co-deploy instead of building new civil works.
-  impact: Lower deployment capex, around EUR 12 billion to 2030. Network built by reusing infrastructure
-    or coordinating civil works rises to about 470,000 km, against 250,000 km in the baseline.
+  impact: The IA estimates lower deployment capex of around EUR 12 billion to 2030, and about 470,000
+    km of network built by reusing infrastructure or coordinating civil works, against 250,000 km in the
+    baseline.
   provision_keys:
   - gigabit/proposal/art/3
   - gigabit/proposal/art/5
@@ -203,6 +204,22 @@ expected_impacts:
     audit: true
     reviewer: null
     note: null
+  sweep:
+    action: rewrite
+    before:
+      impact: Lower deployment capex, around EUR 12 billion to 2030. Network built by reusing infrastructure
+        or coordinating civil works rises to about 470,000 km, against 250,000 km in the baseline.
+    reason: 'Codex source closeout 2026-10-17: 保留所有数字、群体和政策选项；一次IA estimates说明即可统摄金额与部署量，不逐个数字堆限定词。'
+    model: full-text review (assistant reviewers), Codex closeout ruling 2026-10-17
+    'on': '2026-10-17'
+    sources:
+    - .cache/ia/gigabit/ia_full.txt:1040
+    - .cache/ia/gigabit/ia_full.txt:1074
+    - .cache/ia/gigabit/ia_full.txt:587
+    - .cache/ia/gigabit/ia_full.txt:773
+    - data/fixtures/gigabit/proposal.json Art 3(1)
+    - data/fixtures/gigabit/proposal.json Art 5(1)
+    - gigabit/ia_full.txt:773,793,1054,1060
 - expected_id: c13_e02
   affected_actor: ECN operators requesting access
   mechanism: 'Clearer access rules set out in the text: pricing criteria, a closed list of refusal grounds
@@ -252,8 +269,8 @@ expected_impacts:
   affected_actor: ECN operators applying for permits and rights of way
   mechanism: Electronic submission of permit applications through a single information point, a 4-month
     decision deadline, tacit approval, permit exemptions and fees capped at administrative costs.
-  impact: Faster deployment and administrative savings of about EUR 15m per year from simpler permit application
-    processes.
+  impact: The IA expects faster deployment and estimates administrative savings of about EUR 15m per year
+    from simpler permit application processes.
   provision_keys:
   - gigabit/proposal/art/7
   ia_section: 2. Summary of costs and benefits
@@ -290,12 +307,31 @@ expected_impacts:
     audit: true
     reviewer: null
     note: null
+  sweep:
+    action: rewrite
+    before:
+      impact: Faster deployment and administrative savings of about EUR 15m per year from simpler permit
+        application processes.
+    reason: 'Codex source closeout 2026-10-17: about说明近似，IA estimates说明估算；一句话保留部署预期与金额性质，不改数字。'
+    model: full-text review (assistant reviewers), Codex closeout ruling 2026-10-17
+    'on': '2026-10-17'
+    sources:
+    - .cache/ia/gigabit/ia_full.txt:1063
+    - .cache/ia/gigabit/ia_full.txt:1081
+    - data/fixtures/gigabit/proposal.json Art 7(10)
+    - data/fixtures/gigabit/proposal.json Art 7(3)
+    - data/fixtures/gigabit/proposal.json Art 7(5)
+    - data/fixtures/gigabit/proposal.json Art 7(7)
+    - data/fixtures/gigabit/proposal.json Art 7(8)
+    - gigabit/ia_full.txt:793,1054,1063
 - expected_id: c13_e04
   affected_actor: Competent (local) authorities granting permits
-  mechanism: Authorities must make permit rules consistent across the national territory, run electronic
-    application and status tracking through a single information point, and decide within fixed deadlines.
-  impact: 'Large up-front costs: about EUR 70m in total for the preferred option, including EUR 35-40m
-    one-off for local authorities. Over the medium term, local authorities save about EUR 3-4m per year.'
+  mechanism: Member States must ensure consistent permit rules across the national territory. Competent
+    authorities must support electronic applications and status tracking through a single information
+    point and decide within the applicable deadlines.
+  impact: The IA estimates large up-front costs of about EUR 70m in total for the preferred option, including
+    EUR 35-40m in one-off costs associated with local authorities. Over the medium term, local authorities
+    could save about EUR 3-4m per year.
   provision_keys:
   - gigabit/proposal/art/7
   ia_section: 8.1. Outcome of comparison of policy options
@@ -334,13 +370,33 @@ expected_impacts:
     audit: false
     reviewer: null
     note: null
+  sweep:
+    action: rewrite
+    before:
+      impact: 'Large up-front costs: about EUR 70m in total for the preferred option, including EUR 35-40m
+        one-off for local authorities. Over the medium term, local authorities save about EUR 3-4m per
+        year.'
+      mechanism: Authorities must make permit rules consistent across the national territory, run electronic
+        application and status tracking through a single information point, and decide within fixed deadlines.
+    reason: 'Codex source closeout 2026-10-17: 全国规则一致性的责任主体是成员国；成本估算可归地方许可机关，两者不矛盾。分清角色并保留could。1018另说明部分地方程序成本可能由国家行政部门承担，不把估算写成全部地方实际支出。'
+    model: full-text review (assistant reviewers), Codex closeout ruling 2026-10-17
+    'on': '2026-10-17'
+    sources:
+    - .cache/ia/gigabit/ia_full.txt:1063
+    - .cache/ia/gigabit/ia_full.txt:726
+    - .cache/ia/gigabit/ia_full.txt:775
+    - data/fixtures/gigabit/proposal.json Art 7(1)
+    - data/fixtures/gigabit/proposal.json Art 7(3)
+    - data/fixtures/gigabit/proposal.json Art 7(5)
+    - gigabit proposal Art7(1),(3),(5); IA:726,775,1018,1054,1063
 - expected_id: c13_e05
   affected_actor: Network operators and public sector bodies holding physical infrastructure or planning
     civil works
   mechanism: Duties to supply georeferenced minimum information on existing infrastructure, allow on-site
     surveys, and notify planned civil works in advance through the single information point.
-  impact: New administrative costs for implementing georeferencing and supplying and updating infrastructure
-    and civil-works information. Other network operators face roughly EUR 5-7m in one-off adjustment costs.
+  impact: The IA estimates new administrative costs for implementing georeferencing and supplying and
+    updating infrastructure and civil-works information. It puts aggregate one-off adjustment costs for
+    other network operators at roughly EUR 5-7m.
   provision_keys:
   - gigabit/proposal/art/4
   - gigabit/proposal/art/6
@@ -381,6 +437,22 @@ expected_impacts:
     audit: true
     reviewer: null
     note: null
+  sweep:
+    action: rewrite
+    before:
+      impact: New administrative costs for implementing georeferencing and supplying and updating infrastructure
+        and civil-works information. Other network operators face roughly EUR 5-7m in one-off adjustment
+        costs.
+    reason: 'Codex source closeout 2026-10-17: 保留other network operators的总体一次性成本估算，不把5–7m误读为每家费用，或只归因于georeferencing单项。'
+    model: full-text review (assistant reviewers), Codex closeout ruling 2026-10-17
+    'on': '2026-10-17'
+    sources:
+    - .cache/ia/gigabit/ia_full.txt:1090
+    - .cache/ia/gigabit/ia_full.txt:1096
+    - data/fixtures/gigabit/proposal.json Art 4(2)
+    - data/fixtures/gigabit/proposal.json Art 4(3)
+    - data/fixtures/gigabit/proposal.json Art 6(1)
+    - gigabit/ia_full.txt:726,1054,1090
 - expected_id: c13_e06
   affected_actor: Other (non-telecom) network operators, e.g. energy and transport
   mechanism: Access requests and civil-works coordination requests from telecom operators lead to rental
@@ -754,11 +826,11 @@ important_omissions:
 possibly_missing:
 - candidate_id: c13_m01
   affected_actor: Construction companies and building owners/developers
-  mechanism: Duty to fit fibre-ready in-building infrastructure, fibre wiring and access points in new
-    and majorly renovated buildings to nationally adopted standards, with certified test reports as a
-    condition for the building permit.
-  impact: One-off adjustment costs (about EUR1-2m) for construction companies, and buildings that become
-    more valuable or earn more rent once they are fibre-ready.
+  mechanism: Duty to fit fibre-ready in-building infrastructure, fibre wiring and (in multi-dwelling buildings)
+    access points in new and majorly renovated buildings to nationally adopted standards, with certified
+    test reports as a condition for the building permit.
+  impact: One-off adjustment costs (about EUR1-2m) for construction companies, and buildings that could
+    become more valuable or earn more rent once they are fibre-ready.
   why_missing: The draft covers Art 8 only from the side of ECN operators connecting buildings, not the
     builders or owners who carry the duty.
   provision_keys:
@@ -806,6 +878,27 @@ possibly_missing:
     audit: false
     reviewer: null
     note: null
+  sweep:
+    action: rewrite
+    before:
+      mechanism: Duty to fit fibre-ready in-building infrastructure, fibre wiring and access points in
+        new and majorly renovated buildings to nationally adopted standards, with certified test reports
+        as a condition for the building permit.
+      impact: One-off adjustment costs (about EUR1-2m) for construction companies, and buildings that
+        become more valuable or earn more rent once they are fibre-ready.
+    reason: 'Codex source closeout 2026-10-17: The access-point duty is limited to multi-dwelling buildings
+      (Art 8(2)) and the property-value gain is a possibility in the IA (''could potentially'', line 1297),
+      so the condition and hedge are restored.'
+    model: full-text review (assistant reviewers), Codex closeout ruling 2026-10-17
+    'on': '2026-10-17'
+    sources:
+    - .cache/ia/gigabit/ia_full.txt:1090
+    - .cache/ia/gigabit/ia_full.txt:1283
+    - .cache/ia/gigabit/ia_full.txt:1297
+    - data/fixtures/gigabit/proposal.json Art 8(1)
+    - data/fixtures/gigabit/proposal.json Art 8(2)
+    - data/fixtures/gigabit/proposal.json Art 8(4)
+    - data/fixtures/gigabit/proposal.json Art 8(6)
 - candidate_id: c13_m02
   affected_actor: Dispute settlement bodies
   mechanism: Clearer statutory rules on access pricing, refusal grounds, civil-works cost allocation and

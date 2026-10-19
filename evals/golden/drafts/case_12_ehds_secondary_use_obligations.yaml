@@ -126,7 +126,7 @@ expected_impacts:
   affected_actor: Data reusers (researchers and innovators applying for data permits)
   mechanism: Mandatory availability of listed data categories (Art 33), defined permitted purposes (Art
     34) and a permit procedure with fixed deadlines that replaces individual consent gathering (Art 33(5),
-    Art 46) make access to health data cheaper and faster
+    Art 46) make access to health data cheaper
   impact: Efficiency gains in data access, valued at EUR 3.4 billion over 10 years in the preferred option,
     as a fee-based permit replaces costly consent collection
   provision_keys:
@@ -179,6 +179,25 @@ expected_impacts:
     audit: true
     reviewer: null
     note: null
+  sweep:
+    action: rewrite
+    before:
+      mechanism: Mandatory availability of listed data categories (Art 33), defined permitted purposes
+        (Art 34) and a permit procedure with fixed deadlines that replaces individual consent gathering
+        (Art 33(5), Art 46) make access to health data cheaper and faster
+    reason: 'Codex source closeout 2026-10-17: Everything is supported except ''faster'', which the IA
+      never states for reusers'' access (several searches), so it is deleted.'
+    model: full-text review (assistant reviewers), Codex closeout ruling 2026-10-17
+    'on': '2026-10-17'
+    sources:
+    - .cache/ia/ehds/ia_full.txt:1532
+    - .cache/ia/ehds/ia_full.txt:1904
+    - .cache/ia/ehds/ia_full.txt:597
+    - .cache/ia/ehds/ia_full.txt:614
+    - data/fixtures/ehds/proposal.json Art 33(1)
+    - data/fixtures/ehds/proposal.json Art 33(5)
+    - data/fixtures/ehds/proposal.json Art 34(1)
+    - data/fixtures/ehds/proposal.json Art 46(3)
 - expected_id: c12_e02
   affected_actor: Member States (health data access bodies)
   mechanism: Health data access bodies must assess applications, issue or refuse permits within deadlines,
@@ -324,8 +343,8 @@ expected_impacts:
   mechanism: Art 34(1)(a)-(c) and 34(2) reserve purposes such as public health, regulatory tasks and official
     statistics for public sector bodies, giving them access to real-world data on the effectiveness of
     medicinal products
-  impact: Savings of EUR 0.8 billion from more transparency and real-world evidence in regulatory processes,
-    procurement and price renegotiation
+  impact: Savings, estimated at EUR 0.8 billion, from more transparency and real-world evidence in regulatory
+    processes, procurement and price renegotiation
   provision_keys:
   - ehds/proposal/art/34
   - ehds/proposal/art/33
@@ -372,6 +391,19 @@ expected_impacts:
     audit: false
     reviewer: null
     note: null
+  sweep:
+    action: rewrite
+    before:
+      impact: Savings of EUR 0.8 billion from more transparency and real-world evidence in regulatory
+        processes, procurement and price renegotiation
+    reason: 'Codex source closeout 2026-10-17: Actor, law mechanism and channels are supported, but the
+      source gives the EUR 0.8bn as an estimate of what ''could'' be saved, so ''estimated'' is restored.'
+    model: full-text review (assistant reviewers), Codex closeout ruling 2026-10-17
+    'on': '2026-10-17'
+    sources:
+    - .cache/ia/ehds/ia_full.txt:1902
+    - .cache/ia/ehds/ia_full.txt:599
+    - data/fixtures/ehds/proposal.json Art 34(2)
 - expected_id: c12_e06
   affected_actor: Innovators, healthcare providers and patients
   mechanism: Permitted purposes include development and innovation of products and services and training,
@@ -616,6 +648,7 @@ important_omissions:
       change the point''s meaning.'
     model: full-text review (assistant reviewers, owner delegation), Codex review 2026-10-17
     'on': '2026-10-17'
+    sources: []
 possibly_missing:
 - candidate_id: c12_m01
   affected_actor: Data holders / data owners making datasets available

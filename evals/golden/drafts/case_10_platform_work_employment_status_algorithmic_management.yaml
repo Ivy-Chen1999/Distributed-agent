@@ -135,8 +135,8 @@ expected_impacts:
   affected_actor: Digital labour platforms that control the performance of work (mainly low-skill on-location
     platforms, some online micro-tasking platforms)
   mechanism: The legal presumption of employment, triggered when at least two control criteria are met,
-    pushes platforms to reclassify the people working through them as employees, directly or through temporary
-    work agencies, either voluntarily or after losing court cases.
+    may push platforms to reclassify the people working through them as employees, directly or through
+    temporary work agencies, either voluntarily or after losing court cases.
   impact: One-off costs of changing the business model, plus higher recurrent wage costs (bringing pay
     up to the minimum wage) and non-wage costs (employer social contributions). The IA puts the annual
     cost of reclassification at EUR 1.87 – 4.46 billion.
@@ -178,14 +178,30 @@ expected_impacts:
     audit: false
     reviewer: null
     note: null
+  sweep:
+    action: rewrite
+    before:
+      mechanism: The legal presumption of employment, triggered when at least two control criteria are
+        met, pushes platforms to reclassify the people working through them as employees, directly or
+        through temporary work agencies, either voluntarily or after losing court cases.
+    reason: 'Codex source closeout 2026-10-17: Impact and figures are supported; the reclassification
+      response is a possibility in the IA (''might adapt'', ''likely to reclassify'') and the hedge is
+      restored in the mechanism.'
+    model: full-text review (assistant reviewers), Codex closeout ruling 2026-10-17
+    'on': '2026-10-17'
+    sources:
+    - ia_full.txt:1055
+    - ia_full.txt:974
+    - ia_full.txt:984
+    - proposal.json:36
 - expected_id: c10_e02
   affected_actor: Digital labour platforms
-  mechanism: The presumption applies in all administrative and legal proceedings. Rebutting it puts the
-    burden of proof on the platform, and a rebuttal does not suspend the presumption. This makes it easier
-    and cheaper for workers and authorities to challenge employment status.
+  mechanism: The presumption applies in all relevant administrative and legal proceedings. Rebutting it
+    puts the burden of proof on the platform, and a rebuttal does not suspend the presumption. This makes
+    it easier and cheaper for workers to challenge employment status.
   impact: Legal and non-compliance costs, currently tens to hundreds of millions of euros for on-location
-    platforms, rise in the short to medium term. The IA expects them to fall below the baseline in the
-    long run because the control criteria give legal certainty.
+    platforms, are likely to rise in the short to medium term. The IA expects them to fall below the baseline
+    in the long run because the control criteria give legal certainty.
   provision_keys:
   - platform_work/proposal/art/4
   - platform_work/proposal/art/5
@@ -225,6 +241,26 @@ expected_impacts:
     audit: false
     reviewer: null
     note: null
+  sweep:
+    action: rewrite
+    before:
+      mechanism: The presumption applies in all administrative and legal proceedings. Rebutting it puts
+        the burden of proof on the platform, and a rebuttal does not suspend the presumption. This makes
+        it easier and cheaper for workers and authorities to challenge employment status.
+      impact: Legal and non-compliance costs, currently tens to hundreds of millions of euros for on-location
+        platforms, rise in the short to medium term. The IA expects them to fall below the baseline in
+        the long run because the control criteria give legal certainty.
+    reason: 'Codex source closeout 2026-10-17: Restore ''relevant'' (Art 4(1)), drop ''authorities'' from
+      the easier-and-cheaper claim (IA says it of people working through platforms), and restore ''likely''
+      on the short-term cost rise.'
+    model: full-text review (assistant reviewers), Codex closeout ruling 2026-10-17
+    'on': '2026-10-17'
+    sources:
+    - ia_full.txt:1041
+    - ia_full.txt:1046
+    - ia_full.txt:1053
+    - proposal.json:36
+    - proposal.json:43
 - expected_id: c10_e03
   affected_actor: People working through platforms who are reclassified as employees
   mechanism: Applying the legal presumption gives misclassified people employee status and the employment
@@ -276,9 +312,9 @@ expected_impacts:
     on personal data processing, human monitoring of automated decisions, an explanation from a contact
     person, a written statement of reasons, and review, rectification or compensation for significant
     decisions.
-  impact: Workers understand algorithmic criteria better, have more control over how their data are used,
-    and can challenge decisions such as account suspension. This leads indirectly to better working conditions.
-    The IA says up to 28.29 million people working through platforms are covered.
+  impact: Workers can understand algorithmic criteria better, have more control over how their data are
+    used, and challenge decisions such as account suspension. This is expected to lead indirectly to better
+    working conditions. The IA says up to 28.29 million people working through platforms are covered.
   provision_keys:
   - platform_work/proposal/art/6
   - platform_work/proposal/art/7
@@ -317,6 +353,22 @@ expected_impacts:
     audit: false
     reviewer: null
     note: null
+  sweep:
+    action: rewrite
+    before:
+      impact: Workers understand algorithmic criteria better, have more control over how their data are
+        used, and can challenge decisions such as account suspension. This leads indirectly to better
+        working conditions. The IA says up to 28.29 million people working through platforms are covered.
+    reason: 'Codex source closeout 2026-10-17: Mechanism (law duties) and the 28.29m figure are supported;
+      the outcomes are a possibility and an expectation in the IA, so the modality is restored.'
+    model: full-text review (assistant reviewers), Codex closeout ruling 2026-10-17
+    'on': '2026-10-17'
+    sources:
+    - ia_full.txt:1004
+    - ia_full.txt:1040
+    - proposal.json:50
+    - proposal.json:57
+    - proposal.json:64
 - expected_id: c10_e05
   affected_actor: Digital labour platforms (all types)
   mechanism: Platforms must give workers a written document on their automated monitoring and decision-making
@@ -504,7 +556,8 @@ expected_impacts:
 - expected_id: c10_e09
   affected_actor: Public budgets (tax authorities and social security institutions)
   mechanism: Employees are taxed and pay social contributions at higher rates than the self-employed,
-    so reclassification under the presumption widens the tax and contribution base.
+    so reclassification under the presumption widens the tax and contribution base, at least in some Member
+    States.
   impact: Extra public revenue of EUR 0.93-2.64 billion a year from on-location platforms and EUR 0.74-1.33
     billion a year from online platforms.
   provision_keys:
@@ -545,6 +598,20 @@ expected_impacts:
     audit: false
     reviewer: null
     note: null
+  sweep:
+    action: rewrite
+    before:
+      mechanism: Employees are taxed and pay social contributions at higher rates than the self-employed,
+        so reclassification under the presumption widens the tax and contribution base.
+    reason: 'Codex source closeout 2026-10-17: Figures and the tax-rate premise are supported; the base-broadening
+      holds only ''at least in some Member States'' in the IA, so that condition is restored.'
+    model: full-text review (assistant reviewers), Codex closeout ruling 2026-10-17
+    'on': '2026-10-17'
+    sources:
+    - ia_full.txt:1022
+    - ia_full.txt:1030
+    - ia_full.txt:1045
+    - ia_full.txt:1090
 - expected_id: c10_e10
   affected_actor: National labour and social protection authorities
   mechanism: Platforms that are employers must declare platform work to the authorities of the Member
@@ -594,7 +661,8 @@ important_omissions:
   description: The duties on algorithmic transparency, human oversight, risk assessment and review fall
     harder on SME platforms, which the IA estimates make up 70-92% of digital labour platforms. Large
     platforms often already disclose algorithm information and run dispute systems, so these duties cost
-    them relatively less. This is why Article 8(2) allows SMEs a two-week deadline instead of one week.
+    them relatively less. This is why Article 8(2) lets Member States allow SMEs a two-week deadline instead
+    of one week.
   source: ia
   provision_keys:
   - platform_work/proposal/art/6
@@ -640,6 +708,23 @@ important_omissions:
     audit: false
     reviewer: null
     note: null
+  sweep:
+    action: rewrite
+    before:
+      description: The duties on algorithmic transparency, human oversight, risk assessment and review
+        fall harder on SME platforms, which the IA estimates make up 70-92% of digital labour platforms.
+        Large platforms often already disclose algorithm information and run dispute systems, so these
+        duties cost them relatively less. This is why Article 8(2) allows SMEs a two-week deadline instead
+        of one week.
+    reason: 'Codex source closeout 2026-10-17: SME burden, share and large-platform readiness are supported;
+      Art 8(2) is a Member State option, not a direct SME entitlement.'
+    model: full-text review (assistant reviewers), Codex closeout ruling 2026-10-17
+    'on': '2026-10-17'
+    sources:
+    - ia_full.txt:1064
+    - ia_full.txt:1069
+    - ia_full.txt:1072
+    - proposal.json:64
 - omission_id: c10_o02
   description: Platforms may pull out of less profitable markets (small towns, regions or whole countries)
     or leave the EU instead of reclassifying. This reduces service availability, competition and innovation,
@@ -881,9 +966,9 @@ possibly_missing:
     - platform_work/ia_full.txt:1109
 - candidate_id: c10_m02
   affected_actor: Self-employed people working through platforms, including EU-based online freelancers
-  mechanism: Platforms cut their workforce under new business models or leave EU or local markets. This
-    reduces part-time self-employment opportunities and increases price competition, including from freelancers
-    outside the EU.
+  mechanism: If platforms cut their workforce under new business models or leave EU or local markets,
+    opportunities for part-time self-employment may fall and price competition may increase, including
+    competition from freelancers outside the EU.
   impact: Platforms estimate that 41-80% of delivery and ride-hailing workers would have fewer work opportunities.
     EU-based freelancers may see lower demand and lower income.
   why_missing: No drafted pair covers lost work opportunities for people who are not reclassified.
@@ -933,13 +1018,26 @@ possibly_missing:
     audit: false
     reviewer: null
     note: null
+  sweep:
+    action: rewrite
+    before:
+      mechanism: Platforms cut their workforce under new business models or leave EU or local markets.
+        This reduces part-time self-employment opportunities and increases price competition, including
+        from freelancers outside the EU.
+    reason: 'Codex source closeout 2026-10-17: 拟稿只给price competition补potentially，前面的退出/缩减仍写成既成事实；改为条件链，不改变41–80%来自平台估计的归属。'
+    model: full-text review (assistant reviewers), Codex closeout ruling 2026-10-17
+    'on': '2026-10-17'
+    sources:
+    - ia_full.txt:1000
+    - ia_full.txt:1052
+    - platform_work/ia_full.txt:986,1000,1052,1109
 - candidate_id: c10_m03
   affected_actor: People working through platforms who become genuinely self-employed
-  mechanism: Platforms rewrite their terms and conditions to reduce control so that they no longer meet
-    the presumption criteria. This gives the people working through them real autonomy, for example to
-    set their own working time and rates.
-  impact: Up to 3.78 million people currently at risk of misclassification become genuinely self-employed,
-    with better working conditions.
+  mechanism: Platforms may rewrite their terms and conditions to reduce control so that they no longer
+    meet the presumption criteria. This gives the people working through them real autonomy, for example
+    to set their own working time and rates.
+  impact: The IA expects up to 3.78 million people currently at risk of misclassification to become genuinely
+    self-employed, with better working conditions.
   why_missing: The draft covers only reclassification as employees, not the route of platforms moving
     to genuine self-employment.
   provision_keys:
@@ -986,11 +1084,28 @@ possibly_missing:
     audit: true
     reviewer: null
     note: null
+  sweep:
+    action: rewrite
+    before:
+      mechanism: Platforms rewrite their terms and conditions to reduce control so that they no longer
+        meet the presumption criteria. This gives the people working through them real autonomy, for example
+        to set their own working time and rates.
+      impact: Up to 3.78 million people currently at risk of misclassification become genuinely self-employed,
+        with better working conditions.
+    reason: 'Codex source closeout 2026-10-17: 同意mechanism补may；人数和转变也是政策预期，impact用The IA expects统摄，不把预测写成已发生结果。'
+    model: full-text review (assistant reviewers), Codex closeout ruling 2026-10-17
+    'on': '2026-10-17'
+    sources:
+    - ia_full.txt:1039
+    - ia_full.txt:1106
+    - ia_full.txt:1110
+    - ia_full.txt:988
+    - platform_work/ia_full.txt:988,1039,1106,1110
 - candidate_id: c10_m04
   affected_actor: Traditional businesses competing with platforms (e.g. taxi companies, nanny agencies)
   mechanism: Reclassification removes the cost advantage that platforms gain from false self-employment
     compared with businesses that employ their workers.
-  impact: A more level playing field. Competing SMEs are likely to benefit more than large businesses.
+  impact: A more level playing field. Competing SMEs might benefit more than large businesses.
   why_missing: No drafted pair covers businesses that compete with platforms.
   provision_keys:
   - platform_work/proposal/art/4
@@ -1036,6 +1151,18 @@ possibly_missing:
     audit: false
     reviewer: null
     note: null
+  sweep:
+    action: rewrite
+    before:
+      impact: A more level playing field. Competing SMEs are likely to benefit more than large businesses.
+    reason: 'Codex source closeout 2026-10-17: Actor, mechanism and level playing field are supported;
+      the SME comparison is ''might'' in the IA, not ''likely''.'
+    model: full-text review (assistant reviewers), Codex closeout ruling 2026-10-17
+    'on': '2026-10-17'
+    sources:
+    - ia_full.txt:1043
+    - ia_full.txt:1064
+    - ia_full.txt:1068
 - candidate_id: c10_m05
   affected_actor: Businesses relying on platforms (especially SME restaurants using delivery platforms)
   mechanism: Platforms pass part of their higher labour costs on through higher commissions and lower
@@ -1089,11 +1216,11 @@ possibly_missing:
     note: null
 - candidate_id: c10_m06
   affected_actor: Consumers of on-location platform services
-  mechanism: Platforms leave less profitable or smaller markets and fewer workers are available at peak
-    times. Supply falls and waiting times get longer, while training and supervision by platforms improves
-    service quality.
-  impact: Fewer services, especially in smaller towns, longer waiting times, and mixed but mostly positive
-    effects on quality.
+  mechanism: Platforms may leave less profitable or smaller markets and fewer workers may be available
+    at peak times. Supply is likely to fall and waiting times may get longer, while training and supervision
+    by platforms improves service quality.
+  impact: Possible reductions in service availability, especially in smaller towns, and longer waiting
+    times; the IA expects mixed but mostly positive effects on quality.
   why_missing: The drafted consumer pair covers only price increases, not availability or quality of service.
   provision_keys:
   - platform_work/proposal/art/4
@@ -1139,12 +1266,30 @@ possibly_missing:
     audit: false
     reviewer: null
     note: null
+  sweep:
+    action: rewrite
+    before:
+      mechanism: Platforms leave less profitable or smaller markets and fewer workers are available at
+        peak times. Supply falls and waiting times get longer, while training and supervision by platforms
+        improves service quality.
+      impact: Fewer services, especially in smaller towns, longer waiting times, and mixed but mostly
+        positive effects on quality.
+    reason: 'Codex source closeout 2026-10-17: 同意mechanism的限定修正；impact统一保留可获得性/等待时间的可能性，避免只给waiting times加词而仍把供应下降写死。'
+    model: full-text review (assistant reviewers), Codex closeout ruling 2026-10-17
+    'on': '2026-10-17'
+    sources:
+    - ia_full.txt:1014
+    - ia_full.txt:1016
+    - ia_full.txt:1044
+    - ia_full.txt:1058
+    - ia_full.txt:986
+    - platform_work/ia_full.txt:986,1014-1016,1044,1058
 - candidate_id: c10_m07
   affected_actor: Digital labour platforms and the wider market (competition and innovation)
-  mechanism: Some online and on-location platforms try to avoid litigation and fines, or find that employment
-    undermines their business model, so they go out of business or leave EU markets.
-  impact: Indirect costs from less competition and innovation, and possible negative effects on GDP, investment
-    and net exports.
+  mechanism: Some online platforms try to avoid litigation and fines, or find that employment undermines
+    their business model, so they go out of business or leave EU markets.
+  impact: Possible indirect costs from less competition and innovation, and possible negative effects
+    on GDP, investment and net exports.
   why_missing: The drafted platform pairs cover reclassification and procedural burden, not platforms
     leaving the market or the loss of innovation.
   provision_keys:
@@ -1193,6 +1338,22 @@ possibly_missing:
     audit: false
     reviewer: null
     note: null
+  sweep:
+    action: rewrite
+    before:
+      mechanism: Some online and on-location platforms try to avoid litigation and fines, or find that
+        employment undermines their business model, so they go out of business or leave EU markets.
+      impact: Indirect costs from less competition and innovation, and possible negative effects on GDP,
+        investment and net exports.
+    reason: 'Codex source closeout 2026-10-17: Exit from business/EU is stated only for online platforms
+      (on-location platforms only quit local/national markets), and the competition/innovation cost is
+      ''may cause''; group fixed and hedge restored.'
+    model: full-text review (assistant reviewers), Codex closeout ruling 2026-10-17
+    'on': '2026-10-17'
+    sources:
+    - ia_full.txt:1028
+    - ia_full.txt:1089
+    - ia_full.txt:986
 - candidate_id: c10_m08
   affected_actor: SME digital labour platforms
   mechanism: Unlike large platforms, SMEs often lack existing algorithmic transparency and dispute-resolution

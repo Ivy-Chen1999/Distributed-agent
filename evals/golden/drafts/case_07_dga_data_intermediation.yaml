@@ -164,6 +164,7 @@ expected_impacts:
       ''Intermediaries pay implementation costs to comply with the requirements.'''
     model: full-text review (assistant reviewers, owner delegation), Codex review 2026-10-17
     'on': '2026-10-17'
+    sources: []
 - expected_id: c07_e02
   affected_actor: Providers of data sharing services (data intermediaries)
   mechanism: Binding neutrality and trust conditions, combined with notification and supervision, make
@@ -456,6 +457,18 @@ expected_impacts:
     audit: false
     reviewer: null
     note: null
+  sweep:
+    action: drop
+    before: {}
+    reason: 'Codex source closeout 2026-10-17: 从当前强制通报制度的评分键排除本条；不把IA自愿标签方案的成本抵消/准入结论改挂到通知制度，也不把待评输入偷偷换成自愿方案。仅删除两句会剩下证据方案不明的同类结论，故保留原始记录而不作为当前key条目。'
+    model: full-text review (assistant reviewers), Codex closeout ruling 2026-10-17
+    'on': '2026-10-17'
+    sources:
+    - .cache/ia/dga/ia_full.txt:567
+    - .cache/ia/dga/ia_full.txt:703
+    - .cache/ia/dga/ia_full.txt:709
+    - .cache/ia/dga/ia_full.txt:711
+    - dga/ia_full.txt:375,439,565-571,703,709-711; proposal Art9-11
 important_omissions:
 - omission_id: c07_o01
   description: 'Public enforcement costs for national competent authorities: they must receive and forward
