@@ -55,15 +55,19 @@ coverage moves by ~0.1 between identical runs, so 3 repetitions only resolve dif
 Both are candidates only. Neither replaces `v0.3-candidate.yaml`, and neither is promoted until
 the comparison below has api-backend evidence.
 
+On 2026-10-19 every v1.0 file moved to the coverage judge `prompts/judge_coverage_v2.md`
+(direction and conditions must match; the IA's hedges are not required), frozen before the judge
+calibration; the ids below changed with it. The v0.x files keep `prompts/judge_coverage.md`.
+
 | File | Version id | Purpose |
 |---|---|---|
-| `v1.0-scoped.yaml` | `sv_735b080cf78a` | Side experiment: per-expert data scopes split by data form (full text versus obligation records); only the Planner sees the delta. |
-| `v1.0-unscoped.yaml` | `sv_73c6a3fdd013` | Control arm, and the self-evolution base candidate (R27/R28): v1.0-scoped with every scope removed. Same prompts, explore prompt and retrieval cap. |
-| `v1.0-scoped-api.yaml` | `sv_d5f294d7b5bd` | api twin of `v1.0-scoped.yaml`: every role on the api backend with `v0.3-api`'s model and reasoning effort for that role. |
-| `v1.0-unscoped-api.yaml` | `sv_43cee2e14602` | api twin of `v1.0-unscoped.yaml`: every role on the api backend with `v0.3-api`'s model and reasoning effort for that role. |
+| `v1.0-scoped.yaml` | `sv_a8aa751bd75d` | Side experiment: per-expert data scopes split by data form (full text versus obligation records); only the Planner sees the delta. |
+| `v1.0-unscoped.yaml` | `sv_097af05cc5f7` | Control arm, and the self-evolution base candidate (R27/R28): v1.0-scoped with every scope removed. Same prompts, explore prompt and retrieval cap. |
+| `v1.0-scoped-api.yaml` | `sv_bc9e8fbd4e5d` | api twin of `v1.0-scoped.yaml`: every role on the api backend with `v0.3-api`'s model and reasoning effort for that role. |
+| `v1.0-unscoped-api.yaml` | `sv_c8a57a8215d7` | api twin of `v1.0-unscoped.yaml`: every role on the api backend with `v0.3-api`'s model and reasoning effort for that role. |
 
-The pre-registered comparison runs on the api twins: `--scoped sv_d5f294d7b5bd --unscoped
-sv_43cee2e14602` (`v1.0-scoped-api.yaml` vs `v1.0-unscoped-api.yaml`). The claude_code files
+The pre-registered comparison runs on the api twins: `--scoped sv_bc9e8fbd4e5d --unscoped
+sv_c8a57a8215d7` (`v1.0-scoped-api.yaml` vs `v1.0-unscoped-api.yaml`). The claude_code files
 serve development runs only, whose verdicts are dev-only. The twins' models were pinned on
 2026-10-14 (see above), which gave them the ids in this table.
 
@@ -82,5 +86,5 @@ FTE basis §6.2).
 
 | File | Version id | Purpose |
 |---|---|---|
-| `v1.0-cost.yaml` | `sv_1f12d8afd1e7` | `v1.0-unscoped` plus the cost step (cost records per duty in a separate dossier section); development runs on claude_code, dev-only. |
-| `v1.0-cost-api.yaml` | `sv_1bde34aae112` | api twin of `v1.0-cost.yaml`, for the formal cost check once an API key exists. |
+| `v1.0-cost.yaml` | `sv_42b86789cc87` | `v1.0-unscoped` plus the cost step (cost records per duty in a separate dossier section); development runs on claude_code, dev-only. |
+| `v1.0-cost-api.yaml` | `sv_59ab261bad30` | api twin of `v1.0-cost.yaml`, for the formal cost check once an API key exists. |

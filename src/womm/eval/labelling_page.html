@@ -274,7 +274,7 @@ body[data-kind="reference_check"] [data-kind="calibration"] { display: none !imp
       <span class="question" data-kind="reference_check">Your answer</span>
       <span class="question" data-kind="calibration">Does our AI's report cover this effect?</span>
       <div class="tiles" data-kind="calibration">
-        <button class="tile keep" data-l="covered"><b>Yes, covered</b><span>An entry names the same group and the same way they are affected.</span><kbd>Y</kbd></button>
+        <button class="tile keep" data-l="covered"><b>Yes, covered</b><span>An entry names the same group, the same way they are affected and the same direction.</span><kbd>Y</kbd></button>
         <button class="tile drop" data-l="not_covered"><b>No, not covered</b><span>No entry does. Other wording is fine; missing amounts don't count.</span><kbd>N</kbd></button>
         <button class="tile unsure" data-l="unsure"><b>Can't tell</b><span>Still unsure after reading carefully: add a note why.</span><kbd>C</kbd></button>
       </div>
@@ -387,16 +387,17 @@ body[data-kind="reference_check"] [data-kind="calibration"] { display: none !imp
     </ol>
     <div class="rules">
       <span class="pill keep">Yes, covered</span><span>Some entry names the same group and the same
-        effect, in any words.</span>
+        effect, in any words, pointing the same way (a cost is not a benefit) and under the same
+        condition (if the effect is only for some of the group, the entry must say so).</span>
       <span class="pill drop">No, not covered</span><span>No entry does. Go by what it wrote, not what
         it might have meant.</span>
       <span class="pill unsure">Can't tell</span><span>You can't decide. Write a few words why.</span>
     </div>
-    <p class="fineprint">Ignore missing amounts (euros, percentages, staff numbers): our AI never saw
-      those figures. Work alone, and don't discuss pairs with the other person until you have both
+    <p class="fineprint">Ignore missing amounts (euros, percentages, staff numbers) and missing
+      "may" or "expected to": our AI never saw those figures or the EU's forecasts. Work alone, and don't discuss pairs with the other person until you have both
       sent.</p>
     <details class="examples">
-      <summary>See two short examples</summary>
+      <summary>See three short examples</summary>
       <div class="example">
         <p><b>Effect:</b> Online shops must label AI-made product photos and pay EUR 2,000 each for new tools.</p>
         <p><b>Our AI wrote:</b> "Retailers selling online face compliance costs to mark synthetic images."</p>
@@ -406,6 +407,11 @@ body[data-kind="reference_check"] [data-kind="calibration"] { display: none !imp
         <p><b>Effect:</b> National authorities must supervise the new product register and need extra staff.</p>
         <p><b>Our AI wrote:</b> "Companies must register their products before sale."</p>
         <p class="ans drop">No, not covered: that entry is about companies registering, not authorities supervising.</p>
+      </div>
+      <div class="example">
+        <p><b>Effect:</b> Small repair shops gain business because spare parts must be sold to them.</p>
+        <p><b>Our AI wrote:</b> "Repair shops face new costs to register as authorised parts buyers."</p>
+        <p class="ans drop">No, not covered: same group, but a cost, not a gain.</p>
       </div>
     </details>
     </div>
@@ -805,7 +811,7 @@ TOURS.reference_check = [
 TOURS.calibration = [
   { sel: "#pointBlock", title: "The effect to look for", text: "One effect the EU's official report names: <b>who</b> is affected, <b>what the law makes them do</b> and <b>what it means for them</b>." },
   { sel: "#docPane", title: "What our AI wrote", text: "Our AI's report on the same law, one entry per effect it found. Look through it for the effect to look for. Tip: <b>Ctrl+F</b> (<b>Cmd+F</b> on a Mac) finds a word such as the group's name." },
-  { sel: "#answerBlock", title: "Your answer", text: "<b>Yes</b> if at least one entry names the same or a clearly overlapping group and the same way they are affected, in any words. <b>No</b> if none does. Ignore missing amounts. Keys: <b>Y</b>, <b>N</b>, <b>C</b>." },
+  { sel: "#answerBlock", title: "Your answer", text: "<b>Yes</b> if at least one entry names the same or a clearly overlapping group and the same way they are affected, in any words, in the same direction and under the same condition. <b>No</b> if none does. Ignore missing amounts. Keys: <b>Y</b>, <b>N</b>, <b>C</b>." },
   { sel: "#noteBlock", title: "A short note", text: "Needed when you pick <b>Can't tell</b>, optional otherwise. One line is enough." },
   { sel: "#progressBlock", title: "Your progress", text: "Jump to any pair with the squares; answered ones are coloured. Use ← → to move." },
   { sel: "#finish", title: "Finish", text: "" },

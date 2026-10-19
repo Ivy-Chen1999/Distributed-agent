@@ -20,7 +20,7 @@ judge:
   backend: api
   model: openai:gpt-6.1-sol
   reasoning_effort: medium
-  prompt: prompts/judge_coverage.md
+  prompt: prompts/judge_coverage_v2.md
 experts:
   - id: legal
     domain: legal

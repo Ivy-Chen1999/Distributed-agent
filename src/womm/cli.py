@@ -67,7 +67,7 @@ examples:
   womm eval --split val --local
   womm eval --baseline
   womm eval --split val --repetitions 3 --formal   # R34 noise run (api only; may extend by 3)
-  womm calibrate sample --sv sv_43cee2e14602 --report runs/eval_X.json --n 30 --seed 1 \
+  womm calibrate sample --sv sv_c8a57a8215d7 --report runs/eval_X.json --n 30 --seed 1 \
       --annotator alice --annotator bob --out .cache/calibration/2026-10
   womm calibrate upload --dir .cache/calibration/2026-10 --url https://<app>.up.railway.app
   womm calibrate fetch --dir .cache/calibration/2026-10 --url https://<app>.up.railway.app

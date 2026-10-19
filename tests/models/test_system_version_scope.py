@@ -34,16 +34,18 @@ NEW_FILES = {
     "v1.0-cost.yaml",
     "v1.0-cost-api.yaml",
 }
+# The v1.0 files moved to prompts/judge_coverage_v2.md on 2026-10-19 (rubric: direction and
+# conditions must match), so their ids changed; the judge is frozen from here until calibration.
 # Cost-analysis candidates (EU cost plan U3): v1.0-unscoped and its api twin plus a cost role.
 COST_PINNED_IDS = {
-    "v1.0-cost.yaml": "sv_1f12d8afd1e7",
-    "v1.0-cost-api.yaml": "sv_1bde34aae112",
+    "v1.0-cost.yaml": "sv_42b86789cc87",
+    "v1.0-cost-api.yaml": "sv_59ab261bad30",
 }
 NEW_PINNED_IDS = {
-    "v1.0-scoped.yaml": "sv_735b080cf78a",
-    "v1.0-unscoped.yaml": "sv_73c6a3fdd013",
-    "v1.0-scoped-api.yaml": "sv_d5f294d7b5bd",
-    "v1.0-unscoped-api.yaml": "sv_43cee2e14602",
+    "v1.0-scoped.yaml": "sv_a8aa751bd75d",
+    "v1.0-unscoped.yaml": "sv_097af05cc5f7",
+    "v1.0-scoped-api.yaml": "sv_bc9e8fbd4e5d",
+    "v1.0-unscoped-api.yaml": "sv_c8a57a8215d7",
 }
 # api twins: the pre-registered scoped vs unscoped comparison runs on these.
 API_TWINS = {

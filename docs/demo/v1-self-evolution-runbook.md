@@ -97,20 +97,20 @@ refusal with a holdout URL set).
 ## Path B: dev-mode cycle on `claude_code` (a person runs it)
 
 `uv run python -m womm.demo_cycle dev-plan` prints the sequence with the committed seed's ids
-(`v1.0-unscoped` is `sv_73c6a3fdd013`). It uses subscription usage: run it deliberately, with
+(`v1.0-unscoped` is `sv_097af05cc5f7`). It uses subscription usage: run it deliberately, with
 the Claude CLI logged in and its isolation self-check passing.
 
 ```bash
 uv run womm evolve seed
-uv run womm evolve replay sv_73c6a3fdd013 --split train --repetitions 2
-uv run womm evolve failures --sv sv_73c6a3fdd013 --from-db   # is there owner = none in 2+ proposals?
-uv run womm evolve cycle --base sv_73c6a3fdd013 --stage both --cycle-id cycle_demo_dev \
+uv run womm evolve replay sv_097af05cc5f7 --split train --repetitions 2
+uv run womm evolve failures --sv sv_097af05cc5f7 --from-db   # is there owner = none in 2+ proposals?
+uv run womm evolve cycle --base sv_097af05cc5f7 --stage both --cycle-id cycle_demo_dev \
     --gepa-dir .cache/gepa/cycle_demo_dev
 # <chosen> = the cycle's "candidate for the gate"
 uv run womm evolve diffcheck <chosen>              # R37, optional (see below)
-uv run womm evolve diffcheck sv_73c6a3fdd013
+uv run womm evolve diffcheck sv_097af05cc5f7
 # Holdout side, in a separate shell with HOLDOUT_DATABASE_URL set:
-uv run womm evolve promote <chosen> --incumbent sv_73c6a3fdd013
+uv run womm evolve promote <chosen> --incumbent sv_097af05cc5f7
 uv run womm evolve show <chosen>
 ```
 
@@ -160,7 +160,7 @@ Same as B, but the gate compares api twins:
 
 ```bash
 uv run womm evolve twin <chosen>        # archives the api twin in the candidate's cycle
-uv run womm evolve promote <chosen-api-twin> --incumbent sv_43cee2e14602   # v1.0-unscoped-api
+uv run womm evolve promote <chosen-api-twin> --incumbent sv_c8a57a8215d7   # v1.0-unscoped-api
 ```
 
 Freeze the branch from the first holdout comparison until the last one (and any `--resume`) is
