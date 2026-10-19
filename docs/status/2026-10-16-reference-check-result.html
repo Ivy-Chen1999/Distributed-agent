@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference Check Result</title>
+<style>
+/* Reference check round1_v6 (sample 2026-10-14-75af237c), scored 2026-10-16. Aggregates only:
+   no item text, no per-item AI decision (those stay in .cache/, never committed). Local file. */
+:root { --bg:#f7f6f2; --panel:#fff; --fg:#1d2128; --muted:#5f6670; --rule:#dedbd2;
+  --agree:#3d7a4f; --wrong:#b3261e; --unsure:#b8860b; --limit:#2456a6; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#14171c; --panel:#1c2027;
+  --fg:#e6e8ec; --muted:#9aa2ae; --rule:#2e343d; --agree:#7cc795; --wrong:#f08a80; --unsure:#e5c26a;
+  --limit:#7ea6e8; color-scheme:dark } }
+:root[data-theme="dark"] { --bg:#14171c; --panel:#1c2027; --fg:#e6e8ec; --muted:#9aa2ae; --rule:#2e343d;
+  --agree:#7cc795; --wrong:#f08a80; --unsure:#e5c26a; --limit:#7ea6e8; color-scheme:dark }
+body { background:var(--bg); color:var(--fg); font:15px/1.5 system-ui, sans-serif; margin:0; }
+.wrap { max-width:900px; margin:0 auto; padding:32px max(16px, env(safe-area-inset-right, 0px)) 56px max(16px, env(safe-area-inset-left, 0px)); display:grid; gap:20px; }
+h1 { font:600 1.7rem/1.2 Georgia, serif; margin:0; text-wrap:balance; } h2 { font:600 1.1rem Georgia, serif; margin:0; }
+.eyebrow { font:500 .74rem ui-monospace, monospace; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
+p { margin:0; max-width:72ch; } .muted { color:var(--muted); }
+.box { background:var(--panel); border:1px solid var(--rule); border-radius:6px; padding:18px; display:grid; gap:12px; min-width:0; }
+.kpis { display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:12px; }
+.kpi b { display:block; font:600 1.6rem Georgia, serif; } .kpi span { color:var(--muted); font-size:.85rem; }
+.bad { color:var(--wrong); }
+.row { display:grid; grid-template-columns:11rem 1fr 4.5rem; gap:10px; align-items:center; font-size:.88rem; }
+.track { position:relative; display:flex; height:18px; border-radius:3px; overflow:hidden; background:var(--rule); }
+.track i { display:block; height:100%; }
+.lim { position:absolute; top:-3px; bottom:-3px; border-left:2px dashed var(--limit); }
+.legend { display:flex; gap:14px; flex-wrap:wrap; font-size:.85rem; color:var(--muted); }
+.legend i { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:6px; vertical-align:-1px; }
+ol, ul { margin:0; padding-left:20px; display:grid; gap:6px; }
+@media (max-width:520px) { .row { grid-template-columns:7rem 1fr 3.6rem; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header style="display:grid;gap:8px">
+    <div class="eyebrow">WOMM v1 · step 2 reference check · scored 2026-10-16</div>
+    <h1>The reference check did not pass: people and the AI read the sources differently</h1>
+    <p class="muted">Sample 2026-10-14-75af237c, two classmates, 59 items (46 answer-key points,
+      13 RSB companion points). Error = the person disagrees with the AI's answer to the page's
+      question, or answers "can't tell" (pre-registered). Limit 10%.</p>
+  </header>
+
+  <section class="kpis">
+    <div class="box kpi"><b class="bad">52.2%</b><span>answer-key points: error (24 of 46), 95% upper bound 63.8%</span></div>
+    <div class="box kpi"><b class="bad">23.1%</b><span>RSB companion points: error (3 of 13), 95% upper bound 45.8%</span></div>
+    <div class="box kpi"><b>12 of 46</b><span>"can't tell" on answer-key points (10 from one annotator)</span></div>
+    <div class="box kpi"><b>10 of 12</b><span>answered disagreements where the person kept and the AI dropped</span></div>
+  </section>
+
+  <section class="box">
+    <h2>Where the error comes from (answer-key points)</h2>
+    <div class="legend"><span><i style="background:var(--agree)"></i>agrees with the AI</span>
+      <span><i style="background:var(--wrong)"></i>disagrees</span>
+      <span><i style="background:var(--unsure)"></i>can't tell</span>
+      <span><i style="background:var(--limit)"></i>10% limit (dashed)</span></div>
+    <div id="bars" style="display:grid;gap:10px"></div>
+  </section>
+
+  <section class="box">
+    <h2>Who is right: assistant's first-pass reading of every card (owner to confirm in step 3)</h2>
+    <p class="muted">Each of the 24 errors and each of the 21 key-vs-page differences was read
+      against the text shown on the card. Provisional, not the owner's ruling.</p>
+    <div id="who" style="display:grid;gap:10px"></div>
+    <ul>
+      <li><b>"Can't tell" is mostly a misread of the task.</b> In 8 of 12 the figure is in the
+        highlighted sentence itself; the note asks for the IA's own source of the number, which the
+        card never asks for. The welcome card must say so before the calibration sitting, which uses
+        the same two people.</li>
+      <li><b>Answered disagreements: the AI's reading holds in about 10 of 12.</b> The person kept a
+        point that adds an effect, cause or figure the source does not state ("offer lower prices",
+        "because the criteria give legal certainty", "uptake of complex products").</li>
+      <li><b>The answer key over-reaches on about 11 of 46 points (24%), and on 1 of 13 companions</b>, all the same way: a kept
+        point carries one clause more than its source. The step-3 rule allows at most 10%, so the key
+        is not ready as it stands. The fix is the same for all: trim the clause, or drop the point.</li>
+      <li><b>Card display:</b> 2-3 items had the needed figure outside the shown window, and one board
+        card ("which report?") lacked context.</li>
+    </ul>
+  </section>
+
+  <section class="box">
+    <h2>What it means</h2>
+    <ul>
+      <li><b>Two different problems.</b> "Can't tell" (12): the notes say the point's figures are not
+        in the shown source ("numbers don't come from any listed source"). Disagreements (12): in 10 the
+        AI dropped a point because it adds an effect, cause or figure the highlighted sentence does
+        not state, and the person kept it.</li>
+      <li><b>The key itself is looser than the page question.</b> The AI's page answer differs from the
+        answer key on 17 of 46 points; people differ from the key on 10 of 34 answered.</li>
+      <li><b>Excluding "can't tell" still fails:</b> 12 of 34 answered (35%).</li>
+      <li><b>Pre-registered consequence:</b> NOT ROBUST. Fix the drafting prompt, settle the drafts
+        again, run a new check with a new seed. Steps 4 and 5 (publishing, holdout import) wait for a
+        ROBUST check; the 2026-10-12 tie-break rulings no longer count.</li>
+    </ul>
+  </section>
+</div>
+<script>
+const rows = [ // [label, agree, wrong, unsure]
+  ["all 46", 22, 12, 12],
+  ["annotator A", 13, 8, 2],
+  ["annotator B", 9, 4, 10],
+  ["judges accepted", 13, 5, 3],
+  ["tie-break kept", 7, 5, 8],
+  ["tie-break dropped", 2, 2, 1],
+  ["RSB companions (13)", 10, 1, 2],
+];
+const C = ["var(--agree)", "var(--wrong)", "var(--unsure)"];
+const host = document.getElementById("bars");
+for (const [lab, ...v] of rows) {
+  const n = v[0] + v[1] + v[2], err = (v[1] + v[2]) / n;
+  const r = document.createElement("div"); r.className = "row";
+  const l = document.createElement("span"); l.textContent = `${lab} (n=${n})`;
+  const t = document.createElement("div"); t.className = "track";
+  v.forEach((x, i) => { const b = document.createElement("i"); b.style.width = (x / n * 100) + "%"; b.style.background = C[i]; t.append(b); });
+  const m = document.createElement("span"); m.className = "lim"; m.style.left = "90%"; t.append(m);
+  const e = document.createElement("span"); e.textContent = (err * 100).toFixed(0) + "% err"; e.className = err > .1 ? "bad" : "";
+  r.append(l, t, e); host.append(r);
+}
+const who = [ // [label, AI right, unclear, AI wrong / card problem]
+  ["can't tell (12)", 10, 2, 0],
+  ["answered disagreements (12)", 10, 2, 0],
+  ["key vs page differences (21)", 12, 2, 7],
+];
+const W = ["var(--agree)", "var(--unsure)", "var(--wrong)"];
+for (const [lab, ...v] of who) {
+  const n = v[0] + v[1] + v[2];
+  const r = document.createElement("div"); r.className = "row";
+  const l = document.createElement("span"); l.textContent = lab;
+  const t = document.createElement("div"); t.className = "track";
+  v.forEach((x, i) => { const b = document.createElement("i"); b.style.width = (x / n * 100) + "%"; b.style.background = W[i]; t.append(b); });
+  const e = document.createElement("span"); e.textContent = `${v[0]} AI`;
+  r.append(l, t, e); document.getElementById("who").append(r);
+}
+const lg = document.createElement("div"); lg.className = "legend";
+lg.innerHTML = '<span><i style="background:var(--agree)"></i>AI reading holds (key wrong, where they differ)</span><span><i style="background:var(--unsure)"></i>unclear</span><span><i style="background:var(--wrong)"></i>AI wrong or card problem (key right)</span>';
+document.getElementById("who").prepend(lg);
+</script>
+</body>
+</html>

@@ -11,7 +11,7 @@ source: brainstorm/Plan.docx
 WOMM is a self-evolving multi-agent system for EU regulatory impact assessment (RIA). The full vision is in `brainstorm/Plan.docx`. This document does not repeat the vision. It only cuts it into two deliverable phases and locks in the technical trade-offs:
 
 - **v0 — 2026-10-02 (Friday)**: end-to-end skeleton. Prove that the chain "Regulatory Change → Provision → Finding → Evidence → Source" and the evaluation baseline can run end to end online. Self-evolution is left as interfaces only.
-- **v1 — around 2026-11-27**: all of the Plan's Must build + Adaptive items land. Demo one full improvement cycle. The strongest form is "a new expert is created and promoted via holdout" (Plan §16).
+- **v1 — around 2026-11-27**: all of the Plan's Must build + Adaptive items land, except R18–R21, which move to v1.1 (2026-10-19). Demo one full improvement cycle. The strongest form is "a new expert is created and promoted via holdout" (Plan §16).
 
 Constraint: the EU AI Act structured data is owned by a colleague and has not been delivered yet. v0 must not be blocked by it.
 
@@ -97,7 +97,7 @@ R16 tracing is on by default from P1.
 - R9. v0 evidence sources are limited to the COM(2021)206 provisions + its explanatory memorandum (excluding sections that cite IA conclusions, e.g. "Results of impact assessments"). Each source is assigned a source_id. Experts may only cite these sources; the official IA is not among them. Citation validation in v0 is deterministic verbatim matching: every evidence item must carry a source_id + a verbatim quote, and it counts as supported only if the quote can be found (after normalization) in the source text; otherwise it is downgraded to an open question.
 
 **Jev and decision log**
-- R10. The Jev Router runs in **shadow** mode: for each expert it gives "relevant or not" plus a probability, written to a DecisionRecord (decision_point, input, decision, probability, mode, system_version), but all experts run as usual. Router mode supports off / shadow / active configuration. In shadow, Jev calls have a short timeout; on timeout or error the run continues as usual, and the DecisionRecord records `decision=error`, an empty probability, and the error reason.
+- R10. The Jev Router runs in **shadow** mode: for each expert it gives "relevant or not" plus a probability, written to a DecisionRecord (decision_point, input, decision, probability, mode, system_version), but all experts run as usual. Router mode supports off / shadow / active configuration; v1 runs shadow only, and the switch to active is v1.1 (R21). In shadow, Jev calls have a short timeout; on timeout or error the run continues as usual, and the DecisionRecord records `decision=error`, an empty probability, and the error reason.
 
 **Evaluation baseline**
 - R11. 2–3 golden cases. The input is the R2 evaluation scenario. Reference answers come from manageable subsections of the official AI Act impact assessment (the approach suggested in Plan §9). The reference IA does not enter any data source that agents can access.
@@ -127,16 +127,25 @@ R16 tracing is on by default from P1.
   `docs/brainstorms/2026-10-02-next-stage-cost-and-methodology-requirements.md`. Proposed timing:
   - **v1.1** (moved from v1 on 2026-10-03, user decision): Stage A (LLM obligation enrichment, and
     the adversarial reviewer).
-  - **v1 if time allows, otherwise v1.1:** Stage B (EU-level cost estimation scored against the IA
-    cost sections).
+  - **v1** (moved into v1 on 2026-10-07, user decision; previously "v1 if time allows, otherwise
+    v1.1"): Stage B (EU-level cost estimation scored against the IA cost sections). Plan:
+    `docs/plans/2026-10-07-001-feat-eu-cost-estimation-plan.md`. The R30 demo cycle keeps priority
+    from about 2026-11-16.
   - **After v1:** Stage C (municipal organization case and VNG/PBLQ validation) and Stage D (data
     quality and generality).
-- R18. Evidence expert and Workforce expert go live (5 in total). External evidence is discovered via Exa; each item keeps its source and provenance.
-- R19. Three-layer citation validation: verbatim matching → support scoring (a MiniCheck-style small model) → only ambiguous cases go to the LLM judge.
+- R18 (**v1.1**, moved 2026-10-19). Evidence expert and Workforce expert go live (5 in total). External evidence is discovered via Exa; each item keeps its source and provenance.
+- R19 (v1 keeps verbatim matching as in R9; **v1.1** for support scoring and judge routing of ambiguous cases). Three-layer citation validation: verbatim matching → support scoring (a MiniCheck-style small model) → only ambiguous cases go to the LLM judge.
+- **Revision 2026-10-19 (owner decision): R18–R21 move to v1.1, in the parts listed under Scope Boundaries.**
+  None of them is built: no Evidence or Workforce expert is live, there is no Exa retrieval, no
+  support-scoring model, no Jev publish/deliver/relate, and the Router runs only in shadow. v1's
+  value has to be shown by R30 (one real improvement cycle on traceable golden cases), and these
+  four would compete with it for the remaining weeks. What stays in v1: verbatim citation
+  matching (R9), the LLM judge for evaluation metrics (R12), shadow DecisionRecords (R10); a new expert only as the
+  output of an R30 cycle (Workforce is the planned target), not as a standalone build.
 
 **Collaboration layer**
-- R20. Jev publish / deliver / relate go live: whether a finding is published, which experts it is delivered to, and its relation to existing findings (supports / contradicts / supersedes); contradictions are kept, not deleted. Experts that receive deliveries enter the next round, until there are no new deliveries or the round limit is reached.
-- R21. Router and collaboration decisions start in shadow and switch to active after reaching a reliability threshold. The threshold is based on the calibration curve of DecisionRecords against evaluation results.
+- R20 (**v1.1**). Jev publish / deliver / relate go live: whether a finding is published, which experts it is delivered to, and its relation to existing findings (supports / contradicts / supersedes); contradictions are kept, not deleted. Experts that receive deliveries enter the next round, until there are no new deliveries or the round limit is reached.
+- R21 (**v1.1** for the switch to active; shadow stays in v1). Router and collaboration decisions start in shadow and switch to active after reaching a reliability threshold. The threshold is based on the calibration curve of DecisionRecords against evaluation results.
 
 **Evaluation**
 - R22. Expand golden cases to about 15–30, sourced from "COM proposal + official IA" pairs in EU Better Regulation / Cellar. RSB opinions serve as the annotation source for omissions.
@@ -151,7 +160,7 @@ R16 tracing is on by default from P1.
 - R28. Promotion threshold: the overall improvement on holdout exceeds repeated-run noise (bootstrap CI), and regressions in coverage / grounding / omissions each stay within their own tolerance. The minimum holdout size, repetitions per case, and tolerances are set before v1 planning based on R34 data. If the data volume cannot support a statistical threshold, switch to a weak threshold (directional improvement + regressions within tolerance) and state this honestly in the demo. Candidates that miss the threshold are rejected. Promotion results (candidate id, pass/fail, aggregate delta) are written only to an audit record readable only by the promotion process. They do not enter the Failure Memory readable by the Improvement Planner, to avoid holdout information leakage.
 - R29. Batch replay runs as a background task and can resume after a service restart.
 - R37. Provision-level diff regression check: write reference answers by hand for the R2 demo scenario (proposal → final text), run it for every SystemVersion, and record the score. This check does not take part in the promotion decision, but a worse score must be visible on the evaluation page and in the promotion record.
-- R30. Demo: one full cycle, targeting "existing experts repeatedly miss a certain kind of impact → a new expert is proposed → holdout improves → promotion". If the new-expert route is not stable before the deadline, fall back to a prompt-level improvement cycle.
+- R30. Demo: one full cycle, targeting "existing experts repeatedly miss a certain kind of impact → a new expert is proposed → holdout improves → promotion". If the new-expert route is not stable before the deadline, fall back to a prompt-level improvement cycle. The planned new-expert target is Workforce (see the 2026-10-19 note under R19).
 
 **Demo frontend** (design owned by the user, simple version; v0.1 implements pages 1–2, v1 implements pages 3–4)
 - R35. The backend provides the frontend with a run event stream (node start/complete/fail, Jev decisions, findings written to the Board) and query endpoints (Impact Dossier, evaluation results, version lineage). The frontend only displays; it carries no business logic.
@@ -189,6 +198,7 @@ R16 tracing is on by default from P1.
 
 - Not in v0: Jev publish/deliver/relate, Workforce/Evidence experts, Exa external retrieval, Improvement Planner and any automatic improvement, human review UI, MiniCheck.
 - Not in v1 (from the Plan's Experimental items, except R30): agent merge/deletion, graph structure reorganization, evaluator self-improvement.
+- Decided 2026-10-19: not in v1, moved to v1.1: R18 (Evidence and Workforce experts as a standalone build, Exa), R19's support-scoring layer, R20 (Jev publish/deliver/relate, multi-round board), R21's switch to active.
 - No full product interface; only the R36 demo pages. v1 human review reuses LangSmith annotation queues first. During development, use LangGraph Studio to observe graph structure and state.
 - Promotion only optimizes whole-proposal evaluation. The provision-level diff capability is monitored only through the R37 regression check and does not take part in the promotion decision.
 - Analysis features and full multi-version data focus on the AI Act. Other EU proposals serve only as evaluation corpus (R33); no multi-version support for them.
@@ -239,7 +249,7 @@ R16 tracing is on by default from P1.
 - [Affects R12][Technical] Rubric and matching granularity for the coverage judge (semantic matching by impact vs matching by actor+mechanism).
 - [Affects R15][Technical] Whether the v0 task queue uses Postgres `SKIP LOCKED` or FastAPI in-process background tasks (the latter may be enough at v0 scale).
 - [Affects R6, R32][Technical] Structured-output strategy per backend (CLI `--json-schema` / native / tool calling), and `claude_code` backend compatibility when v1 experts need to call retrieval tools.
-- [Affects R20][Technical] Termination condition and round limit for the multi-round board.
+- [Affects R20, v1.1][Technical] Termination condition and round limit for the multi-round board.
 - [Affects R28, R34][Needs research] Based on measured v0 noise, set the minimum holdout size, number of repetitions, and per-metric tolerance (done before v1 planning).
 - [Affects all][Needs research] Whether the newer APIs reported by Context7 (Send timeout policy, node error_handler, DeltaChannel, graceful drain) are available in the installed langgraph / langchain versions.
 
