@@ -174,7 +174,18 @@ back as overlays in commit `4c07d1f` (worktree branch `feat/v1-integration`). Al
 are settled; the never-flagged keeps had no full-text review. The cases found are kept as a
 regression set (`evals/regression/key_fidelity_2026-10-17.yaml`, 31). The full-text key check is
 frozen at version c884f744 and is a hint, not a gate: it decided 39% of the clauses on the 36
-points, and it never edits a key. Record the revision as "corrected after human
+points, and it never edits a key.
+
+**Stage closed 2026-10-19 (Codex).** The 11 train/val cases were published (`2159e19`) with the
+coverage judge v2 (direction and conditions must match; frozen, `ce6d364`). A minimal real cycle
+on the subscription (prompt stage only, `cycle_min_dev_20261019`, 12 case runs, no holdout, no
+API cost) proposed a synthesis change: val coverage 0.437 -> 0.445 over 3 cases x 1 run, not
+enough to show a gain, so the base was kept and the candidate archived. In the base's train runs
+synthesis dropped none of the 269 expert findings; the 22 misses were never found by the experts
+(other affected parties, market-wide effects, gains written as costs). Demo wording: "the answer
+key was corrected after human feedback, and one real improvement cycle ran end to end; it has not
+shown that the optimisation improves results reliably." Local page:
+`.cache/evolve/cycle_min_dev_20261019.html` (worktree). Record the revision as "corrected after human
 feedback by an AI full-text review"; never "read-checked by two people" or "robust".
 
 Then read "Where the answer key and the page verdict differ" (21 of 59 items) and rule on each
