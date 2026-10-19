@@ -182,10 +182,16 @@ on the subscription (prompt stage only, `cycle_min_dev_20261019`, 12 case runs, 
 API cost) proposed a synthesis change: val coverage 0.437 -> 0.445 over 3 cases x 1 run, not
 enough to show a gain, so the base was kept and the candidate archived. In the base's train runs
 synthesis dropped none of the 269 expert findings; the 22 misses were never found by the experts
-(other affected parties, market-wide effects, gains written as costs). Demo wording: "the answer
-key was corrected after human feedback, and one real improvement cycle ran end to end; it has not
-shown that the optimisation improves results reliably." Local page:
-`.cache/evolve/cycle_min_dev_20261019.html` (worktree). Record the revision as "corrected after human
+(other affected parties, market-wide effects, gains written as costs). A follow-up candidate
+written from those train misses (the stakeholder expert looks past the actors a provision names,
+and writes gains as well as costs; one run per case, not archived) raised val coverage 0.437 ->
+0.488, all from PLD; the other two val cases were unchanged in total and Gigabit lost its one
+omission. The three misses it was written for were still missed: they need further inference
+from the law's text. The base is kept and no more runs are planned. Demo wording: "the answer key
+was corrected after human feedback, and real optimisation experiments ran; a candidate showed a
+local gain, but nothing that justifies replacing the base." Candidates, run files, GEPA state,
+logs and a database dump are kept under `.cache/experiments/2026-10-19/` (local, not committed); the
+result page is `evolve/cycle_min_dev_20261019.html` there. Record the revision as "corrected after human
 feedback by an AI full-text review"; never "read-checked by two people" or "robust".
 
 Then read "Where the answer key and the page verdict differ" (21 of 59 items) and rule on each
