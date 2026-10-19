@@ -367,9 +367,9 @@ What each reason and note means (pre-registered 2026-10-14, before any compariso
 | `coverage_ci_not_above_zero` | Statistical mode: the 95% CI of the coverage gain reaches 0 | The candidate is worse |
 | `coverage_below_weak_bar` | Weak or dev mode: the coverage gain is not above 1 SE of the mean delta (the comparison's bootstrap SE; the within-run noise SE, noted, when too few proposals) | The candidate is worse; with 8 cases a real gain can miss the bar |
 | `coverage_noise_unavailable` | Weak or dev mode: no run-to-run noise to set the bar (too few repetitions scored) | Anything about the candidate |
-| `grounding_regression` | Mean grounding dropped by more than 0.02 | Citations are wrong (grounding checks that a quote exists) |
+| `grounding_regression` | Mean citation check rate (`grounding`) dropped by more than 0.02 | Citations are wrong (it checks that a quote exists, not that it supports the claim) |
 | `omissions_addressed_regression` | RSB omissions addressed dropped by more than one noise SD | The candidate covers less overall |
-| `precision_regression` | The share of dossier impacts matched to an expected impact dropped by more than one noise SD | The extra impacts are wrong (the key is incomplete) |
+| `precision_regression` | The reference match rate (`precision`: the share of dossier impacts matched to an expected impact) dropped by more than one noise SD | The extra impacts are wrong (the key is incomplete) |
 | `impact_count_drop` | The candidate's mean impact count per dossier fell more than 25% below the incumbent's (bundling findings into a few broad impacts) | The candidate covers less; a rise is never a rejection |
 | `impact_count_unavailable` | No paired case has impact counts, so the drop guard cannot be checked (never skipped) | Anything about the candidate's quality |
 | `inconclusive` | The comparison aborted (rate limit or a missing score); no budget used | A rejection on the merits |

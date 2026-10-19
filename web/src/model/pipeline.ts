@@ -47,7 +47,7 @@ const DESC: Record<string, string> = {
   stakeholder: 'Maps effects onto actors and flags where burdens fall unevenly.',
   workforce: 'Candidate expert for staffing and skills effects.',
   board: 'One shared board every expert posts to. Findings keep their provenance: agent, prompt hash, model, round.',
-  citation: 'Checks every evidence quote verbatim against the source text. Grounding = quote existence rate.',
+  citation: 'Checks every evidence quote verbatim against the source text. Citation check rate = share of quotes found verbatim (not whether they support the claim).',
   synthesis: 'Merges overlapping findings into impacts, links causal chains, surfaces disagreements and open questions.',
   cost: "Turns the run's duties into cost records: who pays, effort type, one-off and recurring bands. Reads obligation records only, never the findings.",
   dossier: 'Assembles the final Impact Dossier. Every impact traces to a provision key, a quote and a source id.',
