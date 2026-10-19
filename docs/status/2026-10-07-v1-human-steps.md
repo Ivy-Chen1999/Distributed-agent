@@ -166,10 +166,15 @@ IA, RSB opinion and law, and Codex reviewed every proposed edit (records under
 `.cache/reference_check/round1_v6/`, private). 19 key points were corrected: 15 in the train/val
 case drafts, 4 in the companions (trims, one restored "expected to", rewrites with their sources;
 each keeps its original text in a `sweep` overlay; commits `1e99658`, `b352bef`); 4 proposed cuts
-were rejected because the source does support them. 38 points the window check flagged were kept
-after a screening, not a clause-by-clause review (still open). The 27 cases found are kept as
-acceptance cases for a checker (`evals/regression/key_fidelity_2026-10-17.yaml`); no checker is
-tested against them yet. Record the revision as "corrected after human
+were rejected because the source does support them. The remaining 36 flagged points (earlier
+counted as 38) were then ruled clause by clause on the source, and Codex ruled each (2026-10-17):
+keep 9, rewrite 26, drop 1 (c07_e07: the IA's evidence is about the voluntary labelling option, not
+the notification regime the law adopted); c11_m05 got its "could" back as a second edit. Written
+back as overlays in commit `4c07d1f` (worktree branch `feat/v1-integration`). All 55 flagged points
+are settled; the never-flagged keeps had no full-text review. The cases found are kept as a
+regression set (`evals/regression/key_fidelity_2026-10-17.yaml`, 31). The full-text key check is
+frozen at version c884f744 and is a hint, not a gate: it decided 39% of the clauses on the 36
+points, and it never edits a key. Record the revision as "corrected after human
 feedback by an AI full-text review"; never "read-checked by two people" or "robust".
 
 Then read "Where the answer key and the page verdict differ" (21 of 59 items) and rule on each
