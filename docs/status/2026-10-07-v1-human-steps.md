@@ -263,7 +263,22 @@ git commit evals/promotion_records.yaml
   seed. One retry only (cut-off above). With 30 pairs, a judge whose true agreement is 85% passes
   about half the time (90%: about 4 in 5); a failed sitting is noted in this page with its score.
 
-## 5. Holdout (owner only, about 20 minutes)
+## 5. Holdout (owner only)
+
+**Since the reference check is NOT ROBUST (2026-10-16), there is no spot check: review every item
+of every holdout draft yourself** (owner decision 2026-10-19; the window-sweep record is not used
+for this sample, and the full-text check's record (plan F8) was not built). In the integration
+worktree, where the 8 drafts are:
+
+```
+uv run python scripts/holdout_review.py --reviewer "Chen Yuxin" --full all
+```
+
+It opens the same blind page with every item of the 8 drafts. Answers are saved as you go, so it
+can take several sittings. Judge each claim against the IA, the whole document if the shown part
+is not enough; Can't tell is fine. Then import as below. The rest of this section is the spot-check
+route, for a later ROBUST reference check.
+
 
 The holdout store and this page stay on the owner's machine, so this cannot go to classmates
 (formal comparisons later send holdout text to OpenAI; see the data boundary at the top). It
