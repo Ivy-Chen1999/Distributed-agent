@@ -13,3 +13,6 @@ runs/
 
 # Local-only evaluation data (IA identifiers, holdout material); never committed.
 evals/private/
+
+# Playwright MCP session logs and snapshots
+.playwright-mcp/

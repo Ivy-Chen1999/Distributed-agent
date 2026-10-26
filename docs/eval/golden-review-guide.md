@@ -24,8 +24,7 @@ holds the full rules.
 
 You are checking reference answers that an LLM drafted from an official impact assessment (IA).
 WOMM is scored against these answers, so a wrong item teaches the wrong lesson. Plan on about
-5–8 minutes per case. Post your minutes as a PR comment; the case owner logs them in
-`evals/annotation-assignments.md`, so the review PR keeps only the draft.
+5–8 minutes per case. Post your minutes as a PR comment, so the review PR keeps only the draft.
 
 ## What you review
 
