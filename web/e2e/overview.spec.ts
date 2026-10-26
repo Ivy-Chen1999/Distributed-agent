@@ -20,8 +20,8 @@ test('KPIs, latency bars and flow pills of the latest run', async ({ page }) => 
   await expect(kpi(page, 'Cost')).toContainText('$' + cost.toFixed(2));
   await expect(kpi(page, 'Cost')).toContainText('Model: claude-sonnet-5');
   const g = run.grounding!;
-  await expect(kpi(page, 'Grounding')).toContainText(`${Math.round((g.passed / g.total) * 100)}%`);
-  await expect(kpi(page, 'Grounding')).toContainText(`${g.passed}/${g.total} quotes verified`);
+  await expect(kpi(page, 'Citation check')).toContainText(`${Math.round((g.passed / g.total) * 100)}%`);
+  await expect(kpi(page, 'Citation check')).toContainText(`${g.passed}/${g.total} quotes verified`);
 
   const latency = page.getByText('Agent latency', { exact: true }).locator('xpath=../..');
   for (const pill of ['Regulatory diff', 'Impact Planner', 'Router · Jev', 'Legal', 'Fiscal', 'Stakeholder', 'Synthesis', 'Impact Dossier']) {

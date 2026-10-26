@@ -9,8 +9,8 @@ Every outcome opens the same way, on page 4 (Evolution):
 
 > "The cycle proposed this candidate from train and val only. It was fixed before the gate, and
 > we spend one comparison on a sealed holdout of 8 proposals the cycle never saw. The rule was
-> signed before the run: coverage must rise above the noise, and grounding, omissions,
-> precision and impact count must not fall. Here is what it said."
+> signed before the run: coverage must rise above the noise, and the citation check rate, omissions,
+> the reference match rate and impact count must not fall. Here is what it said."
 
 ## 1. `promoted (holdout, bootstrap CI)`: statistical mode
 
@@ -55,7 +55,7 @@ Every outcome opens the same way, on page 4 (Evolution):
   ones. The guards were signed before the run, and this one caught [the metric]. That is the
   failure the rule exists to stop." For `impact_count_drop`: "it bundled findings into fewer,
   broader impacts."
-- **Never:** "the candidate is wrong" for precision (the key is incomplete, so unmatched
+- **Never:** "the candidate is wrong" for the reference match rate (`precision`) (the key is incomplete, so unmatched
   impacts are not shown to be wrong).
 
 ## 5. `inconclusive (aborted: no result, no holdout budget used)`: the comparison aborted

@@ -185,7 +185,7 @@ export function Overview() {
                 <span>Scenario</span>
                 <span>Status</span>
                 <span>Impacts</span>
-                <span>Grounding</span>
+                <span>Citations checked</span>
                 <span>Time</span>
                 <span>System version</span>
               </div>
