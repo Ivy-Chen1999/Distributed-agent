@@ -150,6 +150,7 @@ R16 tracing is on by default from P1.
 **Evaluation**
 - R22. Expand golden cases to about 15–30, sourced from "COM proposal + official IA" pairs in EU Better Regulation / Cellar. RSB opinions serve as the annotation source for omissions.
 - R23. Golden cases are split into train / val / holdout. Holdout reference answers are stored only in our own database, accessible only to the promotion process, and not visible to the Improvement Planner.
+  - Revision 2026-10-26 (owner decision): no person reviews holdout items. An item enters the sealed key only when the Claude drafting chain (three judges and the tie-break) and a blind second judge from another model family (`openai:gpt-6.1-sol`) both keep it; doubt excludes it, a case needs at least 3 kept impacts, and fewer than 5 cases stops the run before import. Plan: `docs/plans/2026-10-26-001-feat-holdout-second-judge-plan.md`.
 - R24. Strip sections that cite IA conclusions from the input proposal (e.g. "Results of impact assessments" in the explanatory memorandum) to prevent answer leakage. For holdout, prefer IAs published after the model's training cutoff.
 - R33. The AI Act has only one official IA; the other golden cases come from other EU proposals. These proposals are imported automatically under the R1 contract (Cellar / Formex parsing), with the input form unified as "no prior version → proposal". An owner must be assigned during v1 planning (the colleague's data scope covers only the AI Act).
 
@@ -161,6 +162,7 @@ R16 tracing is on by default from P1.
 - R29. Batch replay runs as a background task and can resume after a service restart.
 - R37. Provision-level diff regression check: write reference answers by hand for the R2 demo scenario (proposal → final text), run it for every SystemVersion, and record the score. This check does not take part in the promotion decision, but a worse score must be visible on the evaluation page and in the promotion record.
 - R30. Demo: one full cycle, targeting "existing experts repeatedly miss a certain kind of impact → a new expert is proposed → holdout improves → promotion". If the new-expert route is not stable before the deadline, fall back to a prompt-level improvement cycle. The planned new-expert target is Workforce (see the 2026-10-19 note under R19).
+  - Revision 2026-10-26 (owner decision): the v1 demo runs one dev-mode holdout comparison on `claude_code`, without the judge calibration, R34 or a formal comparison; its decision reads "dev-only, not deployable". The formal route stays in the code, unused for v1.
 
 **Demo frontend** (design owned by the user, simple version; v0.1 implements pages 1–2, v1 implements pages 3–4)
 - R35. The backend provides the frontend with a run event stream (node start/complete/fail, Jev decisions, findings written to the Board) and query endpoints (Impact Dossier, evaluation results, version lineage). The frontend only displays; it carries no business logic.

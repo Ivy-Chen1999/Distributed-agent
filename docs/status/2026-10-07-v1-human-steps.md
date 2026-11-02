@@ -1,4 +1,22 @@
-# WOMM v1: the steps that need a person — 2026-10-07 (revised 2026-10-15)
+# WOMM v1: the steps that need a person — 2026-10-07 (revised 2026-10-15, route of 2026-10-26)
+
+**Route of 2026-10-26 (owner decision; plan `docs/plans/2026-10-26-001-feat-holdout-second-judge-plan.md`).**
+No person is on the path to the v1 demo any more:
+
+- The holdout key is settled by two model families: the Claude tie-break chain, then a blind
+  second judge (`openai:gpt-6.1-sol`, `scripts/second_judge_holdout.py`) that judges every item
+  without seeing the Claude decisions. An item is kept only when both keep it; doubt excludes it.
+  A case needs at least 3 kept impacts, and fewer than 5 cases stops the run before import. The
+  judge first passes a two-sided acceptance on the public regression set. This replaces step 5.
+- The demo runs one dev-mode holdout comparison on `claude_code` (path B of the runbook). Steps 2
+  (done 2026-10-16, NOT ROBUST), 3b, the calibration sitting of step 4 and step 7 are not used for
+  v1; they stay below as the formal route.
+- Demo wording for the key: AI-drafted; a two-person sample check failed; corrected after that
+  feedback by an AI full-text review, not re-checked by people; holdout key kept only where the
+  Claude tie-break chain and `gpt-6.1-sol` agree, no human check.
+- The only human input left is the signed promotion policy (step 6, done 2026-10-15).
+
+The text below records the earlier route and its results.
 
 Everything else in v1 is automated. People are needed where an LLM is being checked and another
 LLM cannot be the reference: did the AI read its sources faithfully (the reference check; it does
@@ -8,7 +26,9 @@ sitting by the two classmates on the deployed app; the third stays with the owne
 this page is the owner's: permissions, one signature, and commands that run unattended. Commands
 refer to `feat/v1-integration`, except step 8 (`feat/eu-cost`).
 
-Data boundary: the holdout store and the step 5 page stay on the owner's machine. The api versions
+Data boundary: the holdout store stays on the owner's machine. The second judge sends holdout
+proposal passages and answer-key items to the OpenAI API (no tracing; the API does not train on
+API data by default). The api versions
 run on OpenAI, so a formal holdout comparison sends holdout proposal text and answer-key items to
 the OpenAI API (system roles and judge), and the cross-judge re-score after it sends the stored
 holdout dossiers and key items to Anthropic through the isolated Claude CLI. Committed files (`evals/promotion_records.yaml`, this page)
@@ -28,7 +48,7 @@ only, they gate nothing).
 | 3 | Read the reference-check review page, mark who is right, rule on the 21 key differences | owner | about 45 min |
 | 3b | RSB companions: commit them on `feat/v1-integration` before step 4 (labelled in step 2) | owner | 10 min |
 | 4 | Publish the golden cases; then the calibration sitting | owner, then 2 classmates | 5 min, then about 20 min each |
-| 5 | Holdout: spot-check 3 items a draft on a local page (tie-break **done 2026-10-12**), import | owner | about 20 min |
+| 5 | Holdout: settled by the tie-break and the second judge, import (**route of 2026-10-26**: no person) | machine | about 1 h |
 | 6 | Sign the promotion policy (**re-signed 2026-10-15** after the 2026-10-14 amendment) | owner | 5 min |
 | 7 | R34 noise run and MDD report (after the calibration passes and step 5) | owner starts it | 10 min plus about 2 h |
 | 8 | Cost reference: run the check, record the FTE basis (**done 2026-10-12**) | owner | 5 min |
@@ -269,35 +289,27 @@ git commit evals/promotion_records.yaml
   seed. One retry only (cut-off above). With 30 pairs, a judge whose true agreement is 85% passes
   about half the time (90%: about 4 in 5); a failed sitting is noted in this page with its score.
 
-## 5. Holdout (owner only, about 20 minutes)
+## 5. Holdout (machine, route of 2026-10-26)
 
-The holdout store and this page stay on the owner's machine, so this cannot go to classmates
-(formal comparisons later send holdout text to OpenAI; see the data boundary at the top). It
-needs a ROBUST reference check (step 3): the same tool chain then settles the holdout drafts, and
-the owner only checks 3 items a draft (one per kind of decision), about 24 in all. The spot check
-stays human: no model replaces it, because the system under test and the judge run on the same
-model. The 2026-10-12 tie-break rulings count only if step 3 is ROBUST; after a NOT ROBUST
-result, settle the drafts again and re-run `tiebreak_golden_case.py` before this step.
+No person reviews holdout items. Run on the owner's machine, after the code of plan
+`docs/plans/2026-10-26-001-feat-holdout-second-judge-plan.md` has merged:
 
-Run in the integration worktree (the 8 drafts are in its `.cache/drafts/`; the reference check
-is in the main checkout's `.cache/`). Not imported yet (checked 2026-10-14: 8 drafts, empty
-`.cache/holdout_import/`).
+1. Restore `evals/private/` from `.cache/evals_private_backup/` and copy the 8 holdout drafts into
+   `.cache/drafts/`. Start Postgres (`docker-compose up -d`) and set `HOLDOUT_DATABASE_URL` and
+   `DATABASE_URL` locally.
+2. `uv run womm selfcheck`, then `uv run python scripts/tiebreak_golden_case.py .cache/drafts/*.yaml`
+   (subscription, no API cost).
+3. `uv run python scripts/second_judge_holdout.py acceptance --max-usd 2`. If it still fails after
+   two prompt revisions, stop: nothing holdout goes to the API.
+4. `uv run python scripts/second_judge_holdout.py settle --dry-run`, then `settle --max-usd 3`.
+   The second-judge spend of all runs together is capped at USD 5.
+5. `HOLDOUT_DATABASE_URL=... uv run python scripts/import_holdout_case.py .cache/holdout_import/*.yaml`.
+   A sealed case is never overwritten with a different body.
+6. Record here the totals the script prints (kept, excluded by reason, agreement rate, spend),
+   aggregates only.
 
-```
-uv run python scripts/holdout_review.py \
-    --reference-check /Users/yuxin.chen/Distributed-agent/.cache/reference_check/round1_v6/ \
-    --reviewer "Chen Yuxin"     # opens a local page with every draft's 3 items, blind
-HOLDOUT_DATABASE_URL=... uv run python scripts/import_holdout_case.py .cache/holdout_import/<case>.yaml
-```
-
-The page runs on this machine only (127.0.0.1), never on Railway. The browser's translate button
-works on it; it sends the page text to the translation service, so use it only if that is
-acceptable for the holdout.
-
-Any disagreement with the tool on a draft refuses the spot check (the same rule as the
-reference check's early stop; the holdout is newer material than train/val); then run
-`holdout_review.py ... --full <case_id>` for that draft (every item, same page). The step is done
-when `.cache/drafts/` is empty and the holdout store reports 8 cases from 8 proposals.
+The step is done when the holdout store reports at least 5 cases. The earlier route (owner spot
+check after a ROBUST reference check, `scripts/holdout_review.py`) stays in the code, unused.
 
 ## 6. Sign the promotion policy (owner)
 

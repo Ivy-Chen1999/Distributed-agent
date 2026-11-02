@@ -13,6 +13,12 @@ sealed holdout.
 | B. Dev-mode cycle | `claude_code` (subscription) | sealed holdout | dev | yes: signed policy, sealed cases | subscription usage |
 | C. Formal cycle | `api` | sealed holdout | statistical or weak | yes: everything in B plus calibration, R34, api key | API spend |
 
+**The v1 demo runs path B** (owner decision 2026-10-26, plan
+`docs/plans/2026-10-26-001-feat-holdout-second-judge-plan.md`). Its sealed cases are settled with
+no person: an item is kept only where the Claude tie-break chain and a second judge
+(`gpt-6.1-sol`) both keep it. The signed policy is the only human input. Path C stays in the code,
+unused for v1.
+
 ## Honesty rules (all paths)
 
 - The demo states the gate mode. Dev and weak decisions are **directional, not statistically
@@ -28,10 +34,10 @@ sealed holdout.
   **automated prompt and config optimization with a sealed holdout gate**; show the literal diff
   (`womm evolve show <candidate>`).
 - Say how the answer keys were made: **AI-drafted; a two-person sample check failed; corrected
-  after that feedback by an AI full-text review, not re-checked by people; holdout spot-checked**
-  (5 items per draft after the tightening, 3 with a ROBUST check). The judge was calibrated on the
-  incumbent's output, and the judge and the system under test are the same model
-  (`gpt-6.1-sol`).
+  after that feedback by an AI full-text review, not re-checked by people; holdout key kept only
+  where the Claude tie-break chain and `gpt-6.1-sol` agree, no human check**. On path B the
+  coverage judge is not calibrated against people, and the judge and the system under test are
+  the same model family (Claude).
 - A weak-mode pass is **"not rejected (directional)"**. Quote the A/A null pass rate that
   `womm noise report` prints, with its label: **lower bound: within-run noise only** (it splits
   one version's runs, so it misses how a gain varies between cases).

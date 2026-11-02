@@ -1,8 +1,11 @@
 # Every check, in one page
 
 The rule behind all of them: **the AI does everything it can; people check only where an AI
-cannot be trusted to check another AI.** That leaves three human checks; everything else is
-automatic.
+cannot be trusted to check another AI.** The three human checks below were the plan until
+2026-10-26. For the v1 demo the owner then removed people from the path: the reference check ran
+once (2026-10-16, not robust), the calibration is not used because the demo runs the dev gate on
+Claude, and the sealed cases are settled by two model families (see "Sealed-case second judge"
+under automatic checks).
 
 ## Human checks
 
@@ -10,7 +13,7 @@ automatic.
 |---|---|---|---|---|
 | **Reference check** | Read a highlighted sentence and say whether the AI read it correctly: is the answer-key point an accurate reading of the official report (no added group, effect or number)? On the same page, the expert (RSB) points where the AI's judges disagreed: is the point what the board asked to be assessed? | An AI checking AI would repeat the same blind spots. People judge only fidelity to the source; repeats are checked by code and legal derivation by the AI, so those decisions are not on the page. | Two classmates, one sitting, about 30 points each (about 20 minutes); nobody is asked again. | Scored apart: whether the AI-made answer keys are used as they are, and whether the expert points are added. The AI may be wrong on at most 10% of each. |
 | **Grader calibration** | For 30 pairs, say whether WOMM's report covers an effect from the official list. | The grader that scores WOMM is an AI; it is trusted only if it judges like people. | The same two classmates, about 20 minutes each, after the cases are published. | The grader is used for promotions only if the two people agree with each other on at least 80% and the grader agrees with them on at least 85%. |
-| **Sealed-case spot check** | The owner checks 3 points of each of the 8 sealed cases. | The sealed answer keys are made by the same AI tools; they cannot be shown to anyone else. | The owner, about 24 points, on a page on their own machine. | A disagreement on any point sends that case to a full check of every point. |
+| **Sealed-case spot check** (replaced for v1) | The owner checks 3 points of each of the 8 sealed cases. | The sealed answer keys are made by the same AI tools; they cannot be shown to anyone else. | The owner, about 24 points, on a page on their own machine. | A disagreement on any point sends that case to a full check of every point. |
 
 All of these are **blind**: the page never shows what the AI decided. The sample is random and
 spread evenly over the three ways a point was decided (kept by the judges, kept by the tie-break,
@@ -24,6 +27,7 @@ the hard cases.
 | Quote check | Every answer-key point must quote its source word for word; a program finds the quote in the official text. |
 | Three AI judges | Check each drafted point: faithful to the quote, follows from the law, right kind of effect. |
 | AI tie-break | Settles the points the judges disagreed on. |
+| Sealed-case second judge | A model from another family (`gpt-6.1-sol`) judges every point of every sealed case without seeing the Claude decisions; a point is kept only when both keep it. It must first pass an acceptance on public cases, and a case with fewer than 3 kept effects is left out. |
 | Self-check of each case | Each case's own answer, scored as if it were WOMM's report, must get full marks. |
 | Noise run | Runs the same WOMM version 6 times to measure how much scores move by chance, so a promotion needs a gain bigger than that. |
 | Promotion gate | A new version is adopted only if it beats the current one on the sealed cases, under rules signed on 2026-10-12 before any comparison; at most 6 comparisons in total. |
