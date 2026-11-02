@@ -33,7 +33,7 @@ ol { margin:0; padding-left:20px; display:grid; gap:6px; }
 <body>
 <div class="wrap">
   <header style="display:grid;gap:8px">
-    <div class="eyebrow">WOMM v1 demo · audit · 2026-10-15</div>
+    <div class="eyebrow">WOMM v1 demo · route of 2026-10-26 · updated 2026-11-02</div>
     <h1>From today to the demo: who waits on whom</h1>
     <p class="muted">Solid bar: earliest realistic window. Faded bar: slack to the latest safe date.
       Durations from the timeline audit: one case run on claude_code measured 12.5 min, on
@@ -48,31 +48,25 @@ ol { margin:0; padding-left:20px; display:grid; gap:6px; }
   <section class="box">
     <h2>Binding constraint and risks</h2>
     <ol>
-      <li><b>Two classmate sittings in a row</b> (reference check, then calibration) gate everything formal. Set a date today.</li>
-      <li><b>Calibration passes about half the time</b> for a judge whose true agreement is 85%. If it fails by 11-06, the demo uses the dev gate on Claude (outcome 7 in the talk tracks).</li>
+      <li><b>No person is on the path</b> (owner decision 2026-10-26): the holdout key is settled by the Claude tie-break chain and a second judge (<code>gpt-6.1-sol</code>), and the demo runs the dev gate on Claude, so there is no calibration sitting and no R34 run.</li>
+      <li><b>The second judge must pass its acceptance first</b> (two-sided, on the public regression set, at most 2 prompt revisions). If it fails, nothing is sent for the holdout.</li>
+      <li><b>Fewer than 5 sealed cases stops the run</b> before import; at least 3 kept impacts per case.</li>
       <li><b>The dev cycle takes 13–16 h</b> over two days on the subscription; nothing in the worktree may change while it runs.</li>
-      <li><b>The holdout comparison takes 6–13 h</b> on the frozen branch; a 429 at the OpenAI limit makes it inconclusive (limit $100).</li>
     </ol>
   </section>
 </div>
 <script>
 const D = s => new Date(s + "T00:00:00Z").getTime();
-const start = D("2026-10-15"), end = D("2026-11-28"), span = end - start;
+const start = D("2026-11-02"), end = D("2026-11-28"), span = end - start;
 const pct = s => ((D(s) - start) / span) * 100;
 const C = { o: "var(--owner)", p: "var(--people)", m: "var(--machine)" };
 const rows = [ // [label, who, earliest start, earliest end, latest]
-  ["0 OpenAI limit, data settings", "o", "2026-10-15", "2026-10-16", "2026-10-21"],
-  ["1 merge 11 drafts", "o", "2026-10-15", "2026-10-16", "2026-10-21"],
-  ["2 reference check", "p", "2026-10-16", "2026-10-21", "2026-10-23"],
-  ["3 owner rules 21 differences", "o", "2026-10-21", "2026-10-22", "2026-10-24"],
-  ["4a oracle check, publish cases", "o", "2026-10-22", "2026-10-23", "2026-10-25"],
-  ["4b calibration sitting", "p", "2026-10-23", "2026-10-28", "2026-11-06"],
-  ["5 holdout spot check, import", "o", "2026-10-22", "2026-10-23", "2026-11-06"],
-  ["7 R34 noise run", "m", "2026-10-28", "2026-10-29", "2026-11-07"],
-  ["dev cycle (40 calls)", "m", "2026-10-23", "2026-10-25", "2026-11-14"],
-  ["api twin val check", "m", "2026-10-29", "2026-10-30", "2026-11-20"],
-  ["holdout comparison (frozen)", "m", "2026-10-30", "2026-10-31", "2026-11-22"],
-  ["cross-judge re-score", "m", "2026-10-31", "2026-11-01", "2026-11-24"],
+  ["docs and code merged", "m", "2026-11-02", "2026-11-03", "2026-11-06"],
+  ["5a tie-break the 8 holdout drafts", "m", "2026-11-03", "2026-11-03", "2026-11-07"],
+  ["5b second-judge acceptance", "m", "2026-11-03", "2026-11-04", "2026-11-07"],
+  ["5c second judge, seal the holdout", "m", "2026-11-04", "2026-11-04", "2026-11-10"],
+  ["dev cycle (40 calls)", "m", "2026-11-05", "2026-11-07", "2026-11-18"],
+  ["holdout comparison (dev mode)", "m", "2026-11-07", "2026-11-08", "2026-11-22"],
 ];
 const g = document.getElementById("g");
 for (const [lab, who, a, b, late] of rows) {
@@ -84,7 +78,7 @@ for (const [lab, who, a, b, late] of rows) {
   bar.style.cssText = `left:${pct(a)}%;width:${Math.max(pct(b) - pct(a), 1)}%;background:${C[who]}`;
   g.append(r);
 }
-for (const [d, t] of [["2026-11-06", "11-06 cut-off"], ["2026-11-20", "11-20 route"], ["2026-11-27", "11-27 demo"]]) {
+for (const [d, t] of [["2026-11-20", "11-20 route"], ["2026-11-27", "11-27 demo"]]) {
   const m = document.createElement("div"); m.className = "mark";
   m.style.left = `calc(15rem + (100% - 15rem) * ${pct(d) / 100})`;
   m.innerHTML = `<span>${t}</span>`; g.append(m);

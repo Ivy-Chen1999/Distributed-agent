@@ -106,10 +106,10 @@ const DONE = {0: "Done 10-15: weak bar = gain above 1 bootstrap SE (clustered by
   3: "Done 10-15: scope wording in the runbook.", 6: "Done 10-15: wording in the runbook.",
   7: "Done 10-15: reject-reason table in the runbook, incl. precision and impact-count guards.",
   9: "Done 10-15: dated changelog in the policy; signing requires an entry dated that day. Policy signed 10-15.",
-  1: "Wording 10-17 (reference check failed; no second sitting): AI-drafted; a two-person sample check failed; corrected after that feedback by an AI full-text review, not re-checked by people; holdout spot-checked. Never \u201chuman-verified\u201d or \u201crobust\u201d.",
+  1: "Wording 10-17 (reference check failed; no second sitting): AI-drafted; a two-person sample check failed; corrected after that feedback by an AI full-text review, not re-checked by people; holdout key kept only where the Claude tie-break chain and gpt-6.1-sol agree, no human check (route of 10-26). Never \u201chuman-verified\u201d, \u201cspot-checked\u201d or \u201crobust\u201d.",
   2: "Wording 10-15 (extra calibration pairs declined): the runbook says the judge was calibrated on the incumbent's output; the Claude cross-judge re-score is reported after each comparison.",
   4: "Wording 10-15 (probe not run): both arms use the same model, so contamination mostly cancels in the delta; absolute coverage shown only as context; postdate count reported.",
-  5: "Wording 10-15 (no new rule): the holdout gate runs on sol, so it is the transfer test; the api twin's val run is a sanity check only.",
+  5: "Route of 10-26: the demo's holdout comparison runs the dev gate on Claude, so it is not a transfer test to sol; say so.",
   8: "Done 10-15: cost slide from logged usage (docs/demo/cost-slide.html); api runs now record list-price cost, so USD caps work."};
 const FIXED = new Set([0, 3, 6, 7, 8, 9]);
 const list = document.getElementById("list");
