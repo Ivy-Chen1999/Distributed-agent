@@ -366,7 +366,7 @@ class HoldoutStore:
                     (case.case_id,),
                 )
             ).fetchone()
-            if row and row[0] != bundle.body_sha256:
+            if row and row["body_sha256"] != bundle.body_sha256:
                 raise HoldoutError(
                     f"{case.case_id} is already sealed with a different body; a sealed case is "
                     "never replaced. Nothing was written. Delete its row from holdout.cases "
