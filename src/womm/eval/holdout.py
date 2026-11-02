@@ -352,7 +352,9 @@ class HoldoutStore:
 
     async def import_case(self, bundle: ImportBundle) -> str:
         """Upsert the case, its scenario and its IA ids; 'inserted', 'updated' or 'unchanged'
-        (only when the case body, the scenario and the IA record all match what is stored)."""
+        (only when the case body, the scenario and the IA record all match what is stored). A
+        sealed case is never replaced by a different body (plan 2026-10-26-001 R5): that is
+        refused, so a key cannot be quietly redone after it was sealed."""
         case, sc = bundle.case, bundle.scenario
         async with await self._connect() as conn, conn.transaction():
             row = await (
@@ -364,6 +366,12 @@ class HoldoutStore:
                     (case.case_id,),
                 )
             ).fetchone()
+            if row and row["body_sha256"] != bundle.body_sha256:
+                raise HoldoutError(
+                    f"{case.case_id} is already sealed with a different body; a sealed case is "
+                    "never replaced. Nothing was written. Delete its row from holdout.cases "
+                    "deliberately if the case must be redone"
+                )
             if row and _same_import(row, bundle):
                 return "unchanged"
             scenario_json = sc.model_dump(mode="json")

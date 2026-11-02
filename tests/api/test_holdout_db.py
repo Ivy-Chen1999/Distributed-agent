@@ -94,12 +94,14 @@ async def test_import_is_idempotent_and_stores_case_scenario_and_ia_ids(roots, h
     (sc,) = _rows(holdout_url, "SELECT scenario_id, articles FROM holdout.scenarios")
     assert sc == (hf.SCENARIO_ID, hf.ARTICLES)
 
+    sealed_notes = _rows(holdout_url, "SELECT body->>'notes' FROM holdout.cases")
     edited = hf.handoff("prop_alpha")
     edited["case"]["notes"] = "re-verified"
     changed = holdout.prepare_import(edited, hf.scenario_specs(), hf.ia_index(),
                                      golden_dir=roots / "golden")  # fmt: skip
-    assert await store.import_case(changed) == "updated"
-    assert _rows(holdout_url, "SELECT body->>'notes' FROM holdout.cases") == [("re-verified",)]
+    with pytest.raises(holdout.HoldoutError, match="already sealed with a different body"):
+        await store.import_case(changed)  # a sealed key is never quietly replaced (plan R5)
+    assert _rows(holdout_url, "SELECT body->>'notes' FROM holdout.cases") == sealed_notes
     counts = dict(_rows(holdout_url, "SELECT category, items FROM holdout.category_counts"))
     assert sum(counts.values()) == len(bundle.case.expected_impacts)
 

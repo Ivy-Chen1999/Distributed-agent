@@ -52,3 +52,13 @@ roles:
     model: claude-sonnet-5
     prompt: prompts/tools/key_check_judge.md
     timeout_s: 900
+  # The holdout's second judge (womm.eval.second_judge, plan 2026-10-26-001): another model
+  # family than every role above, on the OpenAI API (list-priced, so its USD caps work). It sees
+  # each item's claim, provisions and source passage, never the Claude decisions.
+  second_judge:
+    backend: api
+    model: openai:gpt-6.1-sol
+    reasoning_effort: medium
+    prompt: prompts/tools/second_judge.md
+    timeout_s: 600
+    max_retries: 1

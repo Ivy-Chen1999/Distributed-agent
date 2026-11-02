@@ -147,6 +147,9 @@ class DraftingRoles(StrictModel):
     # The full-text key check (womm.eval.key_check, plan 2026-10-16-001 F2): split, then judge.
     key_split: RoleConfig | None = None
     key_judge: RoleConfig | None = None
+    # The holdout's second judge from another model family (womm.eval.second_judge, plan
+    # 2026-10-26-001): an item enters the sealed key only when it and the Claude chain keep it.
+    second_judge: RoleConfig | None = None
 
     @model_validator(mode="after")
     def _graders_differ_from_authors(self) -> DraftingRoles:
@@ -154,7 +157,7 @@ class DraftingRoles(StrictModel):
         # model from the drafter and recall (Anthropic, "Develop your tests").
         authors = {self.drafter.model, self.recall.model}
         graders = ("judge_anchor", "judge_derivability", "judge_category", "tiebreak",
-                   "key_split", "key_judge")  # fmt: skip
+                   "key_split", "key_judge", "second_judge")  # fmt: skip
         for name in graders:
             role = getattr(self, name)
             if role is not None and role.model in authors:

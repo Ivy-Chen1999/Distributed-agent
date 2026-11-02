@@ -532,8 +532,10 @@ def test_holdout_drafting_posts_zero_langsmith_runs(local_ia, tmp_path, monkeypa
 def test_repo_drafting_config_loads_with_isolated_claude_code_roles():
     cfg = load_drafting_config()
     roles = cfg.roles.as_dict()
-    assert set(roles) == {*ROLE_NAMES, "tiebreak", "key_split", "key_judge"}
-    assert all(r.backend == "claude_code" for r in roles.values())
+    assert set(roles) == {*ROLE_NAMES, "tiebreak", "key_split", "key_judge", "second_judge"}
+    # Only the holdout's second judge is another model family, on the api (plan 2026-10-26-001).
+    assert all(r.backend == "claude_code" for n, r in roles.items() if n != "second_judge")
+    assert roles["second_judge"].backend == "api"
     judge_prompts = {roles[n].prompt for n in ROLE_NAMES if n.startswith("judge_")}
     assert len(judge_prompts) == 3  # one prompt per dimension
     assert roles["drafter"].model != roles["judge_anchor"].model  # judges do not grade own draft
