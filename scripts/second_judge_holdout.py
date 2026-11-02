@@ -103,7 +103,7 @@ async def acceptance(args: argparse.Namespace) -> int:
     for n in range(1, PASSES + 1):
         # Each pass is its own run; its store only resumes the same pass after a crash.
         store = sj.BatchStore(args.cache_dir / f"acceptance_{sha[:12]}_pass{n}.json",
-                              role.model, sha)  # fmt: skip
+                              role.model, sha, role.reasoning_effort)  # fmt: skip
         label = f"acceptance pass {n}"
         w = await sj.judge(w_items, config, backends, spend, store, label)
         e = await sj.judge(e_items, config, backends, spend, store, label)
@@ -144,15 +144,21 @@ async def acceptance(args: argparse.Namespace) -> int:
     return 0 if accepted else 1
 
 
-def require_acceptance(record_path: Path, model: str, sha: str) -> dict[str, Any]:
+def require_acceptance(record_path: Path, role, sha: str) -> dict[str, Any]:
     if not record_path.exists():
         raise sj.SecondJudgeError(
             f"no acceptance record ({record_path.name}); run the acceptance subcommand first"
         )
     record = yaml.safe_load(record_path.read_text(encoding="utf-8"))
-    if (record.get("model"), record.get("prompt_sha256")) != (model, sha):
+    accepted_judge = (
+        record.get("model"),
+        record.get("reasoning_effort"),
+        record.get("prompt_sha256"),
+    )
+    if accepted_judge != (role.model, role.reasoning_effort, sha):
         raise sj.SecondJudgeError(
-            "the acceptance record is for another model or prompt; run acceptance again"
+            "the acceptance record is for another model, reasoning effort or prompt; run "
+            "acceptance again"
         )
     if not record.get("accepted"):
         raise sj.SecondJudgeError("the acceptance did not pass; nothing holdout is sent")
@@ -213,7 +219,7 @@ async def settle(args: argparse.Namespace) -> int:
     role = sj.role_of(config)
     sha = sj.prompt_sha256(config)
     judge = sj.judge_id(role)
-    record = require_acceptance(args.record, role.model, sha)
+    record = require_acceptance(args.record, role, sha)
     paths = sorted(args.drafts or args.drafts_dir.glob("case_*.yaml"))
     if not paths:
         raise sj.SecondJudgeError(f"no holdout drafts in {args.drafts_dir}")
@@ -224,6 +230,12 @@ async def settle(args: argparse.Namespace) -> int:
         if draft.split != "holdout":
             raise sj.SecondJudgeError(f"{path.name} is a {draft.split} draft, not holdout")
         verify.require_settled(draft)
+        # Every other problem of the gate is found before any paid call, not after it.
+        problems = [p for p in check_draft(draft, verify.fixture_keys(draft),
+                                           holdout_second_judge=True, reviewer_pattern=None)
+                    if "expected impacts would be kept" not in p]  # fmt: skip
+        if problems:
+            raise sj.SecondJudgeError(f"{path.name}:\n  " + "\n  ".join(problems))
         fixture = load_fixture(fixture_dir(draft.fixture))
         scenario = tiebreak_script.holdout_scenario(path, draft, fixture, args)
         cached = ia_sources.load_cached_ia(draft.fixture, args.ia_root)
@@ -240,7 +252,9 @@ async def settle(args: argparse.Namespace) -> int:
     spend = sj.Spend(args.max_usd, args.ledger)
     results = []
     for path, draft, items in work:
-        store = sj.BatchStore(args.cache_dir / f"{draft.case_id}.json", role.model, sha)
+        store = sj.BatchStore(
+            args.cache_dir / f"{draft.case_id}.json", role.model, sha, role.reasoning_effort
+        )
         verdicts = await sj.judge(items, config, backends, spend, store, "settle")
         case, counts = settle_draft(draft, verdicts, judge, args.today)
         results.append((path, draft, case, counts))

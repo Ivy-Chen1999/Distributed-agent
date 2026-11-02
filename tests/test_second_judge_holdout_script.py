@@ -79,7 +79,7 @@ def _record(tmp_path, accepted=True, sha=None):
     config = drafting_module.load_drafting_config()
     path = tmp_path / "acceptance.yaml"
     path.write_text(yaml.safe_dump({
-        "date": "2026-11-02", "model": MODEL, "accepted": accepted,
+        "date": "2026-11-02", "model": MODEL, "reasoning_effort": "medium", "accepted": accepted,
         "prompt_sha256": sha or sj.prompt_sha256(config),
     }))  # fmt: skip
     return path
@@ -161,7 +161,7 @@ def test_too_few_cases_write_no_handoff(env, monkeypatch):
     ("record", "message"),
     [
         (None, "no acceptance record"),
-        ({"accepted": True, "sha": "0" * 64}, "another model or prompt"),
+        ({"accepted": True, "sha": "0" * 64}, "another model, reasoning effort or prompt"),
         ({"accepted": False}, "did not pass"),
     ],
 )
@@ -182,6 +182,16 @@ def test_an_untiebroken_draft_is_refused(env, capsys):
     fake = use(judge_by_point())
     assert script.main(_settle_argv(tmp_path, _record(tmp_path))) == 1
     assert "not tie-broken" in capsys.readouterr().err and fake.calls == []
+
+
+def test_a_gate_problem_is_found_before_any_call(env, capsys):
+    tmp_path, use = env
+    data = _tiebroken_holdout()
+    data["expected_impacts"][0]["provision_keys"] = ["data_act/proposal/art/999"]
+    write(tmp_path / "cache" / "drafts" / f"{CASE}.yaml", data)
+    fake = use(judge_by_point())
+    assert script.main(_settle_argv(tmp_path, _record(tmp_path))) == 1
+    assert "art/999" in capsys.readouterr().err and fake.calls == []
 
 
 def test_dry_run_makes_no_call(env, capsys):

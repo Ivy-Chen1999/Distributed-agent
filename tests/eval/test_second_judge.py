@@ -189,11 +189,21 @@ def test_a_rerun_pays_only_for_missing_batches(tmp_path):
     assert len(second.calls) == 1 and len(got) == 20
 
 
-def test_a_store_of_another_prompt_is_refused(tmp_path):
+def test_a_store_of_another_prompt_or_effort_is_refused(tmp_path):
     path = tmp_path / "case.json"
-    sj.BatchStore(path, MODEL, "a" * 64).put("k", [])
-    with pytest.raises(sj.SecondJudgeError, match="another model or prompt"):
-        sj.BatchStore(path, MODEL, "b" * 64)
+    sj.BatchStore(path, MODEL, "a" * 64, "medium").put("k", [])
+    with pytest.raises(sj.SecondJudgeError, match="another judge"):
+        sj.BatchStore(path, MODEL, "b" * 64, "medium")
+    with pytest.raises(sj.SecondJudgeError, match="another judge"):
+        sj.BatchStore(path, MODEL, "a" * 64, "high")
+
+
+def test_conflicting_verdicts_for_one_item_are_doubt(tmp_path):
+    reply = {"verdicts": [{"item_id": "i01", "verdict": "keep", "reason": "a"},
+                          {"item_id": "i01", "verdict": "drop", "reason": "b"}]}  # fmt: skip
+    got = run(sj.judge(items(1), config(), {"fake": PricedFake({sj.ROLE: [reply]})},
+                       spend(tmp_path)))  # fmt: skip
+    assert got["x0"].verdict == "unsure" and got["x0"].reason == "conflicting verdicts"
 
 
 # ----------------------------------------------------------------------------- config

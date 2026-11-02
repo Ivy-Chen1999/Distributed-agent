@@ -47,7 +47,9 @@ BATCH = 15  # items per call
 PASSAGE_CHARS = 1500  # source text on each side of the anchor (about 3000 in all)
 PROVISION_CHARS = 2500  # text of one cited provision
 CHARS_PER_TOKEN = 3  # a conservative estimate for the pre-call reservation
-OUTPUT_ALLOWANCE = 6000  # output tokens reserved per attempt, reasoning included
+# Output tokens reserved per attempt, reasoning included. The api backend sets no output limit,
+# so a long answer can still cost more; the overshoot is at most part of one call.
+OUTPUT_ALLOWANCE = 16000
 TOTAL_CAP_USD = 5.0  # all second-judge spend, acceptance and settlement together (plan R7)
 GATE_B_MIN = 12  # supported controls a pass must keep (plan KTD4)
 CACHE_DIR = REPO_ROOT / ".cache" / "second_judge"
@@ -247,19 +249,27 @@ class Spend:
 
 
 class BatchStore:
-    """One case's (or one acceptance pass's) verdicts per batch, bound to the model and prompt
-    that produced them; a store written by another model or prompt is refused, never mixed."""
+    """One case's (or one acceptance pass's) verdicts per batch, bound to the model, reasoning
+    effort and prompt that produced them; a store written by another judge is refused, never
+    mixed."""
 
-    def __init__(self, path: Path, model: str, prompt_sha: str):
+    def __init__(self, path: Path, model: str, prompt_sha: str, effort: str | None = None):
         self.path = path
-        self.data: dict[str, Any] = {"model": model, "prompt_sha256": prompt_sha, "batches": {}}
+        self.data: dict[str, Any] = {
+            "model": model,
+            "reasoning_effort": effort,
+            "prompt_sha256": prompt_sha,
+            "batches": {},
+        }
         if path.exists():
             data = json.loads(path.read_text(encoding="utf-8"))
-            if (data.get("model"), data.get("prompt_sha256")) != (model, prompt_sha):
+            stored = (data.get("model"), data.get("reasoning_effort"), data.get("prompt_sha256"))
+            if stored != (model, effort, prompt_sha):
+                prompt = str(data.get("prompt_sha256"))[:12]
                 raise SecondJudgeError(
-                    f"{path.name} holds verdicts of another model or prompt "
-                    f"({data.get('model')}, {str(data.get('prompt_sha256'))[:12]}); the frozen "
-                    "judge is not mixed with another. Remove the file deliberately to start over"
+                    f"{path.name} holds verdicts of another judge ({data.get('model')}, effort "
+                    f"{data.get('reasoning_effort')}, prompt {prompt}); the frozen judge is not "
+                    "mixed with another. Remove the file deliberately to start over"
                 )
             self.data = data
 
@@ -319,8 +329,13 @@ async def judge(
             ]
             if store is not None:
                 store.put(key, got)
+        answers: dict[str, list[dict]] = {}
         for v in got:
-            out.setdefault(v["item_id"], SecondJudgeVerdict.model_validate(v))
+            answers.setdefault(v["item_id"], []).append(v)
+        for iid, vs in answers.items():
+            if len({v["verdict"] for v in vs}) > 1:  # conflicting answers are doubt (plan KD5)
+                vs = [{"item_id": iid, "verdict": "unsure", "reason": "conflicting verdicts"}]
+            out.setdefault(iid, SecondJudgeVerdict.model_validate(vs[0]))
         for it in batch:
             out.setdefault(
                 it.item_id,
