@@ -547,6 +547,7 @@ def check_draft(
     escalated: bool = False,
     everything: bool = False,
     holdout_spot_check: bool = False,
+    holdout_second_judge: bool = False,
     reviewer_pattern: re.Pattern[str] | None = GITHUB_USERNAME,
     ia_text: str | None = None,
 ) -> list[str]:
@@ -558,10 +559,13 @@ def check_draft(
     reviewer name (local holdout verification). ``ia_text`` is the cached IA, when available,
     against which ``human_added`` anchors are checked (``human_added_problems``).
     ``holdout_spot_check`` is the local holdout spot check (scripts/verify_golden_case.py
-    --spot-check): the tool's decisions stand, as for train/val, beside the owner's sample."""
+    --spot-check): the tool's decisions stand, as for train/val, beside the owner's sample.
+    ``holdout_second_judge`` is the settlement by a second judge (scripts/second_judge_holdout.py,
+    plan 2026-10-26-001): the tool's decisions stand, and the items the second judge did not keep
+    are rejected or unclear with its reason."""
     cid = draft.case_id
     problems: list[str] = []
-    if draft.split == "holdout" and not (everything or holdout_spot_check):
+    if draft.split == "holdout" and not (everything or holdout_spot_check or holdout_second_judge):
         problems.append(f"{cid}: split 'holdout' never goes through a PR; use verify_golden_case")
     ids = [i.item_id for i in draft.items()]
     for dup in sorted({i for i in ids if ids.count(i) > 1}):
@@ -731,9 +735,15 @@ def _provenance(item: _DraftItem) -> str:
 
 
 def review_notes(
-    draft: GoldenDraft, published_on: dt.date, audit: AuditResult, action: str = "published"
+    draft: GoldenDraft,
+    published_on: dt.date,
+    audit: AuditResult,
+    action: str = "published",
+    second_judge: str | None = None,
 ) -> str:
-    """The review record appended to the case notes: who decided what, and when."""
+    """The review record appended to the case notes: who decided what, and when.
+    ``second_judge`` names the judge that settled a holdout draft with no person (plan
+    2026-10-26-001): its exclusions are not a human review."""
     items = draft.items()
     reviewers = sorted({i.review.reviewer.lstrip("@") for i in items if i.review.reviewer})
     dropped = {d: [i.item_id for i in items if i.review.decision == d] for d in DROPPED_DECISIONS}
@@ -746,14 +756,27 @@ def review_notes(
         f"Drafted on {p.drafted_on.isoformat()} by {p.drafting_model} ({p.tool}) and checked by "
         "isolated LLM judges"
         + (", open items settled by a tie-break judge." if p.tiebreak_audit else "."),
-        f"Human review by {', '.join(reviewers) or 'nobody (all items auto-accepted)'}; "
+        (
+            f"No human review: a second judge from another model family ({second_judge}) "
+            "judged every item without seeing these decisions, and an item was kept only when "
+            f"both kept it; {action} on {published_on.isoformat()}."
+        )
+        if second_judge
+        else f"Human review by {', '.join(reviewers) or 'nobody (all items auto-accepted)'}; "
         f"{action} on {published_on.isoformat()}.",
         "Decisions: " + ", ".join(f"{k} {v}" for k, v in counts.items()) + ".",
-        f"Audit: {audit.decided}/{audit.sampled} sampled items decided, {audit.errors} "
+        "Audit sample: not reviewed by people."
+        if second_judge
+        else f"Audit: {audit.decided}/{audit.sampled} sampled items decided, {audit.errors} "
         "edited/rejected/unclear"
         + (" (escalated: every item reviewed by a human)." if audit.escalated else "."),
     ]
-    if dropped["rejected"] or dropped["unclear"]:
+    if second_judge and (dropped["rejected"] or dropped["unclear"]):
+        parts.append(
+            f"Excluded by the second judge: drop {dropped['rejected'] or 'none'}, unsure "
+            f"{dropped['unclear'] or 'none'}."
+        )
+    elif dropped["rejected"] or dropped["unclear"]:
         parts.append(
             f"Dropped: rejected {dropped['rejected'] or 'none'}, unclear (ambiguous, not kept) "
             f"{dropped['unclear'] or 'none'}."
@@ -783,6 +806,7 @@ def build_case(
     audit: AuditResult,
     action: str = "published",
     companions: Sequence[GoldenDraft] = (),
+    second_judge: str | None = None,
 ) -> GoldenCase:
     """The published case: kept items only, edits as written, review record in ``notes``.
     ``companions`` (RSB omissions drafted after the case, plan 2026-10-12-001) add their kept
@@ -831,7 +855,12 @@ def build_case(
     if len(set(ids)) != len(ids):
         raise ReviewError(f"{draft.case_id}: a companion repeats an omission id of its case")
     notes = " ".join(
-        n for n in (draft.notes.strip(), review_notes(draft, published_on, audit, action)) if n
+        n
+        for n in (
+            draft.notes.strip(),
+            review_notes(draft, published_on, audit, action, second_judge),
+        )
+        if n
     )
     return GoldenCase(
         case_id=draft.case_id,

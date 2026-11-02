@@ -384,8 +384,10 @@ def write_handoff(
     today: dt.date,
     out_dir: Path,
     spot_check: dict[str, Any] | None = None,
+    second_judge: dict[str, Any] | None = None,
 ) -> Path:
-    """The verified case for U6's holdout importer; private file mode, never under evals/."""
+    """The verified case for U6's holdout importer; private file mode, never under evals/.
+    ``second_judge`` is the settlement record of scripts/second_judge_holdout.py."""
     path = out_dir / f"{case.case_id}.yaml"
     _refuse_under_evals(path, "the holdout handoff")
     data = {
@@ -395,6 +397,7 @@ def write_handoff(
         "verified_on": today.isoformat(),
         "draft_sha256": hashlib.sha256(draft_path.read_bytes()).hexdigest(),
         **({"spot_check": spot_check} if spot_check else {}),
+        **({"second_judge": second_judge} if second_judge else {}),
         "case": case.model_dump(mode="json", exclude_none=True),
     }
     out_dir.mkdir(parents=True, exist_ok=True)
