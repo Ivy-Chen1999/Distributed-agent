@@ -209,8 +209,8 @@ def _acceptance_items(cases):
     """Items for the real regression ids, the label hidden in the point for the scripted judge."""
     w = [sj.JudgeItem(c["id"], "effect", {"impact": c["expected"].upper()}, "official report",
                       "", ("t",), ()) for c in cases]  # fmt: skip
-    e = [i for i, c in zip(w, cases, strict=True) if c["kind"] == "window"]
-    return w, e, []
+    c = [i for i, case in zip(w, cases, strict=True) if case["expected"] == "supported"]
+    return w, c, []
 
 
 def _acceptance_argv(tmp_path):

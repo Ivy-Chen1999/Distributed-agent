@@ -295,11 +295,13 @@ def test_acceptance_inputs_hide_the_labels_and_show_cited_passages(tmp_path):
         _regression_case("w99", "window", "supported", "cra/ia_full.txt:15"),
         _regression_case("o99", "over_inference", "not_supported", "cra/ia_full.txt:5"),
     ]
-    w, e, notes = sj.acceptance_items(cases, tmp_path / "ia", golden)
-    content = sj.user_content(w)[0] + sj.user_content(e)[0]
+    w, c, notes = sj.acceptance_items(cases, tmp_path / "ia", golden)
+    content = sj.user_content(w)[0] + sj.user_content(c)[0]
     for label in ("window", "over_inference", "supported", "WHY-TEXT", "ia_full.txt"):
         assert label not in content, label
-    assert len(w) == 2 and len(e) == 1
-    assert "[[" in e[0].passages[0] and "FAR SUPPORT" in e[0].passages[1]
-    assert len(w[0].passages) == 1
+    # W: every case on its whole point; C: only the supported case, on its labelled clause.
+    assert len(w) == 2 and w[0].point == {"impact": "an effect"} and len(w[0].passages) == 1
+    assert len(c) == 1 and c[0].item_id == "w99"
+    assert c[0].point == {"claim_to_judge": "c", "context_only": "an effect"}
+    assert "[[" in c[0].passages[0] and "FAR SUPPORT" in c[0].passages[1]
     assert any("no provisions shown" in n for n in notes)

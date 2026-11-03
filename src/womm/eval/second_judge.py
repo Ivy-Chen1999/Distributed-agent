@@ -408,9 +408,15 @@ def _published_item(golden_dir: Path, case_id: str, point_id: str) -> tuple[str,
 def acceptance_items(
     cases: list[dict[str, Any]], ia_root: Path, golden_dir: Path
 ) -> tuple[list[JudgeItem], list[JudgeItem], list[str]]:
-    """Condition W (every case, holdout-identical input), condition E (the window cases with
-    the passages their ``source`` cites as well) and notes for the record."""
-    w_items, e_items, notes = [], [], []
+    """Condition W (every case, holdout-identical input: the whole point), condition C (each
+    supported case's labelled clause only, with the anchor passage, its provisions and, for a
+    window case, the passages its ``source`` cites) and notes for the record.
+
+    The regression set labels one clause per case, not the whole point, and a point labelled
+    supported can hold another, unscreened clause the source does not support (plan 2026-10-26-001
+    KTD4, revised 2026-11-03 after the first acceptance run). So gate B asks about the clause, and
+    gate A keeps the whole point, as the holdout is judged."""
+    w_items, c_items, notes = [], [], []
     for c in cases:
         inp = c["input"]
         fixture_name = inp["fixture"]
@@ -439,14 +445,21 @@ def acceptance_items(
             provisions=provisions,
         )
         w_items.append(base)
+        if c["expected"] != "supported":
+            continue
+        extra = []
         if c["kind"] == "window":
-            extra = []
             for file, first, last in cited_locations(c["source"]):
                 path = ia_root / file
                 if path.exists():
                     extra.append(location_passage(path.read_text(encoding="utf-8"), first, last))
-            e_items.append(replace(base, passages=(*base.passages, *extra)))
-    return w_items, e_items, notes
+        clause = {
+            "claim_to_judge": c["claim"],
+            # the whole point, so a clause that is only a fragment can be read (plan KTD4)
+            "context_only": " / ".join(str(v) for v in point.values()),
+        }
+        c_items.append(replace(base, point=clause, passages=(*base.passages, *extra)))
+    return w_items, c_items, notes
 
 
 def _point_key(c: dict[str, Any]) -> str:
@@ -474,16 +487,15 @@ def controls(
 def score_pass(
     cases: list[dict[str, Any]],
     w: dict[str, SecondJudgeVerdict],
-    e: dict[str, SecondJudgeVerdict],
+    c: dict[str, SecondJudgeVerdict],
     exclude: frozenset[str] = frozenset(),
 ) -> dict[str, Any]:
-    """Gate A on W, gate B pooled over W and E (plan KTD4); unsure counts as not kept."""
+    """Gate A on W (whole points), gate B on C (labelled clauses) (plan KTD4); unsure counts as
+    not kept."""
     negative, pos_w, pos_e = controls(cases, exclude)
     keeps = {cid for cid, v in w.items() if v.verdict == "keep"}
     dangerous = sorted(p for p, ids in negative.items() if keeps & set(ids))
-    kept = [cid for cid in pos_w if cid in keeps] + [
-        cid for cid in pos_e if e.get(cid) and e[cid].verdict == "keep"
-    ]
+    kept = [cid for cid in pos_w + pos_e if c.get(cid) and c[cid].verdict == "keep"]
     total = len(pos_w) + len(pos_e)
     window_cases = [c["id"] for c in cases if c["kind"] == "window" and c["id"] not in exclude]
     return {

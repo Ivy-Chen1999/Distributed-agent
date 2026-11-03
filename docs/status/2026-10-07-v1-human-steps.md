@@ -291,6 +291,22 @@ git commit evals/promotion_records.yaml
 
 ## 5. Holdout (machine, route of 2026-10-26)
 
+**Done 2026-11-03.** Aggregates only:
+
+| Stage | Result |
+|---|---|
+| Tie-break (Claude, subscription) | 75 open items ruled: 43 kept, 32 dropped |
+| Acceptance (`gpt-6.1-sol`) | passed on the third run, after the two allowed prompt revisions (plan KTD4): gate A kept no unsupported point in either pass; gate B kept 12 of 15 supported clauses in both passes; on the anchor passage alone the judge kept 2 of 11 window cases |
+| Second judge on the holdout | 131 items; the Claude chain kept 99; both families kept 25 (74 excluded as drop, 0 as unsure); per-case agreement 0.21 to 0.58 |
+| Sealed | 6 cases from 6 proposals, 3 to 5 expected impacts each (23 in all), no omissions; 2 cases under the floor of 3 impacts were not imported |
+| API spend | USD 1.23 in all (acceptance runs 0.69, settlement 0.54), under the USD 5 cap |
+
+What this means for the demo: the key holds only what two model families both read in the text
+around each anchor; most of the IA's points rest on text further away and were excluded. With 3 to
+5 impacts a case, one item moves a case's coverage by 0.2 to 0.33, so the comparison is coarse and
+its dev-mode decision is directional only. Say so with the result.
+
+
 No person reviews holdout items. Run on the owner's machine, after the code of plan
 `docs/plans/2026-10-26-001-feat-holdout-second-judge-plan.md` has merged:
 

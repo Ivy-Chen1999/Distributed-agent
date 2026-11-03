@@ -9,7 +9,8 @@ Plan docs/plans/2026-10-26-001-feat-holdout-second-judge-plan.md; womm.eval.seco
 ``acceptance`` runs the judge twice on the public regression set
 (evals/regression/key_fidelity_2026-10-17.yaml) and writes
 evals/regression/second_judge_acceptance.yaml: aggregates only. Each pass must keep no point the
-set marks unsupported (gate A) and keep at least 12 of the 15 supported controls (gate B).
+set marks unsupported, judged as whole points (gate A), and keep at least 12 of the 15 supported
+clauses, judged clause by clause (gate B).
 
 ``settle`` refuses until that record has passed for the current prompt and model. It takes the
 tie-broken holdout drafts in .cache/drafts/, has the judge judge every item without seeing any
@@ -92,9 +93,9 @@ async def acceptance(args: argparse.Namespace) -> int:
     role = sj.role_of(config)
     sha = sj.prompt_sha256(config)
     cases = sj.load_regression(args.regression)
-    w_items, e_items, notes = sj.acceptance_items(cases, args.ia_root, args.golden_dir)
+    w_items, c_items, notes = sj.acceptance_items(cases, args.ia_root, args.golden_dir)
     if args.dry_run:
-        calls, usd = sj.estimate_items(w_items + e_items, config)
+        calls, usd = sj.estimate_items(w_items + c_items, config)
         print(f"acceptance: {PASSES} passes x {calls} calls, at most about USD {PASSES * usd:.2f}")
         return 0
     backends = backends_for(config)
@@ -106,9 +107,9 @@ async def acceptance(args: argparse.Namespace) -> int:
                               role.model, sha, role.reasoning_effort)  # fmt: skip
         label = f"acceptance pass {n}"
         w = await sj.judge(w_items, config, backends, spend, store, label)
-        e = await sj.judge(e_items, config, backends, spend, store, label)
-        passes.append(sj.score_pass(cases, w, e))
-        partial.append(sj.score_pass(cases, w, e, exclude=sj.CODEX_LABELLED))
+        c = await sj.judge(c_items, config, backends, spend, store, label)
+        passes.append(sj.score_pass(cases, w, c))
+        partial.append(sj.score_pass(cases, w, c, exclude=sj.CODEX_LABELLED))
     accepted = all(p["gate_a"]["passed"] and p["gate_b"]["passed"] for p in passes)
     record = {
         "date": args.today.isoformat(),

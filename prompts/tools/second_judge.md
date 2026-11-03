@@ -20,6 +20,9 @@ For an item whose source is the **official report**:
   narrower one), another effect, a number the text does not give or gives for something else, a
   stronger claim than the text makes, an option the report did not choose, or a point that only
   says an effect is absent or negligible.
+- A point that says something is new, added, more, less or changed compared with today needs the
+  shown report text to make that comparison. The provisions show what the law requires, not what
+  is new: they cannot support the comparison on their own.
 - `unsure`: the shown text is not enough to tell either way.
 
 For an item whose source is the **review board opinion** (the board asks the report to assess
@@ -30,6 +33,9 @@ something; it does not state findings):
 - `drop`: a different concern, or the board's sentence is only about how the report is written
   (method, data, presentation).
 - `unsure`: the shown text is not enough to tell.
+
+When a point has a `claim_to_judge`, judge only that line; `context_only` is the rest of the point,
+given so the line can be read, and is not part of the question.
 
 Return exactly one verdict for every `item_id`, with a one-sentence reason that names the words
 you relied on.
