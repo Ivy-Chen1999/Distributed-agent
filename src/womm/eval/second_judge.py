@@ -24,7 +24,6 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import re
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Literal
@@ -34,6 +33,8 @@ from langsmith import tracing_context
 
 from womm.config import REPO_ROOT
 from womm.data.fixtures import Fixture, fixture_dir, load_fixture
+from womm.eval import key_check as kc
+from womm.eval import key_sources as ks
 from womm.eval.drafting import DraftingConfig, GoldenDraft, _DraftItem
 from womm.eval.reference_check import _passage
 from womm.llm.api import list_price_usd
@@ -46,6 +47,9 @@ ROLE = "second_judge"
 BATCH = 15  # items per call
 PASSAGE_CHARS = 1500  # source text on each side of the anchor (about 3000 in all)
 PROVISION_CHARS = 2500  # text of one cited provision
+# Passages found elsewhere in the IA, the board's opinion or the proposal, after the anchor
+# window (plan KTD2, revision of 2026-11-03: most IA points rest on text far from the anchor).
+FULL_TEXT_PASSAGES = 4
 CHARS_PER_TOKEN = 3  # a conservative estimate for the pre-call reservation
 # Output tokens reserved per attempt, reasoning included. The api backend sets no output limit,
 # so a long answer can still cost more; the overshoot is at most part of one call.
@@ -111,6 +115,35 @@ def passage(quote: str, text: str, chars: int = PASSAGE_CHARS) -> str:
     return f"{found['before']}[[{found['quote']}]]{found['after']}"
 
 
+def index_for(fixture: str, ia_root: Path | None = None) -> kc.Index:
+    """The full-text index of a fixture's IA, board opinion and proposal (womm.eval.key_sources,
+    the passages the full-text key check reads)."""
+    return kc.Index(list(ks.load_sources(fixture, ia_root).passages))
+
+
+def retrieved(
+    index: kc.Index, fields: dict[str, str], anchor: str, on_rsb: bool,
+    k: int = FULL_TEXT_PASSAGES,
+) -> tuple[str, ...]:  # fmt: skip
+    """Up to ``k`` passages from anywhere in the fixture's texts that the point's own words rank
+    highest (BM25, each field a search; no model call), the anchor's own passage left out since the
+    window shows it. A board-opinion point searches the opinion and the proposal only."""
+    text = " ".join(v for v in fields.values() if v)
+    point = kc.PointInput(key="", fixture="", fields=fields, anchor=anchor,
+                          anchored_on="rsb_opinion" if on_rsb else "ia")  # fmt: skip
+    claim = kc.SplitClaim(id="c", text=text, searches=[v for v in fields.values() if v])
+    own = kc._norm(anchor)[:120]
+    out: list[str] = []
+    for found in kc._retrieve(index, point, claim):
+        if own and own in kc._norm(found.text):
+            continue
+        where = found.where + (f", {found.section}" if found.section else "")
+        out.append(f"[{where}] {found.text}")
+        if len(out) == k:
+            break
+    return tuple(out)
+
+
 def provision_texts(
     fixture: Fixture, scenario: Scenario | None, keys: list[str]
 ) -> tuple[tuple[str, str], ...]:
@@ -132,12 +165,20 @@ def _point(item: _DraftItem) -> dict[str, str]:
 
 
 def draft_items(
-    draft: GoldenDraft, fixture: Fixture, scenario: Scenario, ia_text: str, rsb_text: str
+    draft: GoldenDraft,
+    fixture: Fixture,
+    scenario: Scenario,
+    ia_text: str,
+    rsb_text: str,
+    index: kc.Index | None = None,
 ) -> list[JudgeItem]:
-    """Every item of ``draft`` as the judge sees it (candidates are shown as effects)."""
+    """Every item of ``draft`` as the judge sees it (candidates are shown as effects); with
+    ``index``, the anchor window is followed by passages found elsewhere in the texts."""
     items = []
     for item in draft.items():
         on_rsb = item.anchor.against == "rsb"
+        window = passage(item.ia_anchor, rsb_text if on_rsb else ia_text)
+        more = retrieved(index, _point(item), item.ia_anchor, on_rsb) if index else ()
         items.append(
             JudgeItem(
                 item_id=item.item_id,
@@ -145,7 +186,7 @@ def draft_items(
                 point=_point(item),
                 source="review board opinion" if on_rsb else "official report",
                 section=item.ia_section or "",
-                passages=(passage(item.ia_anchor, rsb_text if on_rsb else ia_text),),
+                passages=(window, *more),
                 provisions=provision_texts(fixture, scenario, list(item.provision_keys)),
             )
         )
@@ -359,40 +400,6 @@ def load_regression(path: Path = REGRESSION) -> list[dict[str, Any]]:
     return yaml.safe_load(path.read_text(encoding="utf-8"))["cases"]
 
 
-_LOCATION = re.compile(r"^(?:(?P<file>[a-z_]+/[a-z_]+\.txt):)?(?P<lines>[\d,\- ]+)$")
-
-
-def cited_locations(source: str) -> list[tuple[str, int, int]]:
-    """``(fixture/file.txt, first line, last line)`` for every line a case's ``source`` cites;
-    a later segment without a file continues the previous file, other text is skipped."""
-    out: list[tuple[str, int, int]] = []
-    current = None
-    for segment in source.split(";"):
-        m = _LOCATION.match(segment.strip())
-        if not m:
-            continue
-        current = m["file"] or current
-        if current is None:
-            continue
-        for part in m["lines"].split(","):
-            part = part.strip()
-            if not part:
-                continue
-            first, _, last = part.partition("-")
-            out.append((current, int(first), int(last or first)))
-    return out
-
-
-def location_passage(text: str, first: int, last: int, chars: int = PASSAGE_CHARS) -> str:
-    """The text of lines ``first``..``last`` (1-based) with ``chars`` on each side."""
-    lines = text.splitlines(keepends=True)
-    start = sum(len(line) for line in lines[: first - 1])
-    end = start + sum(len(line) for line in lines[first - 1 : last])
-    lo, hi = max(0, start - chars), min(len(text), end + chars)
-    body = re.sub(r"\s+", " ", text[lo:hi])
-    return ("..." if lo else "") + body + ("..." if hi < len(text) else "")
-
-
 def _published_item(golden_dir: Path, case_id: str, point_id: str) -> tuple[str, list[str]]:
     """(scenario id, provision keys) of a point in its published case; ("", []) if absent."""
     path = golden_dir / f"{case_id}.yaml"
@@ -408,15 +415,17 @@ def _published_item(golden_dir: Path, case_id: str, point_id: str) -> tuple[str,
 def acceptance_items(
     cases: list[dict[str, Any]], ia_root: Path, golden_dir: Path
 ) -> tuple[list[JudgeItem], list[JudgeItem], list[str]]:
-    """Condition W (every case, holdout-identical input: the whole point), condition C (each
-    supported case's labelled clause only, with the anchor passage, its provisions and, for a
-    window case, the passages its ``source`` cites) and notes for the record.
+    """Condition W (every case, holdout-identical input: the whole point) and condition C (each
+    supported case's labelled clause, with the rest of its point as context), both with the anchor
+    window and the passages retrieval finds elsewhere, as the holdout is judged; and notes for the
+    record. Nothing is taken from a case's ``source``: retrieval must find the evidence.
 
     The regression set labels one clause per case, not the whole point, and a point labelled
     supported can hold another, unscreened clause the source does not support (plan 2026-10-26-001
     KTD4, revised 2026-11-03 after the first acceptance run). So gate B asks about the clause, and
     gate A keeps the whole point, as the holdout is judged."""
     w_items, c_items, notes = [], [], []
+    indexes: dict[str, kc.Index] = {}
     for c in cases:
         inp = c["input"]
         fixture_name = inp["fixture"]
@@ -435,30 +444,29 @@ def acceptance_items(
         if not provisions:
             notes.append(f"{c['id']}: no provisions shown (no published item to take them from)")
         point = inp["point"]
+        if fixture_name not in indexes:
+            indexes[fixture_name] = index_for(fixture_name, ia_root)
+        index = indexes[fixture_name]
+        window = passage(inp["anchor"], text)
         base = JudgeItem(
             item_id=c["id"],
             kind="omission" if "description" in point else "effect",
             point=dict(point),
             source="review board opinion" if on_rsb else "official report",
             section=inp.get("section", ""),
-            passages=(passage(inp["anchor"], text),),
+            passages=(window, *retrieved(index, dict(point), inp["anchor"], on_rsb)),
             provisions=provisions,
         )
         w_items.append(base)
         if c["expected"] != "supported":
             continue
-        extra = []
-        if c["kind"] == "window":
-            for file, first, last in cited_locations(c["source"]):
-                path = ia_root / file
-                if path.exists():
-                    extra.append(location_passage(path.read_text(encoding="utf-8"), first, last))
         clause = {
             "claim_to_judge": c["claim"],
             # the whole point, so a clause that is only a fragment can be read (plan KTD4)
             "context_only": " / ".join(str(v) for v in point.values()),
         }
-        c_items.append(replace(base, point=clause, passages=(*base.passages, *extra)))
+        found = retrieved(index, {"claim": c["claim"], **point}, inp["anchor"], on_rsb)
+        c_items.append(replace(base, point=clause, passages=(window, *found)))
     return w_items, c_items, notes
 
 

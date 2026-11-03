@@ -5,9 +5,11 @@ doubt, do not keep an item.
 
 Each item has an `item_id`, a `kind` (an effect of the proposal, or an omission: an effect the
 report should have assessed), the `point` to check, the `source` it rests on with the source text
-around the anchor quote (the quote is marked `[[...]]`; several passages may be given), and the
-text of the proposal's provisions it cites. Judge only from what is shown; do not use outside
-knowledge. A table pressed into text separates cells with `|`.
+around the anchor quote (the quote is marked `[[...]]`), then passages found elsewhere in the same
+report, board opinion or proposal (each starts with where it is, in `[...]`), and the text of the
+proposal's provisions it cites. Any of the shown passages may support the point; a passage found
+elsewhere supports it only if it is about the same group and effect. Judge only from what is
+shown; do not use outside knowledge. A table pressed into text separates cells with `|`.
 
 For an item whose source is the **official report**:
 

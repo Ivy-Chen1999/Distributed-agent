@@ -9,6 +9,8 @@ import pytest
 from langsmith.run_helpers import get_tracing_context
 
 from womm.data.fixtures import fixture_dir, load_fixture
+from womm.eval import key_check as kc
+from womm.eval import key_sources as ks
 from womm.eval import second_judge as sj
 from womm.eval.drafting import DraftingConfig, load_drafting_config
 from womm.llm.fake import FakeBackend
@@ -227,20 +229,6 @@ def test_a_second_judge_sharing_the_drafters_model_is_refused():
 # ----------------------------------------------------------------------------- acceptance
 
 
-def test_cited_locations_are_parsed():
-    assert sj.cited_locations("platform_work/ia_full.txt:1068; 1824-1836") == [
-        ("platform_work/ia_full.txt", 1068, 1068),
-        ("platform_work/ia_full.txt", 1824, 1836),
-    ]
-    assert sj.cited_locations("dsa/ia_full.txt:205; proposal Art 17(1)(c)") == [
-        ("dsa/ia_full.txt", 205, 205)
-    ]
-    assert sj.cited_locations("cra/ia_full.txt:706,714") == [
-        ("cra/ia_full.txt", 706, 706),
-        ("cra/ia_full.txt", 714, 714),
-    ]
-
-
 def _verdicts(ids, v):
     return {i: sj.SecondJudgeVerdict(item_id=i, verdict=v, reason="r") for i in ids}
 
@@ -280,11 +268,12 @@ def _regression_case(cid, kind, expected, source, point_id="c04_e01"):
                       "point": {"impact": "an effect"}}}  # fmt: skip
 
 
-def test_acceptance_inputs_hide_the_labels_and_show_cited_passages(tmp_path):
+def test_acceptance_inputs_hide_the_labels_and_retrieve_far_evidence(tmp_path):
     ia_dir = tmp_path / "ia" / "cra"
     ia_dir.mkdir(parents=True)
-    lines = ["filler line"] * 20
-    lines[4], lines[14] = "Here is the anchor sentence in the report.", "FAR SUPPORT line."
+    lines = ["Filler about unrelated matters."] * 40
+    lines[4] = "Here is the anchor sentence in the report."
+    lines[34] = "Widget makers would pay licence fees of EUR 5 per widget."
     (ia_dir / "ia_full.txt").write_text("\n".join(lines))
     golden = tmp_path / "golden"
     golden.mkdir()
@@ -292,16 +281,33 @@ def test_acceptance_inputs_hide_the_labels_and_show_cited_passages(tmp_path):
         "scenario_id: eval_none\nexpected_impacts:\n- expected_id: c04_e01\n  provision_keys: []\n"
     )
     cases = [
-        _regression_case("w99", "window", "supported", "cra/ia_full.txt:15"),
+        _regression_case("w99", "window", "supported", "cra/ia_full.txt:35"),
         _regression_case("o99", "over_inference", "not_supported", "cra/ia_full.txt:5"),
     ]
+    for c in cases:
+        c["claim"] = "widget makers pay licence fees"
+        c["input"]["point"] = {"impact": "Widget makers pay licence fees of EUR 5."}
     w, c, notes = sj.acceptance_items(cases, tmp_path / "ia", golden)
     content = sj.user_content(w)[0] + sj.user_content(c)[0]
-    for label in ("window", "over_inference", "supported", "WHY-TEXT", "ia_full.txt"):
+    for label in ("window", "over_inference", "supported", "WHY-TEXT", "cra/ia_full"):
         assert label not in content, label
     # W: every case on its whole point; C: only the supported case, on its labelled clause.
-    assert len(w) == 2 and w[0].point == {"impact": "an effect"} and len(w[0].passages) == 1
-    assert len(c) == 1 and c[0].item_id == "w99"
-    assert c[0].point == {"claim_to_judge": "c", "context_only": "an effect"}
-    assert "[[" in c[0].passages[0] and "FAR SUPPORT" in c[0].passages[1]
+    assert len(w) == 2 and len(c) == 1 and c[0].item_id == "w99"
+    assert c[0].point["claim_to_judge"] == "widget makers pay licence fees"
+    for item in (w[0], c[0]):
+        assert "[[" in item.passages[0]
+        assert any(
+            "licence fees of EUR 5" in p and "ia_full.txt:35" in p for p in item.passages[1:]
+        )
+        assert not any("anchor sentence" in p for p in item.passages[1:]), "the window shows it"
     assert any("no provisions shown" in n for n in notes)
+
+
+def test_a_draft_item_gets_passages_found_elsewhere():
+    draft = _settled_holdout()
+    fixture = load_fixture(fixture_dir("data_act"))
+    far = ks.Passage("ia", "ia_full.txt:900", "Actor 2 would bear Impact 2 under Mechanism 2.")
+    index = kc.Index([far, ks.Passage("ia", "ia_full.txt:1", "Unrelated text.")])
+    judged = sj.draft_items(draft, fixture, holdout_scenario(), IA, "", index)
+    e02 = next(it for it in judged if it.point.get("impact") == "Impact 2")
+    assert e02.passages[1].startswith("[ia_full.txt:900]") and "Impact 2" in e02.passages[1]

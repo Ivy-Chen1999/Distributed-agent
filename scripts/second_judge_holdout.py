@@ -242,7 +242,8 @@ async def settle(args: argparse.Namespace) -> int:
         cached = ia_sources.load_cached_ia(draft.fixture, args.ia_root)
         if cached is None:
             raise sj.SecondJudgeError(f"{path.name}: no IA cache for its proposal")
-        items = sj.draft_items(draft, fixture, scenario, cached.full_text, cached.rsb_text)
+        index = sj.index_for(draft.fixture, args.ia_root)
+        items = sj.draft_items(draft, fixture, scenario, cached.full_text, cached.rsb_text, index)
         work.append((path, draft, items))
     if args.dry_run:
         calls, usd = sj.estimate_items([i for *_, items in work for i in items], config)

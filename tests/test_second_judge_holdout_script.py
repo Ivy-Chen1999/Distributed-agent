@@ -15,6 +15,8 @@ from womm.config import REPO_ROOT
 from womm.data.ia_index import IaRecord
 from womm.eval import drafting as drafting_module
 from womm.eval import ia_sources
+from womm.eval import key_check as kc
+from womm.eval import key_sources as ks
 from womm.eval import second_judge as sj
 from womm.eval.golden import GoldenCase
 from womm.eval.holdout import HoldoutScenarioSpec, prepare_import
@@ -56,6 +58,8 @@ def env(tmp_path, monkeypatch):
     monkeypatch.setattr(drafting_module, "CACHE_DIR", tmp_path / "cache")
     monkeypatch.setattr(script, "load_dotenv", lambda *a, **k: None)
     monkeypatch.setattr(script, "MIN_PROPOSALS", 1)
+    far = ks.Passage("ia", "ia_full.txt:9", "Unrelated passage elsewhere in the report.")
+    monkeypatch.setattr(sj, "index_for", lambda *a, **k: kc.Index([far]))
     monkeypatch.setattr(
         script.tiebreak_script,
         "holdout_scenario",
