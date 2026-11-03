@@ -15,6 +15,7 @@ import json
 import sys
 from pathlib import Path
 
+from womm.act_view import ActComparison, ComparisonRef
 from womm.api.evolution import CandidateDetail, CandidateDiff, Lineage
 from womm.models.cost import CostSection
 from womm.models.decisions import DecisionRecord
@@ -68,6 +69,8 @@ SCHEMAS = {
     "evolution_candidate": CandidateDetail,
     "evolution_diff": CandidateDiff,
     "cost_section": CostSection,
+    "act_comparison": ActComparison,
+    "comparison_ref": ComparisonRef,
 }
 
 

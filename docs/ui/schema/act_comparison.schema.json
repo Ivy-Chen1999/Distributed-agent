@@ -1,0 +1,284 @@
+{
+  "$defs": {
+    "ArticleComparison": {
+      "additionalProperties": false,
+      "properties": {
+        "provision_key": {
+          "title": "Provision Key",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "article",
+            "annex"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "number": {
+          "description": "Number in the after version (the before version if removed).",
+          "title": "Number",
+          "type": "string"
+        },
+        "heading": {
+          "title": "Heading",
+          "type": "string"
+        },
+        "before_number": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Before Number"
+        },
+        "change": {
+          "enum": [
+            "added",
+            "removed",
+            "modified",
+            "unchanged"
+          ],
+          "title": "Change",
+          "type": "string"
+        },
+        "superseded_before": {
+          "description": "The before text was amended or replaced by a consolidated version.",
+          "title": "Superseded Before",
+          "type": "boolean"
+        },
+        "paragraphs": {
+          "items": {
+            "$ref": "#/$defs/ParagraphPair"
+          },
+          "title": "Paragraphs",
+          "type": "array"
+        },
+        "unplaced_before": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ObligationSummary"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Before-side records whose unit names no paragraph found in the text."
+        },
+        "unplaced_after": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ObligationSummary"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "provision_key",
+        "kind",
+        "number",
+        "heading",
+        "before_number",
+        "change",
+        "superseded_before",
+        "paragraphs",
+        "unplaced_before",
+        "unplaced_after"
+      ],
+      "title": "ArticleComparison",
+      "type": "object"
+    },
+    "ObligationSummary": {
+      "additionalProperties": false,
+      "description": "Duties and prohibitions of one side of a paragraph or article.",
+      "properties": {
+        "duties": {
+          "default": 0,
+          "title": "Duties",
+          "type": "integer"
+        },
+        "by_actor": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "description": "primary_actor -> count; 'unspecified' included.",
+          "title": "By Actor",
+          "type": "object"
+        },
+        "public_sector": {
+          "default": 0,
+          "title": "Public Sector",
+          "type": "integer"
+        },
+        "date_withheld": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "description": "Reason -> count, e.g. date_moved_2026 or amended_2026 (corpus date rules).",
+          "title": "Date Withheld",
+          "type": "object"
+        },
+        "obligation_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Obligation Ids",
+          "type": "array"
+        }
+      },
+      "title": "ObligationSummary",
+      "type": "object"
+    },
+    "ParagraphPair": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "description": "Printed paragraph number without the dot; '' for unnumbered text.",
+          "title": "Label",
+          "type": "string"
+        },
+        "change": {
+          "enum": [
+            "added",
+            "removed",
+            "modified",
+            "unchanged"
+          ],
+          "title": "Change",
+          "type": "string"
+        },
+        "before_text": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Before Text"
+        },
+        "after_text": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "After Text"
+        },
+        "before_obligations": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ObligationSummary"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "after_obligations": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ObligationSummary"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "label",
+        "change",
+        "before_text",
+        "after_text",
+        "before_obligations",
+        "after_obligations"
+      ],
+      "title": "ParagraphPair",
+      "type": "object"
+    },
+    "VersionRef": {
+      "additionalProperties": false,
+      "properties": {
+        "version_id": {
+          "title": "Version Id",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "celex": {
+          "title": "Celex",
+          "type": "string"
+        },
+        "date": {
+          "title": "Date",
+          "type": "string"
+        },
+        "status": {
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "version_id",
+        "label",
+        "celex",
+        "date",
+        "status"
+      ],
+      "title": "VersionRef",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "regulation_id": {
+      "title": "Regulation Id",
+      "type": "string"
+    },
+    "title": {
+      "title": "Title",
+      "type": "string"
+    },
+    "before": {
+      "$ref": "#/$defs/VersionRef"
+    },
+    "after": {
+      "$ref": "#/$defs/VersionRef"
+    },
+    "paragraph_basis": {
+      "const": "number",
+      "default": "number",
+      "title": "Paragraph Basis",
+      "type": "string"
+    },
+    "articles": {
+      "items": {
+        "$ref": "#/$defs/ArticleComparison"
+      },
+      "title": "Articles",
+      "type": "array"
+    }
+  },
+  "required": [
+    "regulation_id",
+    "title",
+    "before",
+    "after",
+    "articles"
+  ],
+  "title": "ActComparison",
+  "type": "object"
+}

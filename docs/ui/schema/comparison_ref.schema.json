@@ -1,0 +1,59 @@
+{
+  "$defs": {
+    "VersionRef": {
+      "additionalProperties": false,
+      "properties": {
+        "version_id": {
+          "title": "Version Id",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "celex": {
+          "title": "Celex",
+          "type": "string"
+        },
+        "date": {
+          "title": "Date",
+          "type": "string"
+        },
+        "status": {
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "version_id",
+        "label",
+        "celex",
+        "date",
+        "status"
+      ],
+      "title": "VersionRef",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "A pair of corpus versions the console can compare (one per ``delta_basis``).",
+  "properties": {
+    "regulation_id": {
+      "title": "Regulation Id",
+      "type": "string"
+    },
+    "before": {
+      "$ref": "#/$defs/VersionRef"
+    },
+    "after": {
+      "$ref": "#/$defs/VersionRef"
+    }
+  },
+  "required": [
+    "regulation_id",
+    "before",
+    "after"
+  ],
+  "title": "ComparisonRef",
+  "type": "object"
+}
