@@ -299,7 +299,13 @@ git commit evals/promotion_records.yaml
 | Acceptance (`gpt-6.1-sol`) | passed on the third run, after the two allowed prompt revisions (plan KTD4): gate A kept no unsupported point in either pass; gate B kept 12 of 15 supported clauses in both passes; on the anchor passage alone the judge kept 2 of 11 window cases |
 | Second judge on the holdout | 131 items; the Claude chain kept 99; both families kept 25 (74 excluded as drop, 0 as unsure); per-case agreement 0.21 to 0.58 |
 | Sealed | 6 cases from 6 proposals, 3 to 5 expected impacts each (23 in all), no omissions; 2 cases under the floor of 3 impacts were not imported |
-| API spend | USD 1.23 in all (acceptance runs 0.69, settlement 0.54), under the USD 5 cap |
+| API spend | USD 1.23 for this key (acceptance runs 0.69, settlement 0.54); USD 1.52 with the full-text attempt below, under the USD 5 cap |
+
+**Full-text attempt, 2026-11-03 (plan KD6), not adopted.** Before any comparison, the judge was
+given up to 4 more passages per item from anywhere in the IA, opinion and proposal (BM25, no model
+call). Its acceptance failed in both passes (gate A kept 1 unsupported point; gate B 8 of 15;
+window cases kept 5 of 11), so the key above stays; extra spend USD 0.29 (all second-judge spend
+USD 1.52). The first key is backed up locally.
 
 What this means for the demo: the key holds only what two model families both read in the text
 around each anchor; most of the IA's points rest on text further away and were excluded. With 3 to
