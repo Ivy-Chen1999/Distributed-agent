@@ -305,7 +305,10 @@ git commit evals/promotion_records.yaml
 given up to 4 more passages per item from anywhere in the IA, opinion and proposal (BM25, no model
 call). Its acceptance failed in both passes (gate A kept 1 unsupported point; gate B 8 of 15;
 window cases kept 5 of 11), so the key above stays; extra spend USD 0.29 (all second-judge spend
-USD 1.52). The first key is backed up locally.
+USD 1.52). The first key is backed up locally. A retrieval tuned on 30 separate train/val points
+(8 passages plus the anchor sentence; evidence shown 0.53 -> 0.82) then failed its one acceptance
+too: gate B 11 of 15, gate A kept 1 unsupported point; extra spend USD 0.32 (all second-judge
+spend USD 1.84). The key above stays.
 
 What this means for the demo: the key holds only what two model families both read in the text
 around each anchor; most of the IA's points rest on text further away and were excluded. With 3 to

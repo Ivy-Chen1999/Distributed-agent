@@ -1,0 +1,87 @@
+# Second-judge acceptance of the optimized full-text variant (8 passages + anchor search; ce-optimize run second-judge-evidence), 2026-11-03: FAILED, not adopted. Public regression set, aggregates only.
+date: '2026-11-03'
+model: openai:gpt-6.1-sol
+reasoning_effort: medium
+prompt: prompts/tools/second_judge.md
+prompt_sha256: 17c36a4985124b53a55e6537c165d7b1c26c4ecec7020e7e3d28a0fd033c6fc9
+regression_set: evals/regression/key_fidelity_2026-10-17.yaml
+accepted: false
+passes:
+- gate_a:
+    points: 15
+    kept_unsupported:
+    - case_10_platform_work_employment_status_algorithmic_management/c10_o03
+    passed: false
+  gate_b:
+    controls: 15
+    kept: 11
+    missed:
+    - l02
+    - w01
+    - w08
+    - w09
+    required: 12
+    passed: false
+  window_kept_in_w: 4
+  window_cases: 11
+- gate_a:
+    points: 15
+    kept_unsupported:
+    - case_10_platform_work_employment_status_algorithmic_management/c10_o03
+    passed: false
+  gate_b:
+    controls: 15
+    kept: 11
+    missed:
+    - l02
+    - w01
+    - w08
+    - w09
+    required: 12
+    passed: false
+  window_kept_in_w: 4
+  window_cases: 11
+without_codex_labelled:
+- gate_a:
+    points: 13
+    kept_unsupported:
+    - case_10_platform_work_employment_status_algorithmic_management/c10_o03
+    passed: false
+  gate_b:
+    controls: 13
+    kept: 9
+    missed:
+    - l02
+    - w01
+    - w08
+    - w09
+    required: null
+    passed: null
+  window_kept_in_w: 4
+  window_cases: 11
+- gate_a:
+    points: 13
+    kept_unsupported:
+    - case_10_platform_work_employment_status_algorithmic_management/c10_o03
+    passed: false
+  gate_b:
+    controls: 13
+    kept: 9
+    missed:
+    - l02
+    - w01
+    - w08
+    - w09
+    required: null
+    passed: null
+  window_kept_in_w: 4
+  window_cases: 11
+notes:
+- 'o03: no provisions shown (no published item to take them from)'
+- 'o04: no provisions shown (no published item to take them from)'
+- 'o07: no provisions shown (no published item to take them from)'
+- 'j01: no provisions shown (no published item to take them from)'
+- 'j02: no provisions shown (no published item to take them from)'
+- 'j03: no provisions shown (no published item to take them from)'
+- 'j04: no provisions shown (no published item to take them from)'
+spend_usd: 0.3216
