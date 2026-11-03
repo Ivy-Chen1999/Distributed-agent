@@ -1,0 +1,79 @@
+# Second-judge acceptance (plan 2026-10-26-001 KTD4); aggregates of the public regression set only.
+date: '2026-11-03'
+model: openai:gpt-6.1-sol
+reasoning_effort: medium
+prompt: prompts/tools/second_judge.md
+prompt_sha256: 7164fb54a836abe40ff69d82fecfd85a74e500411a0f7459b1a35b4edb79e7bf
+regression_set: evals/regression/key_fidelity_2026-10-17.yaml
+accepted: true
+passes:
+- gate_a:
+    points: 15
+    kept_unsupported: []
+    passed: true
+  gate_b:
+    controls: 15
+    kept: 12
+    missed:
+    - l01
+    - l02
+    - w04
+    required: 12
+    passed: true
+  window_kept_in_w: 2
+  window_cases: 11
+- gate_a:
+    points: 15
+    kept_unsupported: []
+    passed: true
+  gate_b:
+    controls: 15
+    kept: 12
+    missed:
+    - l01
+    - l02
+    - w08
+    required: 12
+    passed: true
+  window_kept_in_w: 2
+  window_cases: 11
+without_codex_labelled:
+- gate_a:
+    points: 13
+    kept_unsupported: []
+    passed: true
+  gate_b:
+    controls: 13
+    kept: 10
+    missed:
+    - l01
+    - l02
+    - w04
+    required: null
+    passed: null
+  window_kept_in_w: 2
+  window_cases: 11
+- gate_a:
+    points: 13
+    kept_unsupported: []
+    passed: true
+  gate_b:
+    controls: 13
+    kept: 10
+    missed:
+    - l01
+    - l02
+    - w08
+    required: null
+    passed: null
+  window_kept_in_w: 2
+  window_cases: 11
+notes:
+- 'o03: no provisions shown (no published item to take them from)'
+- 'o04: no provisions shown (no published item to take them from)'
+- 'o07: no provisions shown (no published item to take them from)'
+- 'j01: no provisions shown (no published item to take them from)'
+- 'j02: no provisions shown (no published item to take them from)'
+- 'j03: no provisions shown (no published item to take them from)'
+- 'j04: no provisions shown (no published item to take them from)'
+spend_usd: 0.2386
