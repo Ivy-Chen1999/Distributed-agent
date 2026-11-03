@@ -308,7 +308,10 @@ window cases kept 5 of 11), so the key above stays; extra spend USD 0.29 (all se
 USD 1.52). The first key is backed up locally. A retrieval tuned on 30 separate train/val points
 (8 passages plus the anchor sentence; evidence shown 0.53 -> 0.82) then failed its one acceptance
 too: gate B 11 of 15, gate A kept 1 unsupported point; extra spend USD 0.32 (all second-judge
-spend USD 1.84). The key above stays.
+spend USD 1.84). The key above stays. On 34 independent train/val points ruled by Codex on the
+whole source, the window-only judge that settled this key kept 0 of 25 wrong points (and 3 of 9
+right ones); the full-text judge kept 3 wrong and 5 right. So the key's items are precise; it is
+thin because the judge is strict. All second-judge spend: USD 2.23.
 
 What this means for the demo: the key holds only what two model families both read in the text
 around each anchor; most of the IA's points rest on text further away and were excluded. With 3 to
