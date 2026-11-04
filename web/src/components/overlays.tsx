@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { ACC, FONT, TABULAR } from '../design';
+import { ACC, ACC_HOVER, FONT, TABULAR } from '../design';
 import type { Loadable } from '../hooks';
 import type { Scenario, ScenarioSources, SourceDoc } from '../types';
 import { highlightQuote } from '../model/quote';
@@ -61,11 +61,11 @@ export function SourcePanel({ sourceId, quote, sources, runSources, onClose }: {
         style={{ width: 480, maxWidth: '92vw', height: '100%', background: 'var(--card)', color: 'var(--ink)', overflowY: 'auto', padding: '22px 24px 32px', animation: 'wfade .3s cubic-bezier(.2,0,0,1)', display: 'flex', flexDirection: 'column', gap: 14 }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ font: `600 12px ${FONT}`, ...TABULAR, color: 'var(--n1)' }}>{sourceId}</span>
+          <span style={{ font: `600 13px ${FONT}`, ...TABULAR, color: 'var(--n1)' }}>{sourceId}</span>
           <CloseBtn onClick={onClose} />
         </div>
         <div style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.3 }}>{doc?.title ?? sourceId}</div>
-        <div style={{ fontSize: 12, color: 'var(--n2)' }}>{note}</div>
+        <div style={{ fontSize: 13, color: 'var(--n2)' }}>{note}</div>
         {body}
       </div>
     </div>
@@ -98,7 +98,7 @@ export function TokenModal({ onSave, expired }: { onSave: (token: string) => voi
   const save = () => v.trim() && onSave(v.trim());
   return (
     <Modal label="Connect to the WOMM API">
-      <div style={{ font: `700 11px/1.4 ${FONT}`, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--accInk)' }}>WOMM API</div>
+      <div style={{ font: `700 12px/1.4 ${FONT}`, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--accInk)' }}>WOMM API</div>
       <div style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.3 }}>{expired ? 'Token rejected' : 'Connect to the API'}</div>
       <div style={{ fontSize: 13, color: 'var(--n1)', lineHeight: 1.5 }}>
         {expired ? 'The API answered 401. Paste a valid token to continue.' : 'Paste the bearer token (WOMM_API_TOKEN). It stays in this browser only.'}
@@ -115,7 +115,7 @@ export function TokenModal({ onSave, expired }: { onSave: (token: string) => voi
           style={INPUT}
           focusStyle={{ border: `2px solid ${ACC}` }}
         />
-        <HButton onClick={save} style={{ height: 44, background: ACC, color: '#0F0F0F', border: 'none', borderRadius: 4, padding: '0 18px', font: `700 13px ${FONT}`, cursor: 'pointer' }} hover={{ background: '#33D3D9' }}>
+        <HButton onClick={save} style={{ height: 44, background: ACC, color: '#0F0F0F', border: 'none', borderRadius: 4, padding: '0 18px', font: `700 13px ${FONT}`, cursor: 'pointer' }} hover={{ background: ACC_HOVER }}>
           Connect
         </HButton>
       </div>
@@ -168,7 +168,7 @@ export function RunPicker({
               <span style={{ width: 14, height: 14, borderRadius: '50%', border: `2px solid ${on ? ACC : 'var(--n2)'}`, background: on ? ACC : 'transparent', flex: 'none' }} />
               <span style={{ flex: 1, minWidth: 0 }}>
                 <span style={{ display: 'block', fontSize: 14, fontWeight: 700 }}>{scenarioName(s.scenario_id)}</span>
-                <span style={{ display: 'block', fontSize: 11, color: 'var(--n2)', ...TABULAR }}>
+                <span style={{ display: 'block', fontSize: 12, color: 'var(--n2)', ...TABULAR }}>
                   {s.scenario_id} · {scenarioKind(s)}
                 </span>
               </span>
@@ -176,8 +176,8 @@ export function RunPicker({
           );
         })}
       </div>
-      {staged && <div style={{ fontSize: 12, color: 'var(--n1)', lineHeight: 1.5 }}>With staged settings: {staged}. The run gets a new system version id.</div>}
-      <HButton onClick={() => pick && onRun(pick)} disabled={busy || !pick} style={{ ...PRIMARY_BTN, alignSelf: 'flex-start', opacity: busy ? 0.7 : 1 }} hover={{ background: '#33D3D9' }}>
+      {staged && <div style={{ fontSize: 13, color: 'var(--n1)', lineHeight: 1.5 }}>With staged settings: {staged}. The run gets a new system version id.</div>}
+      <HButton onClick={() => pick && onRun(pick)} disabled={busy || !pick} style={{ ...PRIMARY_BTN, alignSelf: 'flex-start', opacity: busy ? 0.7 : 1 }} hover={{ background: ACC_HOVER }}>
         <svg width="13" height="13" viewBox="0 0 24 24" fill="#0F0F0F">
           <path d="M6 4l14 8-14 8z" />
         </svg>

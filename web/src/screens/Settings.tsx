@@ -1,5 +1,5 @@
 import { useConsole, type Staged } from '../ctx';
-import { CARD, FONT, GREEN, RED, TABULAR } from '../design';
+import { ACC, CARD, FONT, GREEN, RED, TABULAR } from '../design';
 import { ErrorCard, LoadingCard, OUTLINE_BTN, Seg } from '../components/ui';
 import { routerNote } from '../model/pipeline';
 import { humanize } from '../model/scenario';
@@ -109,12 +109,12 @@ export function Settings() {
               value={staged.backends[k] ?? currentBackend(s, k)}
               onChange={(v) => C.setStaged({ ...staged, backends: { ...staged.backends, [k]: v } })}
               pad="5px 10px"
-              font={`600 12px ${FONT}`}
+              font={`600 13px ${FONT}`}
               variant="ink"
             />
           </div>
         ))}
-        <div style={{ fontSize: 12, color: 'var(--n2)', lineHeight: 1.5 }}>claude_code is for local development only. fake returns scripted outputs for tests.</div>
+        <div style={{ fontSize: 13, color: 'var(--n2)', lineHeight: 1.5 }}>claude_code is for local development only. fake returns scripted outputs for tests.</div>
       </div>
 
       <div style={{ ...CARD, padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -136,25 +136,25 @@ export function Settings() {
       <div style={{ ...CARD, padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 16, fontWeight: 600 }}>Isolation self-check</span>
-          <span style={{ marginLeft: 'auto', font: `700 11px ${FONT}`, display: 'inline-flex', alignItems: 'center', gap: 5 }}>{s.self_check ? `${passed} of ${checks.length} passed` : 'not run'}</span>
+          <span style={{ marginLeft: 'auto', font: `700 12px ${FONT}`, display: 'inline-flex', alignItems: 'center', gap: 5 }}>{s.self_check ? `${passed} of ${checks.length} passed` : 'not run'}</span>
         </div>
         {!s.self_check && <div style={{ fontSize: 13, color: 'var(--n1)', lineHeight: 1.5, padding: '9px 0' }}>The self-check runs only when a role uses the claude_code backend.</div>}
         {checks.map(([k, ok]) => (
           <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 0', borderBottom: '1px solid var(--line)', fontSize: 14 }}>
             <span style={{ flex: 1 }}>{checkLabel(k)}</span>
-            <span style={{ font: `700 11px ${FONT}`, letterSpacing: '.06em', textTransform: 'uppercase', color: ok ? GREEN : RED, border: `1px solid ${ok ? GREEN : RED}`, borderRadius: 4, padding: '2px 7px' }}>{ok ? 'Pass' : 'Fail'}</span>
+            <span style={{ font: `700 12px ${FONT}`, letterSpacing: '.06em', textTransform: 'uppercase', color: ok ? GREEN : RED, border: `1px solid ${ok ? GREEN : RED}`, borderRadius: 4, padding: '2px 7px' }}>{ok ? 'Pass' : 'Fail'}</span>
           </div>
         ))}
         {(s.self_check?.problems ?? []).map((p) => (
-          <div key={p} style={{ fontSize: 12, color: RED, lineHeight: 1.5 }}>
+          <div key={p} style={{ fontSize: 13, color: RED, lineHeight: 1.5 }}>
             {p}
           </div>
         ))}
-        <div style={{ fontSize: 12, color: 'var(--n2)' }}>The claude_code backend refuses to run if any check fails.</div>
+        <div style={{ fontSize: 13, color: 'var(--n2)' }}>The claude_code backend refuses to run if any check fails.</div>
       </div>
 
       {overrides && (
-        <div style={{ ...CARD, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', borderColor: '#00C4CC', gridColumn: '1 / -1' }} data-testid="staged">
+        <div style={{ ...CARD, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', borderColor: ACC, gridColumn: '1 / -1' }} data-testid="staged">
           <div style={{ flex: 1, minWidth: 240 }}>
             <div style={{ fontSize: 14, fontWeight: 700 }}>Staged for the next run</div>
             <div style={{ fontSize: 13, color: 'var(--n1)', marginTop: 2, lineHeight: 1.5, fontVariantNumeric: 'tabular-nums' }}>

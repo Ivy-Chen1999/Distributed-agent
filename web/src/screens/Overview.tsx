@@ -1,17 +1,21 @@
+import { useState } from 'react';
 import { useConsole } from '../ctx';
 import { useNarrow } from '../hooks';
 import { CARD, FONT, LABEL, TABULAR } from '../design';
-import { Arrow, Chevron, Dot, EmptyCard, ErrorCard, HButton, LoadingCard, PRIMARY_BTN } from '../components/ui';
+import { Arrow, Chevron, Dot, EmptyCard, ErrorCard, HButton, LoadingCard, OUTLINE_BTN, PRIMARY_BTN } from '../components/ui';
 import { attention, fmtDate, kpis, runRows } from '../model/overview';
+import { RunFilterBar, Walkthrough } from '../components/runs';
+import { NO_RUN_FILTER, canShowMore, filterRuns, isFiltering, scenarioChoices, type RunFilter } from '../model/runFilter';
 import { latBars } from '../model/pipeline';
-import { scenarioBlurb, scenarioHeadline } from '../model/scenario';
-import { ag } from '../design';
+import { scenarioBlurb, scenarioHeadline, scenarioName } from '../model/scenario';
+import { ACC, ACC_DEEP, ACC_HOVER, ag } from '../design';
 
 const RUN_COLS = '1.2fr 1.6fr 1fr .7fr .8fr .8fr 1.1fr';
 
 export function Overview() {
   const C = useConsole();
   const narrow = useNarrow();
+  const [filter, setFilter] = useState<RunFilter>(NO_RUN_FILTER);
   const runs = C.runs.data?.runs ?? [];
 
   if (!C.runId) {
@@ -24,18 +28,38 @@ export function Overview() {
           title="No runs yet"
           sub="Start a run to see what a regulation change means for whom. Every impact traces back to a provision, a quote and a source."
           action={
-            <HButton onClick={C.openPicker} style={PRIMARY_BTN} hover={{ background: '#33D3D9' }}>
+            <HButton onClick={C.openPicker} style={PRIMARY_BTN} hover={{ background: ACC_HOVER }}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="#0F0F0F"><path d="M6 4l14 8-14 8z" /></svg>Start a run
             </HButton>
           }
         />
+        <Walkthrough />
       </div>
     );
   }
 
   const rv = C.rv;
   const changes = C.sources.data?.changes;
-  const rows = runRows(runs, C.scenarios.data);
+  const shownRuns = filterRuns(runs, filter);
+  const rows = runRows(shownRuns, C.scenarios.data);
+  const loading = C.runs.status === 'loading';
+  const noMatch = runs.length > 0 && rows.length === 0;
+  const emptyRows = (
+    <div style={{ padding: '12px 18px', borderTop: '1px solid var(--line)', fontSize: 14, color: 'var(--n1)' }}>
+      {noMatch ? (
+        <>
+          No runs match these filters.{' '}
+          <button type="button" onClick={() => setFilter(NO_RUN_FILTER)} style={{ background: 'none', border: 'none', padding: 0, font: `700 14px ${FONT}`, color: 'var(--ink)', textDecoration: 'underline', textUnderlineOffset: 4, cursor: 'pointer' }}>
+            Clear filters
+          </button>
+        </>
+      ) : loading ? (
+        'Loading runs…'
+      ) : (
+        'No runs yet.'
+      )}
+    </div>
+  );
   const tiles = kpis(rv, C.runLabel, C.runDot, C.system.data?.experts[0]?.model);
   const att = attention(rv, changes);
   const bars = latBars(rv);
@@ -54,7 +78,7 @@ export function Overview() {
           <HButton
             onClick={() => C.go('detail')}
             style={{ background: 'var(--ink)', color: 'var(--card)', border: 'none', borderRadius: 4, padding: '11px 18px', font: `700 13px ${FONT}`, letterSpacing: '.02em', cursor: 'pointer', whiteSpace: 'nowrap' }}
-            hover={{ background: '#00C4CC', color: '#0F0F0F' }}
+            hover={{ background: ACC, color: '#0F0F0F' }}
           >
             Open impact dossier
           </HButton>
@@ -81,7 +105,7 @@ export function Overview() {
               {k.dot && <Dot c={k.dot} size={9} />}
               {C.runLoading && !C.run ? '—' : k.value}
             </div>
-            <div style={{ fontSize: 12, color: 'var(--n2)', marginTop: 2 }}>{k.sub}</div>
+            <div style={{ fontSize: 13, color: 'var(--n2)', marginTop: 2 }}>{k.sub}</div>
           </div>
         ))}
       </div>
@@ -90,13 +114,13 @@ export function Overview() {
         <div style={{ ...CARD, padding: '16px 18px 18px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={LABEL}>Agent latency</div>
-            <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--n2)' }}>Experts run in parallel</span>
+            <span style={{ marginLeft: 'auto', fontSize: 13, color: 'var(--n2)' }}>Experts run in parallel</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 5, margin: '12px 0 16px', flexWrap: 'wrap' }}>
             {flow.map((id, i) => (
               <div key={id} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                 {i > 0 && !rv.trace.experts.slice(1).includes(id) && <Arrow w={14} />}
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, border: '1px solid var(--line)', borderRadius: 4, padding: '4px 8px', font: `700 11px ${FONT}` }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, border: '1px solid var(--line)', borderRadius: 4, padding: '4px 8px', font: `700 12px ${FONT}` }}>
                   <Dot c={ag(id).c} radius={2} />
                   {ag(id).n}
                 </span>
@@ -113,7 +137,7 @@ export function Overview() {
                 <div style={{ height: 8, background: 'var(--soft)', borderRadius: 2, overflow: 'hidden' }}>
                   <div style={{ width: b.w, height: '100%', background: b.bar, borderRadius: 2, transition: 'width .3s' }} />
                 </div>
-                <span style={{ font: `600 12px ${FONT}`, ...TABULAR, color: b.tc, textAlign: 'right' }}>{b.meta}</span>
+                <span style={{ font: `600 13px ${FONT}`, ...TABULAR, color: b.tc, textAlign: 'right' }}>{b.meta}</span>
               </div>
             ))}
           </div>
@@ -127,12 +151,12 @@ export function Overview() {
                 key={a.key}
                 onClick={() => goAtt(a.key)}
                 style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0', border: 'none', borderBottom: '1px solid var(--line)', background: 'transparent', color: 'var(--ink)', textAlign: 'left', cursor: 'pointer' }}
-                hover={{ color: '#00A9B0' }}
+                hover={{ color: ACC_DEEP }}
               >
                 <span style={{ fontSize: 24, fontWeight: 600, width: 34, ...TABULAR }}>{a.n}</span>
                 <span style={{ flex: 1 }}>
                   <span style={{ display: 'block', fontSize: 14, fontWeight: 700 }}>{a.title}</span>
-                  <span style={{ display: 'block', fontSize: 12, color: 'var(--n2)', marginTop: 2, lineHeight: 1.4 }}>{a.sub}</span>
+                  <span style={{ display: 'block', fontSize: 13, color: 'var(--n2)', marginTop: 2, lineHeight: 1.4 }}>{a.sub}</span>
                 </span>
                 <Chevron />
               </HButton>
@@ -143,6 +167,17 @@ export function Overview() {
 
       <div style={{ ...CARD, overflow: 'hidden' }}>
         <div style={{ ...LABEL, padding: '14px 18px', borderBottom: '1px solid var(--line)' }}>Recent runs</div>
+        {C.runs.status !== 'error' && runs.length > 0 && (
+          <RunFilterBar
+            filter={filter}
+            onChange={setFilter}
+            onClear={() => setFilter(NO_RUN_FILTER)}
+            scenarios={scenarioChoices(runs, scenarioName)}
+            shown={shownRuns.length}
+            total={runs.length}
+            more={canShowMore(runs.length, C.runLimit)}
+          />
+        )}
         {C.runs.status === 'error' ? (
           <div style={{ padding: '14px 18px', fontSize: 13, color: 'var(--n1)' }}>
             Could not load the run list: {C.runs.error}{' '}
@@ -152,7 +187,7 @@ export function Overview() {
           </div>
         ) : narrow ? (
           <div>
-            {rows.length === 0 && <div style={{ padding: '12px 18px', borderTop: '1px solid var(--line)', fontSize: 13, color: 'var(--n1)' }}>{C.runs.status === 'loading' ? 'Loading runs…' : 'No runs yet.'}</div>}
+            {rows.length === 0 && emptyRows}
             {rows.map((r) => (
               <HButton
                 key={r.runId}
@@ -171,7 +206,7 @@ export function Overview() {
                     {r.status}
                   </span>
                 </span>
-                <span style={{ fontSize: 12, color: 'var(--n1)', ...TABULAR }}>
+                <span style={{ fontSize: 13, color: 'var(--n1)', ...TABULAR }}>
                   {r.id} · {r.impacts} impacts · {r.grounding} · {r.time}
                 </span>
               </HButton>
@@ -180,7 +215,7 @@ export function Overview() {
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <div style={{ minWidth: 760 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: RUN_COLS, gap: 12, padding: '9px 18px', font: `700 11px ${FONT}`, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--n2)', background: 'var(--soft)' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: RUN_COLS, gap: 12, padding: '9px 18px', font: `700 12px ${FONT}`, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--n2)', background: 'var(--soft)' }}>
                 <span>Run</span>
                 <span>Scenario</span>
                 <span>Status</span>
@@ -189,7 +224,7 @@ export function Overview() {
                 <span>Time</span>
                 <span>System version</span>
               </div>
-              {rows.length === 0 && <div style={{ padding: '12px 18px', borderTop: '1px solid var(--line)', fontSize: 13, color: 'var(--n1)' }}>{C.runs.status === 'loading' ? 'Loading runs…' : 'No runs yet.'}</div>}
+              {rows.length === 0 && emptyRows}
               {rows.map((r) => (
                 <HButton
                   key={r.runId}
@@ -201,10 +236,10 @@ export function Overview() {
                   style={{ width: '100%', display: 'grid', gridTemplateColumns: RUN_COLS, gap: 12, padding: '12px 18px', border: 'none', borderTop: '1px solid var(--line)', background: r.runId === C.runId ? 'var(--soft)' : 'transparent', color: 'var(--ink)', textAlign: 'left', fontSize: 13, cursor: 'pointer', alignItems: 'center' }}
                   hover={{ background: 'var(--soft)' }}
                 >
-                  <span style={{ font: `600 12px ${FONT}`, ...TABULAR }}>{r.id}</span>
+                  <span style={{ font: `600 13px ${FONT}`, ...TABULAR }}>{r.id}</span>
                   <span>
                     <span style={{ display: 'block', fontWeight: 600 }}>{r.name}</span>
-                    <span style={{ display: 'block', fontSize: 11, color: 'var(--n2)' }}>{r.kind}</span>
+                    <span style={{ display: 'block', fontSize: 12, color: 'var(--n2)' }}>{r.kind}</span>
                   </span>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 600 }}>
                     <Dot c={r.dot} />
@@ -213,10 +248,18 @@ export function Overview() {
                   <span>{r.impacts}</span>
                   <span style={TABULAR}>{r.grounding}</span>
                   <span style={TABULAR}>{r.time}</span>
-                  <span style={{ fontFamily: FONT, ...TABULAR, fontSize: 12, color: 'var(--n1)' }}>{r.sv}</span>
+                  <span style={{ fontFamily: FONT, ...TABULAR, fontSize: 13, color: 'var(--n1)' }}>{r.sv}</span>
                 </HButton>
               ))}
             </div>
+          </div>
+        )}
+        {C.runs.status !== 'error' && canShowMore(runs.length, C.runLimit) && (
+          <div style={{ padding: '12px 18px', borderTop: '1px solid var(--line)', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <button type="button" onClick={C.showMoreRuns} disabled={loading} style={OUTLINE_BTN}>
+              {loading ? 'Loading…' : 'Show more runs'}
+            </button>
+            {isFiltering(filter) && <span style={{ fontSize: 13, color: 'var(--n2)' }}>Filters apply to the runs loaded so far.</span>}
           </div>
         )}
       </div>

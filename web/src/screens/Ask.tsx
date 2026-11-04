@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useConsole } from '../ctx';
-import { ACC, CARD, FONT, LABEL } from '../design';
+import { ACC, ACC_HOVER, CARD, FONT, LABEL } from '../design';
 import { EmptyCard, HButton, HInput } from '../components/ui';
 import { evidenceCount } from '../model/dossier';
 import { shortRunId } from '../model/overview';
@@ -37,7 +37,7 @@ export function Ask() {
                 }}
               >
                 {m.bot && (
-                  <div style={{ font: `700 11px ${FONT}`, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--accInk)', marginBottom: 4 }}>
+                  <div style={{ font: `700 12px ${FONT}`, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--accInk)', marginBottom: 4 }}>
                     WOMM · {m.covered === false ? 'not covered by this dossier' : "from this run's dossier"}
                   </div>
                 )}
@@ -48,7 +48,7 @@ export function Ask() {
                       <HButton
                         key={c}
                         onClick={() => C.openImpact(c)}
-                        style={{ border: '1px solid var(--line)', background: 'var(--card)', borderRadius: 4, padding: '3px 8px', font: `700 11px ${FONT}`, fontVariantNumeric: 'tabular-nums', color: 'var(--ink)', cursor: 'pointer' }}
+                        style={{ border: '1px solid var(--line)', background: 'var(--card)', borderRadius: 4, padding: '3px 8px', font: `700 12px ${FONT}`, fontVariantNumeric: 'tabular-nums', color: 'var(--ink)', cursor: 'pointer' }}
                         hover={{ borderColor: ACC }}
                       >
                         {c}
@@ -68,7 +68,7 @@ export function Ask() {
                 key={q}
                 disabled={!canAsk}
                 onClick={() => send(q)}
-                style={{ border: '1px solid var(--line)', background: 'transparent', borderRadius: 50, padding: '6px 12px', font: `500 12px ${FONT}`, color: 'var(--ink)', cursor: canAsk ? 'pointer' : 'default', opacity: canAsk ? 1 : 0.5 }}
+                style={{ border: '1px solid var(--line)', background: 'transparent', borderRadius: 50, padding: '6px 12px', font: `500 13px ${FONT}`, color: 'var(--ink)', cursor: canAsk ? 'pointer' : 'default', opacity: canAsk ? 1 : 0.5 }}
                 hover={{ borderColor: ACC }}
               >
                 {q}
@@ -92,7 +92,7 @@ export function Ask() {
               onClick={() => send(draft)}
               disabled={!canAsk || C.thinking}
               style={{ height: 44, background: ACC, color: '#0F0F0F', border: 'none', borderRadius: 4, padding: '0 18px', font: `700 13px ${FONT}`, cursor: 'pointer' }}
-              hover={{ background: '#33D3D9' }}
+              hover={{ background: ACC_HOVER }}
             >
               Ask
             </HButton>
@@ -105,11 +105,11 @@ export function Ask() {
           {shortRunId(C.runId)}
           {d ? ` · ${d.impacts.length} impacts · ${g?.passed ?? evidenceCount(d)} grounded quotes` : ' · dossier not ready'}
         </div>
-        <div style={{ fontSize: 12, color: 'var(--n1)', lineHeight: 1.5 }}>Answers cite only this run. If the dossier doesn't cover something, WOMM says so instead of guessing.</div>
+        <div style={{ fontSize: 13, color: 'var(--n1)', lineHeight: 1.5 }}>Answers cite only this run. If the dossier doesn't cover something, WOMM says so instead of guessing.</div>
         <button
           type="button"
           onClick={C.openPicker}
-          style={{ alignSelf: 'flex-start', background: 'transparent', border: '1px solid var(--ink)', borderRadius: 4, padding: '8px 12px', font: `700 12px ${FONT}`, color: 'var(--ink)', cursor: 'pointer' }}
+          style={{ alignSelf: 'flex-start', background: 'transparent', border: '1px solid var(--ink)', borderRadius: 4, padding: '8px 12px', font: `700 13px ${FONT}`, color: 'var(--ink)', cursor: 'pointer' }}
         >
           Start a new run
         </button>

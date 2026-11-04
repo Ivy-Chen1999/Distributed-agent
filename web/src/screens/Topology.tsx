@@ -22,7 +22,7 @@ export function Topology() {
   const at = (id: string) => (narrow ? { left: `${(POS[id][1] / 480) * 100}%`, top: `${(POS[id][0] / 100) * H}px` } : { left: `${POS[id][0]}%`, top: `${POS[id][1]}px` });
 
   const chip = (id: string) => (
-    <button key={id} type="button" onClick={() => C.setSel(id)} style={{ border: '1px solid var(--line)', background: 'var(--soft)', borderRadius: 4, padding: '3px 8px', font: `700 11px ${FONT}`, color: 'var(--ink)', cursor: 'pointer' }}>
+    <button key={id} type="button" onClick={() => C.setSel(id)} style={{ border: '1px solid var(--line)', background: 'var(--soft)', borderRadius: 4, padding: '3px 8px', font: `700 12px ${FONT}`, color: 'var(--ink)', cursor: 'pointer' }}>
       {ag(id).n}
     </button>
   );
@@ -32,7 +32,7 @@ export function Topology() {
       <div style={{ flex: '1 1 560px', minWidth: 0, ...CARD, overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px 14px', padding: '14px 18px', borderBottom: '1px solid var(--line)', flexWrap: 'wrap' }}>
           <div style={{ ...LABEL, whiteSpace: 'nowrap' }}>Process topology</div>
-          <div style={{ marginLeft: 'auto', display: 'flex', gap: 14, fontSize: 12, color: 'var(--n1)', flexWrap: 'wrap' }}>
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 14, fontSize: 13, color: 'var(--n1)', flexWrap: 'wrap' }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <span style={{ width: 18, height: 2, background: ACC }} />
               data flow
@@ -124,17 +124,17 @@ export function Topology() {
         <div style={{ fontSize: 13, color: 'var(--n1)', lineHeight: 1.5 }}>{sel.desc}</div>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           {sel.facts.map((f) => (
-            <div key={f.k} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '7px 0', borderBottom: '1px solid var(--line)', fontSize: 12 }}>
+            <div key={f.k} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '7px 0', borderBottom: '1px solid var(--line)', fontSize: 13 }}>
               <span style={{ color: 'var(--n2)' }}>{f.k}</span>
               <span style={{ fontFamily: FONT, ...TABULAR, textAlign: 'right', wordBreak: 'break-all' }}>{f.v}</span>
             </div>
           ))}
         </div>
         <div>
-          <div style={{ fontSize: 11, color: 'var(--n2)', marginBottom: 6 }}>Receives from</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>{sel.ins.length ? sel.ins.map(chip) : <span style={{ fontSize: 12, color: 'var(--n2)' }}>—</span>}</div>
-          <div style={{ fontSize: 11, color: 'var(--n2)', margin: '10px 0 6px' }}>Sends to</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>{sel.outs.length ? sel.outs.map(chip) : <span style={{ fontSize: 12, color: 'var(--n2)' }}>—</span>}</div>
+          <div style={{ fontSize: 12, color: 'var(--n2)', marginBottom: 6 }}>Receives from</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>{sel.ins.length ? sel.ins.map(chip) : <span style={{ fontSize: 13, color: 'var(--n2)' }}>—</span>}</div>
+          <div style={{ fontSize: 12, color: 'var(--n2)', margin: '10px 0 6px' }}>Sends to</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>{sel.outs.length ? sel.outs.map(chip) : <span style={{ fontSize: 13, color: 'var(--n2)' }}>—</span>}</div>
         </div>
       </div>
     </div>

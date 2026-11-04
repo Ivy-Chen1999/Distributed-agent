@@ -1,7 +1,9 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import { useConsole, type DetailTab } from '../ctx';
 import { ACC, CARD, FONT, GREEN, LABEL, NO_DATA_IN_SCOPE, RED, TABULAR, WARN_BG, WARN_INK, ag, fmtS } from '../design';
-import { Arrow, Dot, EmptyCard, ErrorCard, HButton, LoadingCard, Seg } from '../components/ui';
+import { Arrow, Dot, EmptyCard, ErrorCard, HButton, LoadingCard, OUTLINE_BTN, Seg } from '../components/ui';
+import { dossierToHtml, dossierToMarkdown } from '../model/export';
+import { UNRESOLVED_QUOTE_HELP, failureHelp } from '../model/failures';
 import { chainVMs, disagreementVMs, findingSteps, groupImpacts, questionVMs, type GroupMode, type ImpactVM } from '../model/dossier';
 import { hasComparableChanges, provisionComparisons, type ComparisonSide, type ComparisonVM, type Segment } from '../model/compare';
 import { logLines } from '../model/pipeline';
@@ -46,6 +48,56 @@ export function Detail() {
   const regTitle = regulationTitle(C.scenario).replace(/^EU /, '').replace(' · ', ' ');
   const git = run.code_identity?.git_sha;
 
+  // Export: the dossier as Markdown (copy or download) and a link that opens this run.
+  const canExport = done && !!d;
+  const exportTitle = `${scenarioName(run.scenario_id)}${C.scenario ? ` · ${regTitle}` : ''}`;
+  const exportName = `womm-dossier-${shortRunId(run.run_id).replace(/[^\w.-]/g, '_')}.md`;
+  const copyText = async (text: string, message: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      C.flash(message);
+    } catch {
+      C.flash('Copying is not available in this browser');
+    }
+  };
+  const downloadMarkdown = () => {
+    const url = URL.createObjectURL(new Blob([dossierToMarkdown(run, exportTitle)], { type: 'text/markdown;charset=utf-8' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = exportName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    C.flash(`Saved ${exportName}`);
+  };
+  // PDF: print a clean copy of the dossier from a hidden frame; the browser's print dialog saves it
+  // as a PDF. The page title is the suggested file name while the dialog is open.
+  const savePdf = () => {
+    const frame = document.createElement('iframe');
+    frame.setAttribute('aria-hidden', 'true');
+    frame.tabIndex = -1;
+    Object.assign(frame.style, { position: 'fixed', right: '0', bottom: '0', width: '0', height: '0', border: '0' });
+    const previousTitle = document.title;
+    const cleanup = () => {
+      document.title = previousTitle;
+      frame.remove();
+    };
+    frame.onload = () => {
+      const w = frame.contentWindow;
+      if (!w) return cleanup();
+      document.title = exportName.replace(/\.md$/, '');
+      w.addEventListener('afterprint', cleanup);
+      w.focus();
+      w.print();
+      setTimeout(cleanup, 120_000);
+    };
+    frame.srcdoc = dossierToHtml(run, exportTitle);
+    document.body.appendChild(frame);
+    C.flash('Choose "Save as PDF" as the destination in the print dialog', 4000);
+  };
+  const runLink = `${window.location.origin}${window.location.pathname}#/detail?run=${encodeURIComponent(run.run_id)}`;
+
   const tabDefs: [DetailTab, string, string][] = [
     ['impacts', 'Impacts', d ? String(d.impacts.length) : ''],
     ['chains', 'Impact chains', d ? String(chains.length) : ''],
@@ -64,16 +116,48 @@ export function Detail() {
             {scenarioName(run.scenario_id)}
             {C.scenario ? ` · ${regTitle}` : ''}
           </div>
-          <div style={{ font: `500 12px ${FONT}`, ...TABULAR, color: 'var(--n1)', marginTop: 4 }} title={run.run_id}>
+          <div style={{ font: `500 13px ${FONT}`, ...TABULAR, color: 'var(--n1)', marginTop: 4 }} title={run.run_id}>
             {shortRunId(run.run_id)} · {run.system_version}
             {git ? ` · git ${git}${run.code_identity?.dirty ? ' (dirty)' : ''}` : ''}
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+            <HButton
+              onClick={() => void copyText(dossierToMarkdown(run, exportTitle), 'Copied dossier as Markdown')}
+              disabled={!canExport}
+              title={canExport ? 'Copy the dossier as Markdown' : 'Available when the dossier is ready'}
+              style={OUTLINE_BTN}
+              hover={{ borderColor: ACC }}
+            >
+              Copy as Markdown
+            </HButton>
+            <HButton
+              onClick={downloadMarkdown}
+              disabled={!canExport}
+              title={canExport ? 'Download the dossier as a .md file' : 'Available when the dossier is ready'}
+              style={OUTLINE_BTN}
+              hover={{ borderColor: ACC }}
+            >
+              Download .md
+            </HButton>
+            <HButton
+              onClick={savePdf}
+              disabled={!canExport}
+              title={canExport ? 'Save the dossier as a PDF (opens the print dialog)' : 'Available when the dossier is ready'}
+              style={OUTLINE_BTN}
+              hover={{ borderColor: ACC }}
+            >
+              Print / Save as PDF
+            </HButton>
+            <HButton onClick={() => void copyText(runLink, 'Copied link to this run')} title="Copy a link that opens this run" style={OUTLINE_BTN} hover={{ borderColor: ACC }}>
+              Copy link
+            </HButton>
           </div>
         </div>
         <div style={{ display: 'flex', gap: 22, flexWrap: 'wrap' }}>
           {counts.map((c) => (
             <div key={c.label} style={{ borderLeft: '1px solid var(--ink)', paddingLeft: 14 }}>
               <div style={{ fontSize: 28, fontWeight: 400, lineHeight: 1.1, ...TABULAR }}>{c.n}</div>
-              <div style={{ fontSize: 12, color: 'var(--n1)' }}>{c.label}</div>
+              <div style={{ fontSize: 13, color: 'var(--n1)' }}>{c.label}</div>
             </div>
           ))}
         </div>
@@ -96,7 +180,11 @@ export function Detail() {
       {done && !d && (
         <ErrorCard
           title="No dossier for this run"
-          message={`The run ended as ${run.status}${run.error_kind ? ` (${run.error_kind})` : ''}${run.error ? `: ${run.error}` : ''}. Check the event log on the pipeline screen.`}
+          message={
+            run.error_kind
+              ? `The run ended as ${run.status}. ${failureHelp(run.error_kind).what} ${failureHelp(run.error_kind).next}${run.error ? ` Details: ${run.error}` : ''}`
+              : `The run ended as ${run.status}${run.error ? `: ${run.error}` : ''}. Check the event log on the pipeline screen.`
+          }
         />
       )}
 
@@ -113,7 +201,7 @@ export function Detail() {
                 style={{ background: 'transparent', border: 'none', borderBottom: `2px solid ${C.tab === k ? ACC : 'transparent'}`, marginBottom: -1, padding: '10px 12px', font: `${C.tab === k ? 700 : 600} 13px ${FONT}`, color: 'var(--ink)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
               >
                 {l}
-                <span style={{ font: `600 11px ${FONT}`, color: 'var(--n2)' }}>{n}</span>
+                <span style={{ font: `600 12px ${FONT}`, color: 'var(--n2)' }}>{n}</span>
               </button>
             ))}
           </div>
@@ -132,10 +220,10 @@ export function Detail() {
                         <HButton
                           onClick={() => C.openImpact(cs.id)}
                           title={cs.title}
-                          style={{ border: '1px solid var(--line)', background: 'var(--soft)', borderRadius: 4, padding: '6px 10px', font: `700 12px ${FONT}`, ...TABULAR, color: 'var(--ink)', cursor: 'pointer', maxWidth: 220, textAlign: 'left' }}
+                          style={{ border: '1px solid var(--line)', background: 'var(--soft)', borderRadius: 4, padding: '6px 10px', font: `700 13px ${FONT}`, ...TABULAR, color: 'var(--ink)', cursor: 'pointer', maxWidth: 220, textAlign: 'left' }}
                           hover={{ borderColor: ACC }}
                         >
-                          {cs.id} <span style={{ font: `500 12px ${FONT}`, color: 'var(--n1)' }}>{cs.short}</span>
+                          {cs.id} <span style={{ font: `500 13px ${FONT}`, color: 'var(--n1)' }}>{cs.short}</span>
                         </HButton>
                       </div>
                     ))}
@@ -158,11 +246,11 @@ export function Detail() {
                       <div key={sd.id} style={{ border: '1px solid var(--line)', borderRadius: 10, overflow: 'hidden' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', borderTop: `4px solid ${sd.c}`, background: 'var(--soft)' }}>
                           <span style={{ fontSize: 13, fontWeight: 700 }}>{sd.agentName}</span>
-                          <span style={{ marginLeft: 'auto', font: `700 11px ${FONT}` }}>{sd.stance}</span>
+                          <span style={{ marginLeft: 'auto', font: `700 12px ${FONT}` }}>{sd.stance}</span>
                         </div>
                         <div style={{ padding: 12 }}>
                           <div style={{ fontSize: 13, lineHeight: 1.5 }}>{sd.impact}</div>
-                          <div style={{ font: `500 11px ${FONT}`, ...TABULAR, color: 'var(--n2)', marginTop: 10 }}>
+                          <div style={{ font: `500 12px ${FONT}`, ...TABULAR, color: 'var(--n2)', marginTop: 10 }}>
                             {sd.impactId ? (
                               <button type="button" onClick={() => C.openImpact(sd.impactId!)} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', color: 'var(--accInk)', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 }}>
                                 {sd.impactId}
@@ -175,7 +263,7 @@ export function Detail() {
                       </div>
                     ))}
                   </div>
-                  <div style={{ fontSize: 12, color: 'var(--n2)', marginTop: 12 }}>We keep both readings in the dossier. An analyst decides which one holds.</div>
+                  <div style={{ fontSize: 13, color: 'var(--n2)', marginTop: 12 }}>We keep both readings in the dossier. An analyst decides which one holds.</div>
                 </div>
               ))}
             </div>
@@ -187,9 +275,12 @@ export function Detail() {
                 {questions.length === 0 && <div style={{ padding: '14px 18px', fontSize: 14, color: 'var(--n1)' }}>No open questions in this run.</div>}
                 {questions.map((q) => (
                   <div key={q.n} style={{ display: 'flex', gap: 14, padding: '14px 18px', borderBottom: '1px solid var(--line)', alignItems: 'flex-start' }}>
-                    <span style={{ font: `700 12px ${FONT}`, ...TABULAR, color: 'var(--n2)', width: 26, flex: 'none', paddingTop: 2 }}>Q{q.n}</span>
-                    <span style={{ flex: 1, fontSize: 14, lineHeight: 1.55, textWrap: 'pretty' }}>{q.q}</span>
-                    <span style={{ flex: 'none', font: `700 11px ${FONT}`, borderRadius: 4, padding: '3px 8px', background: q.unresolved ? WARN_BG : 'var(--soft)', color: q.unresolved ? WARN_INK : 'var(--n1)' }}>{q.tag}</span>
+                    <span style={{ font: `700 13px ${FONT}`, ...TABULAR, color: 'var(--n2)', width: 26, flex: 'none', paddingTop: 2 }}>Q{q.n}</span>
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ display: 'block', fontSize: 14, lineHeight: 1.55, textWrap: 'pretty' }}>{q.q}</span>
+                      {q.unresolved && <span style={{ display: 'block', fontSize: 13, lineHeight: 1.5, color: 'var(--n1)', marginTop: 4 }}>{UNRESOLVED_QUOTE_HELP}</span>}
+                    </span>
+                    <span style={{ flex: 'none', font: `700 12px ${FONT}`, borderRadius: 4, padding: '3px 8px', background: q.unresolved ? WARN_BG : 'var(--soft)', color: q.unresolved ? WARN_INK : 'var(--n1)' }}>{q.tag}</span>
                   </div>
                 ))}
               </div>
@@ -199,15 +290,19 @@ export function Detail() {
                 {failed.map((f) => {
                   const lat = elapsedAt(rv.trace, f.agent, Infinity);
                   const msg = d.failed_experts.find((x) => x.agent === f.agent)?.message;
+                  const help = failureHelp(f.kind);
                   return (
                     <div key={f.agent} title={msg} style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10, border: `1px solid ${RED}`, borderRadius: 8, padding: '10px 12px', flexWrap: 'wrap' }}>
                       <Dot c={RED} size={8} />
                       <span style={{ fontSize: 13, fontWeight: 700 }}>{ag(f.agent).n}</span>
-                      <span style={{ font: `600 12px ${FONT}`, ...TABULAR, color: 'var(--n1)' }}>
+                      <span style={{ font: `600 13px ${FONT}`, ...TABULAR, color: 'var(--n1)' }}>
                         error_kind: {f.kind}
                         {lat ? ` · ${fmtS(lat)}` : ''}
                       </span>
-                      <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--n1)' }}>{f.kind === NO_DATA_IN_SCOPE ? 'Skipped: no data in scope' : 'Run continued as degraded'}</span>
+                      <span style={{ marginLeft: 'auto', fontSize: 13, color: 'var(--n1)' }}>{f.kind === NO_DATA_IN_SCOPE ? 'Skipped: no data in scope' : 'Run continued as degraded'}</span>
+                      <div style={{ flexBasis: '100%', fontSize: 13, lineHeight: 1.5, color: 'var(--n1)' }}>
+                        <strong style={{ color: 'var(--ink)' }}>What happened:</strong> {help.what} <strong style={{ color: 'var(--ink)' }}>What to try:</strong> {help.next}
+                      </div>
                     </div>
                   );
                 })}
@@ -252,7 +347,7 @@ function ImpactsTab({ d, changes }: { d: ImpactDossier; changes: ProvisionChange
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 12, color: 'var(--n2)' }}>Group by</span>
+        <span style={{ fontSize: 13, color: 'var(--n2)' }}>Group by</span>
         <Seg<GroupMode>
           options={[
             { v: 'area', label: 'Provision area' },
@@ -261,21 +356,21 @@ function ImpactsTab({ d, changes }: { d: ImpactDossier; changes: ProvisionChange
           value={C.group}
           onChange={C.setGroup}
         />
-        <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--n2)' }}>Open a quote to see it in context</span>
+        <span style={{ marginLeft: 'auto', fontSize: 13, color: 'var(--n2)' }}>Open a quote to see it in context</span>
       </div>
       {d.impacts.length === 0 && <EmptyCard title="No impacts" sub={d.status === 'no_changes' ? 'The scenario has no provision changes to assess.' : 'Synthesis produced no impacts for this run.'} />}
       {groups.map((gr) => (
         <div key={gr.label + gr.meta} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px 10px', margin: '8px 0 4px', flexWrap: 'wrap' }}>
             <span style={{ flex: 'none', whiteSpace: 'nowrap', fontSize: 15, fontWeight: 600 }}>{gr.label}</span>
-            <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', font: `500 11px ${FONT}`, ...TABULAR, color: 'var(--n2)' }}>{gr.meta}</span>
+            <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', font: `500 12px ${FONT}`, ...TABULAR, color: 'var(--n2)' }}>{gr.meta}</span>
           </div>
           {gr.items.map((im) => (
             <ImpactCard key={im.id} im={im} changes={changes} />
           ))}
         </div>
       ))}
-      <div style={{ fontSize: 12, color: 'var(--n2)', textAlign: 'center', padding: 6 }}>
+      <div style={{ fontSize: 13, color: 'var(--n2)', textAlign: 'center', padding: 6 }}>
         Showing all {d.impacts.length} impacts{extra.length ? ` · ${extra.join(' · ')}` : ''}.
       </div>
     </div>
@@ -294,10 +389,10 @@ function ImpactCard({ im, changes }: { im: ImpactVM; changes: ProvisionChange[] 
         onClick={() => C.setOpenImp(open ? null : im.id)}
         style={{ width: '100%', display: 'flex', gap: 14, alignItems: 'flex-start', padding: '14px 18px', border: 'none', background: 'transparent', color: 'var(--ink)', textAlign: 'left', cursor: 'pointer' }}
       >
-        <span style={{ font: `700 12px ${FONT}`, ...TABULAR, color: 'var(--accInk)', flex: 'none', width: 30, paddingTop: 2 }}>{im.id}</span>
+        <span style={{ font: `700 13px ${FONT}`, ...TABULAR, color: 'var(--accInk)', flex: 'none', width: 30, paddingTop: 2 }}>{im.id}</span>
         <span style={{ flex: 1, minWidth: 0 }}>
           <span style={{ display: 'block', fontSize: 15, lineHeight: 1.5, fontWeight: 600, textWrap: 'pretty' }}>{im.summary}</span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8, flexWrap: 'wrap', fontSize: 12, color: 'var(--n1)' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8, flexWrap: 'wrap', fontSize: 13, color: 'var(--n1)' }}>
             <span style={{ display: 'flex', gap: 8 }}>
               {im.agents.map((a) => (
                 <span key={a.n} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontWeight: 700 }}>
@@ -325,7 +420,7 @@ function ImpactCard({ im, changes }: { im: ImpactVM; changes: ProvisionChange[] 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                   <Dot c={c} size={8} />
                   <span style={{ fontSize: 13, fontWeight: 700 }}>{ag(fd.agent).n} finding</span>
-                  <span style={{ font: `500 11px ${FONT}`, ...TABULAR, color: 'var(--n2)' }}>{fd.finding_id}</span>
+                  <span style={{ font: `500 12px ${FONT}`, ...TABULAR, color: 'var(--n2)' }}>{fd.finding_id}</span>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                   {steps.map((st, i) => (
@@ -335,7 +430,7 @@ function ImpactCard({ im, changes }: { im: ImpactVM; changes: ProvisionChange[] 
                         <span style={{ flex: 1, width: 1, background: i < steps.length - 1 ? 'var(--line)' : 'transparent', margin: '2px 0' }} />
                       </div>
                       <div style={{ paddingBottom: 12, minWidth: 0 }}>
-                        <div style={{ font: `700 11px ${FONT}`, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--n2)' }}>{st.k}</div>
+                        <div style={{ font: `700 12px ${FONT}`, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--n2)' }}>{st.k}</div>
                         {!st.quote && <div style={{ fontSize: 13, lineHeight: 1.5, marginTop: 2, fontFamily: st.mono ? FONT : 'inherit', overflowWrap: 'anywhere' }}>{st.v}</div>}
                         {st.quote && (
                           <HButton
@@ -343,7 +438,7 @@ function ImpactCard({ im, changes }: { im: ImpactVM; changes: ProvisionChange[] 
                             style={{ display: 'block', textAlign: 'left', marginTop: 4, border: '1px solid var(--line)', background: 'var(--card)', borderRadius: 6, padding: '9px 11px', fontSize: 13, lineHeight: 1.5, color: 'var(--ink)', cursor: 'pointer' }}
                             hover={{ borderColor: ACC }}
                           >
-                            “{st.v}” <span style={{ display: 'inline-block', font: `700 11px ${FONT}`, color: 'var(--accInk)', textDecoration: 'underline', textUnderlineOffset: 3, marginLeft: 4 }}>View in source</span>
+                            “{st.v}” <span style={{ display: 'inline-block', font: `700 12px ${FONT}`, color: 'var(--accInk)', textDecoration: 'underline', textUnderlineOffset: 3, marginLeft: 4 }}>View in source</span>
                           </HButton>
                         )}
                       </div>
@@ -399,12 +494,12 @@ function ProvisionComparison() {
           Provision comparison
         </h2>
         {first && (
-          <span style={{ fontSize: 12, color: 'var(--n1)' }}>
+          <span style={{ fontSize: 13, color: 'var(--n1)' }}>
             {first.before!.stage} {first.before!.version} → {first.after!.stage.toLowerCase()} {first.after!.version}, word by word
           </span>
         )}
         {comparable && (
-          <span style={{ marginLeft: 'auto', display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 12, color: 'var(--n1)' }} aria-hidden="true">
+          <span style={{ marginLeft: 'auto', display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 13, color: 'var(--n1)' }} aria-hidden="true">
             <span>
               <del style={DEL}>struck through</del> removed
             </span>
@@ -432,9 +527,9 @@ function ComparisonCard({ v, open, onToggle }: { v: ComparisonVM; open: boolean;
         style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '6px 14px', flexWrap: 'wrap', padding: '12px 18px', border: 'none', background: 'transparent', color: 'var(--ink)', textAlign: 'left', cursor: 'pointer' }}
       >
         <span style={{ font: `700 14px ${FONT}`, ...TABULAR, whiteSpace: 'nowrap' }}>{v.label}</span>
-        <span style={{ font: `700 11px ${FONT}`, borderRadius: 4, padding: '3px 8px', background: 'var(--soft)', color: 'var(--n1)' }}>{humanize(v.kind)}</span>
-        <span style={{ font: `500 11px ${FONT}`, ...TABULAR, color: 'var(--n2)', overflowWrap: 'anywhere', minWidth: 0 }}>{v.provisionKey}</span>
-        <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--n1)', ...TABULAR, whiteSpace: 'nowrap' }}>{stats}</span>
+        <span style={{ font: `700 12px ${FONT}`, borderRadius: 4, padding: '3px 8px', background: 'var(--soft)', color: 'var(--n1)' }}>{humanize(v.kind)}</span>
+        <span style={{ font: `500 12px ${FONT}`, ...TABULAR, color: 'var(--n2)', overflowWrap: 'anywhere', minWidth: 0 }}>{v.provisionKey}</span>
+        <span style={{ marginLeft: 'auto', fontSize: 13, color: 'var(--n1)', ...TABULAR, whiteSpace: 'nowrap' }}>{stats}</span>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true" style={{ flex: 'none', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }}>
           <path d="M6 9l6 6 6-6" />
         </svg>
@@ -442,7 +537,7 @@ function ComparisonCard({ v, open, onToggle }: { v: ComparisonVM; open: boolean;
       {open && (
         <div id={panel} style={{ borderTop: '1px solid var(--line)', padding: '14px 18px 16px', background: 'var(--soft)' }}>
           {v.identical && v.before!.article !== v.after!.article && (
-            <div style={{ fontSize: 12, color: 'var(--n1)', marginBottom: 10 }}>
+            <div style={{ fontSize: 13, color: 'var(--n1)', marginBottom: 10 }}>
               Same wording; only the article number changed ({v.before!.article} → {v.after!.article}).
             </div>
           )}
@@ -491,8 +586,8 @@ const HOTSPOT_TITLES: [HotspotDimension, string][] = [
   ['effort_type', 'By effort type'],
 ];
 
-const SELECT: CSSProperties = { font: `600 12px ${FONT}`, border: '1px solid var(--line)', borderRadius: 6, padding: '5px 8px', background: 'var(--card)', color: 'var(--ink)' };
-const BADGE: CSSProperties = { font: `700 11px ${FONT}`, borderRadius: 4, padding: '2px 7px', whiteSpace: 'nowrap' };
+const SELECT: CSSProperties = { font: `600 13px ${FONT}`, border: '1px solid var(--line)', borderRadius: 6, padding: '5px 8px', background: 'var(--card)', color: 'var(--ink)' };
+const BADGE: CSSProperties = { font: `700 12px ${FONT}`, borderRadius: 4, padding: '2px 7px', whiteSpace: 'nowrap' };
 
 function CostsTab({ d }: { d: ImpactDossier }) {
   const C = useConsole();
@@ -513,18 +608,18 @@ function CostsTab({ d }: { d: ImpactDossier }) {
         <div style={{ fontSize: 14 }}>
           {cov.relevant} obligations · {cov.estimated} estimated · {cov.not_costed} not costed · {cov.not_estimated} not estimated
         </div>
-        <div style={{ fontSize: 12, color: 'var(--n2)' }}>Payers: {bases || '—'}. Bands are ordinal classes per affected entity, never euro totals.</div>
-        {s.delta_basis && <div style={{ fontSize: 12, color: 'var(--n2)' }}>Change marks compare {s.delta_basis} · {s.late_added.length} added after the proposal</div>}
-        {cov.not_covered_keys.length > 0 && <div style={{ fontSize: 12, color: 'var(--n2)' }}>Not covered (no obligation records): {cov.not_covered_keys.join(', ')}</div>}
+        <div style={{ fontSize: 13, color: 'var(--n2)' }}>Payers: {bases || '—'}. Bands are ordinal classes per affected entity, never euro totals.</div>
+        {s.delta_basis && <div style={{ fontSize: 13, color: 'var(--n2)' }}>Change marks compare {s.delta_basis} · {s.late_added.length} added after the proposal</div>}
+        {cov.not_covered_keys.length > 0 && <div style={{ fontSize: 13, color: 'var(--n2)' }}>Not covered (no obligation records): {cov.not_covered_keys.join(', ')}</div>}
         {s.notes.map((n) => (
-          <div key={n} style={{ fontSize: 12, color: WARN_INK }}>
+          <div key={n} style={{ fontSize: 13, color: WARN_INK }}>
             {n}
           </div>
         ))}
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 12, color: 'var(--n2)' }}>Hotspots</span>
+        <span style={{ fontSize: 13, color: 'var(--n2)' }}>Hotspots</span>
         <Seg<Recurrence>
           options={[
             { v: 'one_off', label: 'One-off' },
@@ -587,7 +682,7 @@ function CostsTab({ d }: { d: ImpactDossier }) {
           <option value="changed">Changed after the proposal</option>
           <option value="added">Added after the proposal</option>
         </select>
-        <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--n2)' }}>
+        <span style={{ marginLeft: 'auto', fontSize: 13, color: 'var(--n2)' }}>
           Showing {shown.length} of {s.records.length} records
         </span>
       </div>
@@ -599,10 +694,10 @@ function CostsTab({ d }: { d: ImpactDossier }) {
           return (
             <div key={r.obligation_id} data-testid="cost-record" style={{ padding: '12px 18px', borderBottom: '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: 4 }}>
               <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-                <button type="button" onClick={() => C.openSource(r.source_id, `[${r.obligation_id}]`)} style={{ background: 'none', border: 'none', padding: 0, font: `600 12px ${FONT}`, ...TABULAR, color: 'var(--accInk)', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 }}>
+                <button type="button" onClick={() => C.openSource(r.source_id, `[${r.obligation_id}]`)} style={{ background: 'none', border: 'none', padding: 0, font: `600 13px ${FONT}`, ...TABULAR, color: 'var(--accInk)', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 }}>
                   {r.obligation_id}
                 </button>
-                <span style={{ font: `500 12px ${FONT}`, ...TABULAR, color: 'var(--n2)' }}>{r.provision_key}</span>
+                <span style={{ font: `500 13px ${FONT}`, ...TABULAR, color: 'var(--n2)' }}>{r.provision_key}</span>
                 {r.late_added && <span style={{ ...BADGE, background: WARN_BG, color: WARN_INK }}>Added after the proposal</span>}
                 {!r.late_added && r.changed_after_proposal && <span style={{ ...BADGE, background: 'var(--soft)', color: 'var(--n1)' }}>Changed after the proposal</span>}
               </div>
@@ -619,9 +714,9 @@ function CostsTab({ d }: { d: ImpactDossier }) {
                 )}
                 <span style={{ color: 'var(--n2)' }}>Applies from: {dateText(r)}</span>
               </div>
-              {r.rationale && <div style={{ fontSize: 12, color: 'var(--n1)' }}>{r.rationale}</div>}
+              {r.rationale && <div style={{ fontSize: 13, color: 'var(--n1)' }}>{r.rationale}</div>}
               {fs.length > 0 && (
-                <div style={{ fontSize: 12, color: 'var(--n2)' }}>
+                <div style={{ fontSize: 13, color: 'var(--n2)' }}>
                   Fiscal findings on this provision: {fs.map((f) => f.impact).join(' · ')}
                 </div>
               )}

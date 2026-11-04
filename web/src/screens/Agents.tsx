@@ -20,8 +20,8 @@ export function Agents() {
             <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 12, flex: 1 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ fontSize: 16, fontWeight: 600 }}>{a.name}</span>
-                <span style={{ font: `700 11px ${FONT}`, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--n2)' }}>{a.role}</span>
-                <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 5, font: `700 11px ${FONT}` }}>
+                <span style={{ font: `700 12px ${FONT}`, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--n2)' }}>{a.role}</span>
+                <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 5, font: `700 12px ${FONT}` }}>
                   <Dot c={a.stC} />
                   {a.stT}
                 </span>
@@ -31,13 +31,13 @@ export function Agents() {
                 {a.stats.map((s) => (
                   <div key={s.k} style={{ background: 'var(--soft)', borderRadius: 6, padding: '8px 10px' }}>
                     <div style={{ font: `600 15px ${FONT}`, ...TABULAR }}>{s.v}</div>
-                    <div style={{ fontSize: 11, color: 'var(--n2)' }}>{s.k}</div>
+                    <div style={{ fontSize: 12, color: 'var(--n2)' }}>{s.k}</div>
                   </div>
                 ))}
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 'auto' }}>
                 {a.tags.map((tg) => (
-                  <span key={tg} style={{ font: `500 11px ${FONT}`, ...TABULAR, border: '1px solid var(--line)', borderRadius: 4, padding: '2px 6px', color: 'var(--n1)' }}>
+                  <span key={tg} style={{ font: `500 12px ${FONT}`, ...TABULAR, border: '1px solid var(--line)', borderRadius: 4, padding: '2px 6px', color: 'var(--n1)' }}>
                     {tg}
                   </span>
                 ))}

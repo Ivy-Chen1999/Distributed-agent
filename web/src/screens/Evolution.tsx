@@ -32,7 +32,7 @@ const MONO = "ui-monospace,'SFMono-Regular',Menlo,monospace";
 export function Badge({ b }: { b: string }) {
   const s = badge(b);
   return (
-    <span data-badge={b} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: '1px solid var(--line)', borderRadius: 4, padding: '1px 7px', font: `700 11px ${FONT}`, color: 'var(--ink)', whiteSpace: 'nowrap' }}>
+    <span data-badge={b} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: '1px solid var(--line)', borderRadius: 4, padding: '1px 7px', font: `700 12px ${FONT}`, color: 'var(--ink)', whiteSpace: 'nowrap' }}>
       <Dot c={s.c} size={6} />
       {s.t}
     </span>
@@ -65,7 +65,7 @@ function LineageTree({ nodes, selected, onSelect }: { nodes: LineageNode[]; sele
               <span style={{ display: 'flex', alignItems: 'baseline', gap: 8, minWidth: 0 }}>
                 {depth > 0 && <span aria-hidden style={{ color: 'var(--n2)' }}>└</span>}
                 <span style={{ fontWeight: 700, ...TABULAR }}>{shortId(node.version_id)}</span>
-                {node.twins.length > 0 && <span style={{ fontSize: 11, color: 'var(--n2)' }}>+{node.twins.length} api twin{node.twins.length > 1 ? 's' : ''}</span>}
+                {node.twins.length > 0 && <span style={{ fontSize: 12, color: 'var(--n2)' }}>+{node.twins.length} api twin{node.twins.length > 1 ? 's' : ''}</span>}
               </span>
               <span style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
                 {node.badges.map((b) => (
@@ -91,7 +91,7 @@ function DecisionCard({ d }: { d: PromotionDecision }) {
           {d.label}
         </span>
       </div>
-      <div style={{ fontSize: 12, color: 'var(--n1)' }}>
+      <div style={{ fontSize: 13, color: 'var(--n1)' }}>
         {MODE_TEXT[d.mode] ?? d.mode} · {d.candidate_version} vs incumbent {d.incumbent_version} · {d.n_proposals} proposals
       </div>
       {d.reasons.length > 0 && <div style={{ fontSize: 13 }}>Reasons: {d.reasons.map((r) => r.replace(/_/g, ' ')).join(', ')}</div>}
@@ -119,7 +119,7 @@ function DecisionCard({ d }: { d: PromotionDecision }) {
         {crossJudgeText(d.cross_judge)}
       </div>
       {d.notes.map((n) => (
-        <div key={n} style={{ fontSize: 12, color: 'var(--n1)' }}>
+        <div key={n} style={{ fontSize: 13, color: 'var(--n1)' }}>
           {n}
         </div>
       ))}
@@ -157,8 +157,8 @@ function PromptDiff({ role, text }: { role: string; text: string }) {
   const { lines, hidden } = capLines(text, all ? Infinity : DIFF_LINE_CAP);
   return (
     <div data-prompt-diff={role}>
-      <div style={{ font: `700 12px ${FONT}`, marginBottom: 4 }}>{role}</div>
-      <pre style={{ margin: 0, padding: '8px 10px', background: 'var(--soft)', borderRadius: 6, overflowX: 'auto', font: `12px/1.5 ${MONO}`, color: 'var(--ink)' }}>
+      <div style={{ font: `700 13px ${FONT}`, marginBottom: 4 }}>{role}</div>
+      <pre style={{ margin: 0, padding: '8px 10px', background: 'var(--soft)', borderRadius: 6, overflowX: 'auto', font: `13px/1.5 ${MONO}`, color: 'var(--ink)' }}>
         {lines.map((line, i) => {
           const k = lineDiffKind(line);
           const bg = k === 'add' ? 'rgba(30,158,106,.16)' : k === 'del' ? 'rgba(229,72,77,.16)' : 'transparent';
@@ -214,8 +214,8 @@ function CandidatePanel({ d }: { d: CandidateDetail }) {
           )}
           {d.new_expert.rationale && <div style={{ fontSize: 13, color: 'var(--n1)' }}>{d.new_expert.rationale}</div>}
           <details>
-            <summary style={{ cursor: 'pointer', font: `700 12px ${FONT}` }}>Prompt</summary>
-            <pre style={{ margin: '8px 0 0', padding: '8px 10px', background: 'var(--soft)', borderRadius: 6, whiteSpace: 'pre-wrap', font: `12px/1.5 ${MONO}` }}>{d.new_expert.prompt_text}</pre>
+            <summary style={{ cursor: 'pointer', font: `700 13px ${FONT}` }}>Prompt</summary>
+            <pre style={{ margin: '8px 0 0', padding: '8px 10px', background: 'var(--soft)', borderRadius: 6, whiteSpace: 'pre-wrap', font: `13px/1.5 ${MONO}` }}>{d.new_expert.prompt_text}</pre>
           </details>
         </section>
       )}
@@ -274,7 +274,7 @@ function CandidatePanel({ d }: { d: CandidateDetail }) {
           </div>
         )}
         <div style={{ fontSize: 13, ...TABULAR }}>Coverage on demo_penalties_amended: {r37Line(d.r37)}</div>
-        {!d.r37.regression && <div style={{ fontSize: 12, color: 'var(--n1)' }}>{d.r37.message}</div>}
+        {!d.r37.regression && <div style={{ fontSize: 13, color: 'var(--n1)' }}>{d.r37.message}</div>}
       </Section>
     </div>
   );
@@ -301,7 +301,7 @@ export function Evolution() {
         <section aria-label="Candidates" style={{ ...CARD, padding: '14px 14px', display: 'flex', flexDirection: 'column', gap: 10, position: 'sticky', top: 90 }}>
           <h3 style={{ ...LABEL, margin: 0 }}>Lineage</h3>
           <LineageTree nodes={nodes} selected={selected} onSelect={setPicked} />
-          {lineage.data.publish_summary === false && !lineage.data.nodes.some(n => n.decision) && <div style={{ fontSize: 11, color: 'var(--n2)', lineHeight: 1.5 }}>Holdout decisions are not published here (publish_summary is off).</div>}
+          {lineage.data.publish_summary === false && !lineage.data.nodes.some(n => n.decision) && <div style={{ fontSize: 12, color: 'var(--n2)', lineHeight: 1.5 }}>Holdout decisions are not published here (publish_summary is off).</div>}
         </section>
         <div style={{ minWidth: 0 }}>
           {detail.status === 'error' ? (
@@ -313,7 +313,7 @@ export function Evolution() {
           )}
         </div>
       </div>
-      {lineage.status === 'error' && <div style={{ color: RED, fontSize: 12 }}>{lineage.error}</div>}
+      {lineage.status === 'error' && <div style={{ color: RED, fontSize: 13 }}>{lineage.error}</div>}
     </div>
   );
 }
