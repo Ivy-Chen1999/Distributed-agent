@@ -17,7 +17,8 @@ sealed holdout.
 `docs/plans/2026-10-26-001-feat-holdout-second-judge-plan.md`). Its sealed cases are settled with
 no person: an item is kept only where the Claude tie-break chain and a second judge
 (`gpt-6.1-sol`) both keep it. The signed policy is the only human input. Path C stays in the code,
-unused for v1.
+unused for v1. Outcome on 2026-11-04: the dev cycle kept the base (its one candidate was worse on
+val), so no holdout comparison was spent; show path B's lineage and path A for the gate.
 
 ## Honesty rules (all paths)
 

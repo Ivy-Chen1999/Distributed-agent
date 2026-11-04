@@ -16,6 +16,19 @@ No person is on the path to the v1 demo any more:
   Claude tie-break chain and `gpt-6.1-sol` agree, no human check.
 - The only human input left is the signed promotion policy (step 6, done 2026-10-15).
 
+**Dev cycle done 2026-11-04 (`cycle_demo_dev`, code `3a82f7e`, claude_code subscription, no API
+spend).** The base `v1.0-unscoped` (`sv_097af05cc5f7`) was replayed on train (10 cases, 2
+repetitions: coverage 0.571, omissions addressed 0.477). The prompt stage used 30 metric calls and
+2 proposal calls; one candidate (`sv_4a773b7a88d9`) reached the Pareto front but scored worse on
+val (coverage 0.419 against 0.496, omissions addressed 0.778 against 0.889, 3 cases), and one
+planner edit was refused as too long. The topology stage did not run (route `prompt_only`: no
+persistent missed-impact pattern without an owner across 2 or more proposals). The cycle kept the
+base, so there was no candidate for the gate and the holdout comparison was not spent. Demo
+wording: "one real improvement cycle ran end to end on train and val; its one candidate was worse
+on val, so the base was kept and the sealed holdout was never used. The gate's decision path is
+shown on synthetic data (runbook path A)." The base's most frequent failures were missed RSB
+omissions (compliance costs, consumers, public enforcement costs) spread over several experts.
+
 The text below records the earlier route and its results.
 
 Everything else in v1 is automated. People are needed where an LLM is being checked and another
