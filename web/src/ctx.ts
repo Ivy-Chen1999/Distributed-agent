@@ -31,6 +31,9 @@ export interface ConsoleCtx {
   scenarios: Loadable<Scenario[]>;
   runs: Loadable<{ runs: RunSummary[] }>;
   reloadRuns: () => void;
+  /** How many of the newest runs are loaded, and a way to load a page more. */
+  runLimit: number;
+  showMoreRuns: () => void;
 
   runId: string | null;
   selectRun: (runId: string) => void;

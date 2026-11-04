@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { api, describeError, getToken, onUnauthorized, setToken } from './api';
 import { Ctx, type ChatMessage, type ConsoleCtx, type DetailTab, type Staged } from './ctx';
-import { BLUE, FONT, ICON, LABEL, MOON, PULSE, SCREENS, SUN, TH, TITLES, fmtS, type ScreenId } from './design';
+import { ACC, ACC_HOVER, BLUE, FONT, ICON, LABEL, MOON, PULSE, SCREENS, SUN, TH, TITLES, fmtS, type ScreenId } from './design';
 import { useLoad, useNarrow, useNow, useRunData } from './hooks';
 import { findingIndex } from './model/dossier';
 import { shortRunId } from './model/overview';
+import { RUN_PAGE, nextRunLimit } from './model/runFilter';
 import { RUN_ST, runStatusLabel, type RunView } from './model/pipeline';
 import { regulationSub, regulationTitle, scenarioName } from './model/scenario';
 import { buildTrace, isFinished, liveClock } from './model/trace';
 import type { GroupMode } from './model/dossier';
 import type { RunDetail, RunEvent } from './types';
-import { HButton } from './components/ui';
+import { HButton, PRIMARY_BTN } from './components/ui';
 import { RunPicker, SourcePanel, Toast, TokenModal } from './components/overlays';
 import { Overview } from './screens/Overview';
 import { Pipeline } from './screens/Pipeline';
@@ -32,6 +33,18 @@ function readTheme(): 'light' | 'dark' {
     return 'light';
   }
 }
+
+/**
+ * The screen and the chosen run named in the URL hash (`#/detail?run=run_123`). An empty or
+ * unknown screen means Overview; no `run` means "the newest run".
+ */
+function parseHash(): { screen: ScreenId; run: string | null } {
+  const [path, query = ''] = window.location.hash.replace(/^#\/?/, '').split('?');
+  const screen = (SCREENS as string[]).includes(path) ? (path as ScreenId) : 'overview';
+  return { screen, run: new URLSearchParams(query).get('run') || null };
+}
+
+const hashFor = (screen: ScreenId, run: string | null) => `/${screen}${run ? `?run=${encodeURIComponent(run)}` : ''}`;
 
 /** Expert ids in graph order: from the run's events, else the run's node map, else the system. */
 export function expertsFor(events: RunEvent[], run: RunDetail | null, systemExperts: string[] | undefined): string[] {
@@ -75,7 +88,25 @@ export function App() {
     document.body.style.background = t.bg;
   }, [theme, t.bg]);
 
-  const [screen, setScreen] = useState<ScreenId>('overview');
+  const [screen, setScreen] = useState<ScreenId>(() => parseHash().screen);
+  const [pickedRun, setPickedRun] = useState<string | null>(() => parseHash().run);
+  // Keep the URL hash and the screen and run in step, so a reload keeps them, the back button works
+  // and a link opens the same run. The hash is read at event time rather than from the event, so
+  // rapid changes cannot revert.
+  useEffect(() => {
+    const onHash = () => {
+      const h = parseHash();
+      setScreen(h.screen);
+      setPickedRun(h.run);
+    };
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
+  useEffect(() => {
+    const want = hashFor(screen, pickedRun);
+    const have = window.location.hash.replace(/^#/, '');
+    if (have !== want && !(have === '' && want === '/overview')) window.location.hash = want;
+  }, [screen, pickedRun]);
   const narrow = useNarrow();
   const [drawer, setDrawer] = useState(false);
   useEffect(() => {
@@ -102,9 +133,10 @@ export function App() {
 
   const [system, reloadSystem] = useLoad(authed ? `system:${token}` : null, api.system);
   const [scenarios] = useLoad(authed ? `scenarios:${token}` : null, api.scenarios);
-  const [runs, reloadRuns] = useLoad(authed ? `runs:${token}` : null, () => api.runs(20));
+  const [runLimit, setRunLimit] = useState(RUN_PAGE);
+  const showMoreRuns = useCallback(() => setRunLimit(nextRunLimit), []);
+  const [runs, reloadRuns] = useLoad(authed ? `runs:${token}:${runLimit}` : null, () => api.runs(runLimit));
 
-  const [pickedRun, setPickedRun] = useState<string | null>(null);
   const runId = pickedRun ?? runs.data?.runs?.[0]?.run_id ?? null;
   const runData = useRunData(runId, authed, () => reloadRuns());
   const run = runData.run;
@@ -274,6 +306,8 @@ export function App() {
     scenarios,
     runs,
     reloadRuns,
+    runLimit,
+    showMoreRuns,
     runId,
     selectRun: setPickedRun,
     run,
@@ -321,7 +355,7 @@ export function App() {
     '--ink': t.ink,
     '--n1': t.n1,
     '--n2': t.n2,
-    '--acc': '#00C4CC',
+    '--acc': ACC,
     '--accInk': t.accInk,
     '--accSoft': t.accSoft,
     '--side': t.side,
@@ -348,7 +382,7 @@ export function App() {
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 4px' }}>
-            <div style={{ width: 32, height: 32, borderRadius: 7, background: '#00C4CC', display: 'grid', placeItems: 'center', flex: 'none' }}>
+            <div style={{ width: 32, height: 32, borderRadius: 7, background: ACC, display: 'grid', placeItems: 'center', flex: 'none' }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0F0F0F" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="5" r="2" />
                 <circle cx="5" cy="19" r="2" />
@@ -358,13 +392,13 @@ export function App() {
             </div>
             <div>
               <div style={{ fontWeight: 800, fontSize: 17, letterSpacing: '-.01em' }}>WOMM</div>
-              <div style={{ fontSize: 11, color: '#8E9798', marginTop: 1, letterSpacing: '.02em' }}>Regulatory impact · multi-agent</div>
+              <div style={{ fontSize: 12, color: '#8E9798', marginTop: 1, letterSpacing: '.02em' }}>Regulatory impact · multi-agent</div>
             </div>
           </div>
           <div style={{ background: 'rgba(255,255,255,.06)', borderRadius: 10, padding: '11px 12px' }}>
             <div style={{ ...LABEL, color: '#8E9798' }}>Regulation</div>
             <div style={{ fontSize: 13, fontWeight: 700, marginTop: 4 }}>{regulationTitle(scenario)}</div>
-            <div style={{ fontSize: 11, color: '#B7BDBE', marginTop: 2 }}>{regulationSub(scenario, sources.data?.changes) || '—'}</div>
+            <div style={{ fontSize: 12, color: '#B7BDBE', marginTop: 2 }}>{regulationSub(scenario, sources.data?.changes) || '—'}</div>
           </div>
           <nav style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             {SCREENS.map((k) => {
@@ -377,23 +411,23 @@ export function App() {
                   style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 11px', borderRadius: 6, border: 'none', background: on ? 'rgba(255,255,255,.09)' : 'transparent', color: on ? '#FFFFFF' : '#B7BDBE', font: `600 14px ${FONT}`, cursor: 'pointer', textAlign: 'left' }}
                   hover={{ color: '#FFFFFF' }}
                 >
-                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={on ? '#00C4CC' : 'currentColor'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={on ? ACC : 'currentColor'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d={ICON[k]} />
                   </svg>
                   <span style={{ flex: 1 }}>{TITLES[k]}</span>
-                  {k === 'pipeline' && active && <span style={{ font: `700 11px ${FONT}`, background: '#00C4CC', color: '#0F0F0F', borderRadius: 4, padding: '1px 6px' }}>live</span>}
+                  {k === 'pipeline' && active && <span style={{ font: `700 12px ${FONT}`, background: ACC, color: '#0F0F0F', borderRadius: 4, padding: '1px 6px' }}>live</span>}
                 </HButton>
               );
             })}
           </nav>
           <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: '#B7BDBE' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#B7BDBE' }}>
               <span style={{ width: 7, height: 7, borderRadius: '50%', background: runDot }} />
               <span style={{ whiteSpace: 'nowrap' }}>
                 {runLabel} · {clockText}
               </span>
             </div>
-            <div style={{ fontSize: 11, color: '#7F8889', lineHeight: 1.5 }}>Every impact traces back to a provision, a quote and a source.</div>
+            <div style={{ fontSize: 12, color: '#7F8889', lineHeight: 1.5 }}>Every impact traces back to a provision, a quote and a source.</div>
           </div>
         </aside>
 
@@ -415,12 +449,12 @@ export function App() {
             )}
             <div style={{ minWidth: 0, flex: narrow ? 1 : undefined }}>
               <div style={{ fontWeight: 600, fontSize: narrow ? 17 : 20, letterSpacing: '-.01em' }}>{TITLES[screen]}</div>
-              <div style={{ fontSize: 12, color: 'var(--n2)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: narrow ? 'nowrap' : undefined }}>
+              <div style={{ fontSize: 13, color: 'var(--n2)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: narrow ? 'nowrap' : undefined }}>
                 {scenarioName(scenarioId)} · <span style={{ fontFamily: FONT, fontVariantNumeric: 'tabular-nums' }}>{scenarioId}</span>
               </div>
             </div>
             <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', ...(narrow ? { width: '100%', marginLeft: 0 } : {}) }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--soft)', borderRadius: 4, padding: '5px 9px', font: `700 11px ${FONT}` }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--soft)', borderRadius: 4, padding: '5px 9px', font: `700 12px ${FONT}` }}>
                 <span style={{ width: 7, height: 7, borderRadius: '50%', background: runDot, animation: running ? PULSE : 'none' }} />
                 {runLabel}
               </span>
@@ -428,7 +462,7 @@ export function App() {
                 type="button"
                 onClick={copySv}
                 title="Copy system version"
-                style={{ flex: 'none', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--soft)', border: 'none', borderRadius: 4, padding: '5px 9px', font: `600 11px ${FONT}`, fontVariantNumeric: 'tabular-nums', color: 'var(--n1)', cursor: 'pointer' }}
+                style={{ flex: 'none', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--soft)', border: 'none', borderRadius: 4, padding: '5px 9px', font: `600 12px ${FONT}`, fontVariantNumeric: 'tabular-nums', color: 'var(--n1)', cursor: 'pointer' }}
               >
                 {svLabel}
                 {overrides ? ' · staged' : ''}
@@ -437,7 +471,7 @@ export function App() {
                 onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
                 title="Switch theme"
                 style={{ flex: 'none', width: 34, height: 34, display: 'grid', placeItems: 'center', background: 'transparent', border: '1px solid var(--line)', borderRadius: 4, color: 'var(--ink)', cursor: 'pointer' }}
-                hover={{ borderColor: '#00C4CC' }}
+                hover={{ borderColor: ACC }}
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                   <path d={theme === 'light' ? MOON : SUN} />
@@ -446,8 +480,8 @@ export function App() {
               <HButton
                 onClick={() => setPicker(true)}
                 disabled={active || submitting || !authed}
-                style={{ flex: 'none', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 8, background: '#00C4CC', color: '#0F0F0F', border: 'none', borderRadius: 4, padding: '9px 16px', font: `700 13px ${FONT}`, letterSpacing: '.02em', cursor: 'pointer' }}
-                hover={{ background: '#33D3D9' }}
+                style={PRIMARY_BTN}
+                hover={{ background: ACC_HOVER }}
               >
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="#0F0F0F">
                   <path d="M6 4l14 8-14 8z" />

@@ -39,21 +39,21 @@ export function Pipeline() {
               <button
                 type="button"
                 onClick={C.replaying ? C.stopReplay : C.replay}
-                style={{ background: 'transparent', color: 'var(--ink)', border: '1px solid var(--line)', borderRadius: 4, padding: '5px 10px', font: `700 11px ${FONT}`, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                style={{ background: 'transparent', color: 'var(--ink)', border: '1px solid var(--line)', borderRadius: 4, padding: '5px 10px', font: `700 12px ${FONT}`, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}
               >
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
                   <path d={C.replaying ? 'M6 5h4v14H6zM14 5h4v14h-4z' : 'M6 4l14 8-14 8z'} />
                 </svg>
                 {C.replaying ? 'Stop replay' : 'Replay'}
               </button>
-              <Seg options={SPEEDS.map((s) => ({ v: String(s), label: `${s}×` }))} value={String(C.speed)} onChange={(v) => C.setSpeed(Number(v))} pad="3px 8px" font={`700 11px ${FONT}`} />
+              <Seg options={SPEEDS.map((s) => ({ v: String(s), label: `${s}×` }))} value={String(C.speed)} onChange={(v) => C.setSpeed(Number(v))} pad="3px 8px" font={`700 12px ${FONT}`} />
             </div>
           )}
           <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', marginLeft: 'auto' }}>
             {strip.map((s) => (
               <div key={s.label} style={{ display: 'flex', alignItems: 'baseline', gap: 6, whiteSpace: 'nowrap' }}>
                 <span style={{ font: `600 15px ${FONT}`, ...TABULAR }}>{s.value}</span>
-                <span style={{ fontSize: 12, color: 'var(--n2)' }}>{s.label}</span>
+                <span style={{ fontSize: 13, color: 'var(--n2)' }}>{s.label}</span>
               </div>
             ))}
           </div>
@@ -82,7 +82,7 @@ export function Pipeline() {
                           data-node={id}
                           onClick={() => C.setSel(id)}
                           style={{
-                            width: 124,
+                            width: 136,
                             textAlign: 'left',
                             background: s === 'running' ? t.accSoft : 'var(--card)',
                             border: `1px solid ${s === 'failed' ? RED : C.sel === id ? ACC : s === 'running' ? ACC : 'var(--line)'}`,
@@ -99,14 +99,14 @@ export function Pipeline() {
                           <div style={{ height: 3, background: nd.c }} />
                           <div style={{ padding: '8px 10px 9px' }}>
                             <div style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.25 }}>{nd.name}</div>
-                            <div style={{ fontSize: 11, color: 'var(--n2)', marginTop: 1, lineHeight: 1.3 }}>{nd.sub}</div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 8, font: `700 11px ${FONT}` }}>
+                            <div style={{ fontSize: 12, color: 'var(--n2)', marginTop: 1, lineHeight: 1.3 }}>{nd.sub}</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 8, font: `700 12px ${FONT}` }}>
                               <Dot c={nd.stC} anim={s === 'running' ? PULSE : 'none'} />
                               {nd.stT}
                             </div>
-                            <div style={{ font: `600 11px ${FONT}`, ...TABULAR, color: 'var(--n1)', marginTop: 3 }}>{nd.meta}</div>
+                            <div style={{ font: `600 12px ${FONT}`, ...TABULAR, color: 'var(--n1)', marginTop: 3 }}>{nd.meta}</div>
                             {nd.shadow && (
-                              <div style={{ marginTop: 6, display: 'inline-block', font: `700 11px ${FONT}`, letterSpacing: '.06em', textTransform: 'uppercase', border: '1px dashed var(--n2)', color: 'var(--n1)', borderRadius: 4, padding: '1px 5px' }}>
+                              <div style={{ marginTop: 6, display: 'inline-block', font: `700 12px ${FONT}`, letterSpacing: '.06em', textTransform: 'uppercase', border: '1px dashed var(--n2)', color: 'var(--n1)', borderRadius: 4, padding: '1px 5px' }}>
                                 {routerMode(rv) === 'off' ? 'off' : 'shadow'}
                               </div>
                             )}
@@ -127,9 +127,9 @@ export function Pipeline() {
           <div style={{ ...CARD, padding: '16px 18px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <div style={LABEL}>Router decisions</div>
-              <span style={{ marginLeft: 'auto', font: `700 11px ${FONT}`, letterSpacing: '.06em', textTransform: 'uppercase', border: '1px dashed var(--n2)', color: 'var(--n1)', borderRadius: 4, padding: '1px 6px' }}>{mode}</span>
+              <span style={{ marginLeft: 'auto', font: `700 12px ${FONT}`, letterSpacing: '.06em', textTransform: 'uppercase', border: '1px dashed var(--n2)', color: 'var(--n1)', borderRadius: 4, padding: '1px 6px' }}>{mode}</span>
             </div>
-            <div style={{ fontSize: 12, color: 'var(--n1)', lineHeight: 1.5, marginTop: 6 }}>{routerNote(mode)}</div>
+            <div style={{ fontSize: 13, color: 'var(--n1)', lineHeight: 1.5, marginTop: 6 }}>{routerNote(mode)}</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 14 }}>
               {decisions.map((d) => (
                 <div key={d.id} style={{ display: 'grid', gridTemplateColumns: '96px minmax(0,1fr) 64px', gap: 10, alignItems: 'center' }}>
@@ -140,12 +140,12 @@ export function Pipeline() {
                   <div style={{ height: 6, background: 'var(--soft)', borderRadius: 2, overflow: 'hidden' }}>
                     <div style={{ width: d.w, height: '100%', background: d.bar }} />
                   </div>
-                  <span style={{ font: `700 11px ${FONT}`, color: d.tc, textAlign: 'right' }}>{d.decision}</span>
+                  <span style={{ font: `700 12px ${FONT}`, color: d.tc, textAlign: 'right' }}>{d.decision}</span>
                 </div>
               ))}
             </div>
-            <div style={{ fontSize: 11, color: 'var(--n2)', marginTop: 12 }}>
-              {decider === 'jev' ? 'Decider: Jev. Bar length is the relevance probability.' : 'The decider is a stub for now. Relevance probabilities arrive with Jev.'}
+            <div style={{ fontSize: 12, color: 'var(--n2)', marginTop: 12 }}>
+              {decider === 'jev' ? 'Decider: Jev. Bar length is the relevance probability.' : 'Relevance probabilities are not available for this run.'}
             </div>
           </div>
           <div style={{ ...CARD, padding: '16px 18px' }}>
@@ -153,7 +153,7 @@ export function Pipeline() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
               <Dot c={sel.c} size={10} radius={3} />
               <span style={{ fontSize: 16, fontWeight: 600 }}>{sel.name}</span>
-              <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 5, font: `700 11px ${FONT}` }}>
+              <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 5, font: `700 12px ${FONT}` }}>
                 <Dot c={sel.stC} />
                 {sel.stT}
               </span>
@@ -162,8 +162,8 @@ export function Pipeline() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 12 }}>
               {sel.facts.map((f) => (
                 <div key={f.k} style={{ background: 'var(--soft)', borderRadius: 6, padding: '8px 10px' }}>
-                  <div style={{ fontSize: 11, color: 'var(--n2)' }}>{f.k}</div>
-                  <div style={{ font: `600 12px ${FONT}`, ...TABULAR, marginTop: 2, wordBreak: 'break-all' }}>{f.v}</div>
+                  <div style={{ fontSize: 12, color: 'var(--n2)' }}>{f.k}</div>
+                  <div style={{ font: `600 13px ${FONT}`, ...TABULAR, marginTop: 2, wordBreak: 'break-all' }}>{f.v}</div>
                 </div>
               ))}
             </div>
@@ -173,7 +173,7 @@ export function Pipeline() {
         <div style={{ ...CARD, overflow: 'hidden' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '14px 18px', borderBottom: '1px solid var(--line)' }}>
             <div style={LABEL}>Shared impact board · live</div>
-            <span style={{ marginLeft: 'auto', font: `600 11px ${FONT}`, ...TABULAR, color: 'var(--n1)' }}>
+            <span style={{ marginLeft: 'auto', font: `600 12px ${FONT}`, ...TABULAR, color: 'var(--n1)' }}>
               {C.run?.board?.length ? `${feed.items.length} of ${feed.total} findings` : `${feed.total} finding${feed.total === 1 ? '' : 's'} posted`}
             </span>
           </div>
@@ -191,15 +191,15 @@ export function Pipeline() {
                   <span style={{ flex: 'none', width: 4, borderRadius: 2, background: f.c }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: 12, fontWeight: 700 }}>{f.agentName}</span>
-                      <span style={{ font: `500 11px ${FONT}`, ...TABULAR, color: 'var(--n1)' }}>{f.provision}</span>
-                      <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6, font: `700 11px ${FONT}`, letterSpacing: '.03em', color: b.c, background: b.bg, borderRadius: 4, padding: '3px 8px' }}>
+                      <span style={{ fontSize: 13, fontWeight: 700 }}>{f.agentName}</span>
+                      <span style={{ font: `500 12px ${FONT}`, ...TABULAR, color: 'var(--n1)' }}>{f.provision}</span>
+                      <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6, font: `700 12px ${FONT}`, letterSpacing: '.03em', color: b.c, background: b.bg, borderRadius: 4, padding: '3px 8px' }}>
                         <span style={{ width: 6, height: 6, borderRadius: 1, background: b.c }} />
                         {f.badge}
                       </span>
                     </div>
                     <div style={{ fontSize: 13, lineHeight: 1.45, marginTop: 4, textWrap: 'pretty' }}>{f.impact}</div>
-                    <div style={{ fontSize: 12, color: 'var(--n2)', marginTop: 4 }}>
+                    <div style={{ fontSize: 13, color: 'var(--n2)', marginTop: 4 }}>
                       {f.actor}
                       {f.conf !== '—' ? ` · confidence ${f.conf}` : ''}
                     </div>
