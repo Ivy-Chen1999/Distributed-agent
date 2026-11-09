@@ -28,6 +28,8 @@ const present = (key: string) => waitFor(() => {
   return el;
 });
 
+const expand = (card: HTMLElement) => fireEvent.click(within(card).getAllByRole('button')[0]);
+
 afterEach(() => vi.unstubAllGlobals());
 
 describe('Act screen', () => {
@@ -47,6 +49,9 @@ describe('Act screen', () => {
   it('marks changed words and shows both sides side by side', async () => {
     open();
     const card = await present('ai_act/art/27');
+    expect(card.querySelector('ins')).toBeNull(); // collapsed by default
+    expand(card);
+    expand(article('ai_act/art/4a')!);
     expect(within(card).getByText('simplified', { exact: false }).closest('ins')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Side by side' }));
     const sbs = article('ai_act/art/27')!;
@@ -74,8 +79,25 @@ describe('Act screen', () => {
     fireEvent.change(screen.getByLabelText('Comparison'), { target: { value: 'com2021_206->reg2024_1689' } });
     await waitFor(() => expect(screen.getByTestId('act-run').textContent).toMatch(/Findings of the latest run, run_61c1165c/));
     const card = await present('ai_act/innovation/regulatory_sandboxes');
-    expect(within(card).getByText('was Article 53 · text changed')).toBeTruthy();
+    expect(within(card).getByText(/^was Article 53 · text changed/)).toBeTruthy();
+    expand(card);
     expect(within(card).getByRole('region', { name: 'Findings' }).querySelectorAll('[data-finding]').length).toBeGreaterThan(0);
+  });
+
+  it('shows the comparison in the header and sidebar, and expands or collapses every article', async () => {
+    open();
+    await screen.findByTestId('act-stat');
+    const header = document.querySelector('header')!;
+    await waitFor(() => expect(header.textContent).toContain('Whole act · Regulation (EU) 2024/1689 → Regulation (EU) 2024/1689 as consolidated on 27 July 2026'));
+    expect(header.textContent).not.toContain('eval_sme_impacts');
+    expect(document.querySelector('aside')!.textContent).toContain('AI Act');
+    expect(document.querySelectorAll('article[data-open="true"]')).toHaveLength(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Expand all' }));
+    expect(document.querySelectorAll('article[data-open="true"]')).toHaveLength(3);
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse all' }));
+    expect(document.querySelectorAll('article[data-open="true"]')).toHaveLength(0);
+    fireEvent.click(within(document.querySelector('nav') as HTMLElement).getByText('Overview'));
+    await waitFor(() => expect(document.querySelector('header')!.textContent).toContain('eval_sme_impacts'));
   });
 
   it('starts an assessment of the comparison and moves to the pipeline', async () => {

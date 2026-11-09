@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { api, describeError, getToken, onUnauthorized, setToken } from './api';
-import { Ctx, type ChatMessage, type ConsoleCtx, type DetailTab, type Staged } from './ctx';
+import { Ctx, type ActContext, type ChatMessage, type ConsoleCtx, type DetailTab, type Staged } from './ctx';
 import { ACC, ACC_HOVER, BLUE, FONT, ICON, LABEL, MOON, PULSE, SCREENS, SUN, TH, TITLES, fmtS, type ScreenId } from './design';
 import { useLoad, useNarrow, useNow, useRunData } from './hooks';
 import { findingIndex } from './model/dossier';
@@ -124,6 +124,7 @@ export function App() {
   const [focusNonce, setFocusNonce] = useState(0);
   const [src, setSrc] = useState<{ sourceId: string; quote: string } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [actContext, setActContext] = useState<ActContext | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const flash = useCallback((text: string, ms = 1600) => {
     clearTimeout(toastTimer.current);
@@ -346,7 +347,10 @@ export function App() {
     setStaged,
     openPicker: () => setPicker(true),
     flash,
+    actContext,
+    setActContext,
   };
+  const act = screen === 'act' ? actContext : null;
 
   const vars = {
     '--bg': t.bg,
@@ -398,8 +402,8 @@ export function App() {
           </div>
           <div style={{ background: 'rgba(255,255,255,.06)', borderRadius: 10, padding: '11px 12px' }}>
             <div style={{ ...LABEL, color: '#8E9798' }}>Regulation</div>
-            <div style={{ fontSize: 13, fontWeight: 700, marginTop: 4 }}>{regulationTitle(scenario)}</div>
-            <div style={{ fontSize: 12, color: '#B7BDBE', marginTop: 2 }}>{regulationSub(scenario, sources.data?.changes) || '—'}</div>
+            <div style={{ fontSize: 13, fontWeight: 700, marginTop: 4 }}>{act ? act.regulation : regulationTitle(scenario)}</div>
+            <div style={{ fontSize: 12, color: '#B7BDBE', marginTop: 2 }}>{act ? act.versions : regulationSub(scenario, sources.data?.changes) || '—'}</div>
           </div>
           <nav style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             {SCREENS.map((k) => {
@@ -451,7 +455,13 @@ export function App() {
             <div style={{ minWidth: 0, flex: narrow ? 1 : undefined }}>
               <div style={{ fontWeight: 600, fontSize: narrow ? 17 : 20, letterSpacing: '-.01em' }}>{TITLES[screen]}</div>
               <div style={{ fontSize: 13, color: 'var(--n2)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: narrow ? 'nowrap' : undefined }}>
-                {scenarioName(scenarioId)} · <span style={{ fontFamily: FONT, fontVariantNumeric: 'tabular-nums' }}>{scenarioId}</span>
+                {act ? (
+                  act.comparison
+                ) : (
+                  <>
+                    {scenarioName(scenarioId)} · <span style={{ fontFamily: FONT, fontVariantNumeric: 'tabular-nums' }}>{scenarioId}</span>
+                  </>
+                )}
               </div>
             </div>
             <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', ...(narrow ? { width: '100%', marginLeft: 0 } : {}) }}>

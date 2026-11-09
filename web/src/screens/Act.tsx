@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { api, describeError } from '../api';
 import { useConsole } from '../ctx';
-import { ag, CARD, FONT, LABEL, TABULAR } from '../design';
+import { ACC, ag, CARD, FONT, LABEL, TABULAR } from '../design';
 import { useLoad } from '../hooks';
 import { Dot, EmptyCard, ErrorCard, LoadingCard, OUTLINE_BTN, PRIMARY_BTN, Seg } from '../components/ui';
 import { SegmentText } from './Detail';
@@ -56,6 +56,8 @@ export function Act() {
   const [showUnchanged, setShowUnchanged] = useState(false);
   const [focus, setFocus] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [expandAll, setExpandAll] = useState(false);
 
   const list = cmpList.data ?? [];
   const key = picked ?? defaultComparison(list);
@@ -70,12 +72,30 @@ export function Act() {
   const stats = useMemo(() => new Map(articles.map((a) => [a.provision_key, articleStats(a, byKey.get(a.provision_key)?.length ?? 0)])), [articles, byKey]);
   const unplaced = useMemo(() => unplacedFindings(byKey, articles), [byKey, articles]);
 
+  // The header and sidebar show the comparison being read, not the selected run scenario.
+  const setActContext = C.setActContext;
+  const contextTitle = data.data?.title;
+  useEffect(() => {
+    if (!cmp) return;
+    setActContext({ comparison: `Whole act · ${comparisonLabel(cmp)}`, regulation: contextTitle ?? 'EU AI Act', versions: comparisonLabel(cmp) });
+  }, [cmp, contextTitle, setActContext]);
+  useEffect(() => () => setActContext(null), [setActContext]);
+
+  const toggle = (k: string) =>
+    setExpanded((s) => {
+      const n = new Set(s);
+      if (n.has(k)) n.delete(k);
+      else n.add(k);
+      return n;
+    });
+
   const chooseView = (v: ActView) => {
     setView(v);
     if (v !== 'map') setLastDiff(v);
   };
   const openArticle = (k: string) => {
     setFocus(k);
+    setExpanded((s) => new Set(s).add(k));
     setShowUnchanged((s) => s || stats.get(k)?.changedParagraphs === 0);
     chooseView(lastDiff);
   };
@@ -122,6 +142,7 @@ export function Act() {
               onChange={(e) => {
                 setPicked(e.target.value);
                 setFocus(null);
+                setExpanded(new Set());
               }}
               style={SELECT}
             >
@@ -161,11 +182,23 @@ export function Act() {
             <MapView articles={articles} stats={stats} measure={measure} focus={focus} onOpen={openArticle} />
           ) : (
             <>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
-                <input type="checkbox" checked={showUnchanged} onChange={(e) => setShowUnchanged(e.target.checked)} />
-                Show unchanged articles
-              </label>
-              <DiffList articles={articles} stats={stats} byKey={byKey} cmp={cmp} sbs={view === 'sbs'} showUnchanged={showUnchanged} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+                  <input type="checkbox" checked={showUnchanged} onChange={(e) => setShowUnchanged(e.target.checked)} />
+                  Show unchanged articles
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setExpandAll((x) => !x);
+                    setExpanded(new Set());
+                  }}
+                  style={{ ...OUTLINE_BTN, padding: '5px 10px' }}
+                >
+                  {expandAll ? 'Collapse all' : 'Expand all'}
+                </button>
+              </div>
+              <DiffList articles={articles} stats={stats} byKey={byKey} cmp={cmp} sbs={view === 'sbs'} showUnchanged={showUnchanged} isOpen={(k) => expandAll !== expanded.has(k)} onToggle={toggle} />
             </>
           )}
         </>
@@ -201,31 +234,48 @@ function RunStrip(p: { cmp: ComparisonRef; runId: string | null; loading: boolea
   );
 }
 
-function DiffList({ articles, stats, byKey, cmp, sbs, showUnchanged }: { articles: ArticleComparison[]; stats: Map<string, ArticleStats>; byKey: Map<string, ImpactFinding[]>; cmp: ComparisonRef; sbs: boolean; showUnchanged: boolean }) {
+function DiffList({ articles, stats, byKey, cmp, sbs, showUnchanged, isOpen, onToggle }: { articles: ArticleComparison[]; stats: Map<string, ArticleStats>; byKey: Map<string, ImpactFinding[]>; cmp: ComparisonRef; sbs: boolean; showUnchanged: boolean; isOpen: (key: string) => boolean; onToggle: (key: string) => void }) {
   const shown = articles.filter((a) => showUnchanged || (stats.get(a.provision_key)?.changedParagraphs ?? 0) > 0 || byKey.has(a.provision_key));
   if (!shown.length) return <EmptyCard title="Nothing changed" sub="No article differs between the two versions." />;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       {shown.map((a) => (
-        <ArticleCard key={a.provision_key} a={a} s={stats.get(a.provision_key)!} findings={byKey.get(a.provision_key) ?? []} cmp={cmp} sbs={sbs} />
+        <ArticleCard key={a.provision_key} a={a} s={stats.get(a.provision_key)!} findings={byKey.get(a.provision_key) ?? []} cmp={cmp} sbs={sbs} open={isOpen(a.provision_key)} onToggle={() => onToggle(a.provision_key)} />
       ))}
     </div>
   );
 }
 
-function ArticleCard({ a, s, findings, cmp, sbs }: { a: ArticleComparison; s: ArticleStats; findings: ImpactFinding[]; cmp: ComparisonRef; sbs: boolean }) {
+function ArticleCard({ a, s, findings, cmp, sbs, open, onToggle }: { a: ArticleComparison; s: ArticleStats; findings: ImpactFinding[]; cmp: ComparisonRef; sbs: boolean; open: boolean; onToggle: () => void }) {
   const title = `${articleLabel(a)}${a.heading ? ` · ${a.heading}` : ''}`;
+  const body = `${articleId(a.provision_key)}-body`;
   return (
-    <article id={articleId(a.provision_key)} tabIndex={-1} aria-label={title} data-provision={a.provision_key} style={{ ...CARD, padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 10, scrollMarginTop: 90 }}>
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: '4px 12px' }}>
-        <h3 style={{ margin: 0, font: `700 15px ${FONT}` }}>{title}</h3>
-        <span style={{ fontSize: 12, color: 'var(--n2)' }}>{relationText(a, cmp)}</span>
-        <span style={{ marginLeft: 'auto', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+    <article id={articleId(a.provision_key)} tabIndex={-1} aria-label={title} data-provision={a.provision_key} data-open={open} style={{ ...CARD, borderColor: open ? ACC : 'var(--line)', display: 'flex', flexDirection: 'column', scrollMarginTop: 90, overflow: 'hidden' }}>
+      <h3 style={{ margin: 0 }}>
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls={body}
+          onClick={onToggle}
+          style={{ width: '100%', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '4px 12px', padding: '12px 18px', border: 'none', background: 'transparent', color: 'var(--ink)', textAlign: 'left', cursor: 'pointer', font: `700 15px ${FONT}` }}
+        >
+          <span>{title}</span>
+          <span style={{ font: `500 12px ${FONT}`, color: 'var(--n2)' }}>
+            {relationText(a, cmp)}
+            {s.changedParagraphs > 0 && ` · ${s.changedParagraphs} of ${s.paragraphs} paragraphs`}
+          </span>
+          <span style={{ marginLeft: 'auto', display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
           {s.roleDuties > 0 && <span style={CHIP}>{s.roleDuties} deployer {s.roleDuties === 1 ? 'duty' : 'duties'}</span>}
           {s.dateMoved > 0 && <span style={CHIP}>{s.dateMoved} with a moved date</span>}
           {findings.length > 0 && <span style={{ ...CHIP, background: 'var(--accSoft)', color: 'var(--ink)' }}>{findings.length} {findings.length === 1 ? 'finding' : 'findings'}</span>}
-        </span>
-      </div>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true" style={{ flex: 'none', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }}>
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </span>
+        </button>
+      </h3>
+      {open && (
+      <div id={body} style={{ borderTop: '1px solid var(--line)', padding: '12px 18px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
       {sbs && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 16 }}>
           <div style={LABEL}>{cmp.before.label}</div>
@@ -266,6 +316,8 @@ function ArticleCard({ a, s, findings, cmp, sbs }: { a: ArticleComparison; s: Ar
         );
       })}
       {findings.length > 0 && <FindingsList findings={findings} />}
+      </div>
+      )}
     </article>
   );
 }
