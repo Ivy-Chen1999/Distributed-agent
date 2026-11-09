@@ -341,7 +341,14 @@ def create_app(
 
     @app.get("/corpus/{regulation_id}/comparisons", dependencies=auth)
     async def corpus_comparisons(regulation_id: str) -> list[ComparisonRef]:
-        return comparisons(act_corpus(regulation_id))
+        pairs = comparisons(act_corpus(regulation_id))
+        for p in pairs:
+            p.scenario_ids = sorted(
+                s.scenario_id
+                for s in fixture.scenarios.values()
+                if (s.before_version, s.after_version) == (p.before.version_id, p.after.version_id)
+            )
+        return pairs
 
     @app.get("/corpus/{regulation_id}/compare/{before}/{after}", dependencies=auth)
     async def corpus_compare(regulation_id: str, before: str, after: str) -> ActComparison:

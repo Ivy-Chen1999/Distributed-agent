@@ -565,7 +565,8 @@ function ComparisonColumn({ side, which }: { side: ComparisonSide | null; which:
   );
 }
 
-function SegmentText({ sg }: { sg: Segment }) {
+/** One diff segment; also used by the Act screen so both show changes the same way. */
+export function SegmentText({ sg }: { sg: Segment }) {
   if (sg.op === 'same') return <>{sg.text}</>;
   const del = sg.op === 'del';
   const Tag = del ? 'del' : 'ins';

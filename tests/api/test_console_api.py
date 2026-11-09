@@ -208,6 +208,9 @@ def test_corpus_comparisons_and_compare(database_url):
         pairs = c.get("/corpus/ai_act/comparisons", headers=AUTH).json()
         ids = [(p["before"]["version_id"], p["after"]["version_id"]) for p in pairs]
         assert ("reg2024_1689", "reg2024_1689_c20260727") in ids
+        by_pair = {(p["before"]["version_id"], p["after"]["version_id"]): p for p in pairs}
+        assert "omnibus_2026" in by_pair["reg2024_1689", "reg2024_1689_c20260727"]["scenario_ids"]
+        assert "final_vs_proposal" in by_pair["com2021_206", "reg2024_1689"]["scenario_ids"]
         body = c.get(
             "/corpus/ai_act/compare/reg2024_1689/reg2024_1689_c20260727", headers=AUTH
         ).json()

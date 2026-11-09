@@ -21,6 +21,7 @@ import { Topology } from './screens/Topology';
 import { Ask } from './screens/Ask';
 import { Settings, overridesFrom } from './screens/Settings';
 import { Evolution } from './screens/Evolution';
+import { Act } from './screens/Act';
 
 export const DEFAULT_SCENARIO = 'eval_sme_impacts';
 const THEME_KEY = 'womm.theme';
@@ -493,6 +494,7 @@ export function App() {
 
           <main style={{ padding: narrow ? '16px 16px 40px' : '24px 28px 48px', display: 'flex', flexDirection: 'column', gap: 18, minWidth: 0 }}>
             {screen === 'overview' && <Overview />}
+            {screen === 'act' && <Act />}
             {screen === 'pipeline' && <Pipeline />}
             {screen === 'detail' && <Detail />}
             {screen === 'agents' && <Agents />}

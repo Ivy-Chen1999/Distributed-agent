@@ -47,6 +47,14 @@
     },
     "after": {
       "$ref": "#/$defs/VersionRef"
+    },
+    "scenario_ids": {
+      "description": "Fixture scenarios with this before -> after pair; their runs map onto it.",
+      "items": {
+        "type": "string"
+      },
+      "title": "Scenario Ids",
+      "type": "array"
     }
   },
   "required": [

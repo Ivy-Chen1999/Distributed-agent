@@ -51,6 +51,10 @@ class ComparisonRef(StrictModel):
     regulation_id: str
     before: VersionRef
     after: VersionRef
+    scenario_ids: list[str] = Field(
+        default_factory=list,
+        description="Fixture scenarios with this before -> after pair; their runs map onto it.",
+    )
 
 
 class ObligationSummary(StrictModel):
