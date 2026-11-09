@@ -33,7 +33,9 @@ import {
 import type { ArticleComparison, ComparisonRef, ImpactFinding } from '../types';
 
 const REGULATION = 'ai_act';
-const SELECT: CSSProperties = { font: `600 12px ${FONT}`, border: '1px solid var(--line)', borderRadius: 6, padding: '6px 8px', background: 'var(--card)', color: 'var(--ink)', maxWidth: '100%' };
+const SELECT: CSSProperties = { font: `600 12px ${FONT}`, border: '1px solid var(--line)', borderRadius: 6, padding: '6px 8px', background: 'var(--card)', color: 'var(--ink)', flex: '1 1 auto', minWidth: 0, width: '100%' };
+/** A label + select pair that shrinks to the screen width (long comparison names). */
+const FIELD: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: '1 1 260px', maxWidth: 560 };
 const CHIP: CSSProperties = { font: `700 11px ${FONT}`, borderRadius: 4, padding: '2px 7px', background: 'var(--soft)', color: 'var(--n1)', whiteSpace: 'nowrap', ...TABULAR };
 const VIEWS: { v: ActView; label: string }[] = [
   { v: 'inline', label: 'Inline' },
@@ -110,9 +112,9 @@ export function Act() {
 
   return (
     <>
-      <section aria-label="Comparison settings" style={{ ...CARD, padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div role="region" aria-label="Comparison settings" style={{ ...CARD, padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px 18px' }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+          <label style={FIELD}>
             <span style={LABEL}>Compare</span>
             <select
               aria-label="Comparison"
@@ -134,7 +136,7 @@ export function Act() {
             <span style={LABEL}>View</span>
             <Seg options={VIEWS} value={view} onChange={chooseView} />
           </div>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+          <label style={FIELD}>
             <span style={LABEL}>Measure</span>
             <select aria-label="Measure" value={measure} onChange={(e) => setMeasure(e.target.value as Measure)} style={SELECT}>
               {MEASURES.map((m) => (
@@ -146,7 +148,7 @@ export function Act() {
           </label>
         </div>
         <RunStrip cmp={cmp} runId={latest?.run_id ?? null} loading={runData.status === 'loading'} error={runData.status === 'error' ? runData.error : null} findings={[...byKey.values()].reduce((n, f) => n + f.length, 0)} unplaced={unplaced.length} starting={starting} onRun={runAssessment} onOpen={(id) => { C.selectRun(id); C.go('detail'); }} />
-      </section>
+      </div>
 
       {data.status === 'error' && <ErrorCard title="Cannot load the comparison" message={data.error} onRetry={reloadData} />}
       {data.status !== 'error' && !data.data && <LoadingCard title="Comparing the two versions" sub={comparisonLabel(cmp)} />}
