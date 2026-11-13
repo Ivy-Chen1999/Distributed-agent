@@ -18,6 +18,19 @@ and reasoning effort role for role, and adds the explore prompt and the retrieva
 Its coverage judge is `judge_coverage_v2.md`, which only matters for evaluation, not for runs.
 The promoted line for evaluation claims is unchanged.
 
+**Deployment, 2026-11-13, later (not a promotion):** production moves from `v1.0-unscoped-api` to
+`v1.1-unscoped-api.yaml` (`sv_d67e9df8e4e4`). The 60,000-character explore cap kept a whole-act
+run to one or two articles: the explanatory memorandum (37,350 characters) went whole into every
+expert prompt. v1.1 changes explore mode only: the cap is 100,000 characters, and the memorandum
+is sent on demand (`memorandum: {mode: on_demand}`: each expert gets the "other elements"
+subsections 5.2.x of the selected provisions' proposal Titles, the legal basis only for Legal,
+never the context section). The explore cap was never part of the pre-registered comparison,
+which golden cases measure in preset mode, and preset behaviour is identical to
+`v1.0-unscoped-api`. Local check on the `claude_code` twin `v1.1-unscoped` (`sv_4d2cd9bd8d47`),
+`final_vs_proposal`: the Planner selected 7 provisions and all 7 were analysed (52 impacts,
+123/123 quotes found, no expert failed), against 2 of 8 on `v1.0-scoped` earlier the same day.
+One run, so no quality claim; the promoted line for evaluation claims is unchanged.
+
 ## 2026-10-14: api models pinned
 
 The api twins (`v0.3-api` and the three `v1.0-*-api` files) run on OpenAI snapshot ids, chosen on
