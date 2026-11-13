@@ -32,7 +32,7 @@ async def test_migrate_is_idempotent(database_url):
 
 
 # Applied migrations are never edited: Database.migrate skips one it has applied, so an edit
-# would silently not reach an existing database. A schema change is a new migration (010+).
+# would silently not reach an existing database. A schema change is a new migration (012+).
 FROZEN_MIGRATIONS = {
     "001_init.sql": "c80129fb50cb58c8016aa493c0707f457907553b13c368deba76fb9b2145ba28",
     "002_run_ownership.sql": "de28c62563c4477571ce3c9346f4e92fe3020a808afeac6a757ca15f79dfdeab",
@@ -49,6 +49,10 @@ FROZEN_MIGRATIONS = {
         "3eca0b3f5344c5c79eb73787cb9d4ea59b6003c56090f276a0accc4e8e4c16db"
     ),
     "009_runs_created_at.sql": ("9594c886d9c4ea0009a905530b9a46c5a88bb6bf41fa696c5dd00ff57bcd49f1"),
+    "010_runs_trace_run_id.sql": (
+        "257f99fd61432af92e518842784ce75908a4711393339b0adf74c154aeaa8af7"
+    ),
+    "011_eval_reports.sql": "f6311909860571145fefff86948c5bd26d87996603788bab29b26ff301364f31",
 }
 
 
