@@ -1,6 +1,5 @@
 """The scripted backend behind the console's Playwright suite (womm.api.e2e)."""
 
-import json
 import time
 
 import pytest
@@ -105,16 +104,6 @@ def test_quotes_are_verbatim_sentences_of_eight_words_or_more(fx):
         assert len(ev["quote"].split()) >= 8 and ev["quote"] in sources[ev["source_id"]].text
 
 
-def test_ask_cites_dossier_ids_and_refuses_uncovered_questions():
-    dossier = {"impacts": [{"impact_id": "I1", "summary": "S", "findings": [
-        {"finding_id": "f_1", "agent": "legal"}]}]}  # fmt: skip
-    user = "Dossier:\n" + json.dumps(dossier) + "\n\nQuestion: "
-    covered = Scripts.ask("", user + "Who pays?")
-    assert covered["covered"] and covered["cites"] == ["I1", "f_1"]
-    uncovered = Scripts.ask("", user + "What is the weather tomorrow?")
-    assert uncovered == {**uncovered, "covered": False, "cites": []}
-
-
 def test_e2e_app_runs_scenarios_over_http(database_url, monkeypatch):
     monkeypatch.setenv("WOMM_API_TOKEN", TOKEN)
     monkeypatch.setenv("DATABASE_URL", database_url)
@@ -131,5 +120,3 @@ def test_e2e_app_runs_scenarios_over_http(database_url, monkeypatch):
         ) and time.monotonic() < deadline:  # fmt: skip
             time.sleep(0.05)
         assert body["status"] == "degraded"
-        answer = c.post(f"/runs/{run_id}/ask", json={"question": "Who pays?"}, headers=auth)
-        assert answer.json()["covered"] is True and answer.json()["cites"]

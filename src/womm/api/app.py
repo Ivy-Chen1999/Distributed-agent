@@ -8,9 +8,7 @@ Run with: `uvicorn --factory womm.api.app:create_app`.
 
 from __future__ import annotations
 
-import asyncio
 import hmac
-import json
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Annotated, Literal
@@ -19,7 +17,6 @@ from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.staticfiles import StaticFiles
-from langsmith import tracing_context
 from pydantic import BaseModel, Field
 
 from womm.act_view import (
@@ -49,11 +46,9 @@ from womm.data.fixtures import Fixture, FixtureError, load_fixture
 from womm.decisions.factory import make_decision_service
 from womm.diff import diff_versions
 from womm.identity import code_identity
-from womm.llm.base import LLMBackend, LLMError
-from womm.models.base import StrictModel
+from womm.llm.base import LLMBackend
 from womm.models.system_version import (
     Backend,
-    RoleConfig,
     SystemVersion,
     derive_system_version,
     load_system_version,
@@ -61,7 +56,6 @@ from womm.models.system_version import (
 
 MIN_TOKEN_LENGTH = 16
 WEB_DIST = REPO_ROOT / "web" / "dist"
-ASK_PROMPT = REPO_ROOT / "prompts" / "ask.md"
 # Read only for its publish_summary flag; absent in the API image (no evals/), which is fine.
 PROMOTION_POLICY = REPO_ROOT / "evals" / "promotion_policy.yaml"
 FINISHED = {"succeeded", "degraded", "failed", "no_changes"}
@@ -76,16 +70,6 @@ class RunOverrides(BaseModel):
 class RunRequest(BaseModel):
     scenario_id: str
     overrides: RunOverrides | None = None
-
-
-class AskRequest(BaseModel):
-    question: str = Field(min_length=1, max_length=2000)
-
-
-class AskAnswer(StrictModel):
-    answer: str
-    cites: list[str]
-    covered: bool
 
 
 class RunAccepted(BaseModel):
@@ -107,8 +91,6 @@ def create_app(
     max_pending_runs: int = 20,
     orphan_stale_after_s: float = 120.0,
     heartbeat_s: float = 30.0,
-    max_concurrent_asks: int = 4,
-    ask_timeout_s: float = 120.0,
     web_dist: Path | None = WEB_DIST,
     promotion_policy_path: Path | None = PROMOTION_POLICY,
     corpus: Corpus | None = None,
@@ -122,7 +104,6 @@ def create_app(
         raise ConfigError("DATABASE_URL must be set to run the API")
     sv = sv or load_system_version(settings.system_version_path, REPO_ROOT)
     fixture = fixture or load_fixture()
-    ask_slots = asyncio.Semaphore(max_concurrent_asks)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -426,52 +407,6 @@ def create_app(
     async def list_runs(request: Request, limit: Annotated[int, Query(ge=1, le=200)] = 20) -> dict:
         return {"runs": await request.app.state.db.list_runs(limit)}
 
-    @app.post("/runs/{run_id}/ask", dependencies=auth)
-    async def ask(run_id: str, body: AskRequest, request: Request) -> dict:
-        row = await request.app.state.db.get_run(run_id)
-        if row is None:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, f"unknown run {run_id}")
-        dossier = (row["result"] or {}).get("dossier")
-        if not dossier or row["status"] not in WITH_DOSSIER:
-            raise HTTPException(status.HTTP_409_CONFLICT, "this run has no impact dossier")
-        # Answer with the run's own synthesis role (overrides included) when this server can.
-        stored = await request.app.state.db.get_role(row["system_version"], "synthesis")
-        role = RoleConfig.model_validate(stored) if stored else sv.spec.synthesis
-        backends = request.app.state.runner.backends
-        if role.backend not in backends:
-            role = sv.spec.synthesis
-        backend = backends.get(role.backend)
-        if backend is None:
-            raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "no backend to answer with")
-        user = (
-            "Dossier:\n" + json.dumps(_dossier_for_ask(dossier), ensure_ascii=False)
-            + "\n\nQuestion: " + body.question
-        )  # fmt: skip
-        if ask_slots.locked():
-            raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "too many questions in flight")
-        try:
-            async with ask_slots:
-                with tracing_context(metadata={"run_id": run_id, "system_version": sv.version_id},
-                                     tags=["ask"]):  # fmt: skip
-                    out, _ = await asyncio.wait_for(
-                        backend.call("ask", ASK_PROMPT.read_text(encoding="utf-8"), user,
-                                     AskAnswer, role),
-                        ask_timeout_s,
-                    )  # fmt: skip
-        except TimeoutError:
-            raise HTTPException(
-                status.HTTP_504_GATEWAY_TIMEOUT, f"no answer within {ask_timeout_s:.0f}s"
-            ) from None
-        except LLMError as exc:
-            raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"could not answer: {exc}") from None
-        except Exception as exc:  # noqa: BLE001 - any backend fault is a bad gateway, not a 500
-            raise HTTPException(
-                status.HTTP_502_BAD_GATEWAY, f"could not answer: {type(exc).__name__}"
-            ) from None
-        known = _dossier_ids(dossier)
-        return {"answer": out.answer, "cites": [c for c in out.cites if c in known],
-                "covered": out.covered}  # fmt: skip
-
     if settings.label_admin_token:
         if len(settings.label_admin_token) < MIN_TOKEN_LENGTH:
             raise ConfigError(
@@ -489,41 +424,3 @@ def create_app(
             return RedirectResponse("/docs")
 
     return app
-
-
-def _dossier_for_ask(d: dict) -> dict:
-    """Compact dossier for question answering: drop provenance noise, keep ids and quotes."""
-    return {
-        "status": d.get("status"),
-        "impacts": [
-            {
-                "impact_id": i["impact_id"],
-                "summary": i["summary"],
-                "findings": [
-                    {
-                        k: f.get(k)
-                        for k in (
-                            "finding_id",
-                            "agent",
-                            "provision_key",
-                            "affected_actor",
-                            "mechanism",
-                            "impact",
-                        )
-                    }
-                    | {"quotes": [e["quote"] for e in f.get("evidence", [])]}
-                    for f in i.get("findings", [])
-                ],
-            }
-            for i in d.get("impacts", [])
-        ],  # fmt: skip
-        "chains": d.get("chains", []),
-        "disagreements": d.get("disagreements", []),
-        "open_questions": [q.get("question") for q in d.get("open_questions", [])],
-    }
-
-
-def _dossier_ids(d: dict) -> set[str]:
-    ids = {i["impact_id"] for i in d.get("impacts", [])}
-    ids |= {f["finding_id"] for i in d.get("impacts", []) for f in i.get("findings", [])}
-    return ids

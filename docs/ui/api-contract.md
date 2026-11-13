@@ -130,13 +130,6 @@ Nodes: `planner`, `router`, `expert_<id>`, `validate` (citation check), `synthes
 Poll every ~1s while running. For a finished run the same events drive a replay at N× speed using
 the `at` timestamps.
 
-### `POST /runs/{run_id}/ask`
-Body `{"question": "Who carries the penalty risk?"}` →
-`{"answer": "…", "cites": ["I19", "f_…"], "covered": true}`.
-Answers only from that run's dossier, with that run's synthesis backend when this server has it; `covered=false` when the dossier does not address it.
-409 if the run has no dossier, 429 when 4 questions are already in flight, 502 when the backend
-fails, 504 when no answer arrives within 120 s.
-
 ## Evolution page (R36 page 4)
 
 Read-only views of the self-evolution archive (self-evolution plan U9). Schemas:
