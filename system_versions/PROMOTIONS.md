@@ -9,6 +9,15 @@ noise, grounding stays ~100%. No sealed holdout exists yet, so promotions are pr
 
 `v0.3-api.yaml` is the deployment twin (same prompts, api backend), `sv_9bb77fcff011`.
 
+**Deployment, 2026-11-13 (not a promotion):** production (Railway `WOMM_SYSTEM_VERSION`) moves from
+`v0.3-api.yaml` to `v1.0-unscoped-api.yaml` (`sv_c8a57a8215d7`). The console's Act screen now
+starts whole-act (explore) runs, and `v0.3-api` has no `explore_prompt`, so its Planner read a
+whole act with the preset prompt. `v1.0-unscoped-api` keeps `v0.3-api`'s experts, prompts, models
+and reasoning effort role for role, and adds the explore prompt and the retrieval caps
+(`max_provisions: 8`); it carries no data scopes (the scoped arm is an open experiment, below).
+Its coverage judge is `judge_coverage_v2.md`, which only matters for evaluation, not for runs.
+The promoted line for evaluation claims is unchanged.
+
 ## 2026-10-14: api models pinned
 
 The api twins (`v0.3-api` and the three `v1.0-*-api` files) run on OpenAI snapshot ids, chosen on
