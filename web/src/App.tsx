@@ -5,7 +5,8 @@ import { ACC, ACC_HOVER, BLUE, FONT, ICON, LABEL, MOON, PULSE, SCREENS, SUN, TH,
 import { useLoad, useNarrow, useNow, useRunData } from './hooks';
 import { findingIndex } from './model/dossier';
 import { shortRunId } from './model/overview';
-import { RUN_PAGE, nextRunLimit } from './model/runFilter';
+import { RUN_PAGE, nextRunLimit, type RunFilter } from './model/runFilter';
+import { parseRoute, routeHash } from './model/route';
 import { RUN_ST, runStatusLabel, type RunView } from './model/pipeline';
 import { regulationSub, regulationTitle, scenarioName } from './model/scenario';
 import { buildTrace, isFinished, liveClock } from './model/trace';
@@ -33,18 +34,6 @@ function readTheme(): 'light' | 'dark' {
     return 'light';
   }
 }
-
-/**
- * The screen and the chosen run named in the URL hash (`#/detail?run=run_123`). An empty or
- * unknown screen means Overview; no `run` means "the newest run".
- */
-function parseHash(): { screen: ScreenId; run: string | null } {
-  const [path, query = ''] = window.location.hash.replace(/^#\/?/, '').split('?');
-  const screen = (SCREENS as string[]).includes(path) ? (path as ScreenId) : 'overview';
-  return { screen, run: new URLSearchParams(query).get('run') || null };
-}
-
-const hashFor = (screen: ScreenId, run: string | null) => `/${screen}${run ? `?run=${encodeURIComponent(run)}` : ''}`;
 
 /** Expert ids in graph order: from the run's events, else the run's node map, else the system. */
 export function expertsFor(events: RunEvent[], run: RunDetail | null, systemExperts: string[] | undefined): string[] {
@@ -88,25 +77,33 @@ export function App() {
     document.body.style.background = t.bg;
   }, [theme, t.bg]);
 
-  const [screen, setScreen] = useState<ScreenId>(() => parseHash().screen);
-  const [pickedRun, setPickedRun] = useState<string | null>(() => parseHash().run);
-  // Keep the URL hash and the screen and run in step, so a reload keeps them, the back button works
-  // and a link opens the same run. The hash is read at event time rather than from the event, so
-  // rapid changes cannot revert.
+  const [screen, setScreen] = useState<ScreenId>(() => parseRoute(window.location.hash).screen);
+  const [pickedRun, setPickedRun] = useState<string | null>(() => parseRoute(window.location.hash).run);
+  const [runFilter, setRunFilter] = useState<RunFilter>(() => parseRoute(window.location.hash).filter);
+  // Keep the URL hash and the screen, run and Overview filters in step, so a reload keeps them, the
+  // back button works and a link opens the same view. The hash is read at event time rather than
+  // from the event, so rapid changes cannot revert. Filters live here, not on Overview, so they
+  // survive a visit to another screen.
   useEffect(() => {
     const onHash = () => {
-      const h = parseHash();
+      const h = parseRoute(window.location.hash);
       setScreen(h.screen);
       setPickedRun(h.run);
+      if (h.screen === 'overview') setRunFilter(h.filter);
     };
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
   useEffect(() => {
-    const want = hashFor(screen, pickedRun);
+    const want = routeHash(screen, pickedRun, runFilter);
     const have = window.location.hash.replace(/^#/, '');
-    if (have !== want && !(have === '' && want === '/overview')) window.location.hash = want;
-  }, [screen, pickedRun]);
+    if (have === want || (have === '' && want === '/overview')) return;
+    // A hash that names this same view in another spelling (a hand-written link, other parameter
+    // order) is tidied in place; a new history entry there would make the back button bounce.
+    const cur = parseRoute(window.location.hash);
+    if (routeHash(cur.screen, cur.run, cur.filter) === want) window.history.replaceState(window.history.state, '', `#${want}`);
+    else window.location.hash = want;
+  }, [screen, pickedRun, runFilter]);
   const narrow = useNarrow();
   const [drawer, setDrawer] = useState(false);
   useEffect(() => {
@@ -308,6 +305,8 @@ export function App() {
     reloadRuns,
     runLimit,
     showMoreRuns,
+    runFilter,
+    setRunFilter,
     runId,
     selectRun: setPickedRun,
     run,

@@ -1,11 +1,10 @@
-import { useState } from 'react';
 import { useConsole } from '../ctx';
 import { useNarrow } from '../hooks';
 import { CARD, FONT, LABEL, TABULAR } from '../design';
 import { Arrow, Chevron, Dot, EmptyCard, ErrorCard, HButton, LoadingCard, OUTLINE_BTN, PRIMARY_BTN } from '../components/ui';
 import { attention, fmtDate, kpis, runRows } from '../model/overview';
 import { RunFilterBar, Walkthrough } from '../components/runs';
-import { NO_RUN_FILTER, canShowMore, filterRuns, isFiltering, scenarioChoices, type RunFilter } from '../model/runFilter';
+import { NO_RUN_FILTER, canShowMore, filterRuns, isFiltering, scenarioChoices } from '../model/runFilter';
 import { latBars } from '../model/pipeline';
 import { scenarioBlurb, scenarioHeadline, scenarioName } from '../model/scenario';
 import { ACC, ACC_DEEP, ACC_HOVER, ag } from '../design';
@@ -15,7 +14,7 @@ const RUN_COLS = '1.2fr 1.6fr 1fr .7fr .8fr .8fr 1.1fr';
 export function Overview() {
   const C = useConsole();
   const narrow = useNarrow();
-  const [filter, setFilter] = useState<RunFilter>(NO_RUN_FILTER);
+  const { runFilter: filter, setRunFilter: setFilter } = C;
   const runs = C.runs.data?.runs ?? [];
 
   if (!C.runId) {

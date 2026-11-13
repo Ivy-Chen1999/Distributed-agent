@@ -4,6 +4,7 @@ import type { ScreenId, Theme } from './design';
 import type { Loadable } from './hooks';
 import type { GroupMode } from './model/dossier';
 import type { RunView } from './model/pipeline';
+import type { RunFilter } from './model/runFilter';
 import type { RunDetail, RunSummary, Scenario, ScenarioSources, SystemInfo } from './types';
 
 export type DetailTab = 'impacts' | 'chains' | 'disagree' | 'questions' | 'costs' | 'log';
@@ -34,6 +35,9 @@ export interface ConsoleCtx {
   /** How many of the newest runs are loaded, and a way to load a page more. */
   runLimit: number;
   showMoreRuns: () => void;
+  /** The Overview runs-table filters; kept in the URL hash. */
+  runFilter: RunFilter;
+  setRunFilter: (f: RunFilter) => void;
 
   runId: string | null;
   selectRun: (runId: string) => void;
