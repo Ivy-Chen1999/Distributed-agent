@@ -57,7 +57,6 @@ the request, quoting real sentences of the scenario's sources. The scenario pick
 | `demo_penalties_amended` | degraded: the stakeholder expert times out |
 
 `WOMM_E2E_FAIL_EXPERT=<id>` and `WOMM_E2E_FABRICATE_QUOTE=1` force those failures for every scenario.
-Ask answers cite the first impact and finding; a question mentioning "weather" is not covered.
 
 | spec | covers |
 |---|---|
@@ -70,7 +69,6 @@ Ask answers cite the first impact and finding; a question mentioning "weather" i
 | `comparison` | demo diff provision comparison (proposal / final text): every change, side-by-side columns with struck deletions and underlined additions at 1280/1024 px, exact source texts, axe in both themes, hidden for evaluation scenarios, error + retry |
 | `degraded` | the timed-out expert on Overview, Pipeline, Agents, Topology and Run detail |
 | `agents-topology` | agent cards, "Open in topology", inspector facts, chips, edges, no clipped nodes (1440/1024/820 px) |
-| `ask` | suggestions, typed questions, "Reading the dossier…", citation chips, uncovered answers, new run |
 | `settings` | system facts, staged overrides and the derived version, self-check (also mocked with results) |
 | `header-errors` | copy version, theme, Run button states; 503/429/500/502/401 via `page.route` |
 | `evolution` | Evolution page on the seeded lineage: tree and badges, new-expert highlight, decisions verbatim, R37 warning, prompt diffs on demand, empty and error states, axe in both themes (desktop only) |
@@ -88,8 +86,8 @@ screenshots to the report on every run and rewrites the reference set only with
   grouping and provenance, quote highlighting, word-level proposal / final-text comparison,
   overview KPIs, scenario labels). Tested in `src/model/model.test.ts` against
   `../docs/ui/sample_run.json`.
-- `src/screens/`: Overview, Run pipeline, Run detail, Agents, Topology, Ask WOMM, Evolution,
-  Settings. Evolution (R36 page 4) reads `/evolution/*` and has its own view models in
+- `src/screens/`: Regulations, Act, Overview, Run pipeline, Run detail, Agents, Topology,
+  Evolution, Settings. Evolution (R36 page 4) reads `/evolution/*` and has its own view models in
   `src/model/evolution.ts`.
 - `src/components/`: design primitives (hover/focus styles, segmented controls, state cards) and
   overlays (source panel, token prompt, run picker, toast).

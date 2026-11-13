@@ -13,11 +13,11 @@ describe('api client', () => {
     expect(e).toMatchObject({ status: 0, message: 'The WOMM API did not answer within 20s' });
   });
 
-  it('gives every request an abort signal, with a longer budget for ask', async () => {
+  it('gives every request an abort signal with the default budget', async () => {
     const spy = vi.spyOn(AbortSignal, 'timeout');
-    vi.stubGlobal('fetch', respond(200, { answer: 'a', cites: [], covered: true }));
-    await api.ask('run_1', 'q');
-    expect(spy).toHaveBeenLastCalledWith(150_000);
+    vi.stubGlobal('fetch', respond(200, { runs: [] }));
+    await api.runs();
+    expect(spy).toHaveBeenLastCalledWith(20_000);
     spy.mockRestore();
   });
 
@@ -66,10 +66,10 @@ describe('api client', () => {
   });
 
   it('shows the API reason for a 502 from the API, and "cannot reach" for a bare proxy 502', async () => {
-    vi.stubGlobal('fetch', respond(502, { detail: 'could not answer: [timeout] model timed out' }));
-    expect(describeError(await api.ask('run_1', 'q').catch((e) => e))).toBe('could not answer: [timeout] model timed out');
+    vi.stubGlobal('fetch', respond(502, { detail: 'upstream model timed out' }));
+    expect(describeError(await api.run('run_1').catch((e) => e))).toBe('upstream model timed out');
     vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status: 502, statusText: 'Bad Gateway' })));
-    expect(describeError(await api.ask('run_1', 'q').catch((e) => e))).toBe('Cannot reach the WOMM API (502). Is it running?');
+    expect(describeError(await api.run('run_1').catch((e) => e))).toBe('Cannot reach the WOMM API (502). Is it running?');
   });
 
   it('reports network failures as status 0', async () => {

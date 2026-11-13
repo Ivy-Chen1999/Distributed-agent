@@ -4,7 +4,7 @@ import re
 
 import pytest
 
-from womm.act_view import compare, comparisons, paragraphs
+from womm.act_view import compare, comparisons, paragraphs, regulation_entry
 from womm.data.corpus import load_default_corpus
 from womm.data.fixtures import FixtureError
 
@@ -40,6 +40,17 @@ def test_paragraphs_key_by_number_and_occurrence():
 
 def test_comparisons_follow_the_index_delta_basis(corpus):
     assert [(c.before.version_id, c.after.version_id) for c in comparisons(corpus)] == PAIRS
+
+
+def test_regulation_entry_lists_versions_and_comparisons(corpus):
+    e = regulation_entry(corpus)
+    assert e.regulation_id == "ai_act"
+    assert [v.version_id for v in e.versions] == [
+        "com2021_206",
+        "reg2024_1689",
+        "reg2024_1689_c20260727",
+    ]
+    assert [(c.before.version_id, c.after.version_id) for c in e.comparisons] == PAIRS
 
 
 def test_unknown_pair_is_refused(corpus):

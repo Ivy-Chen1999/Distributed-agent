@@ -7,10 +7,10 @@ describe('parseRoute', () => {
     expect(parseRoute('#/detail?run=run_123')).toEqual({ screen: 'detail', run: 'run_123', filter: NO_RUN_FILTER });
   });
 
-  it('falls back to Overview for an empty or unknown screen', () => {
-    expect(parseRoute('').screen).toBe('overview');
-    expect(parseRoute('#/').screen).toBe('overview');
-    expect(parseRoute('#/nope?run=x').screen).toBe('overview');
+  it('has no screen for an empty or unknown one (the interface picks its home)', () => {
+    expect(parseRoute('').screen).toBeNull();
+    expect(parseRoute('#/').screen).toBeNull();
+    expect(parseRoute('#/nope?run=x').screen).toBeNull();
   });
 
   it('reads the run filters', () => {

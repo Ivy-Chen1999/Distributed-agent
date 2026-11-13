@@ -54,6 +54,14 @@ List of Scenario (`scenario_id`, `kind` evaluation|demo, `description`, `before_
 Used for the provenance side panel: find the quote inside `text` and highlight it. Matching must
 tolerate whitespace/quote-style differences (the backend matched after normalisation).
 
+### `GET /regulations`
+Regulations the console can open (the Regulations screen): list of RegulationEntry
+(`schema/regulation_entry.schema.json`) with versions and comparisons. Only acts with a whole-act
+corpus are listed, today the AI Act. `scenarios` lists the scenarios on any of its versions (id,
+version pair, description; no impact-assessment reference): their finished runs are the act's
+analyses on the Regulations screen. The evaluation fixtures are deliberately not listed: they are
+not a catalogue, and listing them would reveal which proposals the sealed holdout uses.
+
 ### `GET /corpus/{regulation_id}/comparisons`
 The version pairs the Act screen can compare, one per `delta_basis` in the corpus index:
 list of ComparisonRef (`schema/comparison_ref.schema.json`), e.g. `com2021_206 → reg2024_1689` and
@@ -121,13 +129,6 @@ Nodes: `planner`, `router`, `expert_<id>`, `validate` (citation check), `synthes
 `unsupported`, `error`, `status`, `impacts`.
 Poll every ~1s while running. For a finished run the same events drive a replay at N× speed using
 the `at` timestamps.
-
-### `POST /runs/{run_id}/ask`
-Body `{"question": "Who carries the penalty risk?"}` →
-`{"answer": "…", "cites": ["I19", "f_…"], "covered": true}`.
-Answers only from that run's dossier, with that run's synthesis backend when this server has it; `covered=false` when the dossier does not address it.
-409 if the run has no dossier, 429 when 4 questions are already in flight, 502 when the backend
-fails, 504 when no answer arrives within 120 s.
 
 ## Evolution page (R36 page 4)
 

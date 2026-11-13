@@ -99,3 +99,14 @@ describe('dossierToHtml', () => {
     expect(dossierToHtml({ ...run, dossier: null }, 'x')).toBe('');
   });
 });
+
+describe('plain export (the law interface)', () => {
+  const run = sampleRun();
+  it('leaves out the run id and system version', () => {
+    for (const out of [dossierToMarkdown(run, 'SME impacts', { plain: true }), dossierToHtml(run, 'SME impacts', { plain: true })]) {
+      expect(out).toContain('Analysis by WOMM');
+      expect(out).not.toContain(run.run_id);
+      expect(out).not.toContain(run.system_version);
+    }
+  });
+});

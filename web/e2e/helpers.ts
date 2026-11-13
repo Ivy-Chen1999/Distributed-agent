@@ -18,7 +18,7 @@ export const SCENARIO_NAMES: Record<string, string> = {
   demo_penalties_amended: 'Penalties amended',
 };
 
-export const SCREENS = ['Overview', 'Act', 'Run pipeline', 'Run detail', 'Agents', 'Topology', 'Ask WOMM', 'Settings'] as const;
+export const SCREENS = ['Overview', 'Regulations', 'Act', 'Run pipeline', 'Run detail', 'Agents', 'Topology', 'Settings'] as const;
 // Evolution (R36 page 4) is a desktop page outside the screen tour; e2e/evolution.spec.ts covers it.
 export type ScreenTitle = (typeof SCREENS)[number] | 'Evolution';
 
@@ -102,6 +102,8 @@ export async function go(page: Page, title: ScreenTitle): Promise<void> {
   // On narrow screens the sidebar is a drawer behind the header's menu button.
   const menu = page.getByRole('button', { name: 'Open navigation' });
   if (await menu.isVisible()) await menu.click();
+  // Screens live in one of two interfaces (the law / the system); switch when it is the other one.
+  if (!(await nav(page, title).count())) await page.getByRole('group', { name: 'Interface' }).locator('button[aria-pressed="false"]').click();
   await nav(page, title).click();
   await expect(screenTitle(page)).toHaveText(title);
 }

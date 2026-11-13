@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { api, describeError, getToken, onUnauthorized, setToken } from './api';
-import { Ctx, type ActContext, type ChatMessage, type ConsoleCtx, type DetailTab, type Staged } from './ctx';
-import { ACC, ACC_HOVER, BLUE, FONT, ICON, LABEL, MOON, PULSE, SCREENS, SUN, TH, TITLES, fmtS, type ScreenId } from './design';
+import { Ctx, type ActContext, type ConsoleCtx, type DetailTab, type Staged } from './ctx';
+import { ACC, ACC_HOVER, BLUE, FONT, ICON, LABEL, MOON, PULSE, SUN, TH, fmtS, type ScreenId } from './design';
 import { useLoad, useNarrow, useNow, useRunData } from './hooks';
 import { findingIndex } from './model/dossier';
 import { shortRunId } from './model/overview';
@@ -19,10 +19,13 @@ import { Pipeline } from './screens/Pipeline';
 import { Detail } from './screens/Detail';
 import { Agents } from './screens/Agents';
 import { Topology } from './screens/Topology';
-import { Ask } from './screens/Ask';
 import { Settings, overridesFrom } from './screens/Settings';
 import { Evolution } from './screens/Evolution';
 import { Act } from './screens/Act';
+import { Regulations } from './screens/Regulations';
+import type { ActTarget } from './model/regulations';
+import { loadActor, saveActor } from './model/act';
+import { ROLES, canSee, loadRole, roleOf, roleWith, saveRole, screenFor, screenTitle, type Role, type RoleId } from './model/roles';
 
 export const DEFAULT_SCENARIO = 'eval_sme_impacts';
 const THEME_KEY = 'womm.theme';
@@ -78,7 +81,17 @@ export function App() {
     document.body.style.background = t.bg;
   }, [theme, t.bg]);
 
-  const [screen, setScreen] = useState<ScreenId>(() => parseRoute(window.location.hash).screen);
+  // A screen named in the URL opens the interface that has it (a shared #/act link lands in the
+  // law, a #/agents link in the system); no screen opens the interface's home.
+  const [role, setRoleState] = useState<Role>(() => {
+    const want = parseRoute(window.location.hash).screen;
+    const r = want ? roleWith(loadRole(), want) : loadRole();
+    saveRole(r.id);
+    return r;
+  });
+  const roleRef = useRef(role);
+  roleRef.current = role;
+  const [screen, setScreen] = useState<ScreenId>(() => parseRoute(window.location.hash).screen ?? roleRef.current.home);
   const [pickedRun, setPickedRun] = useState<string | null>(() => parseRoute(window.location.hash).run);
   const [runFilter, setRunFilter] = useState<RunFilter>(() => parseRoute(window.location.hash).filter);
   // Keep the URL hash and the screen, run and Overview filters in step, so a reload keeps them, the
@@ -88,9 +101,15 @@ export function App() {
   useEffect(() => {
     const onHash = () => {
       const h = parseRoute(window.location.hash);
-      setScreen(h.screen);
+      const r = h.screen ? roleWith(roleRef.current, h.screen) : roleRef.current;
+      if (r !== roleRef.current) {
+        saveRole(r.id);
+        setRoleState(r);
+      }
+      const next = h.screen ?? r.home;
+      setScreen(next);
       setPickedRun(h.run);
-      if (h.screen === 'overview') setRunFilter(h.filter);
+      if (next === 'overview') setRunFilter(h.filter);
     };
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
@@ -98,13 +117,13 @@ export function App() {
   useEffect(() => {
     const want = routeHash(screen, pickedRun, runFilter);
     const have = window.location.hash.replace(/^#/, '');
-    if (have === want || (have === '' && want === '/overview')) return;
+    if (have === want || (have === '' && want === `/${role.home}`)) return;
     // A hash that names this same view in another spelling (a hand-written link, other parameter
     // order) is tidied in place; a new history entry there would make the back button bounce.
     const cur = parseRoute(window.location.hash);
-    if (routeHash(cur.screen, cur.run, cur.filter) === want) window.history.replaceState(window.history.state, '', `#${want}`);
+    if (cur.screen && routeHash(cur.screen, cur.run, cur.filter) === want) window.history.replaceState(window.history.state, '', `#${want}`);
     else window.location.hash = want;
-  }, [screen, pickedRun, runFilter]);
+  }, [screen, pickedRun, runFilter, role]);
   const narrow = useNarrow();
   const [drawer, setDrawer] = useState(false);
   useEffect(() => {
@@ -122,6 +141,12 @@ export function App() {
   const [src, setSrc] = useState<{ sourceId: string; quote: string } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [actContext, setActContext] = useState<ActContext | null>(null);
+  const [actTarget, setActTarget] = useState<ActTarget | null>(null);
+  const [actor, setActorState] = useState(loadActor);
+  const setActor = useCallback((a: string) => {
+    setActorState(a);
+    saveActor(a);
+  }, []);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const flash = useCallback((text: string, ms = 1600) => {
     clearTimeout(toastTimer.current);
@@ -186,35 +211,6 @@ export function App() {
   const running = replay.active || active;
   const clockText = fmtS(clock);
 
-  // Chat, per run.
-  const [chats, setChats] = useState<Record<string, ChatMessage[]>>({});
-  const [thinking, setThinking] = useState(false);
-  const greeting: ChatMessage = useMemo(() => {
-    const d = run?.dossier;
-    if (!run || !d) return { bot: true, text: run ? "This run has no dossier yet. Ask WOMM answers from a finished run's dossier." : 'No run selected.' };
-    const g = run.grounding;
-    const quotes = g ? (g.passed === g.total ? `all ${g.total} evidence quotes found verbatim` : `${g.passed} of ${g.total} evidence quotes found verbatim`) : 'grounding not reported';
-    return { bot: true, text: `The ${scenarioName(run.scenario_id)} run finished in ${fmtS(trace.end)}: ${d.impacts.length} impacts, ${quotes}. Ask about any actor, provision or finding.` };
-  }, [run, trace.end]);
-  const chat = runId ? [greeting, ...(chats[runId] ?? [])] : [greeting];
-  const ask = useCallback(
-    async (q: string) => {
-      if (!runId || thinking) return;
-      const push = (m: ChatMessage) => setChats((c) => ({ ...c, [runId]: [...(c[runId] ?? []), m] }));
-      push({ bot: false, text: q });
-      setThinking(true);
-      try {
-        const a = await api.ask(runId, q);
-        push({ bot: true, text: a.answer, cites: a.cites ?? [], covered: a.covered });
-      } catch (e) {
-        push({ bot: true, text: `Could not answer: ${describeError(e).replace(/^could not answer:\s*/i, '')}`, error: true });
-      } finally {
-        setThinking(false);
-      }
-    },
-    [runId, thinking],
-  );
-
   const openImpact = useCallback(
     (id: string) => {
       const d = run?.dossier;
@@ -235,12 +231,24 @@ export function App() {
   screenRef.current = screen;
   const go = useCallback((s: ScreenId, extra?: { tab?: DetailTab; sel?: string; openImp?: string | null }) => {
     // A new screen starts at the top; a jump into an impact scrolls there after rendering.
+    // A screen outside the current role opens the role home instead.
+    s = screenFor(roleRef.current, s);
     if (s !== screenRef.current) window.scrollTo({ top: 0 });
     setScreen(s);
     setDrawer(false);
     if (extra?.tab) setTab(extra.tab);
     if (extra?.sel) setSel(extra.sel);
     if (extra && 'openImp' in extra) setOpenImp(extra.openImp ?? null);
+  }, []);
+
+  const setRole = useCallback((id: RoleId) => {
+    const next = roleOf(id);
+    saveRole(id);
+    setRoleState(next);
+    if (!canSee(next, screenRef.current)) {
+      window.scrollTo({ top: 0 });
+      setScreen(next.home);
+    }
   }, []);
 
   useEffect(() => {
@@ -278,7 +286,7 @@ export function App() {
       setPicker(false);
       flash(`Run queued · ${shortRunId(res.run_id)}${res.system_version ? ` · ${res.system_version}` : ''}`, 2400);
       reloadRuns();
-      if (screen === 'overview' || screen === 'chat') setScreen('pipeline');
+      if (screen === 'overview' && canSee(role, 'pipeline')) setScreen('pipeline');
     } catch (e) {
       flash(describeError(e), 4000);
     } finally {
@@ -310,6 +318,7 @@ export function App() {
     runFilter,
     setRunFilter,
     runId,
+    pickedRunId: pickedRun,
     selectRun: setPickedRun,
     run,
     runLoading: runData.loading,
@@ -339,17 +348,35 @@ export function App() {
     focusNonce,
     openImpact,
     openSource: (sourceId, quote) => setSrc({ sourceId, quote }),
-    chat,
-    thinking,
-    ask,
     staged,
     setStaged,
-    openPicker: () => setPicker(true),
+    openPicker: () => role.canRun && setPicker(true),
     flash,
     actContext,
     setActContext,
+    role,
+    setRole,
+    can: (s) => canSee(role, s),
+    openAct: (target) => {
+      setActTarget(target);
+      go('act');
+    },
+    actTarget,
+    clearActTarget: () => setActTarget(null),
+    actor,
+    setActor,
   };
   const act = screen === 'act' ? actContext : null;
+  // Choosing a regulation: no run scenario or act is in context yet.
+  const browsing = screen === 'regs';
+  // The sidebar card: in the law, the regulation the user chose (kept across screens); in the
+  // system, the selected run's scenario.
+  const card =
+    role.id === 'law'
+      ? actContext
+        ? { title: actContext.regulation, sub: actContext.versions }
+        : { title: 'No regulation chosen', sub: 'Find one under Regulations' }
+      : { title: regulationTitle(scenario), sub: regulationSub(scenario, sources.data?.changes) || '—' };
 
   const vars = {
     '--bg': t.bg,
@@ -399,13 +426,34 @@ export function App() {
               <div style={{ fontSize: 12, color: '#8E9798', marginTop: 1, letterSpacing: '.02em' }}>Regulatory impact · multi-agent</div>
             </div>
           </div>
+          <div role="group" aria-label="Interface" aria-describedby="womm-role-desc" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3, background: 'rgba(255,255,255,.06)', borderRadius: 8, padding: 3 }}>
+              {ROLES.map((r) => {
+                const on = r.id === role.id;
+                return (
+                  <button
+                    key={r.id}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => setRole(r.id)}
+                    style={{ border: 'none', borderRadius: 6, padding: '7px 8px', background: on ? '#FDFCFD' : 'transparent', color: on ? '#0F0F0F' : '#B7BDBE', font: `700 13px ${FONT}`, cursor: 'pointer' }}
+                  >
+                    {r.name}
+                  </button>
+                );
+              })}
+            </div>
+            <span id="womm-role-desc" style={{ fontSize: 11, color: '#B7BDBE', lineHeight: 1.45, padding: '0 4px' }}>
+              {role.description}
+            </span>
+          </div>
           <div style={{ background: 'rgba(255,255,255,.06)', borderRadius: 10, padding: '11px 12px' }}>
             <div style={{ ...LABEL, color: '#8E9798' }}>Regulation</div>
-            <div style={{ fontSize: 13, fontWeight: 700, marginTop: 4 }}>{act ? act.regulation : regulationTitle(scenario)}</div>
-            <div style={{ fontSize: 12, color: '#B7BDBE', marginTop: 2 }}>{act ? act.versions : regulationSub(scenario, sources.data?.changes) || '—'}</div>
+            <div style={{ fontSize: 13, fontWeight: 700, marginTop: 4 }}>{card.title}</div>
+            <div style={{ fontSize: 12, color: '#B7BDBE', marginTop: 2 }}>{card.sub}</div>
           </div>
-          <nav style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            {SCREENS.map((k) => {
+          <nav aria-label="Screens" style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            {role.screens.map((k) => {
               const on = screen === k;
               return (
                 <HButton
@@ -418,19 +466,21 @@ export function App() {
                   <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={on ? ACC : 'currentColor'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d={ICON[k]} />
                   </svg>
-                  <span style={{ flex: 1 }}>{TITLES[k]}</span>
+                  <span style={{ flex: 1 }}>{screenTitle(role, k)}</span>
                   {k === 'pipeline' && active && <span style={{ font: `700 12px ${FONT}`, background: ACC, color: '#0F0F0F', borderRadius: 4, padding: '1px 6px' }}>live</span>}
                 </HButton>
               );
             })}
           </nav>
           <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#B7BDBE' }}>
-              <span style={{ width: 7, height: 7, borderRadius: '50%', background: runDot }} />
-              <span style={{ whiteSpace: 'nowrap' }}>
-                {runLabel} · {clockText}
-              </span>
-            </div>
+            {role.runMachinery && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#B7BDBE' }}>
+                <span style={{ width: 7, height: 7, borderRadius: '50%', background: runDot }} />
+                <span style={{ whiteSpace: 'nowrap' }}>
+                  {runLabel} · {clockText}
+                </span>
+              </div>
+            )}
             <div style={{ fontSize: 12, color: '#7F8889', lineHeight: 1.5 }}>Every impact traces back to a provision, a quote and a source.</div>
           </div>
         </aside>
@@ -452,22 +502,33 @@ export function App() {
               </button>
             )}
             <div style={{ minWidth: 0, flex: narrow ? 1 : undefined }}>
-              <div style={{ fontWeight: 600, fontSize: narrow ? 17 : 20, letterSpacing: '-.01em' }}>{TITLES[screen]}</div>
+              <div style={{ fontWeight: 600, fontSize: narrow ? 17 : 20, letterSpacing: '-.01em' }}>{screenTitle(role, screen)}</div>
               <div style={{ fontSize: 13, color: 'var(--n2)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: narrow ? 'nowrap' : undefined }}>
-                {act ? (
+                {browsing ? (
+                  'Acts WOMM has analysed: search by name, number or a EUR-Lex link'
+                ) : act ? (
                   act.comparison
                 ) : (
                   <>
-                    {scenarioName(scenarioId)} · <span style={{ fontFamily: FONT, fontVariantNumeric: 'tabular-nums' }}>{scenarioId}</span>
+                    {scenarioName(scenarioId)}
+                    {!role.plainAnalysis && (
+                      <>
+                        {' · '}
+                        <span style={{ fontFamily: FONT, fontVariantNumeric: 'tabular-nums' }}>{scenarioId}</span>
+                      </>
+                    )}
                   </>
                 )}
               </div>
             </div>
             <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', ...(narrow ? { width: '100%', marginLeft: 0 } : {}) }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--soft)', borderRadius: 4, padding: '5px 9px', font: `700 12px ${FONT}` }}>
-                <span style={{ width: 7, height: 7, borderRadius: '50%', background: runDot, animation: running ? PULSE : 'none' }} />
-                {runLabel}
-              </span>
+              {role.runMachinery && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--soft)', borderRadius: 4, padding: '5px 9px', font: `700 12px ${FONT}` }}>
+                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: runDot, animation: running ? PULSE : 'none' }} />
+                  {runLabel}
+                </span>
+              )}
+              {role.tooling && (
               <button
                 type="button"
                 onClick={copySv}
@@ -477,6 +538,7 @@ export function App() {
                 {svLabel}
                 {overrides ? ' · staged' : ''}
               </button>
+              )}
               <HButton
                 onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
                 title="Switch theme"
@@ -487,6 +549,7 @@ export function App() {
                   <path d={theme === 'light' ? MOON : SUN} />
                 </svg>
               </HButton>
+              {role.runMachinery && role.canRun && (
               <HButton
                 onClick={() => setPicker(true)}
                 disabled={active || submitting || !authed}
@@ -498,17 +561,18 @@ export function App() {
                 </svg>
                 {runBtnLabel}
               </HButton>
+              )}
             </div>
           </header>
 
           <main style={{ padding: narrow ? '16px 16px 40px' : '24px 28px 48px', display: 'flex', flexDirection: 'column', gap: 18, minWidth: 0 }}>
             {screen === 'overview' && <Overview />}
+            {screen === 'regs' && <Regulations />}
             {screen === 'act' && <Act />}
             {screen === 'pipeline' && <Pipeline />}
             {screen === 'detail' && <Detail />}
             {screen === 'agents' && <Agents />}
             {screen === 'topo' && <Topology />}
-            {screen === 'chat' && <Ask />}
             {screen === 'evolution' && <Evolution />}
             {screen === 'settings' && <Settings />}
           </main>

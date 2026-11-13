@@ -172,7 +172,6 @@ export function mockApi(overrides: Record<string, (call: MockCall) => { status: 
       const evs = syntheticEvents().filter((e) => e.seq > after);
       return json(200, { run_id: run.run_id, events: evs, next_after: evs.length ? evs[evs.length - 1].seq : after });
     }
-    if (path === `/runs/${run.run_id}/ask`) return json(200, { answer: 'Penalty risk sits with all providers (I19).', cites: ['I19', 'f_083bb47fcfc7'], covered: true });
     return json(404, { detail: `no mock for ${path}` });
   };
   return { fn, calls, run };

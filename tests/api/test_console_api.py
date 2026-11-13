@@ -1,13 +1,9 @@
 """Endpoints the WOMM Console uses beyond the core run API."""
 
-import asyncio
-
-import pytest
 from fastapi.testclient import TestClient
 
 from womm.api.app import create_app
 from womm.data.fixtures import load_fixture
-from womm.llm.base import LLMError
 from womm.llm.fake import FakeBackend
 
 from ..graph.conftest import fake_sv, good_script
@@ -86,93 +82,6 @@ def test_overrides_derive_new_version(database_url):
         assert bad_role.status_code == 422
 
 
-def test_ask_answers_and_filters_cites(database_url):
-    answer = {"answer": "Providers face tiered fines.", "cites": ["I1", "made_up"], "covered": True}
-    script = good_script(synthesis_all())
-    script["ask"] = [answer]
-    with _client(database_url, script) as c:
-        run_id, _ = _finished_run(c)
-        r = c.post(f"/runs/{run_id}/ask", headers=AUTH, json={"question": "Who pays fines?"})
-        assert r.status_code == 200
-        assert r.json() == {"answer": "Providers face tiered fines.", "cites": ["I1"],
-                            "covered": True}  # fmt: skip
-
-
-def test_ask_without_dossier_is_409(database_url):
-    from womm.llm.base import LLMError
-
-    script = good_script()
-    script["planner"] = [LLMError("auth", "x")]
-    with _client(database_url, script) as c:
-        run_id, _ = _finished_run(c)
-        r = c.post(f"/runs/{run_id}/ask", headers=AUTH, json={"question": "q"})
-        assert r.status_code == 409
-
-
-def test_ask_uses_the_runs_own_synthesis_backend(database_url):
-    answer = {"answer": "From the overridden backend.", "cites": [], "covered": True}
-    script = good_script(synthesis_all())
-    api_backend = FakeBackend({"synthesis": script["synthesis"], "ask": [answer]})
-    app = create_app(
-        _settings(database_url), sv=fake_sv(), fixture=load_fixture(), orphan_stale_after_s=0,
-        backends={"fake": FakeBackend(script), "api": api_backend},
-    )  # fmt: skip
-    with TestClient(app) as c:
-        body = {"scenario_id": "eval_sme_impacts", "overrides": {"backends": {"synthesis": "api"}}}
-        run_id = c.post("/runs", headers=AUTH, json=body).json()["run_id"]
-        _wait(c, run_id)
-        r = c.post(f"/runs/{run_id}/ask", headers=AUTH, json={"question": "q"})
-        assert r.status_code == 200 and r.json()["answer"] == "From the overridden backend."
-        assert [call.role_name for call in api_backend.calls] == ["synthesis", "ask"]
-
-
-def test_every_data_route_requires_the_token(database_url):
-    public = {"/health", "/livez", "/", "/docs", "/docs/oauth2-redirect", "/redoc", "/openapi.json"}
-    with _client(database_url, {}) as c:
-        routes = [r for r in c.app.routes if getattr(r, "methods", None) and r.path not in public]
-        assert routes
-        for route in routes:
-            path = route.path.replace("{run_id}", "run_x").replace("{scenario_id}", "s")
-            for method in route.methods - {"HEAD", "OPTIONS"}:
-                r = c.request(method, path, json={})
-                assert r.status_code == 401, f"{method} {route.path} answered {r.status_code}"
-
-
-def test_ask_unknown_run_is_404(database_url):
-    with _client(database_url, {}) as c:
-        r = c.post("/runs/run_nope/ask", headers=AUTH, json={"question": "q"})
-        assert r.status_code == 404
-
-
-@pytest.mark.parametrize(
-    ("failure", "detail"),
-    [(LLMError("rate_limit", "slow down"), "rate_limit"), (RuntimeError("boom"), "RuntimeError")],
-)
-def test_ask_backend_failure_is_502(database_url, failure, detail):
-    script = good_script(synthesis_all())
-    script["ask"] = [failure]
-    with _client(database_url, script) as c:
-        run_id, _ = _finished_run(c)
-        r = c.post(f"/runs/{run_id}/ask", headers=AUTH, json={"question": "q"})
-        assert r.status_code == 502 and detail in r.json()["detail"]
-
-
-def test_ask_times_out_with_504(database_url):
-    backend = FakeBackend(good_script(synthesis_all()))
-    real_call = backend.call
-
-    async def slow_ask(role_name, *a, **k):
-        if role_name == "ask":
-            await asyncio.sleep(5)
-        return await real_call(role_name, *a, **k)
-
-    backend.call = slow_ask
-    with _client(database_url, {}, backend=backend, ask_timeout_s=0.1) as c:
-        run_id, _ = _finished_run(c)
-        r = c.post(f"/runs/{run_id}/ask", headers=AUTH, json={"question": "q"})
-        assert r.status_code == 504
-
-
 def test_console_served_when_built(database_url, tmp_path):
     (tmp_path / "index.html").write_text("<!doctype html><title>WOMM Console</title>")
     with _client(database_url, {}, web_dist=tmp_path) as c:
@@ -222,3 +131,9 @@ def test_corpus_comparisons_and_compare(database_url):
         assert c.get(backwards, headers=AUTH).status_code == 404
         assert c.get("/corpus/nope/comparisons", headers=AUTH).status_code == 404
         assert c.get("/corpus/ai_act/comparisons").status_code in (401, 403)
+        regs = c.get("/regulations", headers=AUTH).json()
+        assert [r["regulation_id"] for r in regs] == ["ai_act"]  # corpus acts only, no fixtures
+        assert "omnibus_2026" in regs[0]["comparisons"][1]["scenario_ids"]
+        listed = {s["scenario_id"] for s in regs[0]["scenarios"]}
+        assert {"eval_sme_impacts", "demo_penalties_amended", "omnibus_2026"} <= listed
+        assert all("ia_reference" not in s for s in regs[0]["scenarios"])

@@ -1,5 +1,6 @@
 // The Act screen inside the console: comparison picker, inline / side by side / map, and the
 // findings of the latest run of the selected comparison.
+import { goTo } from '../test/nav';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { App } from '../App';
@@ -17,7 +18,7 @@ function open(over: Parameters<typeof mockApi>[0] = {}) {
   vi.stubGlobal('fetch', vi.fn(mock.fn));
   localStorage.setItem(TOKEN_KEY, 'test-token-1234567890');
   render(<App />);
-  fireEvent.click(within(document.querySelector('nav') as HTMLElement).getByText('Act'));
+  goTo('Act');
   return mock;
 }
 
@@ -75,9 +76,9 @@ describe('Act screen', () => {
   it('lays the latest run of the comparison over the articles it cites', async () => {
     open();
     await screen.findByTestId('act-stat');
-    expect(screen.getByTestId('act-run').textContent).toMatch(/No finished run of this comparison yet/);
+    expect(screen.getByTestId('act-run').textContent).toMatch(/No finished analysis of this comparison yet/);
     fireEvent.change(screen.getByLabelText('Comparison'), { target: { value: 'com2021_206->reg2024_1689' } });
-    await waitFor(() => expect(screen.getByTestId('act-run').textContent).toMatch(/Findings of the latest run, run_61c1165c/));
+    await waitFor(() => expect(screen.getByTestId('act-run').textContent).toMatch(/Findings of the latest analysis: \d+/));
     const card = await present('ai_act/innovation/regulatory_sandboxes');
     expect(within(card).getByText(/^was Article 53 · text changed/)).toBeTruthy();
     expand(card);
@@ -96,16 +97,29 @@ describe('Act screen', () => {
     expect(document.querySelectorAll('article[data-open="true"]')).toHaveLength(3);
     fireEvent.click(screen.getByRole('button', { name: 'Collapse all' }));
     expect(document.querySelectorAll('article[data-open="true"]')).toHaveLength(0);
-    fireEvent.click(within(document.querySelector('nav') as HTMLElement).getByText('Overview'));
+    goTo('Overview');
     await waitFor(() => expect(document.querySelector('header')!.textContent).toContain('eval_sme_impacts'));
   });
 
-  it('starts an assessment of the comparison and moves to the pipeline', async () => {
+  it('starts an assessment of the comparison and opens it as an analysis', async () => {
     const mock = open();
     await screen.findByTestId('act-stat');
     fireEvent.click(screen.getByRole('button', { name: 'Run assessment' }));
     await waitFor(() => expect(mock.calls.some((c) => c.method === 'POST' && c.url === '/runs')).toBe(true));
     expect(mock.calls.find((c) => c.method === 'POST')!.body).toEqual({ scenario_id: 'omnibus_2026' });
+  });
+
+  it('counts the duties of the role in the law the reader picks, and remembers it', async () => {
+    open();
+    await screen.findByTestId('act-stat');
+    fireEvent.click(screen.getByLabelText('Show unchanged articles'));
+    const chips = () => within(article('ai_act/art/26')!).queryByText(/deployer duties/);
+    expect(chips()?.textContent).toBe('3 deployer duties');
+    fireEvent.change(screen.getByLabelText('Your role in the law'), { target: { value: 'public' } });
+    expect(chips()).toBeNull();
+    expect((screen.getByLabelText('Measure') as HTMLSelectElement).textContent).toContain('Public body duties in changed paragraphs');
+    expect(localStorage.getItem('womm.actor')).toBe('public');
+    localStorage.removeItem('womm.actor');
   });
 
   it('shows an error with a retry when the comparison cannot load', async () => {

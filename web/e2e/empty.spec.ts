@@ -21,16 +21,13 @@ test('overview offers to start the first run', async ({ page }) => {
   await expect(dialog).toBeHidden();
 });
 
-test('pipeline, detail and ask have empty states', async ({ page }) => {
+test('pipeline and detail have empty states', async ({ page }) => {
   await go(page, 'Run pipeline');
   await expect(page.getByText('No run selected')).toBeVisible();
   await expect(page.getByText('Start a run to watch the agent graph fill in live.')).toBeVisible();
   await go(page, 'Run detail');
   await expect(page.getByText('No run selected')).toBeVisible();
   await expect(page.getByText('Pick a run on the overview, or start a new one.')).toBeVisible();
-  await go(page, 'Ask WOMM');
-  await expect(page.getByText('No run to ask about')).toBeVisible();
-  await expect(page.getByLabel('Question')).toHaveCount(0);
 });
 
 test('agents list the configured agents, all queued', async ({ page }) => {

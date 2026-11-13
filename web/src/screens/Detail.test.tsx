@@ -47,7 +47,10 @@ async function openCosts(run: RunDetail) {
   fireEvent.click(await screen.findByRole('tab', { name: /^Costs/ }));
 }
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  localStorage.clear();
+});
 
 describe('Costs tab', () => {
   it('shows the empty state for a version without a cost step', async () => {
@@ -76,5 +79,21 @@ describe('Costs tab', () => {
     expect(within(rows[0]).getByText('Added after the proposal')).toBeTruthy();
     fireEvent.change(screen.getByLabelText('Change after the proposal'), { target: { value: 'changed' } });
     expect(screen.getAllByTestId('cost-record')).toHaveLength(2);
+  });
+
+  it("in the law, costs start filtered to the reader's role in the law when that role pays", async () => {
+    localStorage.setItem('womm.role', 'law');
+    localStorage.setItem('womm.actor', 'provider');
+    const run = sampleRun();
+    run.dossier!.costs = COSTS;
+    const mock = mockApi({ [`/runs/${run.run_id}`]: (c) => (c.url.split('?')[0] === `/runs/${run.run_id}` ? { status: 200, body: run } : undefined) });
+    vi.stubGlobal('fetch', vi.fn(mock.fn));
+    localStorage.setItem(TOKEN_KEY, 'test-token-1234567890');
+    render(<App />);
+    fireEvent.click(within(document.querySelector('nav') as HTMLElement).getByText('Analysis'));
+    fireEvent.click(await screen.findByRole('tab', { name: /^Costs/ }));
+    const rows = screen.getAllByTestId('cost-record');
+    expect(rows).toHaveLength(1); // the provider-paid record only
+    expect(rows[0].textContent).toContain('32024R1689:art99.par3#1');
   });
 });

@@ -12,9 +12,7 @@ from the request content, so each scenario produces its own findings with real q
   sources listed in the prompt, so the citation check passes. For `eval_sme_impacts` the findings
   of `docs/ui/sample_run.json` (a real run) are reused per agent;
 - synthesis: one impact per provision key, chains between consecutive impacts, one disagreement
-  between two agents, two open questions;
-- ask: cites an impact and a finding of the dossier (covered); a question mentioning "weather"
-  gets covered=false and no cites.
+  between two agents, two open questions.
 
 Failure modes are chosen per run by scenario, so one server covers every console state:
 
@@ -297,27 +295,6 @@ class Scripts:
             "discarded": [],
         }
 
-    @staticmethod
-    def ask(system: str, user: str) -> dict:
-        head, _, question = user.rpartition("\n\nQuestion: ")
-        dossier = json.loads(head.removeprefix("Dossier:\n"))
-        if "weather" in question.lower():
-            return {
-                "answer": "This dossier does not cover that. It only assesses the changed "
-                "provisions of this run.",
-                "cites": [],
-                "covered": False,
-            }
-        impact = (dossier.get("impacts") or [{}])[0]
-        finding = (impact.get("findings") or [{}])[0]
-        cites = [c for c in (impact.get("impact_id"), finding.get("finding_id")) if c]
-        return {
-            "answer": f"{impact.get('impact_id', 'The dossier')}: {impact.get('summary', '')} "
-            f"({finding.get('agent', 'an expert')} finding {finding.get('finding_id', '')}).",
-            "cites": cites,
-            "covered": True,
-        }
-
 
 def _disagreeing_pair(rows: list[dict]) -> tuple[dict, dict] | None:
     """Two findings of different agents, preferably on the same provision."""
@@ -337,7 +314,6 @@ def e2e_script(fixture: Fixture, experts: list[str]) -> dict[str, list[Any]]:
     script: dict[str, list[Any]] = {
         "planner": [plan] * STEPS,
         "synthesis": [s.synthesis] * STEPS,
-        "ask": [s.ask] * STEPS,
         "cost": [fake_cost_batch] * STEPS,
     }
     for i, e in enumerate(experts):

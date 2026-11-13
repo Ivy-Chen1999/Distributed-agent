@@ -25,11 +25,13 @@ export function Overview() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
         <EmptyCard
           title="No runs yet"
-          sub="Start a run to see what a regulation change means for whom. Every impact traces back to a provision, a quote and a source."
+          sub={C.role.canRun ? 'Start a run to see what a regulation change means for whom. Every impact traces back to a provision, a quote and a source.' : 'No analysis has been published yet. The Act screen shows what changed in the law in the meantime.'}
           action={
-            <HButton onClick={C.openPicker} style={PRIMARY_BTN} hover={{ background: ACC_HOVER }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="#0F0F0F"><path d="M6 4l14 8-14 8z" /></svg>Start a run
-            </HButton>
+            C.role.canRun ? (
+              <HButton onClick={C.openPicker} style={PRIMARY_BTN} hover={{ background: ACC_HOVER }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="#0F0F0F"><path d="M6 4l14 8-14 8z" /></svg>Start a run
+              </HButton>
+            ) : undefined
           }
         />
         <Walkthrough />
