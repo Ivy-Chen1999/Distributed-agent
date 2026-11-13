@@ -94,6 +94,7 @@ export function App() {
   const [screen, setScreen] = useState<ScreenId>(() => parseRoute(window.location.hash).screen ?? roleRef.current.home);
   const [pickedRun, setPickedRun] = useState<string | null>(() => parseRoute(window.location.hash).run);
   const [runFilter, setRunFilter] = useState<RunFilter>(() => parseRoute(window.location.hash).filter);
+  const [actComparison, setActComparison] = useState<string | null>(() => parseRoute(window.location.hash).cmp);
   // Keep the URL hash and the screen, run and Overview filters in step, so a reload keeps them, the
   // back button works and a link opens the same view. The hash is read at event time rather than
   // from the event, so rapid changes cannot revert. Filters live here, not on Overview, so they
@@ -110,20 +111,21 @@ export function App() {
       setScreen(next);
       setPickedRun(h.run);
       if (next === 'overview') setRunFilter(h.filter);
+      if (next === 'act') setActComparison(h.cmp);
     };
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
   useEffect(() => {
-    const want = routeHash(screen, pickedRun, runFilter);
+    const want = routeHash(screen, pickedRun, runFilter, actComparison);
     const have = window.location.hash.replace(/^#/, '');
     if (have === want || (have === '' && want === `/${role.home}`)) return;
     // A hash that names this same view in another spelling (a hand-written link, other parameter
     // order) is tidied in place; a new history entry there would make the back button bounce.
     const cur = parseRoute(window.location.hash);
-    if (cur.screen && routeHash(cur.screen, cur.run, cur.filter) === want) window.history.replaceState(window.history.state, '', `#${want}`);
+    if (cur.screen && routeHash(cur.screen, cur.run, cur.filter, cur.cmp) === want) window.history.replaceState(window.history.state, '', `#${want}`);
     else window.location.hash = want;
-  }, [screen, pickedRun, runFilter, role]);
+  }, [screen, pickedRun, runFilter, actComparison, role]);
   const narrow = useNarrow();
   const [drawer, setDrawer] = useState(false);
   useEffect(() => {
@@ -317,6 +319,8 @@ export function App() {
     showMoreRuns,
     runFilter,
     setRunFilter,
+    actComparison,
+    setActComparison,
     runId,
     pickedRunId: pickedRun,
     selectRun: setPickedRun,

@@ -12,6 +12,7 @@ import { humanize, regulationSub, regulationTitle, scenarioName } from '../model
 import { impactsMentioning, incompleteNote } from '../model/analysis';
 import { actorLabel } from '../model/act';
 import { elapsedAt } from '../model/trace';
+import { analysisSteps, type StepState } from '../model/progress';
 import type { ImpactDossier, ProvisionChange } from '../types';
 import { useNarrow } from '../hooks';
 import { BANDS, NO_FILTER, bandWord, dateText, effortLabel, filterOptions, filterRecords, fiscalFindingsByKey, hotspotRows, payerText, type CostFilter } from '../model/costs';
@@ -212,7 +213,7 @@ export function Detail() {
       )}
       <ProvisionComparison />
 
-      {plain && !done && <EmptyCard title="This analysis is not finished yet" sub="Come back when it is complete." />}
+      {plain && !done && <AnalysisProgress />}
       {!plain && !done && (
         <div style={{ ...CARD, border: '1px dashed var(--line)', padding: '40px 24px', textAlign: 'center' }}>
           <div style={{ fontSize: 15, fontWeight: 700 }}>Dossier is assembling</div>
@@ -796,5 +797,44 @@ function CostsTab({ d }: { d: ImpactDossier }) {
         })}
       </div>
     </div>
+  );
+}
+
+const STEP_DOT: Record<StepState, { bg: string; ink: string; mark: string }> = {
+  done: { bg: GREEN, ink: '#0F0F0F', mark: '✓' },
+  active: { bg: ACC, ink: '#0F0F0F', mark: '…' },
+  waiting: { bg: 'var(--soft)', ink: 'var(--n2)', mark: '' },
+  failed: { bg: RED, ink: '#FFFFFF', mark: '!' },
+};
+
+/** A running analysis in plain words (the law interface hides the pipeline): five steps, where
+ * the run is, and the time so far. Updates as the run's events arrive. */
+function AnalysisProgress() {
+  const C = useConsole();
+  const steps = analysisSteps(C.rv.trace, C.rv.clock);
+  return (
+    <section aria-label="Analysis progress" style={{ ...CARD, padding: '22px 24px' }}>
+      <div style={{ fontSize: 15, fontWeight: 700 }}>This analysis is running</div>
+      <div style={{ fontSize: 13, color: 'var(--n1)', marginTop: 4 }}>
+        {C.clockText} so far. A whole act can take several minutes; this page updates by itself.
+      </div>
+      <ol style={{ listStyle: 'none', margin: '16px 0 0', padding: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {steps.map((s) => (
+          <li key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: s.state === 'waiting' ? 'var(--n2)' : 'var(--ink)' }}>
+            <span
+              aria-hidden
+              style={{ flex: 'none', width: 20, height: 20, borderRadius: '50%', display: 'grid', placeItems: 'center', background: STEP_DOT[s.state].bg, color: STEP_DOT[s.state].ink, font: `700 12px ${FONT}` }}
+            >
+              {STEP_DOT[s.state].mark}
+            </span>
+            <span style={{ fontWeight: s.state === 'active' ? 700 : 500 }}>{s.label}</span>
+            {s.detail && <span style={{ fontSize: 13, color: 'var(--n1)', ...TABULAR }}>{s.detail}</span>}
+            <span className="sr-only" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>
+              {s.state}
+            </span>
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }

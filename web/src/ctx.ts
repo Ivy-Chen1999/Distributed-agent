@@ -32,6 +32,9 @@ export interface ConsoleCtx {
   /** The Overview runs-table filters; kept in the URL hash. */
   runFilter: RunFilter;
   setRunFilter: (f: RunFilter) => void;
+  /** The Act screen's comparison (`before->after`), or null for the newest; kept in the URL hash. */
+  actComparison: string | null;
+  setActComparison: (key: string | null) => void;
 
   runId: string | null;
   /** The run the user picked (null while the console falls back to the newest run). */

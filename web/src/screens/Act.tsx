@@ -52,7 +52,7 @@ const defaultComparison = (list: ComparisonRef[]): string | null => (list.length
 export function Act() {
   const C = useConsole();
   const [cmpList, reloadList] = useLoad('comparisons', () => api.comparisons(REGULATION));
-  const [picked, setPicked] = useState<string | null>(null);
+  const { actComparison: picked, setActComparison: setPicked } = C;
   const [view, setView] = useState<ActView>('inline');
   const [lastDiff, setLastDiff] = useState<Exclude<ActView, 'map'>>('inline');
   const [measure, setMeasure] = useState<Measure>('changed');

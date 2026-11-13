@@ -8,7 +8,7 @@ import { TOKEN_KEY } from '../api';
 import { mockApi } from '../test/fixtures';
 import { COMPARISONS, OMNIBUS, PROPOSAL_TO_FINAL } from '../test/act';
 
-function open(over: Parameters<typeof mockApi>[0] = {}) {
+function open(over: Parameters<typeof mockApi>[0] = {}, hash?: string) {
   const mock = mockApi({
     '/corpus/ai_act/comparisons': () => ({ status: 200, body: COMPARISONS }),
     '/corpus/ai_act/compare/reg2024_1689/reg2024_1689_c20260727': () => ({ status: 200, body: OMNIBUS }),
@@ -17,8 +17,9 @@ function open(over: Parameters<typeof mockApi>[0] = {}) {
   });
   vi.stubGlobal('fetch', vi.fn(mock.fn));
   localStorage.setItem(TOKEN_KEY, 'test-token-1234567890');
+  if (hash) window.location.hash = hash;
   render(<App />);
-  goTo('Act');
+  if (!hash) goTo('Act');
   return mock;
 }
 
@@ -45,6 +46,14 @@ describe('Act screen', () => {
     fireEvent.click(screen.getByLabelText('Show unchanged articles'));
     expect(article('ai_act/art/26')).toBeTruthy();
     expect(within(article('ai_act/art/26')!).getByText('3 with a moved date')).toBeTruthy();
+  });
+
+  it('keeps the comparison in the URL, so a reload or a shared link opens the same one', async () => {
+    open({}, '#/act?cmp=com2021_206-%3Ereg2024_1689');
+    await screen.findByTestId('act-stat');
+    expect((screen.getByLabelText('Comparison') as HTMLSelectElement).value).toBe('com2021_206->reg2024_1689');
+    fireEvent.change(screen.getByLabelText('Comparison'), { target: { value: 'reg2024_1689->reg2024_1689_c20260727' } });
+    await waitFor(() => expect(decodeURIComponent(window.location.hash)).toBe('#/act?cmp=reg2024_1689->reg2024_1689_c20260727'));
   });
 
   it('marks changed words and shows both sides side by side', async () => {
