@@ -80,6 +80,18 @@ export interface ConsoleCtx {
   setStaged: (s: Staged) => void;
   openPicker: () => void;
   flash: (text: string, ms?: number) => void;
+
+  /** What the Act screen is reading; the header and sidebar show it instead of the run scenario. */
+  actContext: ActContext | null;
+  setActContext: (c: ActContext | null) => void;
+}
+
+export interface ActContext {
+  /** Header subtitle, e.g. "Regulation (EU) 2024/1689 → consolidated on 27 July 2026". */
+  comparison: string;
+  /** Sidebar card: regulation title and the version pair. */
+  regulation: string;
+  versions: string;
 }
 
 export const Ctx = createContext<ConsoleCtx | null>(null);

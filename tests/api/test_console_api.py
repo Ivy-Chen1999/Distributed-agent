@@ -201,3 +201,24 @@ def test_explore_scenarios_hidden_from_console_but_runnable(database_url):
         assert body["status"] == "succeeded", body
         assert body["dossier"]["law_version"]["version_id"] == "reg2024_1689_c20260727"
         assert body["dossier"]["law_version"]["pre_omnibus"] is False
+
+
+def test_corpus_comparisons_and_compare(database_url):
+    with _client(database_url, {}) as c:
+        pairs = c.get("/corpus/ai_act/comparisons", headers=AUTH).json()
+        ids = [(p["before"]["version_id"], p["after"]["version_id"]) for p in pairs]
+        assert ("reg2024_1689", "reg2024_1689_c20260727") in ids
+        by_pair = {(p["before"]["version_id"], p["after"]["version_id"]): p for p in pairs}
+        assert "omnibus_2026" in by_pair["reg2024_1689", "reg2024_1689_c20260727"]["scenario_ids"]
+        assert "final_vs_proposal" in by_pair["com2021_206", "reg2024_1689"]["scenario_ids"]
+        body = c.get(
+            "/corpus/ai_act/compare/reg2024_1689/reg2024_1689_c20260727", headers=AUTH
+        ).json()
+        assert body["paragraph_basis"] == "number"
+        arts = {a["provision_key"]: a for a in body["articles"]}
+        assert arts["ai_act/art/27"]["change"] == "modified"
+        assert arts["ai_act/art/4a"]["change"] == "added"
+        backwards = "/corpus/ai_act/compare/reg2024_1689/com2021_206"
+        assert c.get(backwards, headers=AUTH).status_code == 404
+        assert c.get("/corpus/nope/comparisons", headers=AUTH).status_code == 404
+        assert c.get("/corpus/ai_act/comparisons").status_code in (401, 403)

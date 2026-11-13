@@ -440,3 +440,63 @@ export interface CandidateDiff {
   summary: DiffSummary | null;
   prompts: Record<string, string>;
 }
+
+// Act screen: whole-act comparison of two corpus versions (docs/ui/schema/act_comparison.schema.json).
+
+export interface VersionRef {
+  version_id: string;
+  label: string;
+  celex: string;
+  date: string;
+  status: string;
+}
+
+export interface ComparisonRef {
+  regulation_id: string;
+  before: VersionRef;
+  after: VersionRef;
+  /** Fixture scenarios with this before -> after pair; their runs map onto the comparison. */
+  scenario_ids: string[];
+}
+
+export interface ObligationSummary {
+  duties: number;
+  by_actor: Record<string, number>;
+  public_sector: number;
+  /** Reason -> count, e.g. date_moved_2026 or amended_2026. */
+  date_withheld: Record<string, number>;
+  obligation_ids: string[];
+}
+
+export type ParagraphChange = 'added' | 'removed' | 'modified' | 'unchanged';
+
+export interface ParagraphPair {
+  label: string;
+  change: ParagraphChange;
+  before_text: string | null;
+  after_text: string | null;
+  before_obligations: ObligationSummary | null;
+  after_obligations: ObligationSummary | null;
+}
+
+export interface ArticleComparison {
+  provision_key: string;
+  kind: 'article' | 'annex';
+  number: string;
+  heading: string;
+  before_number: string | null;
+  change: ParagraphChange;
+  superseded_before: boolean;
+  paragraphs: ParagraphPair[];
+  unplaced_before: ObligationSummary | null;
+  unplaced_after: ObligationSummary | null;
+}
+
+export interface ActComparison {
+  regulation_id: string;
+  title: string;
+  before: VersionRef;
+  after: VersionRef;
+  paragraph_basis: 'number';
+  articles: ArticleComparison[];
+}

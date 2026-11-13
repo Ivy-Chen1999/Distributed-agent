@@ -1,8 +1,10 @@
 // Typed client for the WOMM API. Same origin in production; proxied by Vite in development.
 import type {
+  ActComparison,
   AskAnswer,
   CandidateDetail,
   CandidateDiff,
+  ComparisonRef,
   Lineage,
   EventsPage,
   RunAccepted,
@@ -125,6 +127,9 @@ export const api = {
   lineage: () => request<Lineage>('/evolution/lineage'),
   candidate: (versionId: string) => request<CandidateDetail>(`/evolution/candidates/${enc(versionId)}`),
   candidateDiff: (versionId: string) => request<CandidateDiff>(`/evolution/candidates/${enc(versionId)}/diff`),
+  comparisons: (regulationId: string) => request<ComparisonRef[]>(`/corpus/${enc(regulationId)}/comparisons`),
+  comparison: (regulationId: string, before: string, after: string) =>
+    request<ActComparison>(`/corpus/${enc(regulationId)}/compare/${enc(before)}/${enc(after)}`),
 };
 
 /** Human message for a failed call, in the console's voice. */

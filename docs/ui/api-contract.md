@@ -54,6 +54,21 @@ List of Scenario (`scenario_id`, `kind` evaluation|demo, `description`, `before_
 Used for the provenance side panel: find the quote inside `text` and highlight it. Matching must
 tolerate whitespace/quote-style differences (the backend matched after normalisation).
 
+### `GET /corpus/{regulation_id}/comparisons`
+The version pairs the Act screen can compare, one per `delta_basis` in the corpus index:
+list of ComparisonRef (`schema/comparison_ref.schema.json`), e.g. `com2021_206 → reg2024_1689` and
+`reg2024_1689 → reg2024_1689_c20260727` (the Digital Omnibus). 404 for an unknown regulation.
+
+### `GET /corpus/{regulation_id}/compare/{before}/{after}`
+ActComparison (`schema/act_comparison.schema.json`): every article and annex of the two versions,
+with its change kind (the same as `womm.diff`), whether the before text is superseded by a
+consolidated version, and its paragraphs paired by printed number (`paragraph_basis: "number"`).
+Each paragraph carries both texts and an ObligationSummary per side (duties and prohibitions by
+`primary_actor`, public-sector count, withheld dates by reason, obligation ids). Records follow
+`Corpus.obligation_records`: an amended unit of a consolidated version has none on its after side.
+404 for a pair the corpus does not declare. About 1 MB; built once per process and cached.
+Keyed by versions, not scenarios, so explore scenarios stay out of `GET /scenarios`.
+
 ### `POST /runs`
 Body: `{"scenario_id": "eval_sme_impacts", "overrides": {"router_mode": "shadow"|"active", "backends": {"planner": "api", "expert:legal": "claude_code"}}}`
 (`overrides` optional). Overrides produce a derived SystemVersion with its own `version_id`.

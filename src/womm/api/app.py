@@ -22,6 +22,7 @@ from fastapi.staticfiles import StaticFiles
 from langsmith import tracing_context
 from pydantic import BaseModel, Field
 
+from womm.act_view import ActComparison, ComparisonRef, compare, comparisons
 from womm.api.db import Database
 from womm.api.evolution import (
     PANEL_SPLITS,
@@ -35,6 +36,7 @@ from womm.api.jobs import JobRunner, QueueFull
 from womm.api.labels import add_label_routes
 from womm.backends import prepare_backends
 from womm.config import REPO_ROOT, ConfigError, Settings, load_settings
+from womm.data.corpus import Corpus, load_default_corpus
 from womm.data.fixtures import Fixture, FixtureError, load_fixture
 from womm.decisions.factory import make_decision_service
 from womm.diff import diff_versions
@@ -101,6 +103,7 @@ def create_app(
     ask_timeout_s: float = 120.0,
     web_dist: Path | None = WEB_DIST,
     promotion_policy_path: Path | None = PROMOTION_POLICY,
+    corpus: Corpus | None = None,
 ) -> FastAPI:
     settings = settings or load_settings()
     if not settings.api_token or len(settings.api_token) < MIN_TOKEN_LENGTH:
@@ -325,6 +328,37 @@ def create_app(
                 for s in fixture.scenario_sources(scenario_id)
             ],
         }
+
+    # Act screen: whole-act comparisons of corpus versions. Keyed by version pair, not by
+    # scenario, so explore scenarios stay hidden from the console's scenario list.
+    compared: dict[tuple[str, str], ActComparison] = {}
+
+    def act_corpus(regulation_id: str) -> Corpus:
+        c = corpus or load_default_corpus()
+        if c.regulation.regulation_id != regulation_id:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, f"no corpus for {regulation_id!r}")
+        return c
+
+    @app.get("/corpus/{regulation_id}/comparisons", dependencies=auth)
+    async def corpus_comparisons(regulation_id: str) -> list[ComparisonRef]:
+        pairs = comparisons(act_corpus(regulation_id))
+        for p in pairs:
+            p.scenario_ids = sorted(
+                s.scenario_id
+                for s in fixture.scenarios.values()
+                if (s.before_version, s.after_version) == (p.before.version_id, p.after.version_id)
+            )
+        return pairs
+
+    @app.get("/corpus/{regulation_id}/compare/{before}/{after}", dependencies=auth)
+    async def corpus_compare(regulation_id: str, before: str, after: str) -> ActComparison:
+        c = act_corpus(regulation_id)
+        if (before, after) not in compared:
+            try:
+                compared[(before, after)] = compare(c, before, after)
+            except FixtureError as exc:
+                raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from None
+        return compared[(before, after)]
 
     async def evolution(request: Request) -> EvolutionView:
         """The lineage index: ids, origins, diff-check metrics and published decisions; no

@@ -5,7 +5,7 @@ import react from '@vitejs/plugin-react';
 declare const process: { env: Record<string, string | undefined> };
 
 const API = process.env.WOMM_API_URL ?? 'http://localhost:8000';
-const PROXIED = ['/runs', '/scenarios', '/system', '/health', '/livez'];
+const PROXIED = ['/runs', '/scenarios', '/system', '/health', '/livez', '/corpus'];
 const proxy = Object.fromEntries(PROXIED.map((p) => [p, { target: API, changeOrigin: true }]));
 
 export default defineConfig({

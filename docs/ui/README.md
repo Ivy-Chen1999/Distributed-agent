@@ -18,6 +18,7 @@ Design prompt for design tools: `docs/ui/design-prompt.md`.
 | Impact Dossier page | `dossier` | `impacts[].summary`, `impacts[].findings[]` (provenance chain: `provision_key` → `mechanism` → `evidence[].quote` → `evidence[].source_id`), `confidence`, `disagreements` (side by side), `open_questions`, `failed_experts`, `chains` |
 | Run detail: Costs tab | `dossier.costs` | `records[]`, `hotspots[]`, `coverage` (see api-contract.md, Costs) |
 | Run detail: provision comparison | `GET /scenarios/{id}/sources` | proposal vs final text per provision key |
+| Act screen (planned): whole-act comparison | `GET /corpus/{regulation_id}/comparisons`, `GET /corpus/{regulation_id}/compare/{before}/{after}` | `articles[].change`, `paragraphs[]` (before/after text, `change`), `before_obligations` / `after_obligations` (`by_actor`, `date_withheld`); join run findings on `provision_key` |
 | Evolution page | `GET /evolution/lineage`, `/evolution/candidates/{id}`, `/evolution/candidates/{id}/diff` | lineage, decisions, R37 flag (api-contract.md, Evolution page) |
 
 Status values: `queued`, `running`, `succeeded`, `degraded` (some experts failed, or synthesis
