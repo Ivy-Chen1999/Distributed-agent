@@ -222,3 +222,9 @@ def test_corpus_comparisons_and_compare(database_url):
         assert c.get(backwards, headers=AUTH).status_code == 404
         assert c.get("/corpus/nope/comparisons", headers=AUTH).status_code == 404
         assert c.get("/corpus/ai_act/comparisons").status_code in (401, 403)
+        regs = c.get("/regulations", headers=AUTH).json()
+        assert [r["regulation_id"] for r in regs] == ["ai_act"]  # corpus acts only, no fixtures
+        assert "omnibus_2026" in regs[0]["comparisons"][1]["scenario_ids"]
+        listed = {s["scenario_id"] for s in regs[0]["scenarios"]}
+        assert {"eval_sme_impacts", "demo_penalties_amended", "omnibus_2026"} <= listed
+        assert all("ia_reference" not in s for s in regs[0]["scenarios"])

@@ -181,6 +181,41 @@ def _ref(corpus: Corpus, version_id: str) -> VersionRef:
     )
 
 
+class ScenarioRef(StrictModel):
+    """A scenario that analyses a version (or a pair of versions) of the regulation; its finished
+    runs are the analyses a reader can open. No impact-assessment reference is exposed."""
+
+    scenario_id: str
+    before_version: str | None
+    after_version: str
+    description: str
+
+
+class RegulationEntry(StrictModel):
+    """One regulation the console can open: its corpus versions and the comparisons between them.
+
+    Only acts with a whole-act corpus are listed. Evaluation fixtures are not a catalogue: listing
+    them would reveal which proposals the (sealed) holdout uses."""
+
+    regulation_id: str
+    title: str
+    versions: list[VersionRef]
+    comparisons: list[ComparisonRef]
+    scenarios: list[ScenarioRef] = Field(
+        default_factory=list,
+        description="Scenarios on any version of this regulation, filled in by the API.",
+    )
+
+
+def regulation_entry(corpus: Corpus) -> RegulationEntry:
+    return RegulationEntry(
+        regulation_id=corpus.regulation.regulation_id,
+        title=corpus.regulation.title,
+        versions=[_ref(corpus, v.version_id) for v in corpus.index.versions],
+        comparisons=comparisons(corpus),
+    )
+
+
 def comparisons(corpus: Corpus) -> list[ComparisonRef]:
     """The version pairs the corpus index declares (``delta_basis``), in index order."""
     out: list[ComparisonRef] = []

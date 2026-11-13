@@ -54,6 +54,14 @@ List of Scenario (`scenario_id`, `kind` evaluation|demo, `description`, `before_
 Used for the provenance side panel: find the quote inside `text` and highlight it. Matching must
 tolerate whitespace/quote-style differences (the backend matched after normalisation).
 
+### `GET /regulations`
+Regulations the console can open (the Regulations screen): list of RegulationEntry
+(`schema/regulation_entry.schema.json`) with versions and comparisons. Only acts with a whole-act
+corpus are listed, today the AI Act. `scenarios` lists the scenarios on any of its versions (id,
+version pair, description; no impact-assessment reference): their finished runs are the act's
+analyses on the Regulations screen. The evaluation fixtures are deliberately not listed: they are
+not a catalogue, and listing them would reveal which proposals the sealed holdout uses.
+
 ### `GET /corpus/{regulation_id}/comparisons`
 The version pairs the Act screen can compare, one per `delta_basis` in the corpus index:
 list of ComparisonRef (`schema/comparison_ref.schema.json`), e.g. `com2021_206 → reg2024_1689` and

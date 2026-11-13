@@ -1,0 +1,148 @@
+{
+  "$defs": {
+    "ComparisonRef": {
+      "additionalProperties": false,
+      "description": "A pair of corpus versions the console can compare (one per ``delta_basis``).",
+      "properties": {
+        "regulation_id": {
+          "title": "Regulation Id",
+          "type": "string"
+        },
+        "before": {
+          "$ref": "#/$defs/VersionRef"
+        },
+        "after": {
+          "$ref": "#/$defs/VersionRef"
+        },
+        "scenario_ids": {
+          "description": "Fixture scenarios with this before -> after pair; their runs map onto it.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Scenario Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "regulation_id",
+        "before",
+        "after"
+      ],
+      "title": "ComparisonRef",
+      "type": "object"
+    },
+    "ScenarioRef": {
+      "additionalProperties": false,
+      "description": "A scenario that analyses a version (or a pair of versions) of the regulation; its finished\nruns are the analyses a reader can open. No impact-assessment reference is exposed.",
+      "properties": {
+        "scenario_id": {
+          "title": "Scenario Id",
+          "type": "string"
+        },
+        "before_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Before Version"
+        },
+        "after_version": {
+          "title": "After Version",
+          "type": "string"
+        },
+        "description": {
+          "title": "Description",
+          "type": "string"
+        }
+      },
+      "required": [
+        "scenario_id",
+        "before_version",
+        "after_version",
+        "description"
+      ],
+      "title": "ScenarioRef",
+      "type": "object"
+    },
+    "VersionRef": {
+      "additionalProperties": false,
+      "properties": {
+        "version_id": {
+          "title": "Version Id",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "celex": {
+          "title": "Celex",
+          "type": "string"
+        },
+        "date": {
+          "title": "Date",
+          "type": "string"
+        },
+        "status": {
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "version_id",
+        "label",
+        "celex",
+        "date",
+        "status"
+      ],
+      "title": "VersionRef",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "One regulation the console can open: its corpus versions and the comparisons between them.\n\nOnly acts with a whole-act corpus are listed. Evaluation fixtures are not a catalogue: listing\nthem would reveal which proposals the (sealed) holdout uses.",
+  "properties": {
+    "regulation_id": {
+      "title": "Regulation Id",
+      "type": "string"
+    },
+    "title": {
+      "title": "Title",
+      "type": "string"
+    },
+    "versions": {
+      "items": {
+        "$ref": "#/$defs/VersionRef"
+      },
+      "title": "Versions",
+      "type": "array"
+    },
+    "comparisons": {
+      "items": {
+        "$ref": "#/$defs/ComparisonRef"
+      },
+      "title": "Comparisons",
+      "type": "array"
+    },
+    "scenarios": {
+      "description": "Scenarios on any version of this regulation, filled in by the API.",
+      "items": {
+        "$ref": "#/$defs/ScenarioRef"
+      },
+      "title": "Scenarios",
+      "type": "array"
+    }
+  },
+  "required": [
+    "regulation_id",
+    "title",
+    "versions",
+    "comparisons"
+  ],
+  "title": "RegulationEntry",
+  "type": "object"
+}

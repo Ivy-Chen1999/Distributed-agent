@@ -22,7 +22,15 @@ from fastapi.staticfiles import StaticFiles
 from langsmith import tracing_context
 from pydantic import BaseModel, Field
 
-from womm.act_view import ActComparison, ComparisonRef, compare, comparisons
+from womm.act_view import (
+    ActComparison,
+    ComparisonRef,
+    RegulationEntry,
+    ScenarioRef,
+    compare,
+    comparisons,
+    regulation_entry,
+)
 from womm.api.db import Database
 from womm.api.evolution import (
     PANEL_SPLITS,
@@ -339,9 +347,7 @@ def create_app(
             raise HTTPException(status.HTTP_404_NOT_FOUND, f"no corpus for {regulation_id!r}")
         return c
 
-    @app.get("/corpus/{regulation_id}/comparisons", dependencies=auth)
-    async def corpus_comparisons(regulation_id: str) -> list[ComparisonRef]:
-        pairs = comparisons(act_corpus(regulation_id))
+    def with_scenarios(pairs: list[ComparisonRef]) -> list[ComparisonRef]:
         for p in pairs:
             p.scenario_ids = sorted(
                 s.scenario_id
@@ -349,6 +355,28 @@ def create_app(
                 if (s.before_version, s.after_version) == (p.before.version_id, p.after.version_id)
             )
         return pairs
+
+    @app.get("/regulations", dependencies=auth)
+    async def regulations() -> list[RegulationEntry]:
+        """Regulations with a whole-act corpus (not the evaluation fixtures; see act_view)."""
+        entry = regulation_entry(corpus or load_default_corpus())
+        entry.comparisons = with_scenarios(entry.comparisons)
+        ids = {v.version_id for v in entry.versions}
+        entry.scenarios = [
+            ScenarioRef(
+                scenario_id=s.scenario_id,
+                before_version=s.before_version,
+                after_version=s.after_version,
+                description=s.description,
+            )
+            for s in sorted(fixture.scenarios.values(), key=lambda s: s.scenario_id)
+            if s.after_version in ids and (s.before_version is None or s.before_version in ids)
+        ]
+        return [entry]
+
+    @app.get("/corpus/{regulation_id}/comparisons", dependencies=auth)
+    async def corpus_comparisons(regulation_id: str) -> list[ComparisonRef]:
+        return with_scenarios(comparisons(act_corpus(regulation_id)))
 
     @app.get("/corpus/{regulation_id}/compare/{before}/{after}", dependencies=auth)
     async def corpus_compare(regulation_id: str, before: str, after: str) -> ActComparison:
