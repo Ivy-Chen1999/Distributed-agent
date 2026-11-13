@@ -33,7 +33,8 @@ ParagraphChange = Literal["added", "removed", "modified", "unchanged"]
 DUTY_TYPES = ("duty", "prohibition")
 
 _NUMBER = re.compile(r"^(\d+[a-z]?)\.\s")
-_PAR = re.compile(r"\.par(\d+[a-z]?)(?:\.|$)")
+# An article record names its paragraph (`art26.par3`), an annex record its point (`anxVII.pt_1`).
+_PAR = re.compile(r"\.(?:par|pt_)(\d+[a-z]?)(?:\.|$)")
 _WS = re.compile(r"\s+")
 
 
@@ -164,7 +165,7 @@ class _Acc:
 
 
 def _by_paragraph(records: list[Obligation]) -> dict[str, _Acc]:
-    """Duties and prohibitions per paragraph number ('' when the unit names none)."""
+    """Duties and prohibitions per paragraph or annex point number ('' when the unit names none)."""
     out: dict[str, _Acc] = {}
     for r in records:
         if r.statement_type not in DUTY_TYPES:

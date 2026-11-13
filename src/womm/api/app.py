@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Annotated, Literal
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.staticfiles import StaticFiles
@@ -140,6 +141,8 @@ def create_app(
             await db.close()
 
     app = FastAPI(title="WOMM", version="0.1.0", lifespan=lifespan)
+    # Whole-act comparisons and finished runs are hundreds of KB of JSON; gzip cuts them ~10x.
+    app.add_middleware(GZipMiddleware, minimum_size=1024)
 
     def require_token(
         creds: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
@@ -210,9 +213,7 @@ def create_app(
         row = await db.get_run(run_id)
         if row is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, f"unknown run {run_id}")
-        nodes: dict[str, str] = {}
-        for e in await db.list_events(run_id, limit=10_000):
-            nodes[e["node"]] = e["event"]
+        nodes = await db.node_states(run_id)
         out = {
             "run_id": run_id,
             "scenario_id": row["scenario_id"],
@@ -330,11 +331,15 @@ def create_app(
 
     def with_scenarios(pairs: list[ComparisonRef]) -> list[ComparisonRef]:
         for p in pairs:
-            p.scenario_ids = sorted(
+            # Whole-act (explore) scenarios first: the Act screen runs the first one, and a
+            # preset demo on a few provisions is not an assessment of the whole comparison.
+            p.scenario_ids = [
                 s.scenario_id
-                for s in fixture.scenarios.values()
+                for s in sorted(
+                    fixture.scenarios.values(), key=lambda s: (s.mode != "explore", s.scenario_id)
+                )
                 if (s.before_version, s.after_version) == (p.before.version_id, p.after.version_id)
-            )
+            ]
         return pairs
 
     @app.get("/regulations", dependencies=auth)

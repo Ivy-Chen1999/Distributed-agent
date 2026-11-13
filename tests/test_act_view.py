@@ -113,3 +113,13 @@ def test_annex_sections_do_not_collide(omnibus):
     art = omnibus["ai_act/annex/XI"]
     assert art.kind == "annex" and art.change == "unchanged"
     assert all(p.change == "unchanged" for p in art.paragraphs)
+
+
+def test_annex_duties_sit_on_their_numbered_points(omnibus):
+    """Annex records name a point (`anxIV.pt_3`), not a paragraph: they are placed on that
+    numbered point, not all on the annex heading."""
+    art = omnibus["ai_act/annex/IV"]
+    sides = {p.label: p.after_obligations for p in art.paragraphs if p.after_obligations}
+    assert sum(s.duties for s in sides.values()) > 0
+    assert sides[""].duties == 0
+    assert all(sides[str(n)].duties > 0 for n in range(1, 10))

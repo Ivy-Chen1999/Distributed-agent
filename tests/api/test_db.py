@@ -22,6 +22,7 @@ async def test_migrate_is_idempotent(database_url):
             "006_analyst_feedback",
             "007_label_tasks",
             "008_promotion_cross_judge",
+            "009_runs_created_at",
         ]
         assert await database.migrate() == []
     finally:
@@ -29,7 +30,7 @@ async def test_migrate_is_idempotent(database_url):
 
 
 # Applied migrations are never edited: Database.migrate skips one it has applied, so an edit
-# would silently not reach an existing database. A schema change is a new migration (009+).
+# would silently not reach an existing database. A schema change is a new migration (010+).
 FROZEN_MIGRATIONS = {
     "001_init.sql": "c80129fb50cb58c8016aa493c0707f457907553b13c368deba76fb9b2145ba28",
     "002_run_ownership.sql": "de28c62563c4477571ce3c9346f4e92fe3020a808afeac6a757ca15f79dfdeab",
@@ -42,13 +43,39 @@ FROZEN_MIGRATIONS = {
         "db8a7d02060ce1b244108ae9e0004a24bc771ba50e95bc16bb65fe9d773df0c7"
     ),
     "007_label_tasks.sql": "4c52146e5738b31b63c1e41ce217de28ef4182694eab0cd2a6c9d8bb19e58e04",
+    "008_promotion_cross_judge.sql": (
+        "3eca0b3f5344c5c79eb73787cb9d4ea59b6003c56090f276a0accc4e8e4c16db"
+    ),
+    "009_runs_created_at.sql": ("9594c886d9c4ea0009a905530b9a46c5a88bb6bf41fa696c5dd00ff57bcd49f1"),
 }
 
 
 def test_applied_migrations_are_frozen():
     for name, digest in FROZEN_MIGRATIONS.items():
         actual = hashlib.sha256((MIGRATIONS_DIR / name).read_bytes()).hexdigest()
-        assert actual == digest, f"{name} changed: add a new migration (009+) instead"
+        assert actual == digest, f"{name} changed: add a new migration (010+) instead"
+
+
+async def test_node_states_are_each_nodes_last_event(db):
+    await db.create_run("r_nodes", "s", "sv")
+    for seq, node, event in [
+        (1, "planner", "started"), (2, "planner", "finished"),
+        (3, "expert_legal", "started"), (4, "expert_fiscal", "started"),
+        (5, "expert_legal", "failed"),
+    ]:  # fmt: skip
+        await db.append_event(RunEvent(run_id="r_nodes", seq=seq, node=node, event=event))
+    assert await db.node_states("r_nodes") == {
+        "planner": "finished", "expert_legal": "failed", "expert_fiscal": "started",
+    }  # fmt: skip
+    assert await db.node_states("nope") == {}
+
+
+async def test_runs_are_indexed_newest_first(db):
+    async with db.pool.connection() as conn:
+        rows = await (
+            await conn.execute("SELECT indexdef FROM pg_indexes WHERE tablename = 'runs'")
+        ).fetchall()
+    assert any("created_at" in r["indexdef"] for r in rows), rows
 
 
 async def test_events_roundtrip_in_order(db):

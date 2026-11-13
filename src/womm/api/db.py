@@ -292,6 +292,17 @@ class Database:
                  Jsonb(_without_nul(event.payload)), event.at),
             )  # fmt: skip
 
+    async def node_states(self, run_id: str) -> dict[str, str]:
+        """Each node's latest event (`{"planner": "finished", ...}`), in one indexed query
+        instead of reading every event of the run."""
+        async with self.pool.connection() as conn:
+            cur = await conn.execute(
+                "SELECT DISTINCT ON (node) node, event FROM run_events"
+                " WHERE run_id = %s ORDER BY node, seq DESC",
+                (run_id,),
+            )
+            return {r["node"]: r["event"] for r in await cur.fetchall()}
+
     async def list_events(self, run_id: str, after_seq: int = 0, limit: int = 500) -> list[dict]:
         async with self.pool.connection() as conn:
             cur = await conn.execute(
