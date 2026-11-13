@@ -320,6 +320,26 @@ async def cmd_selfcheck(args: argparse.Namespace) -> int:
     return exit_code
 
 
+async def cmd_eval_publish(args: argparse.Namespace) -> int:
+    """Publish a train/val eval report to the console (Overview shows the deployed version's)."""
+    from womm.eval.publish import PublishError, payload, post, resolve_experiment, summarize
+    from womm.eval.run_eval import read_report
+
+    report = read_report(Path(args.report))
+    cases = {c.case_id: c for c in load_all_golden()}
+    try:
+        name = (report.get("metadata") or {}).get("langsmith_experiment")
+        data = payload(report, cases, experiment_ids=resolve_experiment(name))
+        if args.dry_run:
+            emit(args, summarize(data), json.dumps(summarize(data), indent=2))
+            return 0
+        out = post(data, args.url)
+    except PublishError as exc:
+        raise UsageError(str(exc)) from None
+    emit(args, out, f"published report {out['report_id']} for {data['system_version']}")
+    return 0
+
+
 async def cmd_scenarios(args: argparse.Namespace) -> int:
     scenarios = list(load_fixture().scenarios.values())
     data = [s.model_dump(mode="json") for s in scenarios]
@@ -1380,6 +1400,12 @@ def build_parser() -> argparse.ArgumentParser:
         "selfcheck", parents=[common], help="verify backend auth and claude_code isolation"
     )
     sub.add_parser("scenarios", parents=[common], help="list fixture scenarios")
+    p_pub = sub.add_parser(
+        "eval-publish", parents=[common], help="publish a train/val eval report to the console"
+    )
+    p_pub.add_argument("report", help="a runs/eval_*.json report written by `womm eval`")
+    p_pub.add_argument("--url", default=None, help="console base URL (default: $WOMM_API_URL)")
+    p_pub.add_argument("--dry-run", action="store_true", help="print the summary, do not post")
     p_evolve = sub.add_parser("evolve", help="self-evolution cycle (train/val only)")
     evolve = p_evolve.add_subparsers(dest="evolve_cmd", required=True)
     p_fail = evolve.add_parser(
@@ -1585,6 +1611,7 @@ HANDLERS = {
     "eval": cmd_eval,
     "selfcheck": cmd_selfcheck,
     "scenarios": cmd_scenarios,
+    "eval-publish": cmd_eval_publish,
 }
 
 

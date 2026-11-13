@@ -37,7 +37,8 @@ from womm.models.run import (
     RunResult,
     RunStatus,
 )
-from womm.models.system_version import SystemVersion, load_system_version
+from womm.models.system_version import MemorandumConfig, SystemVersion, load_system_version
+from womm.on_demand_memorandum import on_demand_sources
 from womm.tracing import is_sealed, run_metadata, run_tags, tracing_enabled
 
 
@@ -88,14 +89,18 @@ def make_graph() -> CompiledStateGraph:
     return build_graph(load_system_version(DEFAULT_SYSTEM_VERSION, REPO_ROOT))
 
 
-def explore_inputs(scenario: Scenario, fixture: Fixture, corpus: Corpus) -> dict:
+def explore_inputs(
+    scenario: Scenario, fixture: Fixture, corpus: Corpus, memorandum: MemorandumConfig | None = None
+) -> dict:
     """Initial state of an explore run: the diff over the full corpus versions, the corpus
     index lines of its changed provisions (no text), and the union of their texts as sources.
 
     The memorandum belongs to COM(2021) 206: its sources join only runs that read that version,
     so a run on later law never cites the proposal's explanation as if it were current. In a run
     on the consolidated text, the adopted texts of amended units carry the superseded marker in
-    their titles (``Corpus.for_target``)."""
+    their titles (``Corpus.for_target``). With an on-demand ``memorandum``, section 5 of the
+    memorandum arrives as one source per subsection and section 1 is left out
+    (``womm.memorandum``)."""
     before = corpus.version(scenario.before_version) if scenario.before_version else None
     after = corpus.version(scenario.after_version)
     diff = diff_versions(before, after)
@@ -108,6 +113,8 @@ def explore_inputs(scenario: Scenario, fixture: Fixture, corpus: Corpus) -> dict
     for sid, src in fixture.sources.items():
         if src.kind == "memorandum" and sid.split("/", 1)[0] in versions:
             sources[sid] = src
+    if memorandum is not None:
+        sources = on_demand_sources(sources)
     return {
         "law_version": law_version(after),
         "diff": diff,
@@ -141,6 +148,7 @@ async def run_scenario(
     run_mode: str | None = None,
     case_id: str | None = None,
     split: str | None = None,
+    trace_id: uuid.UUID | None = None,
 ) -> RunResult:
     """Run one scenario. `on_event` receives node started/finished/failed events as they
     happen (for live progress); the RunResult is returned when the graph finishes.
@@ -151,12 +159,13 @@ async def run_scenario(
     Tracing: the root run carries ``womm.tracing.run_metadata`` (``run_mode`` defaults to
     ``explore`` for explore scenarios and ``demo`` otherwise; eval passes ``eval``, its
     ``case_id`` and ``split``) and a fresh id, returned as ``RunResult.trace_run_id`` when the run
-    was traced. A sealed ``split`` runs with tracing disabled."""
+    was traced (``trace_id`` when the caller fixed it in advance). A sealed ``split`` runs with
+    tracing disabled."""
     run_id = run_id or f"run_{uuid.uuid4()}"
     scenario = fixture.scenario(scenario_id)
     if scenario.mode == "explore":
         corpus = corpus or load_default_corpus()
-        inputs = explore_inputs(scenario, fixture, corpus)
+        inputs = explore_inputs(scenario, fixture, corpus, memorandum=sv.spec.memorandum)
     else:
         before, after = fixture.scenario_versions(scenario_id)
         inputs = {
@@ -179,7 +188,7 @@ async def run_scenario(
         mode=run_mode or ("explore" if scenario.mode == "explore" else "demo"),
     )  # fmt: skip
     sealed = is_sealed(split)
-    root_id = uuid7()
+    root_id = trace_id or uuid7()
     traced = not sealed and tracing_enabled()
     final: dict = {}
     seq = 0
@@ -240,12 +249,20 @@ async def run_scenario(
 
 
 def _planner_trace(final: dict) -> PlannerTrace | None:
+    """None when the Planner produced nothing; a run whose caps dropped every key still records
+    what was selected and why it was dropped."""
     focus = final.get("focus")
-    if focus is None:
+    if focus is None and not final.get("planner_selected"):
         return None
     return PlannerTrace(
-        keys=focus_keys(focus),
-        areas=[list(a.provision_keys) for a in focus.focus_areas],
+        keys=focus_keys(focus) if focus is not None else [],
+        areas=[list(a.provision_keys) for a in focus.focus_areas] if focus is not None else [],
         notes=list(final.get("planner_notes") or []),
         dispatched=list(final.get("dispatched") or []),
+        selected=list(final.get("planner_selected") or []),
+        dropped=list(final.get("planner_dropped") or []),
+        memorandum={
+            agent: [sid for sid, s in sources.items() if s.kind == "memorandum"]
+            for agent, sources in (final.get("retrieved") or {}).items()
+        },
     )

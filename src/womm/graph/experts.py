@@ -28,6 +28,7 @@ from womm.models.findings import (
 from womm.models.regulation import Source
 from womm.models.run import RetrievalRecord
 from womm.models.system_version import DataScope, ExpertConfig
+from womm.on_demand_memorandum import on_demand
 from womm.retrieval import Retrieval, memorandum_sources, retrieve
 from womm.tracing import trace_retrieval
 
@@ -88,6 +89,8 @@ def expert_view(state: RIAState, expert: ExpertConfig, ctx: WommContext, focus=N
         agent=expert.id,
     )
     memos = memorandum_sources(scope, state["sources"])
+    if explore and ctx.sv.spec.memorandum is not None:
+        memos = on_demand(memos, expert.id, requested_keys(state, focus), ctx.provision_corpus())
     if explore:
         # A run on the consolidated text marks the adopted texts of amended units (titles only).
         retrieval = Retrieval(

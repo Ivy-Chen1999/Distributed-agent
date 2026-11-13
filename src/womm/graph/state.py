@@ -45,6 +45,8 @@ class RIAState(TypedDict, total=False):
     index_header: str  # explore only: what the index covers (law version, comparison, counts)
     index_lines: dict[str, str]  # explore only: provision key -> corpus index line, diff order
     planner_notes: list[str]  # explore only: keys dropped by the caps, for the dossier
+    planner_selected: list[str]  # explore only: the Planner's keys before the caps
+    planner_dropped: list[dict]  # explore only: {"key", "reason"} for each key the caps dropped
     focus: Any  # FocusPlan; typed loosely to avoid an import cycle with planner.py
     decisions: Annotated[list[DecisionRecord], operator.add]
     dispatched: list[str]  # experts the router actually sent work to

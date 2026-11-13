@@ -89,6 +89,11 @@ class CitableSource(BaseModel):
     text: str
 
 
+class DroppedKey(BaseModel):
+    key: str
+    reason: Literal["max_provisions", "max_prompt_chars"]
+
+
 class PlannerTrace(BaseModel):
     """What the Planner chose and where the router sent work, kept so trajectory metrics can be
     computed offline from ``runs/``. Router decisions and their probabilities are in
@@ -104,6 +109,17 @@ class PlannerTrace(BaseModel):
     notes: list[str] = Field(default_factory=list, description="Explore cap notes, if any.")
     dispatched: list[str] = Field(
         default_factory=list, description="Experts the router actually sent work to."
+    )
+    selected: list[str] = Field(
+        default_factory=list,
+        description="Explore: the Planner's distinct keys within the diff, before the caps.",
+    )
+    dropped: list[DroppedKey] = Field(
+        default_factory=list, description="Explore: keys the caps removed, with the cap."
+    )
+    memorandum: dict[str, list[str]] = Field(
+        default_factory=dict,
+        description="Memorandum source ids each expert was given (expert id -> ids).",
     )
 
 

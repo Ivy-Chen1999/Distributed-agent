@@ -119,9 +119,22 @@ async def planner_node(state: RIAState, runtime: Runtime[WommContext]) -> dict:
     if not explore:
         return {"focus": focus, "usage": [usage]}
 
+    selected = list(dict.fromkeys(k for a in focus.focus_areas for k in a.provision_keys))
     focus, notes = cap_plan(
         focus, limits.max_provisions, _explore_fits(state, ctx, limits.max_prompt_chars)
     )
+    kept = {k for a in focus.focus_areas for k in a.provision_keys}
+    coverage = {
+        "planner_selected": selected,
+        "planner_dropped": [
+            {
+                "key": k,
+                "reason": "max_provisions" if i >= limits.max_provisions else "max_prompt_chars",
+            }
+            for i, k in enumerate(selected)
+            if k not in kept
+        ],
+    }
     if not focus.focus_areas:
         # Experts must never run on the memorandum alone while told to analyse all changes.
         # The cap notes go to the dossier once, as planner notes, not again inside the error.
@@ -134,5 +147,6 @@ async def planner_node(state: RIAState, runtime: Runtime[WommContext]) -> dict:
             "fatal_error": f"planner failed: [no_provisions] {reason}",
             "usage": [usage],
             "planner_notes": notes,
+            **coverage,
         }
-    return {"focus": focus, "usage": [usage], "planner_notes": notes}
+    return {"focus": focus, "usage": [usage], "planner_notes": notes, **coverage}

@@ -3,6 +3,7 @@
 from fastapi.testclient import TestClient
 
 from womm.api.app import create_app
+from womm.api.traces import TRACING_OFF, TraceLinks
 from womm.data.fixtures import load_fixture
 from womm.llm.fake import FakeBackend
 
@@ -144,3 +145,29 @@ def test_corpus_comparisons_and_compare(database_url):
         listed = {s["scenario_id"] for s in regs[0]["scenarios"]}
         assert {"eval_sme_impacts", "demo_penalties_amended", "omnibus_2026"} <= listed
         assert all("ia_reference" not in s for s in regs[0]["scenarios"])
+
+
+def test_run_detail_has_planner_and_a_trace_reason_when_tracing_is_off(database_url):
+    with _client(database_url, good_script(synthesis_all())) as c:
+        _, detail = _finished_run(c)
+        assert "planner" in detail
+        assert detail["trace"] == {"reason": TRACING_OFF}
+
+
+def test_a_traced_run_links_its_trace_from_the_moment_it_starts(database_url, monkeypatch):
+    from types import SimpleNamespace
+
+    import womm.api.jobs as jobs
+
+    monkeypatch.setattr(jobs, "tracing_enabled", lambda: True)
+    project = SimpleNamespace(tenant_id="t-1", id="p-1")
+    client = SimpleNamespace(read_project=lambda project_name: project)
+    with _client(database_url, good_script(synthesis_all())) as c:
+        c.app.state.trace_links = TraceLinks(
+            "womm-test", client_factory=lambda: client, enabled=lambda: True
+        )
+        run_id, detail = _finished_run(c)
+        url = detail["trace"]["url"]
+        assert url.startswith("https://smith.langchain.com/o/t-1/projects/p/p-1/r/")
+        trace_id = url.split("/r/", 1)[1].split("?", 1)[0]
+        assert len(trace_id) == 36  # the id fixed by the runner before the run started

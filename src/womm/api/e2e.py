@@ -503,6 +503,43 @@ async def seed_evolution(db: Any) -> dict[str, str]:
             "topology_api": topology_api.version_id, "rejected": rejected.version_id}  # fmt: skip
 
 
+async def seed_eval_report(db: Any, system_version: str) -> None:
+    """One published train/val report for the version the e2e server runs (Overview card)."""
+    from womm.eval.publish import summarize
+
+    def run(case, rep, covered, expected, split="train"):
+        return {
+            "case_id": case,
+            "split": split,
+            "repetition": rep,
+            "covered": covered,
+            "expected": expected,
+            "addressed": 1,
+            "omissions": 2,
+            "grounding": 0.96,
+        }
+
+    runs = [
+        run("case_a", 1, 4, 5),
+        run("case_a", 2, 3, 5),
+        run("case_b", 1, 5, 6),
+        run("case_b", 2, 5, 6),
+        run("case_c", 1, 2, 4, "val"),
+        run("case_c", 2, 3, 4, "val"),
+    ]
+    data = {
+        "system_version": system_version,
+        "git_sha": "e2e",
+        "judge_version": "jv_e2e",
+        "repetitions": 2,
+        "experiment_name": "womm-e2e",
+        "experiment_tenant_id": "11111111-2222-4333-8444-555555555555",
+        "experiment_project_id": "66666666-7777-4888-9999-000000000000",
+        "runs": runs,
+    }
+    await db.insert_eval_report(data, summarize(data))
+
+
 async def _seed_evolution_db(database_url: str) -> None:
     from womm.api.db import Database
 
@@ -511,6 +548,7 @@ async def _seed_evolution_db(database_url: str) -> None:
     try:
         await db.migrate()
         await seed_evolution(db)
+        await seed_eval_report(db, fake_system_version().version_id)
     finally:
         await db.close()
 

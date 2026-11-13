@@ -794,6 +794,28 @@
       "title": "DossierImpact",
       "type": "object"
     },
+    "DroppedKey": {
+      "properties": {
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "reason": {
+          "enum": [
+            "max_provisions",
+            "max_prompt_chars"
+          ],
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "reason"
+      ],
+      "title": "DroppedKey",
+      "type": "object"
+    },
     "Evidence": {
       "properties": {
         "evidence_id": {
@@ -1182,6 +1204,33 @@
           },
           "title": "Dispatched",
           "type": "array"
+        },
+        "selected": {
+          "description": "Explore: the Planner's distinct keys within the diff, before the caps.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Selected",
+          "type": "array"
+        },
+        "dropped": {
+          "description": "Explore: keys the caps removed, with the cap.",
+          "items": {
+            "$ref": "#/$defs/DroppedKey"
+          },
+          "title": "Dropped",
+          "type": "array"
+        },
+        "memorandum": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "description": "Memorandum source ids each expert was given (expert id -> ids).",
+          "title": "Memorandum",
+          "type": "object"
         }
       },
       "title": "PlannerTrace",

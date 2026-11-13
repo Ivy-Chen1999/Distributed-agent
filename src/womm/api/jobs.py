@@ -13,6 +13,8 @@ import logging
 import uuid
 from dataclasses import dataclass, field
 
+from langsmith import uuid7
+
 from womm.api.db import Database
 from womm.data.fixtures import Fixture
 from womm.decisions.service import DecisionService
@@ -20,6 +22,7 @@ from womm.graph.build import run_scenario
 from womm.llm.base import LLMBackend
 from womm.models.run import CodeIdentity, RunEvent
 from womm.models.system_version import SystemVersion
+from womm.tracing import tracing_enabled
 
 log = logging.getLogger("womm.jobs")
 
@@ -93,11 +96,14 @@ class JobRunner:
     async def _execute(self, run_id: str, scenario_id: str, sv: SystemVersion) -> None:
         try:
             async with self._sem:
-                await self.db.mark_running(run_id)
+                # The root trace id is fixed before the run starts, so a run that crashes or is
+                # still running links to its trace too.
+                trace_id = uuid7() if tracing_enabled() else None
+                await self.db.mark_running(run_id, str(trace_id) if trace_id else None)
                 result = await run_scenario(
                     scenario_id, sv=sv, fixture=self.fixture, backends=self.backends,
                     decisions=self.decisions, code_identity=self.code, run_id=run_id,
-                    on_event=self._event, tags=["api"],
+                    on_event=self._event, tags=["api"], trace_id=trace_id,
                 )  # fmt: skip
                 if not await self.db.save_result(result):
                     log.warning(

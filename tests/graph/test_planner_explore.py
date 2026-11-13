@@ -15,6 +15,7 @@ from womm.graph.router import router_state
 from womm.llm.fake import FakeBackend
 from womm.models.run import CodeIdentity, RunStatus
 from womm.models.system_version import build_system_version, load_system_version
+from womm.on_demand_memorandum import split_other_elements
 
 EXPLORE = ("eval_whole_proposal", "consolidated_whole_act", "omnibus_2026")
 CONSOLIDATED = "reg2024_1689_c20260727"
@@ -406,3 +407,125 @@ async def test_preset_planner_still_reads_changes_with_text(fixture):
     (call,) = _calls(backend, "planner")
     assert call.system_prompt == sv.prompt_text(sv.spec.planner)  # not the explore prompt
     assert call.user_content == "Regulatory changes:\n\n" + render.changes_with_text(diff)
+
+
+# ---------- v1.0 explore byte stability and the v1.1 whole-act version ----------
+
+WHOLE_ACT_KEYS = [
+    "ai_act/art/5", "ai_act/art/6", "ai_act/high_risk/provider_obligations", ART26,
+    "ai_act/art/27", "ai_act/art/53", "ai_act/art/55", "ai_act/penalties/penalties",
+]  # fmt: skip
+WHOLE_ACT_PLAN = {
+    "focus_areas": [
+        {"provision_keys": WHOLE_ACT_KEYS[:4], "question": "q1", "rationale": "r"},
+        {"provision_keys": WHOLE_ACT_KEYS[4:], "question": "q2", "rationale": "r"},
+    ]
+}
+# sha256(system + NUL + user)[:16] of every Planner and expert call of final_vs_proposal with
+# WHOLE_ACT_PLAN, computed on the code before the on-demand memorandum existed: v1.0 explore
+# inputs must not change.
+EXPLORE_HASHES = {
+    "v1.0-scoped.yaml/expert/fiscal": "ec5ea588bb18d966",
+    "v1.0-scoped.yaml/expert/legal": "eeea98ddf7891fae",
+    "v1.0-scoped.yaml/expert/stakeholder": "c10fdfcf8c3cbced",
+    "v1.0-scoped.yaml/planner/-": "2fccfa4daf960974",
+    "v1.0-unscoped.yaml/expert/fiscal": "b044c7381006978d",
+    "v1.0-unscoped.yaml/expert/legal": "bc4ad75cc103ae11",
+    "v1.0-unscoped.yaml/expert/stakeholder": "dac5452e84614e20",
+    "v1.0-unscoped.yaml/planner/-": "2fccfa4daf960974",
+}
+V11 = REPO_ROOT / "system_versions" / "v1.1-unscoped.yaml"
+MEMO = "com2021_206/memorandum"
+
+
+async def test_v10_explore_planner_and_expert_inputs_are_byte_identical(fixture, corpus):
+    got = {}
+    for name in ("v1.0-scoped.yaml", "v1.0-unscoped.yaml"):
+        sv = _fake(REPO_ROOT / "system_versions" / name)
+        _, backend = await _run(fixture, corpus, "final_vs_proposal", WHOLE_ACT_PLAN, sv=sv)
+        for c in backend.calls:
+            digest = hashlib.sha256((c.system_prompt + "\x00" + c.user_content).encode())
+            got[f"{name}/{c.role_name}/{c.agent or '-'}"] = digest.hexdigest()[:16]
+    assert got == EXPLORE_HASHES
+
+
+async def test_v11_whole_act_run_keeps_all_eight_provisions_and_sends_the_memorandum_on_demand(
+    fixture, corpus
+):
+    """AE1 (scripted): the 8 provisions of the 2026-11-13 run all reach every expert in one call
+    within 100,000 characters; Legal gets the legal basis and the mapped 5.2.x subsections,
+    nobody gets section 1."""
+    result, backend = await _run(
+        fixture, corpus, "final_vs_proposal", WHOLE_ACT_PLAN, sv=_fake(V11)
+    )
+    assert result.status == RunStatus.succeeded, result.error
+    assert not any("max_prompt_chars" in n or "max_provisions" in n for n in result.dossier.notes)
+    experts = {c.agent: c for c in _calls(backend, "expert")}
+    assert set(experts) == {"legal", "fiscal", "stakeholder"}
+    mapped = {f'id="{MEMO}/other_elements/5.2.{n}"' for n in (2, 3, 8)}
+    for agent, c in experts.items():
+        assert len(c.system_prompt) + len(c.user_content) <= 100_000, agent
+        assert c.user_content.count("provision_key=") == 8, agent
+        assert all(m in c.user_content for m in mapped), agent
+        assert f'id="{MEMO}/context"' not in c.user_content
+        assert f'id="{MEMO}/other_elements"' not in c.user_content
+        assert f'id="{MEMO}/other_elements/5.1"' not in c.user_content
+        assert (f'id="{MEMO}/legal_basis"' in c.user_content) == (agent == "legal"), agent
+
+
+async def test_a_quote_from_a_memorandum_subsection_is_grounded_and_citable(fixture, corpus):
+    sub = f"{MEMO}/other_elements/5.2.3"
+    text = {s.source_id: s for s in split_other_elements(fixture.sources[f"{MEMO}/other_elements"])}
+    body = [line for line in text[sub].text.split("\n")[1:] if line.strip()]
+    quote = body[0][:100]
+    expert = {
+        "findings": [
+            {
+                "provision_key": ART26, "affected_actor": "deployers", "impact": "impact",
+                "mechanism": "mechanism", "evidence": [{"source_id": sub, "quote": quote}],
+                "confidence": 0.8,
+            }
+        ]
+    }  # fmt: skip
+    script = {"planner": [_plan([ART26])], "expert": [expert, {"findings": []}, {"findings": []}],
+              "synthesis": [EMPTY_SYNTHESIS]}  # fmt: skip
+    result = await run_scenario(
+        "final_vs_proposal", sv=_fake(V11), fixture=fixture, backends={"fake": FakeBackend(script)},
+        decisions=StubDecisionService(), code_identity=CodeIdentity(git_sha="t", dirty=False),
+        run_id="run_memo", corpus=corpus,
+    )  # fmt: skip
+    assert result.grounding.total == 1 and result.grounding.passed == 1
+    assert sub in {s.source_id for s in result.citable_sources}
+
+
+async def test_the_planner_trace_records_the_selection_and_each_drop(fixture, corpus):
+    """The 2026-11-13 shape on v1.0-scoped: the 60k cap drops keys, each recorded with its cap."""
+    result, _ = await _run(fixture, corpus, "final_vs_proposal", WHOLE_ACT_PLAN, sv=_fake(V1))
+    trace = result.planner
+    assert trace.selected == WHOLE_ACT_KEYS
+    assert trace.dropped and {d.reason for d in trace.dropped} == {"max_prompt_chars"}
+    assert set(trace.keys) | {d.key for d in trace.dropped} == set(WHOLE_ACT_KEYS)
+    assert f"{MEMO}/context" in trace.memorandum["legal"]
+
+
+async def test_max_provisions_drops_are_recorded_with_their_cap(fixture, corpus):
+    keys = _longest_keys(corpus, fixture, "final_vs_proposal", n=12)
+    result, _ = await _run(fixture, corpus, "final_vs_proposal", _plan(keys), sv=_fake(V11))
+    reasons = {d.key: d.reason for d in result.planner.dropped}
+    assert all(reasons[k] == "max_provisions" for k in keys[8:])
+
+
+async def test_a_run_whose_caps_drop_everything_still_records_its_coverage(fixture, corpus):
+    sv = _fake(V11, max_prompt_chars=10_000)
+    result, _ = await _run(fixture, corpus, "final_vs_proposal", WHOLE_ACT_PLAN, sv=sv)
+    assert result.status == RunStatus.failed
+    assert result.planner is not None and result.planner.keys == []
+    assert result.planner.selected == WHOLE_ACT_KEYS
+    assert {d.key for d in result.planner.dropped} == set(WHOLE_ACT_KEYS)
+
+
+async def test_v11_memorandum_per_expert_is_recorded(fixture, corpus):
+    result, _ = await _run(fixture, corpus, "final_vs_proposal", WHOLE_ACT_PLAN, sv=_fake(V11))
+    memo = result.planner.memorandum
+    assert f"{MEMO}/legal_basis" in memo["legal"] and f"{MEMO}/legal_basis" not in memo["fiscal"]
+    assert f"{MEMO}/other_elements/5.2.3" in memo["stakeholder"]

@@ -117,6 +117,15 @@ class RetrievalConfig(StrictModel):
 DEFAULT_RETRIEVAL = RetrievalConfig(max_provisions=8)
 
 
+class MemorandumConfig(StrictModel):
+    """How explore runs give experts the explanatory memorandum. ``on_demand``: each expert gets
+    only the "other elements" subsections (5.2.x) whose proposal Title covers a selected
+    provision, the legal-basis section if it is the Legal expert, and never the context section.
+    Versions without this block send every memorandum source an expert's scope allows."""
+
+    mode: Literal["on_demand"]
+
+
 class RouterConfig(StrictModel):
     mode: DecisionMode = "shadow"
     decider: Decider = "stub"
@@ -135,6 +144,10 @@ class SystemVersionSpec(StrictModel):
     retrieval: RetrievalConfig | None = None
     cost: CostConfig | None = Field(
         default=None, description="The optional cost step; None means the graph has no cost node."
+    )
+    memorandum: MemorandumConfig | None = Field(
+        default=None,
+        description="Explore-mode memorandum selection; None sends every allowed memorandum.",
     )
 
     @model_validator(mode="after")
@@ -160,12 +173,12 @@ class SystemVersionSpec(StrictModel):
 
     def canonical_dump(self) -> dict:
         """The spec as hashed into version_id. Fields added after v0 (`scope`, `router_gloss`,
-        the Planner's `explore_prompt`, `retrieval`, `cost`, a role's `reasoning_effort`) are
-        dropped when None, so versions
-        that do not use them keep their ids. Nothing else is dropped: existing defaults are part
+        the Planner's `explore_prompt`, `retrieval`, `cost`, `memorandum`, a role's
+        `reasoning_effort`) are dropped when None, so versions that do not use them keep their
+        ids. Nothing else is dropped: existing defaults are part
         of today's hashes."""
         data = self.model_dump(mode="json")
-        for optional in ("retrieval", "cost"):
+        for optional in ("retrieval", "cost", "memorandum"):
             if data.get(optional) is None:
                 data.pop(optional, None)
         if data["planner"].get("explore_prompt") is None:

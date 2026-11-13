@@ -1,0 +1,43 @@
+# Which part of the COM(2021) 206 explanatory memorandum explains which proposal provisions.
+# Used by system versions with `memorandum: {mode: on_demand}` (explore runs only).
+#
+# subsections: the "5.2.x" headings of section 5 ("Other elements") and the proposal Titles each
+#   one explains. The source heading of 5.2.6 reads "TITLES VI, VII AND VII"; 5.2.7 is Title IX,
+#   so 5.2.6 covers Titles VI, VII and VIII.
+# articles: proposal article ranges per Title, from the division of every article in the
+#   colleague's provisions data (data/processed/provisions/52021PC0206.jsonl, `division`).
+# annexes: the Title of the article that introduces each annex.
+version: com2021_206
+source: com2021_206/memorandum/other_elements
+subsections:
+  "5.2.1": [I]
+  "5.2.2": [II]
+  "5.2.3": [III]
+  "5.2.4": [IV]
+  "5.2.5": [V]
+  "5.2.6": [VI, VII, VIII]
+  "5.2.7": [IX]
+  "5.2.8": [X, XI, XII]
+articles:
+  I: [1, 4]
+  II: [5, 5]
+  III: [6, 51]
+  IV: [52, 52]
+  V: [53, 55]
+  VI: [56, 59]
+  VII: [60, 60]
+  VIII: [61, 68]
+  IX: [69, 69]
+  X: [70, 72]
+  XI: [73, 74]
+  XII: [75, 85]
+annexes:
+  I: I  # AI techniques (Art 3, definitions)
+  II: III  # harmonisation legislation (Art 6)
+  III: III  # high-risk areas (Art 6, 7)
+  IV: III  # technical documentation (Art 11)
+  V: III  # EU declaration of conformity (Art 48)
+  VI: III  # conformity assessment, internal control (Art 43)
+  VII: III  # conformity assessment, quality management and documentation (Art 43)
+  VIII: III  # registration information (Art 51)
+  IX: XII  # large-scale IT systems (Art 83)

@@ -150,6 +150,43 @@ class Database:
                 await conn.execute("SELECT pg_advisory_unlock(727001)")
         return applied_now
 
+    # ------------------------------------------------------------------ eval reports
+
+    async def insert_eval_report(self, data: dict, summary: dict) -> int:
+        """One published train/val report and its runs, in one transaction."""
+        async with self.pool.connection() as conn, conn.transaction():
+            cur = await conn.execute(
+                "INSERT INTO eval_reports (system_version, git_sha, judge_version, repetitions,"
+                " experiment_name, experiment_tenant_id, experiment_project_id, summary)"
+                " VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING report_id",
+                (
+                    data["system_version"], data.get("git_sha"), data.get("judge_version"),
+                    data["repetitions"], data.get("experiment_name"),
+                    data.get("experiment_tenant_id"), data.get("experiment_project_id"),
+                    Jsonb(summary),
+                ),
+            )  # fmt: skip
+            report_id = (await cur.fetchone())["report_id"]
+            for r in data["runs"]:
+                counts = {k: v for k, v in r.items() if k not in ("case_id", "split", "repetition")}
+                await conn.execute(
+                    "INSERT INTO eval_report_runs (report_id, case_id, split, repetition, counts)"
+                    " VALUES (%s, %s, %s, %s, %s)",
+                    (report_id, r["case_id"], r["split"], r["repetition"], Jsonb(counts)),
+                )
+            return report_id
+
+    async def latest_eval_report(self, system_version: str) -> dict | None:
+        async with self.pool.connection() as conn:
+            cur = await conn.execute(
+                "SELECT report_id, system_version, created_at, git_sha, judge_version,"
+                " repetitions, experiment_name, experiment_tenant_id, experiment_project_id,"
+                " summary FROM eval_reports WHERE system_version = %s"
+                " ORDER BY created_at DESC, report_id DESC LIMIT 1",
+                (system_version,),
+            )
+            return await cur.fetchone()
+
     # ------------------------------------------------------------------ system versions
 
     async def upsert_system_version(self, sv: SystemVersion) -> None:
@@ -187,12 +224,12 @@ class Database:
                 (run_id, scenario_id, RunStatus.queued.value, system_version, instance_id),
             )
 
-    async def mark_running(self, run_id: str) -> bool:
+    async def mark_running(self, run_id: str, trace_run_id: str | None = None) -> bool:
         async with self.pool.connection() as conn:
             cur = await conn.execute(
-                "UPDATE runs SET status = %s, started_at = now(), heartbeat_at = now()"
-                " WHERE run_id = %s AND status = %s",
-                (RunStatus.running.value, run_id, RunStatus.queued.value),
+                "UPDATE runs SET status = %s, started_at = now(), heartbeat_at = now(),"
+                " trace_run_id = %s WHERE run_id = %s AND status = %s",
+                (RunStatus.running.value, trace_run_id, run_id, RunStatus.queued.value),
             )
             return cur.rowcount == 1
 

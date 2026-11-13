@@ -4,6 +4,7 @@ import { CARD, FONT, LABEL, TABULAR } from '../design';
 import { Arrow, Chevron, Dot, EmptyCard, ErrorCard, HButton, LoadingCard, OUTLINE_BTN, PRIMARY_BTN } from '../components/ui';
 import { attention, fmtDate, kpis, runRows } from '../model/overview';
 import { RunFilterBar, Walkthrough } from '../components/runs';
+import { EvalCard } from '../components/EvalCard';
 import { NO_RUN_FILTER, canShowMore, filterRuns, isFiltering, scenarioChoices } from '../model/runFilter';
 import { latBars } from '../model/pipeline';
 import { scenarioBlurb, scenarioHeadline, scenarioName } from '../model/scenario';
@@ -35,6 +36,7 @@ export function Overview() {
           }
         />
         <Walkthrough />
+        <EvalCard />
       </div>
     );
   }
@@ -165,6 +167,8 @@ export function Overview() {
           </div>
         </div>
       </div>
+
+      <EvalCard />
 
       <div style={{ ...CARD, overflow: 'hidden' }}>
         <div style={{ ...LABEL, padding: '14px 18px', borderBottom: '1px solid var(--line)' }}>Recent runs</div>

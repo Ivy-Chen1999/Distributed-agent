@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { incompleteNote } from './analysis';
+import { coverage, coverageNote, incompleteNote, keyLabel } from './analysis';
+import type { PlannerTrace } from '../types';
 import { degradedRun, sampleRun } from '../test/fixtures';
 
 describe('incomplete analyses', () => {
@@ -37,5 +38,44 @@ describe('impacts that concern the reader\'s role in the law', () => {
     const providers = impactsMentioning(d, 'provider');
     expect(providers.size).toBeGreaterThan(0);
     expect(providers.size).toBeLessThan(d.impacts.length);
+  });
+});
+
+describe('whole-act coverage', () => {
+  const trace = (keys: string[], dropped: PlannerTrace['dropped'] = []): PlannerTrace => ({
+    keys,
+    areas: [keys],
+    notes: [],
+    dispatched: ['legal'],
+    selected: [...keys, ...(dropped ?? []).map((d) => d.key)],
+    dropped,
+  });
+
+  it('labels provision keys as articles and annexes', () => {
+    expect(keyLabel('ai_act/art/26')).toBe('Art 26');
+    expect(keyLabel('ai_act/annex/III')).toBe('Annex III');
+    expect(keyLabel('ai_act/penalties/penalties')).toBe('Penalties');
+  });
+
+  it('says nothing when every selected provision was analysed', () => {
+    const t = trace(['ai_act/art/5', 'ai_act/art/26']);
+    expect(coverage(t)).toEqual({ selected: 2, analysed: 2, dropped: [] });
+    expect(coverageNote(t)).toBeNull();
+  });
+
+  it('names what was not analysed and why, grouped by reason', () => {
+    const t = trace(['ai_act/art/5'], [
+      { key: 'ai_act/art/6', reason: 'max_prompt_chars' },
+      { key: 'ai_act/art/26', reason: 'max_prompt_chars' },
+      { key: 'ai_act/art/99', reason: 'max_provisions' },
+    ]);
+    expect(coverageNote(t)).toBe(
+      'This analysis covers 1 of the 4 provisions it selected. Not analysed: Art 6 and Art 26 (too long to fit in one analysis); Art 99 (beyond the limit of provisions one analysis covers).',
+    );
+  });
+
+  it('preset runs and older runs have no coverage', () => {
+    expect(coverage(null)).toBeNull();
+    expect(coverage({ keys: ['k'], areas: [['k']], notes: [], dispatched: [] })).toBeNull();
   });
 });

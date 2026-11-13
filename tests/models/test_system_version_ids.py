@@ -34,6 +34,39 @@ def test_router_gloss_is_dropped_when_unset_and_hashed_when_set():
     assert glossed.version_id != sv.version_id
 
 
+def test_memorandum_is_dropped_when_unset_and_every_existing_id_holds():
+    for name, pinned in ALL_PINNED.items():
+        sv = load_system_version(SV_DIR / name, REPO_ROOT)
+        assert sv.spec.memorandum is None and "memorandum" not in sv.spec.canonical_dump()
+        assert sv.version_id == pinned
+
+
+def test_v11_versions_are_the_unscoped_base_plus_a_cap_and_the_memorandum_switch():
+    for v11_file, base_file in (
+        ("v1.1-unscoped.yaml", "v1.0-unscoped.yaml"),
+        ("v1.1-unscoped-api.yaml", "v1.0-unscoped-api.yaml"),
+    ):
+        sv = load_system_version(SV_DIR / v11_file, REPO_ROOT)
+        base = load_system_version(SV_DIR / base_file, REPO_ROOT)
+        assert sv.version_id not in ALL_PINNED.values()
+        assert sv.prompt_hashes == base.prompt_hashes
+        got, want = sv.spec.model_dump(), base.spec.model_dump()
+        for spec in (got, want):
+            spec.pop("name"), spec.pop("description")
+        assert got.pop("memorandum") == {"mode": "on_demand"} and want.pop("memorandum") is None
+        assert got["retrieval"].pop("max_prompt_chars") == 100_000
+        assert want["retrieval"].pop("max_prompt_chars") == 60_000
+        assert got == want
+
+
+def test_an_unknown_memorandum_mode_is_rejected():
+    sv = load_system_version(SV_DIR / "v1.1-unscoped.yaml", REPO_ROOT)
+    data = sv.spec.model_dump()
+    data["memorandum"] = {"mode": "everything"}
+    with pytest.raises(ValueError):
+        type(sv.spec).model_validate(data)
+
+
 def test_cost_role_is_dropped_when_unset_and_every_existing_id_holds():
     for name, pinned in ALL_PINNED.items():
         sv = load_system_version(SV_DIR / name, REPO_ROOT)

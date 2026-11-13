@@ -1,0 +1,40 @@
+name: v1.1-unscoped
+description: >
+  Whole-act deployment version: v1.0-unscoped with two explore-mode changes only. The explore
+  prompt cap is 100,000 characters instead of 60,000, and the memorandum is sent on demand: each
+  expert gets the "other elements" subsections (5.2.x) whose proposal Title covers a selected
+  provision, the legal-basis section only for the Legal expert, and never the context section.
+  Preset-mode behaviour (every golden case) is identical to v1.0-unscoped.
+planner:
+  backend: claude_code
+  model: claude-sonnet-5
+  prompt: prompts/planner.md
+  explore_prompt: prompts/v1/planner_explore.md
+synthesis:
+  backend: claude_code
+  model: claude-sonnet-5
+  prompt: prompts/v0.3/synthesis.md
+  timeout_s: 480
+judge:
+  backend: claude_code
+  model: claude-sonnet-5
+  prompt: prompts/judge_coverage_v2.md
+experts:
+  - id: legal
+    domain: legal
+    role: {backend: claude_code, model: claude-sonnet-5, prompt: prompts/v0.3/legal.md, timeout_s: 480}
+  - id: fiscal
+    domain: fiscal
+    role: {backend: claude_code, model: claude-sonnet-5, prompt: prompts/v0.3/fiscal.md, timeout_s: 480}
+  - id: stakeholder
+    domain: stakeholder
+    role: {backend: claude_code, model: claude-sonnet-5, prompt: prompts/v0.3/stakeholder.md, timeout_s: 480}
+router:
+  mode: shadow
+  decider: stub
+max_parallel_llm_calls: 3
+retrieval:
+  max_provisions: 8
+  max_prompt_chars: 100000
+memorandum:
+  mode: on_demand

@@ -9,11 +9,11 @@ import { hasComparableChanges, provisionComparisons, type ComparisonSide, type C
 import { logLines } from '../model/pipeline';
 import { failedExperts, shortRunId } from '../model/overview';
 import { humanize, regulationSub, regulationTitle, scenarioName } from '../model/scenario';
-import { impactsMentioning, incompleteNote } from '../model/analysis';
+import { coverage, coverageNote, impactsMentioning, incompleteNote } from '../model/analysis';
 import { actorLabel } from '../model/act';
 import { elapsedAt } from '../model/trace';
 import { analysisSteps, type StepState } from '../model/progress';
-import type { ImpactDossier, ProvisionChange } from '../types';
+import type { ImpactDossier, PlannerTrace, ProvisionChange, RunTrace } from '../types';
 import { useNarrow } from '../hooks';
 import { BANDS, NO_FILTER, bandWord, dateText, effortLabel, filterOptions, filterRecords, fiscalFindingsByKey, hotspotRows, payerText, type CostFilter } from '../model/costs';
 import type { HotspotDimension, Recurrence } from '../types';
@@ -80,6 +80,7 @@ export function Detail() {
     ...(plain ? [] : [{ n: String(failed.length), label: 'failed experts' }]),
   ];
   const incomplete = plain ? incompleteNote(run.status, d) : null;
+  const notCovered = plain ? coverageNote(run.planner) : null;
   const finishedOn = run.finished_at ? new Date(run.finished_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : null;
   const regTitle = regulationTitle(C.scenario).replace(/^EU /, '').replace(' · ', ' ');
   const git = run.code_identity?.git_sha;
@@ -194,7 +195,9 @@ export function Detail() {
             <HButton onClick={() => void copyText(runLink, plain ? 'Copied link to this analysis' : 'Copied link to this run')} title={plain ? 'Copy a link that opens this analysis' : 'Copy a link that opens this run'} style={OUTLINE_BTN} hover={{ borderColor: ACC }}>
               Copy link
             </HButton>
+            {!plain && <TraceAction trace={run.trace} />}
           </div>
+          {!plain && <CoverageLine planner={run.planner} />}
         </div>
         <div style={{ display: 'flex', gap: 22, flexWrap: 'wrap' }}>
           {counts.map((c) => (
@@ -209,6 +212,11 @@ export function Detail() {
       {incomplete && (
         <div role="note" data-testid="analysis-incomplete" style={{ ...CARD, padding: '12px 16px', borderColor: WARN_INK, background: WARN_BG, color: WARN_INK, fontSize: 13, lineHeight: 1.5 }}>
           {incomplete}
+        </div>
+      )}
+      {notCovered && (
+        <div role="note" data-testid="analysis-coverage" style={{ ...CARD, padding: '12px 16px', borderColor: WARN_INK, background: WARN_BG, color: WARN_INK, fontSize: 13, lineHeight: 1.5 }}>
+          {notCovered}
         </div>
       )}
       <ProvisionComparison />
@@ -366,6 +374,45 @@ export function Detail() {
           {tab === 'log' && <EventLog />}
         </div>
       )}
+    </div>
+  );
+}
+
+/** System interface: open the run's LangSmith trace (new tab), or say why there is none. */
+function TraceAction({ trace }: { trace: RunTrace | null | undefined }) {
+  if (trace?.url) {
+    return (
+      <a href={trace.url} target="_blank" rel="noopener noreferrer" style={{ ...OUTLINE_BTN, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }} title="Opens this run's trace in LangSmith (sign-in required)">
+        Open trace in LangSmith
+      </a>
+    );
+  }
+  if (!trace?.reason) return null;
+  return (
+    <span data-testid="trace-reason" style={{ font: `500 12px ${FONT}`, color: 'var(--n1)', alignSelf: 'center' }}>
+      {trace.reason}
+    </span>
+  );
+}
+
+/** "…/other_elements/5.2.3" → "5.2.3"; "…/legal_basis" → "Legal basis". */
+const memoLabel = (id: string): string => {
+  const last = id.split('/').pop() ?? id;
+  return /^\d/.test(last) ? last : humanize(last);
+};
+
+/** System interface: selected / analysed / dropped provisions and the memorandum parts per expert. */
+function CoverageLine({ planner }: { planner: PlannerTrace | null | undefined }) {
+  const c = coverage(planner);
+  if (!c) return null;
+  const memo = Object.entries(planner?.memorandum ?? {})
+    .filter(([, ids]) => ids.length)
+    .map(([agent, ids]) => `${ag(agent).n}: ${ids.map(memoLabel).join(', ')}`);
+  return (
+    <div data-testid="run-coverage" style={{ font: `500 12px ${FONT}`, ...TABULAR, color: 'var(--n1)', marginTop: 10, lineHeight: 1.5 }}>
+      {c.analysed} of {c.selected} selected provisions analysed
+      {c.dropped.length ? ` · dropped ${c.dropped.map((d) => `${d.label} (${d.reason})`).join(', ')}` : ''}
+      {memo.length ? <div>Memorandum · {memo.join(' · ')}</div> : null}
     </div>
   );
 }

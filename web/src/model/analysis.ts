@@ -1,7 +1,8 @@
 // A run shown as a plain analysis (the law interface): what is missing from it, in words, instead
 // of pipeline status, and which impacts concern the reader's role in the law. Pure.
 import { ag } from '../design';
-import type { ImpactDossier, RunStatus } from '../types';
+import type { ImpactDossier, PlannerTrace, RunStatus } from '../types';
+import { areaLabel } from './scenario';
 
 /** Names in a readable list: "A", "A and B", "A, B and C". */
 const listText = (names: string[]): string => (names.length < 2 ? (names[0] ?? '') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`);
@@ -53,4 +54,43 @@ export function mentionsActor(affectedActor: string, actor: string): boolean {
 /** Impacts with at least one finding whose affected actor names the chosen role. */
 export function impactsMentioning(d: ImpactDossier, actor: string): Set<string> {
   return new Set(d.impacts.filter((im) => im.findings.some((f) => mentionsActor(f.affected_actor, actor))).map((im) => im.impact_id));
+}
+
+/** "ai_act/art/26" → "Art 26"; "ai_act/annex/III" → "Annex III"; other keys by their last part. */
+export function keyLabel(key: string): string {
+  const m = /\/(art|annex)\/([^/]+)$/.exec(key);
+  if (m) return `${m[1] === 'art' ? 'Art' : 'Annex'} ${m[2]}`;
+  return areaLabel(key);
+}
+
+const DROP_REASON: Record<string, string> = {
+  max_prompt_chars: 'too long to fit in one analysis',
+  max_provisions: 'beyond the limit of provisions one analysis covers',
+};
+
+export interface Coverage {
+  selected: number;
+  analysed: number;
+  dropped: { key: string; label: string; reason: string }[];
+}
+
+/** Coverage of a whole-act analysis, or null for runs without a Planner selection (preset runs). */
+export function coverage(planner: PlannerTrace | null | undefined): Coverage | null {
+  const selected = planner?.selected ?? [];
+  if (!planner || !selected.length) return null;
+  return {
+    selected: selected.length,
+    analysed: planner.keys.length,
+    dropped: (planner.dropped ?? []).map((d) => ({ key: d.key, label: keyLabel(d.key), reason: DROP_REASON[d.reason] ?? d.reason })),
+  };
+}
+
+/** The law interface's plain note when provisions the analysis chose were not analysed, else null. */
+export function coverageNote(planner: PlannerTrace | null | undefined): string | null {
+  const c = coverage(planner);
+  if (!c || !c.dropped.length) return null;
+  const byReason = new Map<string, string[]>();
+  for (const d of c.dropped) byReason.set(d.reason, [...(byReason.get(d.reason) ?? []), d.label]);
+  const parts = [...byReason].map(([reason, labels]) => `${listText(labels)} (${reason})`);
+  return `This analysis covers ${c.analysed} of the ${c.selected} provisions it selected. Not analysed: ${parts.join('; ')}.`;
 }

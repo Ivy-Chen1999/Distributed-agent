@@ -200,6 +200,62 @@ export interface RunDetail {
   dossier?: ImpactDossier | null;
   /** Every source an expert of the run could cite (texts, obligation views, memorandum). Absent on older runs. */
   citable_sources?: SourceDoc[] | null;
+  /** What the Planner chose and what the caps dropped (finished runs). */
+  planner?: PlannerTrace | null;
+  /** The run's LangSmith trace: a workspace link, or why there is none. */
+  trace?: RunTrace | null;
+}
+
+export interface DroppedKey {
+  key: string;
+  reason: 'max_provisions' | 'max_prompt_chars';
+}
+
+export interface PlannerTrace {
+  keys: string[];
+  areas: string[][];
+  notes: string[];
+  dispatched: string[];
+  /** Explore runs: the Planner's keys before the caps. Absent or empty on older and preset runs. */
+  selected?: string[];
+  dropped?: DroppedKey[];
+  /** Memorandum source ids each expert was given. */
+  memorandum?: Record<string, string[]>;
+}
+
+export interface RunTrace {
+  url?: string;
+  reason?: string;
+}
+
+export interface EvalMetric {
+  value: number | null;
+  range: [number, number] | null;
+  found?: number;
+  total?: number;
+}
+
+export interface EvalSummary {
+  cases: number;
+  splits: Record<string, number>;
+  runs: number;
+  excluded_runs: number;
+  reference_impacts: EvalMetric;
+  omissions_addressed: EvalMetric;
+  grounding: EvalMetric;
+  precision: EvalMetric;
+}
+
+export interface EvalReport {
+  report_id: number;
+  system_version: string;
+  created_at: string;
+  git_sha?: string | null;
+  judge_version?: string | null;
+  repetitions: number;
+  experiment_name?: string | null;
+  experiment_url?: string | null;
+  summary: EvalSummary;
 }
 
 export interface RunSummary {

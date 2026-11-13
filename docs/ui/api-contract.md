@@ -102,9 +102,19 @@ Newest first.
   "board": [ImpactFinding], "failures": [ExpertFailure], "usage": [CallUsage],
   "code_identity": {…},
   "citable_sources": [{"source_id": "…", "title": "…", "kind": "provision|annex|memorandum|obligations", "text": "…"}],
+  "planner": {"keys": [], "areas": [[]], "notes": [], "dispatched": [], "selected": [],
+              "dropped": [{"key": "…", "reason": "max_provisions|max_prompt_chars"}],
+              "memorandum": {"legal": ["com2021_206/memorandum/legal_basis", "…/other_elements/5.2.3"]}},
+  "trace": {"url": "https://smith.langchain.com/o/…/projects/p/…/r/…"} | {"reason": "…"},
   "dossier": ImpactDossier
 }
 ```
+`planner` (finished runs): `selected` is the Planner's choice of an explore run before the caps,
+`keys` what was analysed, `dropped` what the caps removed and why; empty for preset runs.
+`memorandum` lists the memorandum sources each expert was given (with an on-demand version, the
+5.2.x subsections of section 5 have their own ids). `trace` is on every run: the LangSmith
+workspace link of the run's root trace (sign-in required; the id is fixed when the run starts,
+so crashed and running runs link too), or a `reason` when there is none.
 `decisions`, `grounding`, `board`, `failures`, `usage`, `code_identity`, `citable_sources` appear
 once the run has finished; `citable_sources` (every source an expert could cite, including
 obligation views) is null for runs saved before it existed, so fall back to the scenario sources.
@@ -129,6 +139,23 @@ Nodes: `planner`, `router`, `expert_<id>`, `validate` (citation check), `synthes
 `unsupported`, `error`, `status`, `impacts`.
 Poll every ~1s while running. For a finished run the same events drive a replay at N× speed using
 the `at` timestamps.
+
+### `POST /eval-reports`
+Published by `womm eval-publish runs/eval_*.json` (bearer token). Body: `system_version`,
+`git_sha`, `judge_version`, `repetitions`, `experiment_name`, `experiment_tenant_id`,
+`experiment_project_id` (LangSmith ids, checked), and `runs[]` (`case_id`, `split`,
+`repetition`, then `covered`/`expected`/`addressed`/`omissions` counts, `grounding`,
+`precision`, or `excluded` with a reason). Train/val only: any other split refuses the whole
+report with 422. → 201 `{"report_id": N, "summary": EvalSummary}`.
+
+### `GET /eval-reports/latest?system_version=sv_…`
+The newest published report of that version, 404 when there is none:
+`{"report_id", "system_version", "created_at", "repetitions", "experiment_url", "summary":
+{"cases", "splits": {"train": 8, "val": 3}, "runs", "excluded_runs", "reference_impacts":
+{"value", "range": [lo, hi], "found", "total"}, "omissions_addressed": {…}, "grounding":
+{"value", "range"}, "precision": {…}}}`. Counts pool every run with a judge verdict (a quality
+failure counts 0 of its case's reference impacts); `range` is a 95% case-level bootstrap, null
+with fewer than two cases. Overview shows it for the version in `GET /system`.
 
 ## Evolution page (R36 page 4)
 

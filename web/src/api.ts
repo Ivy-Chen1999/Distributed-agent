@@ -4,6 +4,7 @@ import type {
   CandidateDetail,
   CandidateDiff,
   ComparisonRef,
+  EvalReport,
   Lineage,
   RegulationEntry,
   EventsPage,
@@ -124,6 +125,7 @@ export const api = {
   lineage: () => request<Lineage>('/evolution/lineage'),
   candidate: (versionId: string) => request<CandidateDetail>(`/evolution/candidates/${enc(versionId)}`),
   candidateDiff: (versionId: string) => request<CandidateDiff>(`/evolution/candidates/${enc(versionId)}/diff`),
+  latestEval: (systemVersion: string) => request<EvalReport>(`/eval-reports/latest?system_version=${enc(systemVersion)}`),
   regulations: () => request<RegulationEntry[]>('/regulations'),
   comparisons: (regulationId: string) => request<ComparisonRef[]>(`/corpus/${enc(regulationId)}/comparisons`),
   comparison: (regulationId: string, before: string, after: string) =>

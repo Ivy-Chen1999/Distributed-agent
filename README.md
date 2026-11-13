@@ -74,6 +74,16 @@ uv run uvicorn --factory womm.api.app:create_app --port 8000 --timeout-keep-aliv
 | `GET /runs/{id}` | bearer | status, per-node states, error; Impact Dossier once finished |
 | `GET /runs/{id}/events?after=N` | bearer | node started/finished/failed events, in order |
 
+**Traces.** With `LANGSMITH_TRACING=true`, `LANGSMITH_API_KEY` and `LANGSMITH_PROJECT` set (as in
+`.env`; export them before `uvicorn`, which does not read `.env`), every console run is traced to
+that project and Run detail links its trace ("Open trace in LangSmith", sign-in required).
+Production traces to `womm-prod`. Model calls of the `claude_code` backend run in an isolated
+`claude -p` subprocess and are not traced; the graph, its nodes and retrievals are.
+
+**Evaluation on Overview.** `WOMM_API_URL=… WOMM_API_TOKEN=… uv run womm eval-publish
+runs/eval_<…>.json` publishes a train/val report (`--dry-run` prints the summary only); Overview
+shows the latest report of the version the server runs.
+
 Deployed: https://womm-api-production.up.railway.app (`railway up --service womm-api` redeploys).
 `GET /livez` is the platform health check (liveness); `/health` is readiness.
 

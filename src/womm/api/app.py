@@ -30,6 +30,7 @@ from womm.act_view import (
     regulation_entry,
 )
 from womm.api.db import Database
+from womm.api.eval_reports import PublishedReport, report_out
 from womm.api.evolution import (
     PANEL_SPLITS,
     CandidateDetail,
@@ -40,12 +41,14 @@ from womm.api.evolution import (
 )
 from womm.api.jobs import JobRunner, QueueFull
 from womm.api.labels import add_label_routes
+from womm.api.traces import TraceLinks
 from womm.backends import prepare_backends
 from womm.config import REPO_ROOT, ConfigError, Settings, load_settings
 from womm.data.corpus import Corpus, load_default_corpus
 from womm.data.fixtures import Fixture, FixtureError, load_fixture
 from womm.decisions.factory import make_decision_service
 from womm.diff import diff_versions
+from womm.eval.publish import PublishError, check_payload, summarize
 from womm.identity import code_identity
 from womm.llm.base import LLMBackend
 from womm.models.system_version import (
@@ -124,6 +127,9 @@ def create_app(
             except Exception as exc:  # noqa: BLE001 - serve /health and report the problem
                 runner_backends, backend_error = {}, f"{type(exc).__name__}: {exc}"
         app.state.db = db
+        app.state.trace_links = getattr(app.state, "trace_links", None) or TraceLinks(
+            settings.langsmith_project
+        )
         app.state.self_check = getattr(app.state, "self_check", None)
         app.state.backend_error = backend_error
         app.state.orphans_reconciled = orphans
@@ -230,12 +236,37 @@ def create_app(
         if row["status"] in FINISHED:
             for key in (
                 "grounding", "decisions", "board", "failures", "usage", "code_identity",
-                "citable_sources",
+                "citable_sources", "planner",
             ):  # fmt: skip
                 out[key] = result.get(key)
+        links: TraceLinks = request.app.state.trace_links
+        out["trace"] = await links.link(
+            row.get("trace_run_id") or result.get("trace_run_id"), row["status"]
+        )
         if row["status"] in WITH_DOSSIER:
             out["dossier"] = result.get("dossier")
         return out
+
+    @app.post("/eval-reports", dependencies=auth, status_code=status.HTTP_201_CREATED)
+    async def publish_eval_report(body: PublishedReport, request: Request) -> dict:
+        """A train/val eval report from `womm eval publish`; any other split refuses it whole."""
+        data = body.as_payload()
+        try:
+            check_payload(data)
+        except PublishError as exc:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from None
+        summary = summarize(data)
+        report_id = await request.app.state.db.insert_eval_report(data, summary)
+        return {"report_id": report_id, "summary": summary}
+
+    @app.get("/eval-reports/latest", dependencies=auth)
+    async def latest_eval_report(
+        request: Request, system_version: Annotated[str, Query(max_length=40)]
+    ) -> dict:
+        row = await request.app.state.db.latest_eval_report(system_version)
+        if row is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "no evaluation published")
+        return report_out(row)
 
     @app.get("/runs/{run_id}/events", dependencies=auth)
     async def run_events(
