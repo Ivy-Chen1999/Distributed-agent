@@ -1,6 +1,6 @@
 // View-models for the agent graph, board feed, router panel, latency bars, log, agents, topology.
 import type { DecisionRecord, ImpactDossier, ImpactFinding, RoleSpec, RunDetail, RunStatus, Scenario, SystemInfo } from '../types';
-import { AG, AMBER, BLUE, GREEN, NO_DATA_IN_SCOPE, RED, ST, ag, fmtS, kTok, kindText, statusText, type NodeStatus } from '../design';
+import { ACC, AG, AMBER, BLUE, GREEN, NO_DATA_IN_SCOPE, RED, ST, ag, fmtS, kTok, kindText, statusText, type NodeStatus } from '../design';
 import { elapsedAt, statusAt, totalsAt, usageFor, type Trace } from './trace';
 import { capitalize, unresolvedIds } from './dossier';
 
@@ -234,7 +234,7 @@ export function decisionVMs(rv: RunView): DecisionVM[] {
       name: ag(e).n,
       c: ag(e).c,
       w,
-      bar: err ? RED : '#00C4CC',
+      bar: err ? RED : ACC,
       decision: !routerDone ? 'pending' : d ? d.decision.replace(/_/g, ' ') : 'dispatched',
       tc: err ? RED : 'var(--ink)',
     };

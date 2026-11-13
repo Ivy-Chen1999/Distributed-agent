@@ -1,6 +1,6 @@
 // Small primitives reproducing the design's inline styles, including style-hover / style-focus.
 import { useState, type ButtonHTMLAttributes, type CSSProperties, type InputHTMLAttributes, type ReactNode } from 'react';
-import { CARD, FONT, RED } from '../design';
+import { ACC, CARD, FONT, RED } from '../design';
 
 type BtnProps = ButtonHTMLAttributes<HTMLButtonElement> & { hover?: CSSProperties };
 
@@ -68,7 +68,7 @@ export function Seg<T extends string>({
   value,
   onChange,
   pad = '6px 12px',
-  font = `700 12px ${FONT}`,
+  font = `700 13px ${FONT}`,
   variant = 'card',
   style,
 }: {
@@ -108,7 +108,7 @@ export const OUTLINE_BTN: CSSProperties = {
   border: '1px solid var(--ink)',
   borderRadius: 4,
   padding: '8px 12px',
-  font: `700 12px ${FONT}`,
+  font: `700 13px ${FONT}`,
   cursor: 'pointer',
   whiteSpace: 'nowrap',
 };
@@ -119,7 +119,7 @@ export const PRIMARY_BTN: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: 8,
-  background: '#00C4CC',
+  background: ACC,
   color: '#0F0F0F',
   border: 'none',
   borderRadius: 4,

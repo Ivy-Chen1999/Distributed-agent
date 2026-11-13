@@ -34,4 +34,6 @@ if (typeof globalThis.localStorage?.clear !== 'function') {
 afterEach(() => {
   cleanup();
   localStorage.clear();
+  // The console keeps the current screen in the URL hash; start every test on Overview.
+  if (typeof window !== 'undefined') window.location.hash = '';
 });

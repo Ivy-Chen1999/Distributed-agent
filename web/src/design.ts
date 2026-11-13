@@ -104,7 +104,10 @@ export const RED = '#E5484D';
 export const GREEN = '#1E9E6A';
 export const AMBER = '#E0A020';
 export const BLUE = '#2F80ED';
+/** Brand accent and its hover shades. Change these to re-colour the console. */
 export const ACC = '#00C4CC';
+export const ACC_HOVER = '#33D3D9';
+export const ACC_DEEP = '#00A9B0';
 export const PULSE = 'wpulse 1.2s ease-out infinite';
 export const WARN_BG = '#FFF1CC';
 export const WARN_INK = '#8A5A00';
@@ -117,7 +120,7 @@ export const TABULAR: CSSProperties = { fontVariantNumeric: 'tabular-nums' };
 
 /** The recurring uppercase section label. */
 export const LABEL: CSSProperties = {
-  font: `700 11px/1.4 ${FONT}`,
+  font: `700 12px/1.4 ${FONT}`,
   letterSpacing: '.08em',
   textTransform: 'uppercase',
   color: 'var(--n2)',
