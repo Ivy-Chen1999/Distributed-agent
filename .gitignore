@@ -16,3 +16,6 @@ evals/private/
 
 # Playwright MCP session logs and snapshots
 .playwright-mcp/
+
+# The console's npm project lives in web/; npm run at the repo root creates a stray lockfile.
+/package-lock.json

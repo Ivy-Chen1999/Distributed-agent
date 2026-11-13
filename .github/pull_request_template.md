@@ -6,6 +6,9 @@
 
 - [ ] `uv run pytest -q`
 - [ ] `uv run ruff check src tests scripts` and `uv run ruff format --check src tests scripts`
+- [ ] Console changes (`web/`): `npm run typecheck`, `npm test` and `npm run build` in `web/`;
+      `npm run e2e` for changes to screens or navigation (see web/README.md)
+- [ ] No lockfile churn: `web/package-lock.json` changes only when a dependency changes
 
 ## Golden-case review (only for PRs that add drafts under `evals/golden/drafts/`)
 

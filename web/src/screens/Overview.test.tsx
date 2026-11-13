@@ -97,6 +97,39 @@ describe('recent runs filters', () => {
     await waitFor(() => expect(rows()).toHaveLength(3));
     expect(screen.queryByText(/No runs match these filters/)).toBeNull();
   });
+
+  it('keeps the filters in the URL and after visiting another screen', async () => {
+    await boot([newest(), failed, degraded]);
+    fireEvent.click(statusFilter().getByText('Failed'));
+    await waitFor(() => expect(rows()).toHaveLength(1));
+    expect(window.location.hash).toBe('#/overview?status=failed');
+    const nav = within(document.querySelector('nav') as HTMLElement);
+    fireEvent.click(nav.getByText('Run detail'));
+    await waitFor(() => expect(window.location.hash).toMatch(/^#\/detail/));
+    fireEvent.click(nav.getByText('Overview'));
+    await waitFor(() => expect(rows()).toHaveLength(1));
+    expect(window.location.hash).toBe('#/overview?status=failed');
+  });
+
+  it('tidies a hand-written link in place, without a history entry the back button would bounce on', async () => {
+    window.location.hash = '#/overview?status=all&scenario=';
+    await waitFor(() => expect(window.location.hash).toContain('status=all'));
+    const entries = window.history.length;
+    await boot([newest(), failed]);
+    await waitFor(() => expect(window.location.hash).toBe('#/overview'));
+    expect(window.history.length).toBe(entries);
+  });
+
+  it('opens with the filters a link names', async () => {
+    window.location.hash = `#/overview?scenario=${PROVIDER}`;
+    await waitFor(() => expect(window.location.hash).toContain(PROVIDER));
+    mock = mockApi(runsRoute([newest(), failed, degraded]));
+    vi.stubGlobal('fetch', vi.fn(mock.fn));
+    localStorage.setItem(TOKEN_KEY, 'test-token-1234567890');
+    render(<App />);
+    await waitFor(() => expect(rows()).toHaveLength(2));
+    expect(screen.getByText('2 of 3 loaded runs')).toBeTruthy();
+  });
 });
 
 describe('paging', () => {
