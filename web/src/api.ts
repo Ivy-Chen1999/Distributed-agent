@@ -1,11 +1,11 @@
 // Typed client for the WOMM API. Same origin in production; proxied by Vite in development.
 import type {
   ActComparison,
-  AskAnswer,
   CandidateDetail,
   CandidateDiff,
   ComparisonRef,
   Lineage,
+  RegulationEntry,
   EventsPage,
   RunAccepted,
   RunDetail,
@@ -69,9 +69,8 @@ function detailOf(body: unknown, fallback: string): string {
   return fallback;
 }
 
-/** Client-side cap per request; `ask` waits longer than the API's own 120 s answer timeout. */
+/** Client-side cap per request. */
 export const REQUEST_TIMEOUT_MS = 20_000;
-export const ASK_TIMEOUT_MS = 150_000;
 
 export async function request<T>(path: string, init: RequestInit = {}, timeoutMs = REQUEST_TIMEOUT_MS): Promise<T> {
   const headers = new Headers(init.headers);
@@ -122,11 +121,10 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(overrides ? { scenario_id: scenarioId, overrides } : { scenario_id: scenarioId }),
     }),
-  ask: (runId: string, question: string) =>
-    request<AskAnswer>(`/runs/${enc(runId)}/ask`, { method: 'POST', body: JSON.stringify({ question }) }, ASK_TIMEOUT_MS),
   lineage: () => request<Lineage>('/evolution/lineage'),
   candidate: (versionId: string) => request<CandidateDetail>(`/evolution/candidates/${enc(versionId)}`),
   candidateDiff: (versionId: string) => request<CandidateDiff>(`/evolution/candidates/${enc(versionId)}/diff`),
+  regulations: () => request<RegulationEntry[]>('/regulations'),
   comparisons: (regulationId: string) => request<ComparisonRef[]>(`/corpus/${enc(regulationId)}/comparisons`),
   comparison: (regulationId: string, before: string, after: string) =>
     request<ActComparison>(`/corpus/${enc(regulationId)}/compare/${enc(before)}/${enc(after)}`),

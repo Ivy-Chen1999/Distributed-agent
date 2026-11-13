@@ -65,13 +65,4 @@ test('one real eval_sme_impacts run end to end', async ({ page }) => {
   await expect(source.locator('mark')).toHaveCount(1);
   await page.keyboard.press('Escape');
 
-  // One question.
-  await page.locator('aside nav button', { hasText: 'Ask WOMM' }).click();
-  await page.getByLabel('Question').fill('Who carries the penalty risk?');
-  await page.getByLabel('Question').press('Enter');
-  await expect(page.getByText('Reading the dossier…')).toBeVisible();
-  await expect(page.getByText('Reading the dossier…')).toBeHidden({ timeout: 180_000 });
-  const answer = page.locator('main [aria-live="polite"] > div').last();
-  await expect(answer).toContainText(/WOMM · (from this run's dossier|not covered by this dossier)/);
-  await expect(answer).not.toContainText('Could not answer');
 });

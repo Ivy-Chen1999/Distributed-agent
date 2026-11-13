@@ -315,12 +315,6 @@ export interface RunAccepted {
   system_version?: string;
 }
 
-export interface AskAnswer {
-  answer: string;
-  cites: string[];
-  covered: boolean;
-}
-
 // Evolution page (R36 page 4): docs/ui/api-contract.md "Evolution page".
 
 export type EvolutionOrigin = 'seed' | 'gepa' | 'topology' | 'twin' | 'manual';
@@ -499,4 +493,20 @@ export interface ActComparison {
   after: VersionRef;
   paragraph_basis: 'number';
   articles: ArticleComparison[];
+}
+
+export interface ScenarioRef {
+  scenario_id: string;
+  before_version: string | null;
+  after_version: string;
+  description: string;
+}
+
+export interface RegulationEntry {
+  regulation_id: string;
+  title: string;
+  versions: VersionRef[];
+  comparisons: ComparisonRef[];
+  /** Scenarios on any version of the act; their finished runs are its analyses. */
+  scenarios?: ScenarioRef[];
 }

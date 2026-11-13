@@ -50,7 +50,7 @@ test('keyboard focus shows an accent outline, inputs included', async ({ page })
   await page.keyboard.press('Shift+Tab');
   await expect(button).toHaveCSS('outline-style', 'solid');
   await expect(button).toHaveCSS('outline-color', 'rgb(0, 115, 122)');
-  await go(page, 'Ask WOMM');
+  await go(page, 'Regulations');
   const input = page.locator('main input').first();
   await input.focus();
   await expect(input).toHaveCSS('outline-style', 'solid');

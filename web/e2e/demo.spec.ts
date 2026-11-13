@@ -66,7 +66,11 @@ async function shoot(page: Page, name: string, boxes: Record<string, Locator> = 
 }
 
 const card = (page: Page, label: string) => page.locator('main div[style*="border-radius: 12px"]').filter({ has: page.getByText(label) }).last();
-const nav = (page: Page, title: string) => page.locator('aside nav button', { hasText: title }).click();
+const nav = async (page: Page, title: string) => {
+  // Screens live in one of two interfaces (the law / the system); switch when it is the other one.
+  if (!(await page.locator('aside nav button', { hasText: title }).count())) await page.getByRole('group', { name: 'Interface' }).locator('button[aria-pressed="false"]').click();
+  await page.locator('aside nav button', { hasText: title }).click();
+};
 
 test('capture', async ({ browser }) => {
   test.setTimeout(10 * 60_000);
@@ -101,13 +105,6 @@ test('capture', async ({ browser }) => {
   await nav(page, 'Topology');
   await page.locator('[data-topo="synthesis"]').click();
   await shoot(page, 'topology', { graph: card(page, 'Process topology') });
-
-  await nav(page, 'Ask WOMM');
-  await page.getByLabel('Question').fill('Who carries the penalty risk?');
-  await shoot(page, 'ask-before', { input: page.getByLabel('Question') }, false);
-  await page.getByLabel('Question').press('Enter');
-  await expect(page.getByText('Reading the dossier…')).toBeHidden({ timeout: 180_000 });
-  await shoot(page, 'ask-after', { answer: page.locator('main [aria-live="polite"] > div').last() });
 
   await nav(page, 'Settings');
   await shoot(page, 'settings', {});

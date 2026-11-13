@@ -1,3 +1,4 @@
+import { goTo } from './test/nav';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { App } from './App';
@@ -14,10 +15,7 @@ async function boot() {
   await waitFor(() => expect(screen.getAllByText('Succeeded').length).toBeGreaterThan(0));
 }
 
-const nav = (name: string) => {
-  const navEl = document.querySelector('nav')!;
-  fireEvent.click(within(navEl as HTMLElement).getByText(name));
-};
+const nav = goTo;
 
 beforeEach(() => {
   mock = mockApi();
@@ -141,17 +139,6 @@ describe('WOMM Console', () => {
     await screen.findByText('Backend unavailable: no credentials');
   });
 
-  it('asks WOMM and jumps from a citation to the impact', async () => {
-    await boot();
-    nav('Ask WOMM');
-    expect(screen.getByText(/all 64 evidence quotes found verbatim/)).toBeTruthy();
-    fireEvent.click(screen.getByText('Who carries the penalty risk?'));
-    await screen.findByText('Penalty risk sits with all providers (I19).');
-    fireEvent.click(screen.getByText('f_083bb47fcfc7'));
-    await waitFor(() => expect(document.getElementById('imp-I19')).toBeTruthy());
-    expect(document.getElementById('imp-I19')!.querySelector('[aria-expanded="true"]')).toBeTruthy();
-  });
-
   it('shows an empty state when there are no runs', async () => {
     mock = mockApi({ '/runs?': () => ({ status: 200, body: { runs: [] } }) });
     vi.stubGlobal('fetch', vi.fn(mock.fn));
@@ -160,8 +147,6 @@ describe('WOMM Console', () => {
     await screen.findByText('No runs yet', { selector: 'div' });
     nav('Run pipeline');
     expect(screen.getByText('No run selected')).toBeTruthy();
-    nav('Ask WOMM');
-    expect(screen.getByText('No run to ask about')).toBeTruthy();
   });
 
   describe('provision comparison', () => {
@@ -258,5 +243,32 @@ describe('WOMM Console', () => {
     fireEvent.click(screen.getByTitle('Switch theme'));
     expect(root.dataset.theme).toBe('dark');
     expect(root.style.getPropertyValue('--bg')).toBe('#0A1011');
+  });
+});
+
+describe('Links between the two interfaces', () => {
+  afterEach(() => {
+    window.location.hash = '';
+  });
+  const pressed = () =>
+    within(screen.getByRole('group', { name: 'Interface' }))
+      .getAllByRole('button')
+      .find((b) => b.getAttribute('aria-pressed') === 'true')?.textContent ?? '';
+  const sidebar = () => within(screen.getByRole('navigation', { name: 'Screens' }));
+
+  it('a link to a screen of the other interface opens that interface', async () => {
+    localStorage.setItem('womm.role', 'system');
+    window.location.hash = '#/regs';
+    localStorage.setItem(TOKEN_KEY, 'test-token-1234567890');
+    render(<App />);
+    await waitFor(() => expect(pressed()).toMatch(/The law/));
+    expect(sidebar().getByText('Regulations')).toBeTruthy();
+    expect(localStorage.getItem('womm.role')).toBe('law');
+    act(() => {
+      window.location.hash = '#/agents';
+      window.dispatchEvent(new HashChangeEvent('hashchange'));
+    });
+    await waitFor(() => expect(pressed()).toMatch(/The system/));
+    expect(sidebar().getByText('Agents')).toBeTruthy();
   });
 });

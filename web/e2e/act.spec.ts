@@ -33,3 +33,15 @@ test('switching to proposal → adopted text shows renumbered articles', async (
   await expect(page.getByTestId('act-stat')).toContainText(/of 134 articles and annexes changed/);
   await expect(page.locator('article[data-provision="ai_act/art/26"]')).toContainText('was Article 29');
 });
+
+test('a pasted proposal link on Regulations opens the renumbered article in the adopted text', async ({ page }) => {
+  await openConsole(page);
+  await go(page, 'Regulations');
+  await expect(page.getByTestId('regs-count')).toHaveText('1 regulation');
+  await page.getByLabel('Find a regulation').fill('https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:52021PC0206#art_29');
+  await page.getByRole('button', { name: 'Open at Article 29' }).click();
+  await expect(page.getByLabel('Comparison', { exact: true })).toHaveValue('com2021_206->reg2024_1689');
+  const card = page.locator('article[data-provision="ai_act/art/26"]');
+  await expect(card).toHaveAttribute('data-open', 'true');
+  await expect(card).toContainText('was Article 29');
+});

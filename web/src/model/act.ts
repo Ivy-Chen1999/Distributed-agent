@@ -5,18 +5,68 @@ import { diffWords, sideOf, type Segment } from './compare';
 
 export type ActView = 'inline' | 'sbs' | 'map';
 
-export type Measure = 'changed' | 'findings' | 'roleChanged' | 'dateMoved' | 'duties';
+export type Measure = 'changed' | 'findings' | 'actorChanged' | 'dateMoved' | 'duties';
 
-/** The role whose duties the screen counts (deployers: the role municipalities hold). */
-export const ROLE = 'deployer';
+/**
+ * The reader's role in the law: whose duties the screen counts. An actor is a `primary_actor` of
+ * the obligation records (deployer, provider, ...), or `public` for every duty marked public
+ * sector. The list comes from the data, so it follows whichever act is loaded.
+ */
+export const DEFAULT_ACTOR = 'deployer';
+export const PUBLIC_ACTOR = 'public';
+export const ACTOR_KEY = 'womm.actor';
 
-export const MEASURES: { v: Measure; label: string }[] = [
-  { v: 'changed', label: 'Paragraphs added, changed or removed' },
-  { v: 'findings', label: 'Findings of the latest run' },
-  { v: 'roleChanged', label: 'Deployer duties in changed paragraphs' },
-  { v: 'dateMoved', label: 'Duties whose application date moved' },
-  { v: 'duties', label: 'All duties and prohibitions' },
-];
+/** Actors that are authorities or EU bodies, not parties that implement the law. */
+const NOT_IMPLEMENTERS = new Set(['unspecified', 'commission', 'ai_office', 'board', 'member_state', 'market_surveillance_authority', 'national_competent_authority', 'notifying_authority', 'notified_body', 'scientific_panel', 'advisory_forum', 'edps', 'union_institutions',
+  // Covered by the "Public body" option (every duty marked public sector), which is broader.
+  'public_authority']);
+
+const ACTOR_NAMES: Record<string, string> = {
+  gpai_provider: 'Provider of a general-purpose AI model',
+  authorised_representative: 'Authorised representative',
+  product_manufacturer: 'Product manufacturer',
+  [PUBLIC_ACTOR]: 'Public body',
+};
+
+export function actorLabel(actor: string): string {
+  return ACTOR_NAMES[actor] ?? actor.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
+}
+
+/** Implementing actors that carry duties in the comparison, most duties first, then `public`. */
+export function actorsIn(articles: ArticleComparison[]): string[] {
+  const n = new Map<string, number>();
+  for (const a of articles)
+    for (const p of a.paragraphs)
+      for (const side of [p.before_obligations, p.after_obligations])
+        for (const [k, v] of Object.entries(side?.by_actor ?? {})) if (!NOT_IMPLEMENTERS.has(k)) n.set(k, (n.get(k) ?? 0) + v);
+  return [...[...n].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([k]) => k), PUBLIC_ACTOR];
+}
+
+export function loadActor(): string {
+  try {
+    return localStorage.getItem(ACTOR_KEY) || DEFAULT_ACTOR;
+  } catch {
+    return DEFAULT_ACTOR;
+  }
+}
+
+export function saveActor(actor: string): void {
+  try {
+    localStorage.setItem(ACTOR_KEY, actor);
+  } catch {
+    /* storage unavailable */
+  }
+}
+
+export function measures(actor: string): { v: Measure; label: string }[] {
+  return [
+    { v: 'changed', label: 'Paragraphs added, changed or removed' },
+    { v: 'findings', label: 'Findings of the latest run' },
+    { v: 'actorChanged', label: `${actorLabel(actor)} duties in changed paragraphs` },
+    { v: 'dateMoved', label: 'Duties whose application date moved' },
+    { v: 'duties', label: 'All duties and prohibitions' },
+  ];
+}
 
 /** A withheld-date reason that means the date moved (not that the text changed). */
 export const isMovedReason = (reason: string): boolean => reason.startsWith('date_moved');
@@ -28,13 +78,14 @@ export interface ArticleStats {
   /** Share of after-side (before-side if removed) characters in changed paragraphs, 0–100. */
   share: number;
   duties: number;
-  roleDuties: number;
-  roleChanged: number;
+  actorDuties: number;
+  actorChanged: number;
   dateMoved: number;
   findings: number;
 }
 
-const role = (s: ObligationSummary | null): number => s?.by_actor[ROLE] ?? 0;
+/** Duties of `actor` in one obligation side. */
+export const actorCount = (s: ObligationSummary | null, actor: string): number => (actor === PUBLIC_ACTOR ? (s?.public_sector ?? 0) : (s?.by_actor[actor] ?? 0));
 
 /**
  * The obligation side to count (duties and withheld dates). An amended unit of a consolidated version has no
@@ -46,13 +97,13 @@ function counted(p: ParagraphPair): ObligationSummary | null {
   return a && a.duties > 0 ? a : (p.before_obligations ?? a);
 }
 
-export function articleStats(a: ArticleComparison, findings = 0): ArticleStats {
+export function articleStats(a: ArticleComparison, findings = 0, actor = DEFAULT_ACTOR): ArticleStats {
   let chars = 0;
   let changedChars = 0;
   let changed = 0;
   let duties = 0;
-  let roleDuties = 0;
-  let roleChanged = 0;
+  let actorDuties = 0;
+  let actorChanged = 0;
   let dateMoved = 0;
   for (const p of a.paragraphs) {
     const len = (p.after_text ?? p.before_text ?? '').length;
@@ -64,8 +115,8 @@ export function articleStats(a: ArticleComparison, findings = 0): ArticleStats {
     }
     const s = counted(p);
     duties += s?.duties ?? 0;
-    roleDuties += role(s);
-    if (isChanged) roleChanged += role(s);
+    actorDuties += actorCount(s, actor);
+    if (isChanged) actorChanged += actorCount(s, actor);
     for (const [reason, n] of Object.entries(s?.date_withheld ?? {})) if (isMovedReason(reason)) dateMoved += n;
   }
   return {
@@ -74,8 +125,8 @@ export function articleStats(a: ArticleComparison, findings = 0): ArticleStats {
     changedParagraphs: changed,
     share: chars ? Math.round((100 * changedChars) / chars) : 0,
     duties,
-    roleDuties,
-    roleChanged,
+    actorDuties,
+    actorChanged,
     dateMoved,
     findings,
   };
@@ -87,8 +138,8 @@ export function measureOf(s: ArticleStats, m: Measure): number {
       return s.changedParagraphs;
     case 'findings':
       return s.findings;
-    case 'roleChanged':
-      return s.roleChanged;
+    case 'actorChanged':
+      return s.actorChanged;
     case 'dateMoved':
       return s.dateMoved;
     case 'duties':
@@ -140,6 +191,25 @@ export function latestRunFor(runs: RunSummary[] | undefined, c: Pick<ComparisonR
   return ok.sort((a, b) => time(b) - time(a))[0] ?? null;
 }
 
+export interface LayerRun {
+  run: RunSummary;
+  /** "open": the analysis the user has open; "latest": the newest finished one. */
+  source: 'open' | 'latest';
+}
+
+/**
+ * The run whose findings the Act screen lays over the articles: the one the user has open, when it
+ * is a finished run of this comparison, else the newest finished one.
+ */
+export function layerRunFor(runs: RunSummary[] | undefined, c: Pick<ComparisonRef, 'scenario_ids'> | null, openRunId: string | null): LayerRun | null {
+  if (!runs || !c) return null;
+  const ids = new Set(c.scenario_ids);
+  const open = runs.find((r) => r.run_id === openRunId && ids.has(r.scenario_id) && FINISHED_WITH_DOSSIER.has(r.status));
+  if (open) return { run: open, source: 'open' };
+  const latest = latestRunFor(runs, c);
+  return latest ? { run: latest, source: 'latest' } : null;
+}
+
 /** Findings of a run's dossier, grouped by the provision they cite (impact order kept). */
 export function findingsByKey(run: RunDetail | null | undefined): Map<string, ImpactFinding[]> {
   const out = new Map<string, ImpactFinding[]>();
@@ -166,12 +236,12 @@ export interface ParagraphVM {
   before: Segment[];
   after: Segment[];
   duties: number;
-  roleDuties: number;
+  actorDuties: number;
   dateMoved: number;
   withheld: string[];
 }
 
-export function paragraphVM(p: ParagraphPair): ParagraphVM {
+export function paragraphVM(p: ParagraphPair, actor = DEFAULT_ACTOR): ParagraphVM {
   const b = p.before_text ?? '';
   const a = p.after_text ?? '';
   const segs = p.change === 'unchanged' ? (a ? [{ op: 'same' as const, text: a }] : []) : diffWords(b, a);
@@ -184,7 +254,7 @@ export function paragraphVM(p: ParagraphPair): ParagraphVM {
     before: p.before_text === null ? [] : sideOf(segs, 'before'),
     after: p.after_text === null ? [] : sideOf(segs, 'after'),
     duties: s?.duties ?? 0,
-    roleDuties: role(s),
+    actorDuties: actorCount(s, actor),
     dateMoved: Object.entries(s?.date_withheld ?? {}).reduce((n, [r, k]) => n + (isMovedReason(r) ? k : 0), 0),
     withheld,
   };

@@ -8,7 +8,7 @@ import type { Page, TestInfo } from '@playwright/test';
 
 const SHOTS = path.join(path.dirname(fileURLToPath(import.meta.url)), 'screenshots');
 const SLUG: Record<ScreenTitle, string> = {
-  Overview: 'overview', Act: 'act', 'Run pipeline': 'pipeline', 'Run detail': 'detail', Agents: 'agents', Topology: 'topology', 'Ask WOMM': 'ask', Settings: 'settings', Evolution: 'evolution',
+  Overview: 'overview', Regulations: 'regulations', Act: 'act', 'Run pipeline': 'pipeline', 'Run detail': 'detail', Agents: 'agents', Topology: 'topology', Settings: 'settings', Evolution: 'evolution',
 };
 
 /** Attach to the report; refresh the committed reference set only on request (or when missing). */
@@ -28,10 +28,6 @@ async function prepare(page: Page, screen: ScreenTitle): Promise<void> {
   if (screen === 'Run detail') {
     await page.locator('main button[aria-expanded]').first().click();
     await expect(page.getByText('View in source').first()).toBeVisible();
-  }
-  if (screen === 'Ask WOMM') {
-    await page.getByRole('button', { name: 'Who carries the penalty risk?' }).click();
-    await expect(page.getByText('Reading the dossier…')).toBeHidden({ timeout: 10_000 });
   }
   if (screen === 'Run pipeline') await expect(page.locator('[data-node="dossier"]')).toContainText('Done');
   // Let fonts and entry animations settle before the screenshot.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { articleStats, findingsByKey, heat, latestRunFor, measureOf, paragraphVM, reasonText, relationText, unplacedFindings } from './act';
+import { actorLabel, actorsIn, articleStats, findingsByKey, layerRunFor, heat, latestRunFor, measureOf, paragraphVM, reasonText, relationText, unplacedFindings } from './act';
 import { COMPARISONS, OMNIBUS, art, ob } from '../test/act';
 import { sampleRun } from '../test/fixtures';
 import type { RunSummary } from '../types';
@@ -9,15 +9,15 @@ const byKey = (k: string) => OMNIBUS.articles.find((a) => a.provision_key === k)
 describe('article stats', () => {
   it('an unchanged article keeps its deployer duties and counts their moved dates', () => {
     const s = articleStats(byKey('ai_act/art/26'));
-    expect(s).toMatchObject({ changedParagraphs: 0, share: 0, duties: 3, roleDuties: 3, roleChanged: 0, dateMoved: 3 });
+    expect(s).toMatchObject({ changedParagraphs: 0, share: 0, duties: 3, actorDuties: 3, actorChanged: 0, dateMoved: 3 });
   });
 
   it('an amended article counts the before-side duties, since the after side borrows none', () => {
     const s = articleStats(byKey('ai_act/art/27'));
     expect(s.changedParagraphs).toBe(1);
     expect(s.duties).toBe(4);
-    expect(s.roleDuties).toBe(3);
-    expect(s.roleChanged).toBe(0); // the deployer duties sit in the unchanged paragraph
+    expect(s.actorDuties).toBe(3);
+    expect(s.actorChanged).toBe(0); // the deployer duties sit in the unchanged paragraph
     expect(s.dateMoved).toBe(0); // "amended" is not a moved date
   });
 
@@ -34,6 +34,20 @@ describe('article stats', () => {
     expect(measureOf(s, 'findings')).toBe(4);
     expect(measureOf(s, 'dateMoved')).toBe(3);
     expect(measureOf(s, 'changed')).toBe(0);
+  });
+});
+
+describe('role in the law', () => {
+  it('lists implementing actors from the data, most duties first, then public bodies', () => {
+    expect(actorsIn(OMNIBUS.articles)).toEqual(['deployer', 'public']); // ai_office is an EU body, not an implementer
+  });
+
+  it('counts the chosen actor, or public-sector duties for public bodies', () => {
+    const a = art({ paragraphs: [{ label: '1', change: 'modified', before_text: 'a', after_text: 'b', before_obligations: ob(), after_obligations: ob({ duties: 3, by_actor: { provider: 2, deployer: 1 }, public_sector: 1 }) }] });
+    expect(articleStats(a, 0, 'provider')).toMatchObject({ actorDuties: 2, actorChanged: 2 });
+    expect(articleStats(a, 0, 'public')).toMatchObject({ actorDuties: 1 });
+    expect(actorLabel('gpai_provider')).toBe('Provider of a general-purpose AI model');
+    expect(actorLabel('importer')).toBe('Importer');
   });
 });
 
@@ -89,6 +103,19 @@ describe('findings layer', () => {
     ];
     expect(latestRunFor(runs, COMPARISONS[1])?.run_id).toBe('new');
     expect(latestRunFor(runs, { scenario_ids: [] })).toBeNull();
+  });
+
+  it('the analysis the user has open drives the layer when it is a finished run of the comparison', () => {
+    const runs = [
+      run('old', 'omnibus_2026', 'succeeded', '2026-11-01T10:00:00Z'),
+      run('new', 'omnibus_2026', 'succeeded', '2026-11-02T10:00:00Z'),
+      run('broken', 'omnibus_2026', 'failed', '2026-11-03T10:00:00Z'),
+      run('elsewhere', 'eval_sme_impacts', 'succeeded', '2026-11-04T10:00:00Z'),
+    ];
+    expect(layerRunFor(runs, COMPARISONS[1], 'old')).toMatchObject({ run: { run_id: 'old' }, source: 'open' });
+    expect(layerRunFor(runs, COMPARISONS[1], null)).toMatchObject({ run: { run_id: 'new' }, source: 'latest' });
+    expect(layerRunFor(runs, COMPARISONS[1], 'broken')?.source).toBe('latest'); // no dossier
+    expect(layerRunFor(runs, COMPARISONS[1], 'elsewhere')?.run.run_id).toBe('new'); // another comparison
   });
 
   it('groups dossier findings by provision and reports those outside the comparison', () => {

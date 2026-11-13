@@ -2,6 +2,7 @@
 
 Page requirements: R35 / R36 in `docs/brainstorms/2026-09-28-womm-phased-requirements.md`.
 Design prompt for design tools: `docs/ui/design-prompt.md`.
+Who the console is for, and which section each person sees: [personas.md](personas.md).
 
 - `schema/*.schema.json`: exported from the backend Pydantic models; the single source of truth for
   field names. Regenerate with `uv run python scripts/export_ui_contract.py`.
@@ -37,10 +38,46 @@ The console follows `web/design/` except where accessibility requires otherwise
 - The pipeline canvas and the live impact board are focusable, labelled regions, so they can be
   scrolled from the keyboard.
 
+## Interfaces
+
+The console is two interfaces, switched at the top of the sidebar (`web/src/model/roles.ts`):
+
+| Interface | For | Screens | Home |
+|---|---|---|---|
+| **The law** | people who study a regulation: an impact analyst, an implementer, a reader | Regulations, Act, Analysis (Run detail) | Regulations |
+| **The system** (default) | people who study WOMM: the team, an evaluator | Overview, Run pipeline, Run detail, Agents, Topology, Evolution, Settings | Overview |
+
+- The law shows no run machinery: no run status, system-version chip, header Run button, run ids
+  or event log. A run reads as an *Analysis*: what was analysed and when, and, if a run is
+  degraded, which expert views are missing, in words. Assessments start from the Act screen.
+- The law's sidebar card shows the regulation the user chose and keeps it across screens; the
+  system's shows the selected run's scenario.
+- Run detail is the one screen in both interfaces. Switching interface keeps it; any other screen
+  outside the new interface opens that interface's home.
+- A link names its screen in the URL hash (`#/act`, `#/agents`, `#/detail?run=…`). Opening a link
+  to a screen of the other interface switches to that interface; a link with no screen opens the
+  current interface's home. The law's dossier export (Markdown, PDF) leaves out the run id and
+  system version.
+- The choice is kept in this browser (`localStorage` key `womm.role`; values saved by the earlier
+  five-preset version map onto an interface). It is a view, not access control: the API still
+  accepts any request with the token.
+- The personas behind the split, and which UI section each sees, are in [personas.md](personas.md).
+
+The Act screen has a **Your role in the law** picker (`womm.actor`, default `deployer`): the
+implementing actors that carry duties in the loaded comparison, plus *Public body* (duties marked
+public sector). Its counts and the "… duties in changed paragraphs" measure follow the choice.
+
+Before outside users get access, the API needs a read-only mode: a separate token that offers only
+the law interface, reads regulations, comparisons and dossiers, and cannot start runs. The sealed holdout and golden cases must stay unreachable.
+
+The e2e helper `go()` switches interface when a screen is in the other one, so every screen
+stays covered.
+
 ## Redesign handoff
 
 The current console (`web/`) has these screens: Overview, Pipeline (agent graph and live board),
-Detail (dossier, provision comparison, Costs tab), Agents, Topology, Ask, Evolution and Settings.
+Detail (dossier, provision comparison, Costs tab), Agents, Topology, Evolution and Settings, plus
+Regulations and Act in the law interface.
 A redesign may replace everything visual and keep the data layer:
 
 - **Keep:** `web/src/api.ts` (the typed client), `web/src/types.ts` (types matching

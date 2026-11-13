@@ -8,7 +8,9 @@ import { chainVMs, disagreementVMs, findingSteps, groupImpacts, questionVMs, typ
 import { hasComparableChanges, provisionComparisons, type ComparisonSide, type ComparisonVM, type Segment } from '../model/compare';
 import { logLines } from '../model/pipeline';
 import { failedExperts, shortRunId } from '../model/overview';
-import { humanize, regulationTitle, scenarioName } from '../model/scenario';
+import { humanize, regulationSub, regulationTitle, scenarioName } from '../model/scenario';
+import { impactsMentioning, incompleteNote } from '../model/analysis';
+import { actorLabel } from '../model/act';
 import { elapsedAt } from '../model/trace';
 import type { ImpactDossier, ProvisionChange } from '../types';
 import { useNarrow } from '../hooks';
@@ -16,6 +18,22 @@ import { BANDS, NO_FILTER, bandWord, dateText, effortLabel, filterOptions, filte
 import type { HotspotDimension, Recurrence } from '../types';
 
 const MONO = { fontFamily: FONT, fontVariantNumeric: 'tabular-nums' } as const;
+
+/** An internal provision key such as ai_act/high_risk/provider_obligations (hidden in the law). */
+const isProvisionKey = (s: string) => /^[a-z0-9_]+(\/[a-z0-9_]+)+$/i.test(s);
+const CONFIDENCE_NOTE = "The model's own confidence in this finding, not a verification. Open its source to check.";
+
+/** "confidence 0.90" for the team; labelled "model confidence" with an explanation in the law. */
+function Confidence({ value }: { value: string | number }) {
+  const C = useConsole();
+  if (!C.role.plainAnalysis) return <>confidence {value}</>;
+  return (
+    <span title={CONFIDENCE_NOTE} style={{ textDecoration: 'underline dotted', textUnderlineOffset: 3, cursor: 'help' }}>
+      model confidence {value}
+      <span className="sr-only"> ({CONFIDENCE_NOTE})</span>
+    </span>
+  );
+}
 
 export function Detail() {
   const C = useConsole();
@@ -27,9 +45,24 @@ export function Detail() {
     el?.scrollIntoView?.({ block: 'start', behavior: 'smooth' });
   }, [C.focusNonce, C.openImp]);
 
-  if (!C.runId) return <EmptyCard title="No run selected" sub="Pick a run on the overview, or start a new one." />;
-  if (!C.run && C.runLoading) return <LoadingCard title="Loading dossier" sub="Fetching the run and its Impact Dossier." />;
-  if (!C.run) return <ErrorCard title="Could not load the run" message={C.runError ?? 'Unknown error'} onRetry={C.reloadRun} />;
+  // Readers see a run as a plain analysis: no run ids, versions, pipeline status or event log.
+  const plain = !!C.role.plainAnalysis;
+  if (!C.runId)
+    return plain ? (
+      <EmptyCard
+        title="No analysis open"
+        sub="Choose a regulation, then one of its finished analyses."
+        action={
+          <button type="button" onClick={() => C.go('regs')} style={OUTLINE_BTN}>
+            Find a regulation
+          </button>
+        }
+      />
+    ) : (
+      <EmptyCard title="No run selected" sub="Pick a run on the overview, or start a new one." />
+    );
+  if (!C.run && C.runLoading) return <LoadingCard title={plain ? 'Loading analysis' : 'Loading dossier'} sub={plain ? undefined : 'Fetching the run and its Impact Dossier.'} />;
+  if (!C.run) return <ErrorCard title={plain ? 'Could not load the analysis' : 'Could not load the run'} message={C.runError ?? 'Unknown error'} onRetry={C.reloadRun} />;
 
   const run = C.run;
   const d = run.dossier ?? null;
@@ -43,15 +76,17 @@ export function Detail() {
     { n: d ? String(d.impacts.length) : '—', label: 'impacts' },
     { n: d ? String(questions.length) : '—', label: 'open questions' },
     { n: d ? String(disagreements.length) : '—', label: disagreements.length === 1 ? 'disagreement' : 'disagreements' },
-    { n: String(failed.length), label: 'failed experts' },
+    ...(plain ? [] : [{ n: String(failed.length), label: 'failed experts' }]),
   ];
+  const incomplete = plain ? incompleteNote(run.status, d) : null;
+  const finishedOn = run.finished_at ? new Date(run.finished_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : null;
   const regTitle = regulationTitle(C.scenario).replace(/^EU /, '').replace(' · ', ' ');
   const git = run.code_identity?.git_sha;
 
   // Export: the dossier as Markdown (copy or download) and a link that opens this run.
   const canExport = done && !!d;
   const exportTitle = `${scenarioName(run.scenario_id)}${C.scenario ? ` · ${regTitle}` : ''}`;
-  const exportName = `womm-dossier-${shortRunId(run.run_id).replace(/[^\w.-]/g, '_')}.md`;
+  const exportName = plain ? `womm-analysis-${run.scenario_id.replace(/[^\w.-]/g, '_')}.md` : `womm-dossier-${shortRunId(run.run_id).replace(/[^\w.-]/g, '_')}.md`;
   const copyText = async (text: string, message: string) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -61,7 +96,7 @@ export function Detail() {
     }
   };
   const downloadMarkdown = () => {
-    const url = URL.createObjectURL(new Blob([dossierToMarkdown(run, exportTitle)], { type: 'text/markdown;charset=utf-8' }));
+    const url = URL.createObjectURL(new Blob([dossierToMarkdown(run, exportTitle, { plain })], { type: 'text/markdown;charset=utf-8' }));
     const a = document.createElement('a');
     a.href = url;
     a.download = exportName;
@@ -92,7 +127,7 @@ export function Detail() {
       w.print();
       setTimeout(cleanup, 120_000);
     };
-    frame.srcdoc = dossierToHtml(run, exportTitle);
+    frame.srcdoc = dossierToHtml(run, exportTitle, { plain });
     document.body.appendChild(frame);
     C.flash('Choose "Save as PDF" as the destination in the print dialog', 4000);
   };
@@ -104,25 +139,32 @@ export function Detail() {
     ['disagree', 'Disagreements', d ? String(disagreements.length) : ''],
     ['questions', 'Open questions', d ? String(questions.length) : ''],
     ['costs', 'Costs', d?.costs ? String(d.costs.records.length) : ''],
-    ['log', 'Event log', ''],
+    ...(plain ? [] : ([['log', 'Event log', '']] as [DetailTab, string, string][])),
   ];
+  const tab: DetailTab = plain && C.tab === 'log' ? 'impacts' : C.tab;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ ...CARD, padding: '18px 20px', display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'center' }}>
         <div style={{ flex: 1, minWidth: 260 }}>
-          <div style={{ ...LABEL, color: 'var(--accInk)' }}>Impact dossier</div>
+          <div style={{ ...LABEL, color: 'var(--accInk)' }}>{plain ? 'Analysis' : 'Impact dossier'}</div>
           <div style={{ fontSize: 24, fontWeight: 600, marginTop: 6, letterSpacing: '-.01em' }}>
             {scenarioName(run.scenario_id)}
             {C.scenario ? ` · ${regTitle}` : ''}
           </div>
-          <div style={{ font: `500 13px ${FONT}`, ...TABULAR, color: 'var(--n1)', marginTop: 4 }} title={run.run_id}>
-            {shortRunId(run.run_id)} · {run.system_version}
-            {git ? ` · git ${git}${run.code_identity?.dirty ? ' (dirty)' : ''}` : ''}
-          </div>
+          {plain ? (
+            <div data-testid="analysis-sub" style={{ font: `500 13px ${FONT}`, ...TABULAR, color: 'var(--n1)', marginTop: 4 }}>
+              {[regulationSub(C.scenario, changes), finishedOn && `analysed ${finishedOn}`].filter(Boolean).join(' · ')}
+            </div>
+          ) : (
+            <div style={{ font: `500 13px ${FONT}`, ...TABULAR, color: 'var(--n1)', marginTop: 4 }} title={run.run_id}>
+              {shortRunId(run.run_id)} · {run.system_version}
+              {git ? ` · git ${git}${run.code_identity?.dirty ? ' (dirty)' : ''}` : ''}
+            </div>
+          )}
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
             <HButton
-              onClick={() => void copyText(dossierToMarkdown(run, exportTitle), 'Copied dossier as Markdown')}
+              onClick={() => void copyText(dossierToMarkdown(run, exportTitle, { plain }), plain ? 'Copied analysis as Markdown' : 'Copied dossier as Markdown')}
               disabled={!canExport}
               title={canExport ? 'Copy the dossier as Markdown' : 'Available when the dossier is ready'}
               style={OUTLINE_BTN}
@@ -148,7 +190,7 @@ export function Detail() {
             >
               Print / Save as PDF
             </HButton>
-            <HButton onClick={() => void copyText(runLink, 'Copied link to this run')} title="Copy a link that opens this run" style={OUTLINE_BTN} hover={{ borderColor: ACC }}>
+            <HButton onClick={() => void copyText(runLink, plain ? 'Copied link to this analysis' : 'Copied link to this run')} title={plain ? 'Copy a link that opens this analysis' : 'Copy a link that opens this run'} style={OUTLINE_BTN} hover={{ borderColor: ACC }}>
               Copy link
             </HButton>
           </div>
@@ -163,9 +205,15 @@ export function Detail() {
         </div>
       </div>
 
+      {incomplete && (
+        <div role="note" data-testid="analysis-incomplete" style={{ ...CARD, padding: '12px 16px', borderColor: WARN_INK, background: WARN_BG, color: WARN_INK, fontSize: 13, lineHeight: 1.5 }}>
+          {incomplete}
+        </div>
+      )}
       <ProvisionComparison />
 
-      {!done && (
+      {plain && !done && <EmptyCard title="This analysis is not finished yet" sub="Come back when it is complete." />}
+      {!plain && !done && (
         <div style={{ ...CARD, border: '1px dashed var(--line)', padding: '40px 24px', textAlign: 'center' }}>
           <div style={{ fontSize: 15, fontWeight: 700 }}>Dossier is assembling</div>
           <div style={{ fontSize: 13, color: 'var(--n1)', marginTop: 6 }}>Synthesis merges the board once all experts and the citation check finish. {C.clockText} elapsed.</div>
@@ -181,9 +229,11 @@ export function Detail() {
         <ErrorCard
           title="No dossier for this run"
           message={
-            run.error_kind
-              ? `The run ended as ${run.status}. ${failureHelp(run.error_kind).what} ${failureHelp(run.error_kind).next}${run.error ? ` Details: ${run.error}` : ''}`
-              : `The run ended as ${run.status}${run.error ? `: ${run.error}` : ''}. Check the event log on the pipeline screen.`
+            plain
+              ? 'This analysis could not be completed, so there are no findings to show.'
+              : run.error_kind
+                ? `The run ended as ${run.status}. ${failureHelp(run.error_kind).what} ${failureHelp(run.error_kind).next}${run.error ? ` Details: ${run.error}` : ''}`
+                : `The run ended as ${run.status}${run.error ? `: ${run.error}` : ''}. Check the event log on the pipeline screen.`
           }
         />
       )}
@@ -196,9 +246,9 @@ export function Detail() {
                 key={k}
                 type="button"
                 role="tab"
-                aria-selected={C.tab === k}
+                aria-selected={tab === k}
                 onClick={() => C.setTab(k)}
-                style={{ background: 'transparent', border: 'none', borderBottom: `2px solid ${C.tab === k ? ACC : 'transparent'}`, marginBottom: -1, padding: '10px 12px', font: `${C.tab === k ? 700 : 600} 13px ${FONT}`, color: 'var(--ink)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+                style={{ background: 'transparent', border: 'none', borderBottom: `2px solid ${tab === k ? ACC : 'transparent'}`, marginBottom: -1, padding: '10px 12px', font: `${tab === k ? 700 : 600} 13px ${FONT}`, color: 'var(--ink)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
               >
                 {l}
                 <span style={{ font: `600 12px ${FONT}`, color: 'var(--n2)' }}>{n}</span>
@@ -206,9 +256,9 @@ export function Detail() {
             ))}
           </div>
 
-          {C.tab === 'impacts' && <ImpactsTab d={d} changes={changes} />}
+          {tab === 'impacts' && <ImpactsTab d={d} changes={changes} />}
 
-          {C.tab === 'chains' && (
+          {tab === 'chains' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {chains.length === 0 && <EmptyCard title="No impact chains" sub="Synthesis did not link any impacts causally in this run." />}
               {chains.map((ch, ci) => (
@@ -234,7 +284,7 @@ export function Detail() {
             </div>
           )}
 
-          {C.tab === 'disagree' && (
+          {tab === 'disagree' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {disagreements.length === 0 && <EmptyCard title="No disagreements" sub="The experts' findings did not conflict in this run." />}
               {disagreements.map((dg, di) => (
@@ -257,7 +307,7 @@ export function Detail() {
                               </button>
                             ) : null}
                             {sd.impactId ? ' · ' : ''}
-                            {sd.id} · confidence {sd.conf}
+                            {sd.id} · <Confidence value={sd.conf} />
                           </div>
                         </div>
                       </div>
@@ -269,7 +319,7 @@ export function Detail() {
             </div>
           )}
 
-          {C.tab === 'questions' && (
+          {tab === 'questions' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div style={{ ...CARD, overflow: 'hidden' }}>
                 {questions.length === 0 && <div style={{ padding: '14px 18px', fontSize: 14, color: 'var(--n1)' }}>No open questions in this run.</div>}
@@ -310,9 +360,9 @@ export function Detail() {
             </div>
           )}
 
-          {C.tab === 'costs' && <CostsTab d={d} />}
+          {tab === 'costs' && <CostsTab d={d} />}
 
-          {C.tab === 'log' && <EventLog />}
+          {tab === 'log' && <EventLog />}
         </div>
       )}
     </div>
@@ -339,7 +389,12 @@ export function EventLog() {
 
 function ImpactsTab({ d, changes }: { d: ImpactDossier; changes: ProvisionChange[] | undefined }) {
   const C = useConsole();
-  const groups = groupImpacts(d, C.group, changes);
+  // In the law, the reader can narrow impacts to their role in the law (a wording match).
+  const [onlyMine, setOnlyMine] = useState(false);
+  const plain = !!C.role.plainAnalysis;
+  const mine = plain ? impactsMentioning(d, C.actor) : null;
+  const shown = plain && onlyMine && mine ? { ...d, impacts: d.impacts.filter((im) => mine.has(im.impact_id)) } : d;
+  const groups = groupImpacts(shown, C.group, changes);
   const extra = [
     d.unprocessed.length ? `${d.unprocessed.length} supported finding${d.unprocessed.length === 1 ? '' : 's'} not placed by synthesis` : '',
     d.discarded.length ? `${d.discarded.length} discarded by synthesis` : '',
@@ -356,14 +411,23 @@ function ImpactsTab({ d, changes }: { d: ImpactDossier; changes: ProvisionChange
           value={C.group}
           onChange={C.setGroup}
         />
+        {mine && (
+          <label data-testid="only-mine" title="Matched on the wording of each finding's affected actor, so it can miss or over-include." style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
+            <input type="checkbox" checked={onlyMine} onChange={(e) => setOnlyMine(e.target.checked)} />
+            Only impacts that mention {actorLabel(C.actor).toLowerCase()}s ({mine.size} of {d.impacts.length})
+          </label>
+        )}
         <span style={{ marginLeft: 'auto', fontSize: 13, color: 'var(--n2)' }}>Open a quote to see it in context</span>
       </div>
+      {plain && onlyMine && mine?.size === 0 && <EmptyCard title={`No impact mentions ${actorLabel(C.actor).toLowerCase()}s`} sub="Clear the filter to see every impact. The match uses the wording of each finding, so check the full list too." />}
       {d.impacts.length === 0 && <EmptyCard title="No impacts" sub={d.status === 'no_changes' ? 'The scenario has no provision changes to assess.' : 'Synthesis produced no impacts for this run.'} />}
       {groups.map((gr) => (
         <div key={gr.label + gr.meta} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px 10px', margin: '8px 0 4px', flexWrap: 'wrap' }}>
             <span style={{ flex: 'none', whiteSpace: 'nowrap', fontSize: 15, fontWeight: 600 }}>{gr.label}</span>
-            <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', font: `500 12px ${FONT}`, ...TABULAR, color: 'var(--n2)' }}>{gr.meta}</span>
+            {!(C.role.plainAnalysis && isProvisionKey(gr.meta)) && (
+              <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', font: `500 12px ${FONT}`, ...TABULAR, color: 'var(--n2)' }}>{gr.meta}</span>
+            )}
           </div>
           {gr.items.map((im) => (
             <ImpactCard key={im.id} im={im} changes={changes} />
@@ -401,9 +465,11 @@ function ImpactCard({ im, changes }: { im: ImpactVM; changes: ProvisionChange[] 
                 </span>
               ))}
             </span>
-            <span style={{ whiteSpace: 'nowrap' }}>confidence {im.conf}</span>
+            <span style={{ whiteSpace: 'nowrap' }}>
+              <Confidence value={im.conf} />
+            </span>
             <span style={{ whiteSpace: 'nowrap' }}>{im.merged}</span>
-            <span style={{ whiteSpace: 'nowrap', ...MONO }}>{im.key}</span>
+            {!C.role.plainAnalysis && <span style={{ whiteSpace: 'nowrap', ...MONO }}>{im.key}</span>}
           </span>
         </span>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flex: 'none', marginTop: 2, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }}>
@@ -515,6 +581,7 @@ function ProvisionComparison() {
 }
 
 function ComparisonCard({ v, open, onToggle }: { v: ComparisonVM; open: boolean; onToggle: () => void }) {
+  const C = useConsole();
   const stats = v.missingText ? 'text unavailable' : v.identical ? 'wording unchanged' : `−${v.removed} / +${v.added} words`;
   const panel = `cmp-${v.provisionKey.replace(/[^\w-]/g, '_')}`;
   return (
@@ -528,7 +595,7 @@ function ComparisonCard({ v, open, onToggle }: { v: ComparisonVM; open: boolean;
       >
         <span style={{ font: `700 14px ${FONT}`, ...TABULAR, whiteSpace: 'nowrap' }}>{v.label}</span>
         <span style={{ font: `700 12px ${FONT}`, borderRadius: 4, padding: '3px 8px', background: 'var(--soft)', color: 'var(--n1)' }}>{humanize(v.kind)}</span>
-        <span style={{ font: `500 12px ${FONT}`, ...TABULAR, color: 'var(--n2)', overflowWrap: 'anywhere', minWidth: 0 }}>{v.provisionKey}</span>
+        {!C.role.plainAnalysis && <span style={{ font: `500 12px ${FONT}`, ...TABULAR, color: 'var(--n2)', overflowWrap: 'anywhere', minWidth: 0 }}>{v.provisionKey}</span>}
         <span style={{ marginLeft: 'auto', fontSize: 13, color: 'var(--n1)', ...TABULAR, whiteSpace: 'nowrap' }}>{stats}</span>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true" style={{ flex: 'none', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }}>
           <path d="M6 9l6 6 6-6" />
@@ -593,7 +660,10 @@ const BADGE: CSSProperties = { font: `700 12px ${FONT}`, borderRadius: 4, paddin
 function CostsTab({ d }: { d: ImpactDossier }) {
   const C = useConsole();
   const [rec, setRec] = useState<Recurrence>('one_off');
-  const [filter, setFilter] = useState<CostFilter>(NO_FILTER);
+  // In the law, costs start filtered to the reader's role in the law when someone with that role pays.
+  const [filter, setFilter] = useState<CostFilter>(() =>
+    C.role.plainAnalysis && d.costs?.records.some((r) => r.payer === C.actor) ? { ...NO_FILTER, payer: C.actor } : NO_FILTER,
+  );
   const s = d.costs;
   if (!s) return <EmptyCard title="No cost section" sub="This version has no cost step." />;
   const cov = s.coverage;
@@ -698,7 +768,7 @@ function CostsTab({ d }: { d: ImpactDossier }) {
                 <button type="button" onClick={() => C.openSource(r.source_id, `[${r.obligation_id}]`)} style={{ background: 'none', border: 'none', padding: 0, font: `600 13px ${FONT}`, ...TABULAR, color: 'var(--accInk)', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 }}>
                   {r.obligation_id}
                 </button>
-                <span style={{ font: `500 13px ${FONT}`, ...TABULAR, color: 'var(--n2)' }}>{r.provision_key}</span>
+                {!C.role.plainAnalysis && <span style={{ font: `500 13px ${FONT}`, ...TABULAR, color: 'var(--n2)' }}>{r.provision_key}</span>}
                 {r.late_added && <span style={{ ...BADGE, background: WARN_BG, color: WARN_INK }}>Added after the proposal</span>}
                 {!r.late_added && r.changed_after_proposal && <span style={{ ...BADGE, background: 'var(--soft)', color: 'var(--n1)' }}>Changed after the proposal</span>}
               </div>

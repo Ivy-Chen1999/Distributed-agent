@@ -24,12 +24,20 @@ function findingLines(f: ImpactFinding): string[] {
   return lines;
 }
 
+/** `plain`: the law interface's export, without the run id and system version (docs/ui/personas.md). */
+export interface ExportOptions {
+  plain?: boolean;
+}
+
+const metaLine = (run: RunDetail, status: string, plain: boolean | undefined, code: (s: string) => string) =>
+  plain ? `Analysis by WOMM · status ${status}` : `Run ${code(run.run_id)} · system version ${code(run.system_version)} · status ${status}`;
+
 /**
  * The run's dossier as Markdown: summary counts, every impact with its findings and evidence
  * quotes, impact chains, disagreements, open questions, failed experts and notes.
  * Returns an empty string when the run has no dossier.
  */
-export function dossierToMarkdown(run: RunDetail, title: string): string {
+export function dossierToMarkdown(run: RunDetail, title: string, opts: ExportOptions = {}): string {
   const d = run.dossier;
   if (!d) return '';
 
@@ -37,7 +45,7 @@ export function dossierToMarkdown(run: RunDetail, title: string): string {
   const push = (...lines: string[]) => out.push(...lines);
 
   push(`# ${title}`, '');
-  push(`Run \`${run.run_id}\` · system version \`${run.system_version}\` · status ${d.status}`, '');
+  push(metaLine(run, d.status, opts.plain, (s) => `\`${s}\``), '');
   if (run.grounding) push(`Evidence grounding: ${run.grounding.passed} of ${run.grounding.total} quotes found verbatim in the sources.`, '');
 
   push('## Summary', '');
@@ -119,7 +127,7 @@ code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 9pt; }
  * print dialog turns it into a PDF). Same content as {@link dossierToMarkdown}. All text is escaped.
  * Returns an empty string when the run has no dossier.
  */
-export function dossierToHtml(run: RunDetail, title: string): string {
+export function dossierToHtml(run: RunDetail, title: string, opts: ExportOptions = {}): string {
   const d = run.dossier;
   if (!d) return '';
 
@@ -128,7 +136,7 @@ export function dossierToHtml(run: RunDetail, title: string): string {
   const h: string[] = [];
 
   h.push(`<h1>${esc(title)}</h1>`);
-  h.push(`<p class="meta">Run <code>${esc(run.run_id)}</code> · system version <code>${esc(run.system_version)}</code> · status ${esc(d.status)}</p>`);
+  h.push(`<p class="meta">${metaLine(run, esc(d.status), opts.plain, (s) => `<code>${esc(s)}</code>`)}</p>`);
   if (run.grounding) h.push(`<p class="meta">Evidence grounding: ${run.grounding.passed} of ${run.grounding.total} quotes found verbatim in the sources.</p>`);
 
   h.push('<h2>Summary</h2>');

@@ -10,7 +10,9 @@ import { useLoad } from '../hooks';
 import { Dot, EmptyCard, ErrorCard, LoadingCard, OUTLINE_BTN, PRIMARY_BTN, Seg } from '../components/ui';
 import { SegmentText } from './Detail';
 import {
-  MEASURES,
+  actorLabel,
+  actorsIn,
+  measures,
   articleLabel,
   articleStats,
   comparisonKey,
@@ -19,7 +21,7 @@ import {
   heat,
   heatFill,
   heatInk,
-  latestRunFor,
+  layerRunFor,
   measureOf,
   paragraphVM,
   reasonText,
@@ -30,6 +32,7 @@ import {
   type ArticleStats,
   type Measure,
 } from '../model/act';
+import { afterRunScreen } from '../model/roles';
 import type { ArticleComparison, ComparisonRef, ImpactFinding } from '../types';
 
 const REGULATION = 'ai_act';
@@ -53,6 +56,7 @@ export function Act() {
   const [view, setView] = useState<ActView>('inline');
   const [lastDiff, setLastDiff] = useState<Exclude<ActView, 'map'>>('inline');
   const [measure, setMeasure] = useState<Measure>('changed');
+  const { actor, setActor } = C;
   const [showUnchanged, setShowUnchanged] = useState(false);
   const [focus, setFocus] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
@@ -64,12 +68,18 @@ export function Act() {
   const cmp = list.find((c) => comparisonKey(c) === key) ?? null;
   const [data, reloadData] = useLoad(cmp ? key : null, () => api.comparison(REGULATION, cmp!.before.version_id, cmp!.after.version_id));
 
-  const latest = latestRunFor(C.runs.data?.runs, cmp);
+  // Findings of the analysis the user has open (if it is of this comparison), else the latest.
+  const layer = layerRunFor(C.runs.data?.runs, cmp, C.pickedRunId);
+  const latest = layer?.run ?? null;
   const [runData] = useLoad(latest ? latest.run_id : null, () => api.run(latest!.run_id));
   const byKey = useMemo(() => findingsByKey(runData.data), [runData.data]);
 
   const articles = data.data?.articles ?? [];
-  const stats = useMemo(() => new Map(articles.map((a) => [a.provision_key, articleStats(a, byKey.get(a.provision_key)?.length ?? 0)])), [articles, byKey]);
+  const stats = useMemo(() => new Map(articles.map((a) => [a.provision_key, articleStats(a, byKey.get(a.provision_key)?.length ?? 0, actor)])), [articles, byKey, actor]);
+  const actors = useMemo(() => {
+    const list = actorsIn(articles);
+    return list.includes(actor) ? list : [actor, ...list];
+  }, [articles, actor]);
   const unplaced = useMemo(() => unplacedFindings(byKey, articles), [byKey, articles]);
 
   // The header and sidebar show the comparison being read, not the selected run scenario.
@@ -79,7 +89,6 @@ export function Act() {
     if (!cmp) return;
     setActContext({ comparison: `Whole act · ${comparisonLabel(cmp)}`, regulation: contextTitle ?? 'EU AI Act', versions: comparisonLabel(cmp) });
   }, [cmp, contextTitle, setActContext]);
-  useEffect(() => () => setActContext(null), [setActContext]);
 
   const toggle = (k: string) =>
     setExpanded((s) => {
@@ -99,6 +108,27 @@ export function Act() {
     setShowUnchanged((s) => s || stats.get(k)?.changedParagraphs === 0);
     chooseView(lastDiff);
   };
+  // A target from the Regulations screen: select its comparison, then open its article once the
+  // comparison has loaded. Applied once, then cleared.
+  const target = C.actTarget;
+  const clearTarget = C.clearActTarget;
+  useEffect(() => {
+    if (target?.comparison) {
+      setPicked(target.comparison);
+      setFocus(null);
+    }
+    if (target && !target.article) clearTarget();
+  }, [target, clearTarget]);
+  useEffect(() => {
+    // While a new comparison loads, data.data still holds the previous one: wait for the target's.
+    if (!target?.article || !data.data || comparisonKey(data.data) !== target.comparison) return;
+    const want = target.article;
+    const hit = data.data.articles.find((a) => a.kind === 'article' && (target.side === 'before' ? a.before_number === want : a.number === want));
+    clearTarget();
+    if (hit) openArticle(hit.provision_key);
+    else C.flash(`Article ${want} is not in this comparison`, 3000);
+  }, [target, data.data, key]);
+
   useEffect(() => {
     if (!focus || view === 'map') return;
     const el = document.getElementById(articleId(focus));
@@ -116,7 +146,7 @@ export function Act() {
       const r = await api.submit(sid);
       C.reloadRuns();
       C.selectRun(r.run_id);
-      C.go('pipeline');
+      C.go(afterRunScreen(C.role));
     } catch (e) {
       C.flash(describeError(e), 5000);
     } finally {
@@ -160,15 +190,25 @@ export function Act() {
           <label style={FIELD}>
             <span style={LABEL}>Measure</span>
             <select aria-label="Measure" value={measure} onChange={(e) => setMeasure(e.target.value as Measure)} style={SELECT}>
-              {MEASURES.map((m) => (
+              {measures(actor).map((m) => (
                 <option key={m.v} value={m.v}>
                   {m.label}
                 </option>
               ))}
             </select>
           </label>
+          <label style={FIELD}>
+            <span style={LABEL}>Your role</span>
+            <select aria-label="Your role in the law" value={actor} onChange={(e) => setActor(e.target.value)} style={SELECT}>
+              {actors.map((a) => (
+                <option key={a} value={a}>
+                  {actorLabel(a)}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
-        <RunStrip cmp={cmp} runId={latest?.run_id ?? null} loading={runData.status === 'loading'} error={runData.status === 'error' ? runData.error : null} findings={[...byKey.values()].reduce((n, f) => n + f.length, 0)} unplaced={unplaced.length} starting={starting} onRun={runAssessment} onOpen={(id) => { C.selectRun(id); C.go('detail'); }} />
+        <RunStrip cmp={cmp} runId={latest?.run_id ?? null} openAnalysis={layer?.source === 'open'} loading={runData.status === 'loading'} error={runData.status === 'error' ? runData.error : null} findings={[...byKey.values()].reduce((n, f) => n + f.length, 0)} unplaced={unplaced.length} starting={starting} canRun={C.role.canRun} plain={!!C.role.plainAnalysis} onRun={runAssessment} onOpen={(id) => { C.selectRun(id); C.go('detail'); }} />
       </div>
 
       {data.status === 'error' && <ErrorCard title="Cannot load the comparison" message={data.error} onRetry={reloadData} />}
@@ -179,7 +219,7 @@ export function Act() {
             <b style={{ color: 'var(--ink)' }}>{changed}</b> of {articles.length} articles and annexes changed · paragraphs matched by their number, so a moved paragraph shows as removed and added · duties from the rule-based extraction
           </p>
           {view === 'map' ? (
-            <MapView articles={articles} stats={stats} measure={measure} focus={focus} onOpen={openArticle} />
+            <MapView articles={articles} stats={stats} measure={measure} actor={actor} focus={focus} onOpen={openArticle} />
           ) : (
             <>
               <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
@@ -198,7 +238,7 @@ export function Act() {
                   {expandAll ? 'Collapse all' : 'Expand all'}
                 </button>
               </div>
-              <DiffList articles={articles} stats={stats} byKey={byKey} cmp={cmp} sbs={view === 'sbs'} showUnchanged={showUnchanged} isOpen={(k) => expandAll !== expanded.has(k)} onToggle={toggle} />
+              <DiffList articles={articles} stats={stats} byKey={byKey} cmp={cmp} sbs={view === 'sbs'} showUnchanged={showUnchanged} actor={actor} isOpen={(k) => expandAll !== expanded.has(k)} onToggle={toggle} />
             </>
           )}
         </>
@@ -209,23 +249,28 @@ export function Act() {
 
 const articleId = (key: string) => `act-${key.replace(/[^\w-]/g, '_')}`;
 
-function RunStrip(p: { cmp: ComparisonRef; runId: string | null; loading: boolean; error: string | null; findings: number; unplaced: number; starting: boolean; onRun: () => void; onOpen: (id: string) => void }) {
+function RunStrip(p: { cmp: ComparisonRef; runId: string | null; loading: boolean; error: string | null; findings: number; unplaced: number; starting: boolean; canRun: boolean; plain: boolean; openAnalysis: boolean; onRun: () => void; onOpen: (id: string) => void }) {
+  // Readers see analyses, not runs: no run ids.
+  const which = p.openAnalysis ? 'the analysis you have open' : 'the latest analysis';
+  const what = p.plain ? which : p.runId;
   const text = !p.runId
-    ? 'No finished run of this comparison yet, so no findings are shown.'
+    ? p.plain
+      ? 'No finished analysis of this comparison yet, so no findings are shown.'
+      : 'No finished run of this comparison yet, so no findings are shown.'
     : p.error
-      ? `Findings of ${p.runId} could not be loaded: ${p.error}`
+      ? `Findings of ${what} could not be loaded: ${p.error}`
       : p.loading
-        ? `Loading the findings of ${p.runId}…`
-        : `Findings of the latest run, ${p.runId}: ${p.findings}${p.unplaced ? `, of which ${p.unplaced} cite provisions outside this comparison` : ''}.`;
+        ? `Loading the findings of ${what}…`
+        : `Findings of ${p.plain ? which : `the ${p.openAnalysis ? 'open' : 'latest'} run, ${p.runId}`}: ${p.findings}${p.unplaced ? `, of which ${p.unplaced} cite provisions outside this comparison` : ''}.`;
   return (
     <div data-testid="act-run" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', fontSize: 13, color: 'var(--n1)' }}>
       <span style={{ flex: 1, minWidth: 220 }}>{text}</span>
       {p.runId && (
         <button type="button" onClick={() => p.onOpen(p.runId!)} style={OUTLINE_BTN}>
-          Open run
+          {p.plain ? 'Open analysis' : 'Open run'}
         </button>
       )}
-      {p.cmp.scenario_ids.length > 0 && (
+      {p.canRun && p.cmp.scenario_ids.length > 0 && (
         <button type="button" onClick={p.onRun} disabled={p.starting} style={{ ...PRIMARY_BTN, padding: '8px 14px', font: `700 12px ${FONT}`, opacity: p.starting ? 0.6 : 1 }}>
           {p.starting ? 'Starting…' : 'Run assessment'}
         </button>
@@ -234,19 +279,19 @@ function RunStrip(p: { cmp: ComparisonRef; runId: string | null; loading: boolea
   );
 }
 
-function DiffList({ articles, stats, byKey, cmp, sbs, showUnchanged, isOpen, onToggle }: { articles: ArticleComparison[]; stats: Map<string, ArticleStats>; byKey: Map<string, ImpactFinding[]>; cmp: ComparisonRef; sbs: boolean; showUnchanged: boolean; isOpen: (key: string) => boolean; onToggle: (key: string) => void }) {
+function DiffList({ articles, stats, byKey, cmp, sbs, showUnchanged, actor, isOpen, onToggle }: { articles: ArticleComparison[]; stats: Map<string, ArticleStats>; byKey: Map<string, ImpactFinding[]>; cmp: ComparisonRef; sbs: boolean; showUnchanged: boolean; actor: string; isOpen: (key: string) => boolean; onToggle: (key: string) => void }) {
   const shown = articles.filter((a) => showUnchanged || (stats.get(a.provision_key)?.changedParagraphs ?? 0) > 0 || byKey.has(a.provision_key));
   if (!shown.length) return <EmptyCard title="Nothing changed" sub="No article differs between the two versions." />;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       {shown.map((a) => (
-        <ArticleCard key={a.provision_key} a={a} s={stats.get(a.provision_key)!} findings={byKey.get(a.provision_key) ?? []} cmp={cmp} sbs={sbs} open={isOpen(a.provision_key)} onToggle={() => onToggle(a.provision_key)} />
+        <ArticleCard key={a.provision_key} a={a} s={stats.get(a.provision_key)!} findings={byKey.get(a.provision_key) ?? []} cmp={cmp} sbs={sbs} actor={actor} open={isOpen(a.provision_key)} onToggle={() => onToggle(a.provision_key)} />
       ))}
     </div>
   );
 }
 
-function ArticleCard({ a, s, findings, cmp, sbs, open, onToggle }: { a: ArticleComparison; s: ArticleStats; findings: ImpactFinding[]; cmp: ComparisonRef; sbs: boolean; open: boolean; onToggle: () => void }) {
+function ArticleCard({ a, s, findings, cmp, sbs, actor, open, onToggle }: { a: ArticleComparison; s: ArticleStats; findings: ImpactFinding[]; cmp: ComparisonRef; sbs: boolean; actor: string; open: boolean; onToggle: () => void }) {
   const title = `${articleLabel(a)}${a.heading ? ` · ${a.heading}` : ''}`;
   const body = `${articleId(a.provision_key)}-body`;
   return (
@@ -265,7 +310,7 @@ function ArticleCard({ a, s, findings, cmp, sbs, open, onToggle }: { a: ArticleC
             {s.changedParagraphs > 0 && ` · ${s.changedParagraphs} of ${s.paragraphs} paragraphs`}
           </span>
           <span style={{ marginLeft: 'auto', display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-          {s.roleDuties > 0 && <span style={CHIP}>{s.roleDuties} deployer {s.roleDuties === 1 ? 'duty' : 'duties'}</span>}
+          {s.actorDuties > 0 && <span style={CHIP}>{s.actorDuties} {actorLabel(actor).toLowerCase()} {s.actorDuties === 1 ? 'duty' : 'duties'}</span>}
           {s.dateMoved > 0 && <span style={CHIP}>{s.dateMoved} with a moved date</span>}
           {findings.length > 0 && <span style={{ ...CHIP, background: 'var(--accSoft)', color: 'var(--ink)' }}>{findings.length} {findings.length === 1 ? 'finding' : 'findings'}</span>}
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true" style={{ flex: 'none', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }}>
@@ -283,12 +328,12 @@ function ArticleCard({ a, s, findings, cmp, sbs, open, onToggle }: { a: ArticleC
         </div>
       )}
       {a.paragraphs.map((p, i) => {
-        const vm = paragraphVM(p);
+        const vm = paragraphVM(p, actor);
         const meta = (
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 2 }}>
             {vm.change !== 'unchanged' && <span style={CHIP}>{vm.change}</span>}
-            {vm.roleDuties > 0 && <span style={CHIP}>deployer ×{vm.roleDuties}</span>}
-            {vm.duties > vm.roleDuties && <span style={CHIP}>duties ×{vm.duties}</span>}
+            {vm.actorDuties > 0 && <span style={CHIP}>{actorLabel(actor).toLowerCase()} ×{vm.actorDuties}</span>}
+            {vm.duties > vm.actorDuties && <span style={CHIP}>duties ×{vm.duties}</span>}
             {vm.withheld.map((r) => (
               <span key={r} style={CHIP}>
                 {reasonText(r)}
@@ -344,10 +389,10 @@ function FindingsList({ findings }: { findings: ImpactFinding[] }) {
   );
 }
 
-function MapView({ articles, stats, measure, focus, onOpen }: { articles: ArticleComparison[]; stats: Map<string, ArticleStats>; measure: Measure; focus: string | null; onOpen: (key: string) => void }) {
+function MapView({ articles, stats, measure, actor, focus, onOpen }: { articles: ArticleComparison[]; stats: Map<string, ArticleStats>; measure: Measure; actor: string; focus: string | null; onOpen: (key: string) => void }) {
   const val = (a: ArticleComparison) => measureOf(stats.get(a.provision_key)!, measure);
   const max = Math.max(0, ...articles.map(val));
-  const label = MEASURES.find((m) => m.v === measure)!.label;
+  const label = measures(actor).find((m) => m.v === measure)!.label;
   const groups: [string, ArticleComparison[]][] = [
     ['Articles', articles.filter((a) => a.kind === 'article')],
     ['Annexes', articles.filter((a) => a.kind === 'annex')],

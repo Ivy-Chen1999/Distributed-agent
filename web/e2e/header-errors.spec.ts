@@ -85,23 +85,6 @@ test.describe('errors', () => {
     await expect(page.getByText('Recent runs', { exact: true })).toBeVisible();
   });
 
-  test('ask 502 shows the error in the chat', async ({ page }) => {
-    await finishedRun(page.request, SCENARIOS.sme);
-    await page.route('**/ask', (route) => route.fulfill({ status: 502, json: { detail: 'could not answer: [timeout] synthesis model timed out' } }));
-    await openConsole(page);
-    await go(page, 'Ask WOMM');
-    await page.getByRole('button', { name: 'Show the disagreement' }).click();
-    const err = page.locator('main [aria-live="polite"] > div').last();
-    // The server's reason is shown (regression: a 502 from the API was reported as "Cannot reach the WOMM API").
-    await expect(err).toContainText('Could not answer: [timeout] synthesis model timed out');
-    await expect(err.locator('div').first()).toHaveCSS('border-top-color', 'rgb(229, 72, 77)');
-    // A 502 without an API body (proxy in front of a dead API) still says the API is unreachable.
-    await page.unroute('**/ask');
-    await page.route('**/ask', (route) => route.fulfill({ status: 502, body: '' }));
-    await page.getByRole('button', { name: 'Which experts ran?' }).click();
-    await expect(page.locator('main [aria-live="polite"] > div').last()).toContainText('Could not answer: Cannot reach the WOMM API (502). Is it running?');
-  });
-
   test('a 401 mid-session brings the token prompt back', async ({ page }) => {
     await finishedRun(page.request, SCENARIOS.sme);
     await openConsole(page);
