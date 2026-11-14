@@ -110,3 +110,39 @@ FTE basis §6.2).
 |---|---|---|
 | `v1.0-cost.yaml` | `sv_42b86789cc87` | `v1.0-unscoped` plus the cost step (cost records per duty in a separate dossier section); development runs on claude_code, dev-only. |
 | `v1.0-cost-api.yaml` | `sv_59ab261bad30` | api twin of `v1.0-cost.yaml`, for the formal cost check once an API key exists. |
+
+## 2026-11-14 candidate: expert prompts that list every affected party (not promoted)
+
+| File | Version id | Purpose |
+|---|---|---|
+| `v1.2-candidate.yaml` | `sv_b66424115433` | `v1.1-unscoped` with the expert prompts in `prompts/v1.2/`; development runs on claude_code, dev-only. |
+| `v1.2-candidate-api.yaml` | `sv_05c19f3aff94` | api twin of `v1.2-candidate.yaml`, for a comparison on the production model. |
+
+Hand-written, not proposed by the self-evolution cycle. Diagnosis on the v1.1 eval of
+2026-11-14 (13 cases, claude_code): every provision the missed impacts needed was retrieved
+(planner key recall 0.99), and synthesis kept 90 of the 91 expert findings on groups such as
+consumers, workers or the environment. The experts wrote almost only about the addressees:
+compliance-cost references 87% found, consumer and user references 12%, social and environmental
+11%, public enforcement cost 33%. They cited the explanatory memorandum in 17 of about 1,050
+evidence items. The candidate prompts first list every affected party (protected groups, the
+public bodies that run and fund the rules, competitors and downstream businesses, society and the
+environment, non-EU actors) and allow the memorandum as evidence for groups a provision does not
+name.
+
+Evidence, claude_code, dev-only (v1.1 / v1.2 runs: 26 / 27; mostly 2 per case):
+
+| Split | Coverage v1.1 → v1.2 | Paired difference | Cases up / down |
+|---|---|---|---|
+| train (10) | 0.57 → 0.70 | +0.12, case bootstrap 95% [+0.03, +0.22] | 9 / 1 |
+| val (3) | 0.54 → 0.47 | −0.07, [−0.19, +0.12] | 1 / 2 |
+
+On train the beneficiary categories rose (consumers and users 23% → 52%, social and environmental
+17% → 42%, public enforcement cost 30% → 62%) and compliance cost did not fall. Grounding stayed at
+0.99–1.00; precision 0.19 → 0.18. The prompts were written after reading the train misses, so the
+train gain is biased upward; val does not confirm it. Cost: about 2.5 more minutes and 13% more
+tokens per run. One v1.2 Gigabit run failed because synthesis exceeded its 480 s timeout (more
+findings to merge). Token use per expert call varies up to threefold between identical claude_code
+runs (structured-output retries inside the CLI), for both versions.
+
+Not promoted. Next evidence needed: the api twins on val (and the holdout gate) before any
+deployment; fewer, deduplicated expert findings would also cut the synthesis load.

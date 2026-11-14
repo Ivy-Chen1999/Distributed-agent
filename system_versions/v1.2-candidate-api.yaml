@@ -1,0 +1,45 @@
+name: v1.2-candidate-api
+description: >
+  api twin of v1.2-candidate.yaml. Hand-written candidate (not proposed by the self-evolution
+  cycle): v1.1-unscoped-api with the three expert prompts in prompts/v1.2/. Each expert first
+  lists every affected party, including the groups a provision protects or serves, the public
+  bodies that run and fund it, competitors and downstream businesses, society and the
+  environment, and may cite the explanatory memorandum for impacts on groups the provision does
+  not name. Motivation: on the v1.1 eval (2026-11-14) the experts reached 87% of compliance-cost
+  references but 12% of consumer and user references, with every needed provision retrieved.
+planner:
+  backend: api
+  model: openai:gpt-6.1-sol
+  reasoning_effort: medium
+  prompt: prompts/planner.md
+  explore_prompt: prompts/v1/planner_explore.md
+synthesis:
+  backend: api
+  model: openai:gpt-6.1-sol
+  reasoning_effort: medium
+  prompt: prompts/v0.3/synthesis.md
+  timeout_s: 480
+judge:
+  backend: api
+  model: openai:gpt-6.1-sol
+  reasoning_effort: medium
+  prompt: prompts/judge_coverage_v2.md
+experts:
+  - id: legal
+    domain: legal
+    role: {backend: api, model: openai:gpt-6.1-sol, reasoning_effort: medium, prompt: prompts/v1.2/legal.md, timeout_s: 480}
+  - id: fiscal
+    domain: fiscal
+    role: {backend: api, model: openai:gpt-6.1-sol, reasoning_effort: medium, prompt: prompts/v1.2/fiscal.md, timeout_s: 480}
+  - id: stakeholder
+    domain: stakeholder
+    role: {backend: api, model: openai:gpt-6.1-sol, reasoning_effort: medium, prompt: prompts/v1.2/stakeholder.md, timeout_s: 480}
+router:
+  mode: shadow
+  decider: stub
+max_parallel_llm_calls: 3
+retrieval:
+  max_provisions: 8
+  max_prompt_chars: 100000
+memorandum:
+  mode: on_demand

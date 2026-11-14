@@ -33,6 +33,8 @@ NEW_FILES = {
     "v1.0-unscoped-api.yaml",
     "v1.1-unscoped.yaml",
     "v1.1-unscoped-api.yaml",
+    "v1.2-candidate.yaml",
+    "v1.2-candidate-api.yaml",
     "v1.0-cost.yaml",
     "v1.0-cost-api.yaml",
 }
@@ -54,12 +56,18 @@ API_TWINS = {
     "v1.0-scoped-api.yaml": "v1.0-scoped.yaml",
     "v1.0-unscoped-api.yaml": "v1.0-unscoped.yaml",
     "v1.1-unscoped-api.yaml": "v1.1-unscoped.yaml",
+    "v1.2-candidate-api.yaml": "v1.2-candidate.yaml",
 }
 # Whole-act deployment versions: v1.0-unscoped plus a 100k explore cap and the on-demand
 # memorandum (explore mode only).
 V11_PINNED_IDS = {
     "v1.1-unscoped.yaml": "sv_4d2cd9bd8d47",
     "v1.1-unscoped-api.yaml": "sv_d67e9df8e4e4",
+}
+# Hand-written candidate (2026-11-14): v1.1-unscoped with the prompts/v1.2/ expert prompts.
+V12_PINNED_IDS = {
+    "v1.2-candidate.yaml": "sv_b66424115433",
+    "v1.2-candidate-api.yaml": "sv_05c19f3aff94",
 }
 
 ROLE = {"backend": "fake", "model": "fake-1", "prompt": "prompts/p.md"}
@@ -98,6 +106,27 @@ def test_new_version_ids_are_pinned(name):
 @pytest.mark.parametrize("name", sorted(V11_PINNED_IDS))
 def test_v11_version_ids_are_pinned(name):
     assert load_system_version(SV_DIR / name, REPO_ROOT).version_id == V11_PINNED_IDS[name]
+
+
+@pytest.mark.parametrize("name", sorted(V12_PINNED_IDS))
+def test_v12_version_ids_are_pinned(name):
+    assert load_system_version(SV_DIR / name, REPO_ROOT).version_id == V12_PINNED_IDS[name]
+
+
+def test_v12_differs_from_v11_only_in_the_expert_prompts():
+    for name, base in (
+        ("v1.2-candidate.yaml", "v1.1-unscoped.yaml"),
+        ("v1.2-candidate-api.yaml", "v1.1-unscoped-api.yaml"),
+    ):
+        got = load_system_version(SV_DIR / name, REPO_ROOT).spec.model_dump()
+        ref = load_system_version(SV_DIR / base, REPO_ROOT).spec.model_dump()
+        for spec in (got, ref):
+            spec.pop("name"), spec.pop("description", None)
+        for e in got["experts"]:
+            assert e["role"].pop("prompt") == f"prompts/v1.2/{e['id']}.md"
+        for e in ref["experts"]:
+            e["role"].pop("prompt")
+        assert got == ref
 
 
 @pytest.mark.parametrize("name", sorted(COST_PINNED_IDS))
