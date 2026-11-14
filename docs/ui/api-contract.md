@@ -13,6 +13,9 @@ Field shapes come from the Pydantic models; JSON Schemas are in `docs/ui/schema/
 
 ### `GET /health` (public)
 `{ "status": "ok"|"degraded", "system_version": "sv_…", "backend_ready": bool }` — 503 when not ready.
+Not ready means the backends failed at startup, or the provider rejected the API key (401/403 on
+a free model-list request, rechecked at most every ten minutes). `GET /system` gives the reason in
+`backend_error`, and `POST /runs` answers 503 with it.
 
 ### `GET /system`
 ```json

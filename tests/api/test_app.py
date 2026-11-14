@@ -168,3 +168,19 @@ def test_queue_full_returns_429(database_url):
         )
         r = c.post("/runs", json={"scenario_id": "eval_sme_impacts"}, headers=AUTH)
         assert r.status_code == 429
+
+
+def test_a_rejected_provider_key_shows_on_health_system_and_submit(database_url):
+    from womm.api.provider_keys import KeyCheck
+
+    async def rejected(provider, key):
+        return 401
+
+    check = KeyCheck({"openai": "sk-x"}, probe=rejected)
+    with _client(database_url, {}, key_check=check) as c:
+        health = c.get("/health")
+        assert health.status_code == 503 and health.json()["backend_ready"] is False
+        system = c.get("/system", headers=AUTH).json()
+        assert system["backend_ready"] is False and "rejected (HTTP 401)" in system["backend_error"]
+        r = c.post("/runs", json={"scenario_id": "eval_sme_impacts"}, headers=AUTH)
+        assert r.status_code == 503 and "rejected" in r.json()["detail"]

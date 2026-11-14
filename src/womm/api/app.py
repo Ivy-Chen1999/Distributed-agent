@@ -41,6 +41,7 @@ from womm.api.evolution import (
 )
 from womm.api.jobs import JobRunner, QueueFull
 from womm.api.labels import add_label_routes
+from womm.api.provider_keys import KeyCheck
 from womm.api.traces import TraceLinks
 from womm.backends import prepare_backends
 from womm.config import REPO_ROOT, ConfigError, Settings, load_settings
@@ -85,6 +86,14 @@ class RunAccepted(BaseModel):
 _bearer = HTTPBearer(auto_error=False)
 
 
+async def backend_problem(state) -> str | None:
+    """Why runs cannot start: a startup failure, or a provider key that is no longer accepted."""
+    if state.backend_error:
+        return state.backend_error
+    check: KeyCheck | None = getattr(state, "key_check", None)
+    return await check.error() if check else None
+
+
 def create_app(
     settings: Settings | None = None,
     *,
@@ -98,6 +107,7 @@ def create_app(
     web_dist: Path | None = WEB_DIST,
     promotion_policy_path: Path | None = PROMOTION_POLICY,
     corpus: Corpus | None = None,
+    key_check: KeyCheck | None = None,
 ) -> FastAPI:
     settings = settings or load_settings()
     if not settings.api_token or len(settings.api_token) < MIN_TOKEN_LENGTH:
@@ -132,6 +142,10 @@ def create_app(
         )
         app.state.self_check = getattr(app.state, "self_check", None)
         app.state.backend_error = backend_error
+        # Only the production path (backends built here) probes the provider; tests inject one.
+        app.state.key_check = key_check or (
+            KeyCheck.for_version(sv, settings) if backends is None else None
+        )
         app.state.orphans_reconciled = orphans
         app.state.runner = JobRunner(
             db=db, sv=sv, fixture=fixture, backends=runner_backends,
@@ -173,7 +187,7 @@ def create_app(
     async def health(request: Request) -> JSONResponse:
         """503 while backends are unavailable, so a deploy that cannot run anything is not
         promoted by the platform health check."""
-        ready = request.app.state.backend_error is None
+        ready = await backend_problem(request.app.state) is None
         body = {"status": "ok" if ready else "degraded", "system_version": sv.version_id,
                 "backend_ready": ready}  # fmt: skip
         return JSONResponse(body, status_code=200 if ready else 503)
@@ -186,7 +200,7 @@ def create_app(
 
     @app.post("/runs", dependencies=auth, status_code=status.HTTP_202_ACCEPTED)
     async def submit(body: RunRequest, request: Request) -> RunAccepted:
-        if err := request.app.state.backend_error:
+        if err := await backend_problem(request.app.state):
             raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, f"backend unavailable: {err}")
         runner: JobRunner = request.app.state.runner
         run_sv = sv
@@ -285,6 +299,7 @@ def create_app(
     async def system(request: Request) -> dict:
         state = request.app.state
         report = getattr(state, "self_check", None)
+        problem = await backend_problem(state)
         return {
             "version_id": sv.version_id,
             "name": sv.spec.name,
@@ -306,8 +321,8 @@ def create_app(
             "router": {"mode": sv.spec.router.mode, "decider": sv.spec.router.decider},
             "max_parallel_llm_calls": sv.spec.max_parallel_llm_calls,
             "available_backends": sorted(state.runner.backends),
-            "backend_ready": state.backend_error is None,
-            "backend_error": state.backend_error,
+            "backend_ready": problem is None,
+            "backend_error": problem,
             "code": state.runner.code.model_dump(),
             "self_check": (
                 {"passed": report.passed, "checks": report.checks, "problems": report.problems}
