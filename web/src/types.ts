@@ -304,6 +304,8 @@ export interface EventsPage {
 export interface Scenario {
   scenario_id: string;
   kind: 'evaluation' | 'demo' | string;
+  /** preset: a fixed provision list; explore: the Planner picks provisions from the whole act. */
+  mode: 'preset' | 'explore';
   description: string;
   before_version: string | null;
   after_version: string;

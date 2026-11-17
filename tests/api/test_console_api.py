@@ -95,14 +95,18 @@ def test_console_served_when_built(database_url, tmp_path):
 EXPLORE_SCENARIOS = {"eval_whole_proposal", "consolidated_whole_act", "omnibus_2026"}
 
 
-def test_explore_scenarios_hidden_from_console_but_runnable(database_url):
+def test_explore_scenarios_listed_with_their_mode_and_runnable(database_url):
     plan = {
         "focus_areas": [{"provision_keys": ["ai_act/art/26"], "question": "q", "rationale": "r"}]
     }
     script = {"planner": [plan], "expert": [{"findings": []}] * 3, "synthesis": [synthesis_all()]}
     with _client(database_url, script) as c:
-        listed = {s["scenario_id"] for s in c.get("/scenarios", headers=AUTH).json()}
-        assert "eval_sme_impacts" in listed and not listed & EXPLORE_SCENARIOS
+        # The console needs explore scenarios to name a whole-act run; its picker filters on mode.
+        modes = {s["scenario_id"]: s["mode"] for s in c.get("/scenarios", headers=AUTH).json()}
+        assert modes["eval_sme_impacts"] == "preset"
+        assert {sid: modes.get(sid) for sid in EXPLORE_SCENARIOS} == dict.fromkeys(
+            EXPLORE_SCENARIOS, "explore"
+        )
         for sid in EXPLORE_SCENARIOS:
             assert c.get(f"/scenarios/{sid}/sources", headers=AUTH).status_code == 404
         r = c.post("/runs", json={"scenario_id": "consolidated_whole_act"}, headers=AUTH)

@@ -169,7 +169,11 @@ export function App() {
 
   const scenarioId = run?.scenario_id ?? runs.data?.runs?.find((r) => r.run_id === runId)?.scenario_id ?? DEFAULT_SCENARIO;
   const scenario = scenarios.data?.find((s) => s.scenario_id === scenarioId) ?? null;
-  const [sources, reloadSources] = useLoad(authed ? `sources:${scenarioId}:${token}` : null, () => api.sources(scenarioId));
+  // A whole-act (explore) scenario has no fixed sources; its quotes come from run.citable_sources.
+  // Wait for the scenario list (or its failure) so a whole-act run never asks for sources.
+  const explore = scenario?.mode === 'explore';
+  const scenariosKnown = scenarios.data !== undefined || scenarios.status === 'error';
+  const [sources, reloadSources] = useLoad(authed && scenariosKnown && !explore ? `sources:${scenarioId}:${token}` : null, () => api.sources(scenarioId));
 
   const systemExperts = system.data?.experts.map((e) => e.id);
   const experts = useMemo(() => expertsFor(runData.events, run, systemExperts), [runData.events, run, systemExperts?.join(',')]);
@@ -198,7 +202,7 @@ export function App() {
   const active = !!run && !isFinished(run.status);
   const now = useNow(active);
   const clock = replay.active ? replay.clock : trace.finished ? trace.end : liveClock(trace, now);
-  const rv: RunView = { trace, clock, run, system: system.data ?? null, scenario, changesCount: sources.data?.changes.length ?? scenario?.provision_keys.length };
+  const rv: RunView = { trace, clock, run, system: system.data ?? null, scenario, changesCount: sources.data?.changes.length ?? (explore ? undefined : scenario?.provision_keys.length) };
 
   const runLabel = replay.active
     ? 'Replaying'

@@ -180,6 +180,25 @@ describe('WOMM Console', () => {
       expect(screen.queryByTestId('provision-comparison')).toBeNull();
     });
 
+    it('is hidden for a whole-act run, whose comparison lives on the Act screen', async () => {
+      const run = { ...sampleRun(), scenario_id: 'omnibus_2026' };
+      mock = mockApi({
+        '/runs': (c: MockCall) => {
+          const path = c.url.split('?')[0];
+          if (c.method !== 'GET') return undefined;
+          if (path === '/runs') return { status: 200, body: { runs: [{ run_id: run.run_id, scenario_id: run.scenario_id, status: 'succeeded', system_version: run.system_version, duration_s: 427, impacts: 18, grounding: run.grounding }] } };
+          if (path === `/runs/${run.run_id}`) return { status: 200, body: run };
+          return undefined;
+        },
+      });
+      vi.stubGlobal('fetch', vi.fn(mock.fn));
+      await bootDemo();
+      await screen.findByRole('tab', { name: /Impacts/ });
+      expect(screen.queryByTestId('provision-comparison')).toBeNull();
+      // An explore scenario has no fixed sources, so the console never asks for them.
+      expect(mock.calls.some((c) => c.url.startsWith('/scenarios/omnibus_2026/sources'))).toBe(false);
+    });
+
     it('shows the demo diff side by side with marked deletions and additions', async () => {
       mock = mockApi(demoRoutes());
       vi.stubGlobal('fetch', vi.fn(mock.fn));

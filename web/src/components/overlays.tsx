@@ -139,11 +139,14 @@ export function RunPicker({
   onRun: (scenarioId: string) => void;
   onClose: () => void;
 }) {
-  const list = scenarios.data ?? [];
+  // Whole-act (explore) scenarios start from the Act screen, not from this picker.
+  const list = (scenarios.data ?? []).filter((s) => s.mode !== 'explore');
   // Until the user clicks a scenario, follow `initial` (the current run's scenario): the picker can
   // open before the runs or scenarios have loaded, and must not freeze the fallback it saw then.
   const [chosen, setPick] = useState<string | null>(null);
   const pick = chosen ?? list.find((s) => s.scenario_id === initial)?.scenario_id ?? list[0]?.scenario_id ?? initial;
+  // Only a listed (preset) scenario can start: while the list loads, `initial` may be a whole-act one.
+  const runnable = list.some((s) => s.scenario_id === pick);
   return (
     <Modal label="Start a run" onClose={onClose}>
       <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -177,7 +180,7 @@ export function RunPicker({
         })}
       </div>
       {staged && <div style={{ fontSize: 13, color: 'var(--n1)', lineHeight: 1.5 }}>With staged settings: {staged}. The run gets a new system version id.</div>}
-      <HButton onClick={() => pick && onRun(pick)} disabled={busy || !pick} style={{ ...PRIMARY_BTN, alignSelf: 'flex-start', opacity: busy ? 0.7 : 1 }} hover={{ background: ACC_HOVER }}>
+      <HButton onClick={() => runnable && onRun(pick)} disabled={busy || !runnable} style={{ ...PRIMARY_BTN, alignSelf: 'flex-start', opacity: busy || !runnable ? 0.7 : 1 }} hover={{ background: ACC_HOVER }}>
         <svg width="13" height="13" viewBox="0 0 24 24" fill="#0F0F0F">
           <path d="M6 4l14 8-14 8z" />
         </svg>

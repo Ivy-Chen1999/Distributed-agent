@@ -3,7 +3,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { RunPicker, SourcePanel } from './overlays';
 import type { Loadable } from '../hooks';
 import type { Scenario, ScenarioSources, SourceDoc } from '../types';
-import { demoScenario, scenarios } from '../test/fixtures';
+import { demoScenario, omnibusScenario, scenarios } from '../test/fixtures';
 
 const scenarioSources: Loadable<ScenarioSources> = {
   status: 'ready',
@@ -51,7 +51,7 @@ describe('SourcePanel', () => {
 });
 
 describe('RunPicker', () => {
-  const ready: Loadable<Scenario[]> = { status: 'ready', data: [...scenarios, demoScenario] };
+  const ready: Loadable<Scenario[]> = { status: 'ready', data: [...scenarios, demoScenario, omnibusScenario] };
   const picker = (initial: string) => <RunPicker scenarios={ready} initial={initial} staged={null} busy={false} onRun={() => {}} onClose={() => {}} />;
   const checked = () => within(screen.getByRole('dialog', { name: 'Start a run' })).getByRole('radio', { checked: true }).textContent;
 
@@ -67,6 +67,21 @@ describe('RunPicker', () => {
     const { rerender } = render(picker('eval_sme_impacts'));
     fireEvent.click(screen.getByRole('radio', { name: /eval_provider_compliance_costs/ }));
     rerender(picker('demo_penalties_amended'));
+    expect(checked()).toMatch(/eval_provider_compliance_costs/);
+  });
+
+  it('cannot start the current whole-act scenario while the scenarios are still loading', () => {
+    render(<RunPicker scenarios={{ status: 'loading' }} initial="omnibus_2026" staged={null} busy={false} onRun={() => {}} onClose={() => {}} />);
+    const dialog = within(screen.getByRole('dialog', { name: 'Start a run' }));
+    expect((dialog.getByRole('button', { name: /^Run/ }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('lists preset scenarios only: a whole-act scenario starts from the Act screen', () => {
+    render(picker('omnibus_2026'));
+    const dialog = within(screen.getByRole('dialog', { name: 'Start a run' }));
+    expect(dialog.queryByRole('radio', { name: /omnibus_2026/ })).toBeNull();
+    expect(dialog.getAllByRole('radio')).toHaveLength(3);
+    // The current run's whole-act scenario is not offered, so the first preset is chosen.
     expect(checked()).toMatch(/eval_provider_compliance_costs/);
   });
 });
