@@ -17,33 +17,45 @@ const replayBeats = Array.from({ length: 16 }, (_, i) => ({
   fade: 0.35,
   cam: 'full',
   caption:
-    i < 5 ? 'Replaying the real 6-minute run at 8×: the planner reads the diff, the router scores each expert.'
-    : i < 10 ? 'Legal, Fiscal and Stakeholder experts run in parallel, each an isolated Claude call.'
-    : 'Findings land on one shared impact board. Every quote is checked word for word against the source.',
+    i < 5 ? 'Replaying the real 7-minute run at 8×: the Impact Planner picks the provisions to study; the Jev router runs in shadow mode, so every expert is called.'
+    : i < 10 ? 'The Legal, Fiscal and Stakeholder experts read the law in parallel.'
+    : 'Findings land on one shared board, then every quote is checked word for word against the source.',
 }));
 
+// Part 1 follows the reader (the law), part 2 the engineer (the system), over the same real run:
+// a whole-act analysis of the AI Act Omnibus (Regulation (EU) 2024/1689 → consolidated 27 July 2026).
 const TIMELINE = [
-  { kind: 'title', dur: 4.5, kicker: 'Multi-agent regulatory impact assessment', title: 'WOMM', sub: 'Reads a change to the EU AI Act and writes an impact dossier in which every claim traces back to a quote in the law.', meta: 'A real run · real Claude output · v0' },
-  { shot: 'overview', dur: 3.4, cam: 'full', caption: 'The console, showing the latest real run.' },
-  { shot: 'overview', dur: 4.0, cam: 'tiles', ring: 'tiles', caption: 'At a glance: status, wall-clock time, tokens, cost and grounding. 70 of 71 quotes were found verbatim in the source.' },
+  { kind: 'title', dur: 4.5, kicker: 'Multi-agent regulatory impact assessment', title: 'WOMM', sub: 'Reads a change to EU law and writes an impact analysis in which every claim traces back to a quote in the law.', meta: 'A real run on the AI Act Omnibus 2026 · v1.1' },
+  { kind: 'title', dur: 2.6, kicker: 'Part 1', title: 'The law', sub: 'What changed in a regulation, for whom, and what the analysis found.', meta: '' },
+  { shot: 'regs', dur: 3.2, cam: 'full', ring: 'find', caption: 'Start from the law: find a regulation by name, number or a EUR-Lex link.' },
+  { shot: 'act', dur: 3.8, cam: 'full', ring: 'stat', caption: 'The Act screen compares two versions of the whole AI Act. The 2026 Omnibus changed 45 of its 133 articles and annexes.' },
+  { shot: 'act', dur: 3.8, cam: 'controls', ring: 'run', caption: 'Choose the comparison, the view and your role. Run assessment starts a whole-act analysis.' },
+  { shot: 'act', dur: 3.4, cam: 'full', ring: 'art', caption: 'After the analysis, every article shows how many findings the agents made about it.' },
+  { shot: 'act-open', dur: 3.6, cam: [264, 540, 1308, 736], caption: 'Open an article: what the amendment added or changed, paragraph by paragraph.' },
+  { shot: 'act-open', dur: 4.8, cam: 'found', ring: 'found', caption: 'Then what the Legal, Fiscal and Stakeholder experts found in it, and for whom.' },
+  { shot: 'act-map', dur: 3.6, cam: 'full', ring: 'grid', caption: 'The map: 46 findings across the act, shaded by article.' },
+  { shot: 'act-map', dur: 3.8, cam: 'top', ring: 'top', caption: 'The AI Office’s new enforcement powers (Articles 75–75d) and the regulatory sandboxes draw the most findings.' },
+  { shot: 'act-side', dur: 4.4, cam: 'art:top', caption: 'Word by word: Article 99 on penalties, adopted text against the consolidated text.' },
+  { shot: 'analysis', dur: 3.2, cam: 'full', ring: 'head', caption: 'The analysis: 18 impacts and 5 open questions for an analyst to settle.' },
+  { shot: 'analysis-open', dur: 5.2, cam: 'impact', ring: 'impact', caption: 'Each impact merges findings from several experts. Each finding traces back: change → affected actor → mechanism → evidence quote → source.' },
+  { shot: 'source', dur: 4.2, cam: 'panel', ring: 'mark', caption: 'One click shows the quote highlighted in the legal text. All 68 quotes in this run matched word for word.' },
+  { shot: 'switch', dur: 3.4, cam: 'full', ring: 'toggle', caption: 'The same run from the other side: switch to The system to see how WOMM produced it.' },
+  { kind: 'title', dur: 2.6, kicker: 'Part 2', title: 'The system', sub: 'How WOMM produced the analysis: runs, agents, evaluation and settings.', meta: '' },
+  { shot: 'overview', dur: 3.0, cam: 'full', caption: 'The latest run at a glance.' },
+  { shot: 'overview', dur: 4.0, cam: 'tiles', ring: 'tiles', caption: 'This run took 7 minutes and 228.5k tokens; 68 of 68 quotes were verified.' },
   { shot: 'overview', dur: 3.6, cam: 'latency', ring: 'latency', caption: 'How long each agent took. The three experts run in parallel.' },
-  { shot: 'overview', dur: 3.6, cam: 'review', ring: 'review', caption: 'What an analyst should look at: disagreements, open questions, failed experts.' },
-  { shot: 'pipeline', dur: 4.2, cam: 'graph', ring: 'graph', caption: 'The pipeline: diff → Impact Planner → router (Jev) → three experts → impact board → citation check → synthesis → dossier.' },
+  { shot: 'overview', dur: 5.0, cam: 'evalc', ring: 'evalc', caption: 'The evaluation of this system version on 3 validation cases: 20 of 36 reference impacts found, 3 of 3 known omissions addressed.' },
+  { shot: 'overview', dur: 3.6, cam: 'evalc', ring: 'langsmith', caption: 'Each published evaluation links to its experiment in LangSmith, case by case.' },
+  { shot: 'pipeline', dur: 4.2, cam: 'graph', ring: 'graph', caption: 'The pipeline: regulatory diff → Impact Planner → router (Jev) → three experts → shared board → citation check → synthesis → dossier.' },
   ...replayBeats,
-  { shot: 'pipeline', dur: 3.8, cam: 'node', ring: 'node', caption: 'Every node records its backend, model, prompt hash, tokens and latency.' },
-  { shot: 'detail', dur: 3.2, cam: 'head', ring: 'head', caption: 'The Impact Dossier: 30 impacts, open questions and disagreements.' },
-  { shot: 'detail-open', dur: 4.8, cam: 'impact', ring: 'impact', caption: 'Each impact merges findings from several experts. Every finding traces back: change → affected actor → mechanism → evidence quote → source.' },
-  { shot: 'source', dur: 4.2, cam: 'panel', ring: 'mark', caption: 'One click shows the quote highlighted in the original legal text.' },
-  { shot: 'disagreements', dur: 3.6, cam: 'body', ring: 'body', caption: 'Disagreements between experts are kept, not averaged away.' },
-  { shot: 'questions', dur: 3.6, cam: 'body', ring: 'body', caption: 'Open questions for an analyst, including evidence that could not be verified.' },
-  { shot: 'agents', dur: 3.6, cam: 'cards', caption: 'One card per agent: prompt file and hash, model, latency, tokens and cost.' },
-  { shot: 'topology', dur: 4.0, cam: 'graph', ring: 'graph', caption: 'How data flows between agents. Dashed boxes are isolated `claude -p` subprocesses.' },
-  { shot: 'ask-before', dur: 2.8, cam: 'full', ring: 'input', caption: 'Ask WOMM answers questions from this run’s dossier only.' },
-  { shot: 'ask-after', dur: 5.2, cam: 'answer', ring: 'answer', caption: 'A real answer from Claude, citing the impacts it is based on.' },
-  { shot: 'settings', dur: 3.6, cam: 'full', caption: 'Settings: the content-addressed system version, a backend per role, the router mode and the isolation self-check.' },
-  { shot: 'overview-dark', dur: 3.4, cam: 'full', caption: 'Dark theme. Every screen passes an automated WCAG 2.1 AA check.' },
-  { kind: 'phones', dur: 4.4, shots: ['phone-overview', 'phone-pipeline', 'phone-topology'], caption: 'Responsive down to 390 px phones.' },
-  { kind: 'title', dur: 4.6, kicker: 'WOMM v0', title: 'Every impact traces back\nto the law.', sub: 'LangGraph · Pydantic · LangSmith · Jev · Railway', meta: 'github.com/Ivy-Chen1999/Distributed-agent' },
+  { shot: 'pipeline', dur: 3.6, cam: 'node', ring: 'node', caption: 'Every node records its backend, model, prompt hash, tokens and latency.' },
+  { shot: 'agents', dur: 3.4, cam: 'cards', caption: 'One card per agent: prompt file and hash, model, latency, tokens and cost.' },
+  { shot: 'topology', dur: 3.4, cam: 'graph', ring: 'graph', caption: 'How data flows between the agents.' },
+  { shot: 'settings', dur: 4.0, cam: 'full', caption: 'Settings: the content-addressed system version and a backend per role. The LLM backend is pluggable: Claude here, the OpenAI API in production.' },
+  { shot: 'act-dark', dur: 2.6, cam: 'full', caption: 'Dark theme. Every screen passes an automated WCAG 2.1 AA check.' },
+  { shot: 'overview-dark', dur: 2.6, cam: 'full', caption: 'Dark theme. Every screen passes an automated WCAG 2.1 AA check.' },
+  { kind: 'phones', dur: 4.4, shots: ['phone-act', 'phone-analysis', 'phone-overview'], caption: 'Responsive down to 390 px phones.' },
+  { kind: 'title', dur: 4.6, kicker: 'WOMM v1.1', title: 'Every impact traces back\nto the law.', sub: 'LangGraph · Pydantic · LangSmith · Jev · Railway', meta: 'github.com/Ivy-Chen1999/Distributed-agent' },
 ];
 
 const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
@@ -52,8 +64,11 @@ const clamp01 = (t) => Math.max(0, Math.min(1, t));
 /** Expand a component box to a 16:9 camera rect with padding, no more than 2x zoom. */
 function camRect(shot, cam) {
   if (cam === 'full') return VIEW;
-  const box = Array.isArray(cam) ? cam : shot.boxes[cam];
+  // 'key:top' frames the top of a tall component at full width.
+  const [key, part] = Array.isArray(cam) ? [null, null] : cam.split(':');
+  let box = Array.isArray(cam) ? cam : shot.boxes[key];
   if (!box) return VIEW;
+  if (part === 'top') box = [box[0], box[1], box[2], Math.min(box[3], Math.round(((box[2] + 72) * H) / W) - 72)];
   const pad = 36;
   let [x, y, w, h] = [box[0] - pad, box[1] - pad, box[2] + 2 * pad, box[3] + 2 * pad];
   const minW = W / 2; // the shots have 2x pixels, so up to 2x zoom stays sharp

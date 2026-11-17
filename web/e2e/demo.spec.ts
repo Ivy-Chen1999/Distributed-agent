@@ -1,6 +1,8 @@
 // Demo video, built like a motion-graphics piece rather than a screen recording:
 //   1. `capture` takes lossless full-page screenshots (2x device pixels) of the console showing
-//      the newest finished run on a real WOMM server, plus each component's position;
+//      the newest finished run on a real WOMM server, plus each component's position. The newest
+//      run should be a finished whole-act run of the Omnibus comparison (scenario omnibus_2026),
+//      and the server's system version should have a published evaluation (womm eval-publish);
 //   2. `render` loads web/demo/stage.html, which places those shots on a scripted timeline
 //      (camera pans and zooms onto components, crossfades, captions), seeks it frame by frame
 //      and pipes lossless frames to ffmpeg. No real-time recording, so no judder.
@@ -34,14 +36,13 @@ interface Shot {
 }
 const shots: Record<string, Shot> = {};
 
-async function open(browser: Browser, width: number, height: number, opts: { clock?: boolean } = {}): Promise<Page> {
+async function open(browser: Browser, width: number, height: number, opts: { clock?: boolean; hash?: string } = {}): Promise<Page> {
   const context = await browser.newContext({ baseURL: URL, viewport: { width, height }, deviceScaleFactor: 2 });
   await context.addInitScript((t) => localStorage.setItem('womm.token', t), TOKEN!);
   const page = await context.newPage();
   if (opts.clock) await page.clock.install();
-  await page.goto('/');
+  await page.goto(`/${opts.hash ?? '#/overview'}`);
   await expect(page.locator('header')).toBeVisible();
-  await expect(page.getByText(/run_[0-9a-f]{8}/).first()).toBeVisible();
   await page.evaluate(() => document.fonts.ready);
   return page;
 }
@@ -66,6 +67,8 @@ async function shoot(page: Page, name: string, boxes: Record<string, Locator> = 
 }
 
 const card = (page: Page, label: string) => page.locator('main div[style*="border-radius: 12px"]').filter({ has: page.getByText(label) }).last();
+/** The card (12px-rounded box) that holds a component. */
+const cardOf = (loc: Locator) => loc.first().locator('xpath=ancestor::*[contains(@style, "border-radius: 12px")][1]');
 const nav = async (page: Page, title: string) => {
   // Screens live in one of two interfaces (the law / the system); switch when it is the other one.
   if (!(await page.locator('aside nav button', { hasText: title }).count())) await page.getByRole('group', { name: 'Interface' }).locator('button[aria-pressed="false"]').click();
@@ -76,29 +79,66 @@ test('capture', async ({ browser }) => {
   test.setTimeout(10 * 60_000);
   fs.mkdirSync(ASSETS, { recursive: true });
 
-  const page = await open(browser, 1600, 900);
-  await shoot(page, 'overview', {
-    tiles: page.locator('main > div > div').filter({ has: page.getByText('Status', { exact: true }) }).first(),
-    latency: card(page, 'Agent latency'),
-    review: card(page, 'Needs your review'),
-    runs: card(page, 'Recent runs'),
-  });
+  // The law: the reader's interface. Regulations → Act (whole-act comparison and findings) → Analysis.
+  const page = await open(browser, 1600, 900, { hash: '#/regs' });
+  await expect(page.getByTestId('regs-count')).toBeVisible();
+  await shoot(page, 'regs', { find: page.getByRole('region', { name: 'Regulation search' }), row: page.locator('li[data-regulation="ai_act"]') }, false);
 
-  await nav(page, 'Run pipeline');
-  await shoot(page, 'pipeline', { graph: card(page, 'Agent graph'), board: card(page, 'Shared impact board'), router: card(page, 'Router decisions'), node: card(page, 'Selected node') });
+  await page.getByRole('button', { name: 'Open', exact: true }).first().click();
+  await expect(page.getByTestId('act-stat')).toBeVisible();
+  const art4a = page.locator('article[data-provision="ai_act/art/4a"]');
+  await expect(art4a).toContainText('findings');
+  await shoot(page, 'act', {
+    controls: cardOf(page.getByLabel('Comparison', { exact: true })),
+    stat: page.getByTestId('act-stat'),
+    run: page.getByRole('button', { name: 'Run assessment' }),
+    art: art4a,
+  }, false);
 
-  await nav(page, 'Run detail');
-  await shoot(page, 'detail', { head: card(page, 'Impact dossier') });
-  await page.locator('main button[aria-expanded]').first().click();
-  await shoot(page, 'detail-open', { impact: page.locator('main [id^="imp-"]').first(), quote: page.getByRole('button', { name: /View in source/ }).first() });
+  await art4a.locator('button[aria-expanded]').first().click();
+  const found = art4a.getByText('Findings of the latest run', { exact: false }).locator('xpath=..');
+  await expect(found).toBeVisible();
+  await shoot(page, 'act-open', { art: art4a, found });
+
+  await page.getByRole('button', { name: 'Map' }).click();
+  await page.getByLabel('Measure', { exact: true }).selectOption('findings');
+  await shoot(page, 'act-map', { grid: cardOf(page.getByText('Articles', { exact: true })), top: cardOf(page.getByText('Highest on this measure', { exact: false })) }, false);
+
+  await page.getByRole('button', { name: /^Article 99, Penalties/ }).click();
+  const art99 = page.locator('article[data-open="true"]').filter({ hasText: 'Article 99 · Penalties' });
+  await expect(art99).toBeVisible();
+  await art99.scrollIntoViewIfNeeded();
+  await shoot(page, 'act-side', { art: art99 });
+
+  await nav(page, 'Analysis');
+  await expect(page.locator('main [id^="imp-"]').first()).toBeVisible();
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await shoot(page, 'analysis', { head: cardOf(page.getByRole('button', { name: 'Copy as Markdown' })), impacts: page.locator('main [id^="imp-"]').first() }, false);
+  await page.locator('main [id^="imp-"]').first().locator('button[aria-expanded]').first().click();
+  await expect(page.getByRole('button', { name: /View in source/ }).first()).toBeVisible();
+  await shoot(page, 'analysis-open', { impact: page.locator('main [id^="imp-"]').first(), quote: page.getByRole('button', { name: /View in source/ }).first() });
   await page.getByRole('button', { name: /View in source/ }).first().click();
   await page.waitForTimeout(400);
   await shoot(page, 'source', { panel: page.getByRole('dialog', { name: 'Source' }), mark: page.getByRole('dialog', { name: 'Source' }).locator('mark') }, false);
   await page.keyboard.press('Escape');
-  for (const [tab, name] of [[/Disagreements/, 'disagreements'], [/Open questions/, 'questions']] as const) {
-    await page.getByRole('tab', { name: tab }).click();
-    await shoot(page, name, { body: page.locator('main [role="tablist"] ~ div').first() });
-  }
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await shoot(page, 'switch', { toggle: page.getByRole('group', { name: 'Interface' }) }, false);
+
+  // The system: the same run seen by the engineer. Overview (with the published evaluation) →
+  // pipeline → agents → topology → settings.
+  await page.getByRole('group', { name: 'Interface' }).getByRole('button', { name: 'The system' }).click();
+  await nav(page, 'Overview');
+  await expect(page.getByText('Evaluation of this system version', { exact: false })).toBeVisible();
+  await shoot(page, 'overview', {
+    tiles: page.locator('main > div > div').filter({ has: page.getByText('Status', { exact: true }) }).first(),
+    latency: card(page, 'Agent latency'),
+    review: card(page, 'Needs your review'),
+    evalc: cardOf(page.getByText('Evaluation of this system version', { exact: false })),
+    langsmith: page.getByRole('link', { name: /LangSmith/ }).first(),
+  });
+
+  await nav(page, 'Run pipeline');
+  await shoot(page, 'pipeline', { graph: card(page, 'Agent graph'), board: card(page, 'Shared impact board'), router: card(page, 'Router decisions'), node: card(page, 'Selected node') });
 
   await nav(page, 'Agents');
   await shoot(page, 'agents', { cards: page.locator('main [data-agent]').first().locator('xpath=..') });
@@ -107,15 +147,18 @@ test('capture', async ({ browser }) => {
   await shoot(page, 'topology', { graph: card(page, 'Process topology') });
 
   await nav(page, 'Settings');
-  await shoot(page, 'settings', {});
+  await shoot(page, 'settings', {}, false);
   await page.getByTitle('Switch theme').click();
+  await nav(page, 'Act');
+  await shoot(page, 'act-dark', {}, false);
   await nav(page, 'Overview');
   await shoot(page, 'overview-dark', {}, false);
+  await page.getByTitle('Switch theme').click();
   await page.context().close();
 
   // Pipeline replay under a paused clock: 16 evenly spaced moments of the real run at 8x.
-  const rp = await open(browser, 1600, 900, { clock: true });
-  await nav(rp, 'Run pipeline');
+  const rp = await open(browser, 1600, 900, { clock: true, hash: '#/pipeline' });
+  await expect(rp.getByRole('button', { name: 'Replay' })).toBeVisible();
   await rp.clock.pauseAt(await rp.evaluate(() => Date.now() + 50));
   await rp.getByRole('button', { name: '8×' }).click();
   await rp.getByRole('button', { name: 'Replay' }).click();
@@ -126,11 +169,11 @@ test('capture', async ({ browser }) => {
   await rp.context().close();
 
   // Phones, shown side by side inside the landscape frame.
-  const ph = await open(browser, 390, 844);
-  await shoot(ph, 'phone-overview', {}, false);
-  for (const [title, name] of [['Run pipeline', 'phone-pipeline'], ['Topology', 'phone-topology']] as const) {
+  const ph = await open(browser, 390, 844, { hash: '#/act' });
+  await shoot(ph, 'phone-act', {}, false);
+  for (const [title, name] of [['Analysis', 'phone-analysis'], ['Overview', 'phone-overview']] as const) {
     await ph.getByRole('button', { name: 'Open navigation' }).click();
-    await ph.locator('aside nav button', { hasText: title }).click();
+    await nav(ph, title);
     await shoot(ph, name, {}, false);
   }
   await ph.context().close();
