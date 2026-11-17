@@ -357,7 +357,7 @@ export function logLines(rv: RunView): LogLine[] {
     add('run', 0, 'INFO', 'run', `started · scenario ${rv.run?.scenario_id ?? '—'} · ${rv.run?.system_version ?? ''}`);
   }
   const diffEnd = trace.spans.diff?.e;
-  if (diffEnd !== undefined) add('diff', diffEnd, 'INFO', 'diff', `${rv.changesCount ?? '?'} changed provisions`);
+  if (diffEnd !== undefined) add('diff', diffEnd, 'INFO', 'diff', rv.changesCount != null ? `${rv.changesCount} changed provisions` : 'changed provisions');
   let dispatchedLogged = false;
   for (const ev of trace.events) {
     const id = ev.id ?? ev.node;

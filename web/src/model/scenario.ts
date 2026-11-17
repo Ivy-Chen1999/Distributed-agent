@@ -16,27 +16,43 @@ export function scenarioName(id: string): string {
   return humanize(id.replace(/^(eval|demo)_/, ''));
 }
 
-/** "com2021_206" → "COM(2021) 206"; "reg2024_1689" → "Regulation (EU) 2024/1689". */
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+/** "com2021_206" → "COM(2021) 206"; "reg2024_1689" → "Regulation (EU) 2024/1689";
+ * "reg2024_1689_c20260727" → "Regulation (EU) 2024/1689, consolidated 27 July 2026". */
 export function versionLabel(v: string | null | undefined): string {
   if (!v) return '—';
   let m = /^com(\d{4})_(\d+)$/i.exec(v);
   if (m) return `COM(${m[1]}) ${m[2]}`;
   m = /^reg(\d{4})_(\d+)$/i.exec(v);
   if (m) return `Regulation (EU) ${m[1]}/${m[2]}`;
+  m = /^reg(\d{4})_(\d+)_c(\d{4})(\d{2})(\d{2})$/i.exec(v);
+  if (m && MONTHS[Number(m[4]) - 1]) return `Regulation (EU) ${m[1]}/${m[2]}, consolidated ${Number(m[5])} ${MONTHS[Number(m[4]) - 1]} ${m[3]}`;
+  return v;
+}
+
+/** "proposal", "adopted text" or "consolidated text" for a version id. */
+function stageOf(v: string): string {
+  if (/^com/i.test(v)) return 'proposal';
+  if (/^reg\d{4}_\d+_c\d{8}$/i.test(v)) return 'consolidated text';
+  if (/^reg/i.test(v)) return 'adopted text';
   return v;
 }
 
 const shortVersion = (v: string) => versionLabel(v).replace('Regulation (EU) ', 'Reg ');
 
 const REGULATIONS: Record<string, string> = { ai_act: 'EU AI Act' };
+// The regulation a version belongs to, for a whole-act scenario, which has no provision keys.
+const VERSION_REGULATION: Record<string, string> = { com2021_206: 'ai_act', reg2024_1689: 'ai_act' };
 
-/** "EU AI Act · proposal" from the provision keys and the after-version. */
+/** "EU AI Act · proposal" from the provision keys (else the version) and the after-version. */
 export function regulationTitle(sc: Scenario | null | undefined): string {
   if (!sc) return 'Regulation';
-  const prefix = sc.provision_keys[0]?.split('/')[0] ?? '';
+  const base = /^(com\d{4}_\d+|reg\d{4}_\d+)/i.exec(sc.after_version)?.[1].toLowerCase() ?? '';
+  const prefix = sc.provision_keys[0]?.split('/')[0] ?? VERSION_REGULATION[base] ?? '';
   const name = REGULATIONS[prefix] ?? humanize(prefix || sc.after_version);
-  const stage = /^com/i.test(sc.after_version) ? 'proposal' : /^reg/i.test(sc.after_version) ? 'adopted text' : sc.after_version;
-  return sc.before_version ? `${name} · ${/^com/i.test(sc.before_version) ? 'proposal' : shortVersion(sc.before_version)} → ${stage}` : `${name} · ${stage}`;
+  const stage = stageOf(sc.after_version);
+  return sc.before_version ? `${name} · ${stageOf(sc.before_version)} → ${stage}` : `${name} · ${stage}`;
 }
 
 /** Collapse article numbers into ranges: [53,54,55,71] → "53–55, 71". */
@@ -96,6 +112,8 @@ export const numWord = (n: number) => NUM_WORDS[n] ?? String(n);
 /** "Four provisions changed: …. Three expert agents read them in parallel and posted to one shared board." */
 export function scenarioBlurb(sc: Scenario | null | undefined, changes: ProvisionChange[] | null | undefined, experts: number): string {
   if (!sc) return '';
+  const tail = experts ? ` ${numWord(experts)} expert agent${experts === 1 ? '' : 's'} read them in parallel and posted to one shared board.` : '';
+  if (sc.mode === 'explore') return `The whole act: the Impact Planner chose which provisions to study.${tail}`;
   const keys = changes?.length ? changes.map((c) => c.provision_key) : sc.provision_keys;
   const lowerFirst = (a: string) => {
     const w = a.split(' ')[0];
@@ -103,7 +121,6 @@ export function scenarioBlurb(sc: Scenario | null | undefined, changes: Provisio
   };
   const areas = keys.map((k) => lowerFirst(areaLabel(k)));
   const lead = `${numWord(keys.length)} provision${keys.length === 1 ? '' : 's'} changed: ${joinWords(areas)}.`;
-  const tail = experts ? ` ${numWord(experts)} expert agent${experts === 1 ? '' : 's'} read them in parallel and posted to one shared board.` : '';
   return lead + tail;
 }
 

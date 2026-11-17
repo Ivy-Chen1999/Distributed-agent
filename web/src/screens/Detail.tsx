@@ -582,7 +582,8 @@ function ProvisionComparison() {
   // Data of another scenario can linger while the new one loads; never show it.
   const data = src.data && src.data.scenario_id === scenarioId ? src.data : undefined;
   const isDiff = !!C.scenario?.before_version || hasComparableChanges(data?.changes);
-  if (!scenarioId || !isDiff) return null;
+  // A whole-act (explore) run has no fixed provision list; the Act screen shows its comparison.
+  if (!scenarioId || !isDiff || C.scenario?.mode === 'explore') return null;
 
   const vms = provisionComparisons(data);
   const comparable = vms.some((v) => v.before && v.after);

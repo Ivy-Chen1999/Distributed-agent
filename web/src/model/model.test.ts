@@ -4,9 +4,9 @@ import { agentCards, decisionVMs, feedVM, latBars, logLines, nodeVM, runStatusLa
 import { attention, kpis, runRows } from './overview';
 import { actorGroup, chainVMs, disagreementVMs, findingSteps, groupImpacts, questionVMs, shortLabel, unresolvedIds } from './dossier';
 import { highlightQuote, normalizeWithMap } from './quote';
-import { articleRanges, regulationSub, regulationTitle, scenarioBlurb, scenarioHeadline, scenarioKind, scenarioName } from './scenario';
+import { articleRanges, regulationSub, regulationTitle, scenarioBlurb, scenarioHeadline, scenarioKind, scenarioName, versionLabel } from './scenario';
 import { MAX_CELLS, diffWords, hasComparableChanges, provisionComparisons, sideOf, tokenize, type Segment } from './compare';
-import { UNRESOLVED_ID, demoSources, degradedRun, sampleRun, scenarios, smeSources, syntheticEvents, system } from '../test/fixtures';
+import { UNRESOLVED_ID, demoSources, degradedRun, omnibusScenario, sampleRun, scenarios, smeSources, syntheticEvents, system } from '../test/fixtures';
 import type { RunDetail } from '../types';
 
 const EX = ['legal', 'fiscal', 'stakeholder'];
@@ -156,6 +156,10 @@ describe('router, log, agents, inspector', () => {
     expect(msgs.some((m) => m.startsWith('synthesis: 25 impacts · 5 chains · 1 disagreement'))).toBe(true);
     expect(msgs[msgs.length - 1]).toBe('dossier: assembled · status=succeeded · 25 impacts');
     expect(logLines(view(run, 50)).some((l) => l.node === 'synthesis')).toBe(false);
+    expect(msgs).toContain('diff: 4 changed provisions');
+    // A whole-act run has no fixed provision count: no "? changed provisions".
+    const whole = logLines({ ...view(run, 300), changesCount: undefined }).map((l) => `${l.node}: ${l.msg}`);
+    expect(whole).toContain('diff: changed provisions');
   });
   it('builds agent cards and inspector facts from usage and system roles', () => {
     const cards = agentCards(view(run, 300));
@@ -262,6 +266,16 @@ describe('scenario labels', () => {
     expect(articleRanges(['53', '54', '71', '72'])).toBe('53, 54, 71, 72');
     expect(articleRanges(['71', '53', '55', '54'])).toBe('53–55, 71');
     expect(articleRanges(['12a', '13'])).toBe('12a, 13');
+  });
+  it('labels a whole-act scenario, which has no fixed provision list', () => {
+    expect(versionLabel('reg2024_1689_c20260727')).toBe('Regulation (EU) 2024/1689, consolidated 27 July 2026');
+    expect(scenarioName('omnibus_2026')).toBe('Omnibus 2026');
+    expect(scenarioHeadline(omnibusScenario)).toBe('What changes: Omnibus 2026');
+    expect(regulationTitle(omnibusScenario)).toBe('EU AI Act · adopted text → consolidated text');
+    expect(regulationSub(omnibusScenario, null)).toBe('Reg 2024/1689 → Reg 2024/1689, consolidated 27 July 2026');
+    expect(scenarioBlurb(omnibusScenario, null, 3)).toBe(
+      'The whole act: the Impact Planner chose which provisions to study. Three expert agents read them in parallel and posted to one shared board.',
+    );
   });
   it('formats recent runs', () => {
     const run = sampleRun();

@@ -194,9 +194,10 @@ def create_app(
 
     @app.get("/scenarios", dependencies=auth)
     async def scenarios() -> list[dict]:
-        # Explore scenarios run through POST /runs (API and CLI) but are not in the console's
-        # picker yet: they have no fixed provision list for the sources view.
-        return [s.model_dump(mode="json") for s in fixture.scenarios.values() if s.mode == "preset"]
+        # Every scenario, with its mode. The console names a whole-act (explore) run from it, but
+        # its run picker lists preset scenarios only: explore scenarios have no fixed provision
+        # list for the sources view and start from the Act screen.
+        return [s.model_dump(mode="json") for s in fixture.scenarios.values()]
 
     @app.post("/runs", dependencies=auth, status_code=status.HTTP_202_ACCEPTED)
     async def submit(body: RunRequest, request: Request) -> RunAccepted:

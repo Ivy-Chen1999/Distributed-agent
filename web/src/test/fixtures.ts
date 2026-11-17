@@ -62,6 +62,7 @@ export const scenarios: Scenario[] = [
   {
     scenario_id: 'eval_provider_compliance_costs',
     kind: 'evaluation',
+    mode: 'preset',
     description: 'Proposal as a whole-new text: requirements for high-risk AI systems. Who bears which compliance costs and administrative burdens?',
     before_version: null,
     after_version: 'com2021_206',
@@ -71,6 +72,7 @@ export const scenarios: Scenario[] = [
   {
     scenario_id: 'eval_sme_impacts',
     kind: 'evaluation',
+    mode: 'preset',
     description:
       'Proposal as a whole-new text: AI regulatory sandboxes (Art 53-54), measures for small-scale providers and users (Art 55) and penalties (Art 71). How are SMEs and start-ups affected?',
     before_version: null,
@@ -84,10 +86,23 @@ export const scenarios: Scenario[] = [
 export const demoScenario: Scenario = {
   scenario_id: 'demo_penalties_amended',
   kind: 'demo',
+  mode: 'preset',
   description: 'Proposal -> adopted Regulation for SME measures (Art 55 -> 62) and penalties (Art 71 -> 99).',
   before_version: 'com2021_206',
   after_version: 'reg2024_1689',
   provision_keys: ['ai_act/innovation/sme_measures', 'ai_act/penalties/penalties'],
+  ia_reference: null,
+};
+
+/** A whole-act scenario: the Planner picks the provisions, so there is no fixed list or sources. */
+export const omnibusScenario: Scenario = {
+  scenario_id: 'omnibus_2026',
+  kind: 'demo',
+  mode: 'explore',
+  description: 'Regulation (EU) 2024/1689 as adopted -> as consolidated on 27 July 2026: the changes made by Regulation (EU) 2026/1744.',
+  before_version: 'reg2024_1689',
+  after_version: 'reg2024_1689_c20260727',
+  provision_keys: [],
   ia_reference: null,
 };
 
@@ -156,7 +171,7 @@ export function mockApi(overrides: Record<string, (call: MockCall) => { status: 
     }
     const path = url.split('?')[0];
     if (path === '/system') return json(200, system);
-    if (path === '/scenarios') return json(200, [...scenarios, demoScenario]);
+    if (path === '/scenarios') return json(200, [...scenarios, demoScenario, omnibusScenario]);
     if (path === '/scenarios/eval_sme_impacts/sources') return json(200, smeSources);
     if (path === '/scenarios/demo_penalties_amended/sources') return json(200, demoSources);
     if (path === '/runs' && call.method === 'GET')
