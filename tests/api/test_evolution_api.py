@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 from womm.api.app import create_app
 from womm.api.db import Database
-from womm.api.e2e import WORKFORCE_GLOSS, seed_evolution
+from womm.api.e2e import PROMPT_RATIONALE, WORKFORCE_GLOSS, seed_evolution
 from womm.data.fixtures import load_fixture
 from womm.llm.fake import FakeBackend
 
@@ -74,6 +74,8 @@ def test_candidate_detail_with_a_new_expert_and_a_published_decision(database_ur
     target = {"kind": "missed_impact", "category": "social_environmental", "owner": "none"}
     assert expert["target_pattern"] == target
     assert "Workforce expert" in expert["prompt_text"]
+    assert expert["rationale"] == body["rationale"] and "Workforce" in body["rationale"]
+    assert body["prompt_rationales"] == {}
     assert body["summary"]["experts_added"] == ["workforce"]
     assert [e["id"] for e in body["experts"]][-1] == "workforce"
     (val,) = body["metrics"]
@@ -90,6 +92,34 @@ def test_candidate_detail_with_a_new_expert_and_a_published_decision(database_ur
     assert decision["candidate_version"] == ids["topology_api"]
     assert body["r37"]["status"] == "available" and body["r37"]["regression"] is False
     assert body["r37"]["reference_version"] == ids["seed"]
+
+
+def test_a_prompt_candidate_gives_one_reason_per_edited_role(database_url, tmp_path):
+    """The prompt stage stores {role: reason} (gepa_adapter); the detail must not 500 on it."""
+    client, ids = _client(database_url, tmp_path)
+    with client as c:
+        resp = c.get(f"/evolution/candidates/{ids['prompt']}", headers=AUTH)
+        rejected = c.get(f"/evolution/candidates/{ids['rejected']}", headers=AUTH).json()
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["prompt_rationales"] == {"expert:fiscal": PROMPT_RATIONALE}
+    assert body["rationale"] is None and body["new_expert"] is None
+    assert rejected["prompt_rationales"] == {} and rejected["rationale"] is None, "none stored"
+
+
+def test_a_malformed_rationale_is_dropped_not_an_error(database_url, tmp_path):
+    import psycopg
+
+    client, ids = _client(database_url, tmp_path)
+    with psycopg.connect(database_url) as conn:
+        conn.execute(
+            "UPDATE sv_archive SET diff = diff || %s::jsonb WHERE version_id = %s",
+            (json.dumps({"rationale": {"planner": "", "expert:legal": 3, "synthesis": "ok"}}),
+             ids["prompt"]),
+        )  # fmt: skip
+    with client as c:
+        body = c.get(f"/evolution/candidates/{ids['prompt']}", headers=AUTH).json()
+    assert body["prompt_rationales"] == {"synthesis": "ok"}
 
 
 def test_r37_regression_is_visible_and_the_decision_unchanged(database_url, tmp_path):
@@ -261,3 +291,147 @@ def test_a_target_pattern_archived_as_its_key_is_shown_as_fields(database_url, t
     assert body["new_expert"]["target_pattern"] == {
         "kind": "missed_impact", "category": "social_environmental", "owner": "none"
     }  # fmt: skip
+
+
+def test_lineage_nodes_carry_val_scores_against_their_parent(database_url, tmp_path):
+    """Each tree node shows its val coverage and citation rate next to its parent's under a judge
+    both share, so a candidate that gains coverage but loses citations reads as such; a change
+    within the run-to-run noise is marked as such, never as a gain or a loss."""
+    client, ids = _client(database_url, tmp_path)
+    with client as c:
+        body = c.get("/evolution/lineage", headers=AUTH).json()
+    nodes = {n["version_id"]: n["score"] for n in body["nodes"]}
+    seed = nodes[ids["seed"]]
+    assert seed["split"] == "val" and seed["judge_version"] == "jv_e2e"
+    cov = seed["metrics"]["coverage"]
+    assert cov["mean"] == pytest.approx(0.55) and cov["noise"] == pytest.approx(0.05)
+    assert cov["parent_mean"] is None and cov["delta"] is None and cov["beyond_noise"] is None
+    prompt = nodes[ids["prompt"]]["metrics"]["coverage"]
+    assert prompt["parent_mean"] == pytest.approx(0.55) and prompt["delta"] == pytest.approx(0.07)
+    assert prompt["beyond_noise"] is True  # 0.07 > the larger noise band, the seed's 0.05
+    topo = nodes[ids["topology"]]["metrics"]["coverage"]
+    assert topo["parent_mean"] == pytest.approx(0.62) and topo["delta"] == pytest.approx(0.08)
+    rejected = nodes[ids["rejected"]]["metrics"]
+    assert rejected["coverage"]["delta"] == pytest.approx(0.10)
+    assert rejected["grounding"]["mean"] == pytest.approx(0.81)
+    assert rejected["grounding"]["delta"] == pytest.approx(-0.10)
+    assert rejected["grounding"]["beyond_noise"] is True
+
+
+def test_a_node_score_change_within_noise_or_under_another_judge(database_url, tmp_path):
+    """No delta across two different judges; a delta inside the noise band is not a change."""
+    client, ids = _client(database_url, tmp_path)
+    asyncio.run(_add_val_scores(database_url, ids["prompt"], {"coverage": [0.57, 0.55, 0.59]}))
+    asyncio.run(_add_val_scores(database_url, ids["rejected"], {"coverage": [0.9] * 3}, "jv_zz"))
+    with client as c:
+        nodes = {n["version_id"]: n["score"] for n in c.get("/evolution/lineage", headers=AUTH)
+                 .json()["nodes"]}  # fmt: skip
+    prompt = nodes[ids["prompt"]]["metrics"]["coverage"]
+    assert prompt["delta"] == pytest.approx(0.02) and prompt["beyond_noise"] is False
+    # The rejected candidate's newest val batch is under jv_zz, which the seed never had: its
+    # score is shown under the judge it shares with the seed, so the delta stays comparable.
+    rejected = nodes[ids["rejected"]]
+    assert rejected["judge_version"] == "jv_e2e"
+    assert rejected["metrics"]["coverage"]["delta"] == pytest.approx(0.10)
+    assert rejected["metrics"]["coverage"]["beyond_noise"] is True
+
+
+async def _add_val_scores(database_url, version_id, values, judge="jv_e2e", split="val"):
+    from womm.api.e2e import _split_rows
+    from womm.evolve.archive import Archive
+
+    db = Database(database_url)
+    await db.open()
+    try:
+        await Archive(db).record_metrics(
+            version_id, split, _split_rows(values), batch_id=f"rb_{split}_new_{judge}",
+            judge_version=judge, git_sha="e2e", full_split=True,
+        )  # fmt: skip
+    finally:
+        await db.close()
+
+
+def test_node_scores_fall_back_to_twins_and_train_and_need_both_noise_bands(database_url, tmp_path):
+    """A node scored only on its api twin uses the twin's scores; with no judge shared on val it
+    compares on train when train shares one; a change is called beyond noise only when both
+    versions have a noise band, never on one side's band alone."""
+    client, ids = _client(database_url, tmp_path)
+    # The topology node's newest val is under a judge its parent never had; both have train
+    # under jv_e2e, so the tree compares on train.
+    asyncio.run(_add_val_scores(database_url, ids["topology"], {"coverage": [0.9] * 3}, "jv_new",
+                                split="train"))  # fmt: skip
+    asyncio.run(_delete_scores(database_url, ids["topology"]))
+    asyncio.run(_add_val_scores(database_url, ids["topology"], {"coverage": [0.8] * 3}, "jv_zz"))
+    asyncio.run(_add_val_scores(database_url, ids["topology"], {"coverage": [0.66, 0.7, 0.68]},
+                                split="train"))  # fmt: skip
+    asyncio.run(_add_val_scores(database_url, ids["prompt"], {"coverage": [0.6, 0.62, 0.61]},
+                                split="train"))  # fmt: skip
+    # The rejected node's parent (the seed) has one val run only on a fresh judge: no band.
+    asyncio.run(_add_val_scores(database_url, ids["seed"], {"coverage": [0.5]}, "jv_one"))
+    asyncio.run(_add_val_scores(database_url, ids["rejected"], {"coverage": [0.6, 0.62, 0.61]},
+                                "jv_one"))  # fmt: skip
+    with client as c:
+        nodes = {n["version_id"]: n["score"] for n in c.get("/evolution/lineage", headers=AUTH)
+                 .json()["nodes"]}  # fmt: skip
+    topo = nodes[ids["topology"]]
+    assert topo["split"] == "train" and topo["judge_version"] == "jv_e2e"
+    assert topo["metrics"]["coverage"]["delta"] == pytest.approx(0.07)
+    rejected = nodes[ids["rejected"]]
+    assert rejected["judge_version"] == "jv_one"
+    cov = rejected["metrics"]["coverage"]
+    assert cov["delta"] == pytest.approx(0.11) and cov["noise"] == pytest.approx(0.01)
+    assert cov["beyond_noise"] is None  # the seed's single run gives no band to compare against
+
+
+def test_a_node_scored_on_its_twin_only(database_url, tmp_path):
+    client, ids = _client(database_url, tmp_path)
+    asyncio.run(_delete_scores(database_url, ids["topology"]))
+    asyncio.run(_add_val_scores(database_url, ids["topology_api"], {"coverage": [0.7, 0.72, 0.68]}))
+    with client as c:
+        nodes = {n["version_id"]: n["score"] for n in c.get("/evolution/lineage", headers=AUTH)
+                 .json()["nodes"]}  # fmt: skip
+    cov = nodes[ids["topology"]]["metrics"]["coverage"]
+    assert cov["mean"] == pytest.approx(0.70) and cov["parent_mean"] == pytest.approx(0.62)
+
+
+def test_a_rounds_to_zero_change_is_never_beyond_noise(database_url, tmp_path):
+    """Identical runs give a zero band; the floor keeps a 0.001 change from reading as a gain."""
+    client, ids = _client(database_url, tmp_path)
+    asyncio.run(_add_val_scores(database_url, ids["seed"], {"coverage": [0.6] * 3}, "jv_flat"))
+    asyncio.run(_add_val_scores(database_url, ids["prompt"], {"coverage": [0.601] * 3}, "jv_flat"))
+    with client as c:
+        nodes = {n["version_id"]: n["score"] for n in c.get("/evolution/lineage", headers=AUTH)
+                 .json()["nodes"]}  # fmt: skip
+    cov = nodes[ids["prompt"]]["metrics"]["coverage"]
+    assert cov["delta"] == pytest.approx(0.001) and cov["beyond_noise"] is False
+
+
+def test_the_lineage_reads_one_pooled_noise_row_per_metric_not_case_rows(database_url, tmp_path):
+    ids = asyncio.run(_seed(database_url))
+
+    async def read():
+        db = Database(database_url)
+        await db.open()
+        try:
+            return await db.evolution_node_scores()
+        finally:
+            await db.close()
+
+    rows = asyncio.run(read())
+    keys = [(r["version_id"], r["split"], r["judge_version"], r["metric"]) for r in rows]
+    assert len(keys) == len(set(keys))  # one row per version, split, judge and metric
+    seed = {r["metric"]: r for r in rows if r["version_id"] == ids["seed"]}
+    assert set(seed) == {"coverage", "grounding"}
+    assert seed["coverage"]["noise"] == pytest.approx(0.05)
+
+
+async def _delete_scores(database_url, version_id):
+    db = Database(database_url)
+    await db.open()
+    try:
+        async with db.pool.connection() as conn:
+            await conn.execute(
+                "DELETE FROM sv_metrics WHERE version_id = %s AND split = 'val'", (version_id,)
+            )
+    finally:
+        await db.close()

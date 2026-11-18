@@ -188,12 +188,14 @@ async def archive_child(
     origin: Origin,
     cycle_id: str | None = None,
     proposer: dict | None = None,
+    extra: dict | None = None,
 ) -> SystemVersion:
-    """Build the candidate ``diff`` describes and archive it under ``parent``."""
+    """Build the candidate ``diff`` describes and archive it under ``parent`` (``extra`` adds
+    fields to the stored diff, e.g. the prompt stage's per-role ``rationale``)."""
     child = build_candidate(parent, diff)
     await archive.archive(
         child, origin=origin, parent_id=parent.version_id, cycle_id=cycle_id, proposer=proposer,
-        diff={"ops": diff.ops_json(), "rendered": render_diff(parent, child)},
+        diff={"ops": diff.ops_json(), "rendered": render_diff(parent, child), **(extra or {})},
     )  # fmt: skip
     return child
 

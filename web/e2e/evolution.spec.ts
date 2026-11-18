@@ -37,6 +37,18 @@ test('lineage tree: seed, prompt child, topology grandchild and a rejected dev c
   errors.expectClean();
 });
 
+test('each tree node shows its val scores against its parent, from the archive', async ({ page, errors }) => {
+  const l = await lineage(page.request);
+  await openEvolution(page);
+  const rejected = byOrigin(l, 'gepa', 'rejected');
+  // Coverage up and citations down beyond noise: the trade the gate rejected, on the tree.
+  await expect(treeRow(page, rejected.version_id).getByRole('img', { name: /^Coverage 0\.650, \+0\.100 vs parent, beyond noise$/ })).toHaveAttribute('data-trend', 'up');
+  await expect(treeRow(page, rejected.version_id).getByRole('img', { name: /^Citation check rate 0\.810, −0\.100 vs parent, beyond noise$/ })).toHaveAttribute('data-trend', 'down');
+  const seed = l.nodes.find((n) => n.origin === 'seed')!;
+  await expect(treeRow(page, seed.version_id).getByRole('img', { name: 'Coverage 0.550' })).toHaveAttribute('data-trend', 'none');
+  errors.expectClean();
+});
+
 test('a topology candidate: new expert highlight and the weak-mode decision verbatim', async ({ page }) => {
   const topo = byOrigin(await lineage(page.request), 'topology', 'promoted');
   await openEvolution(page);
@@ -73,6 +85,8 @@ test('a candidate without a decision: train/val only, not submitted, prompt diff
   await expect(page.getByTestId('holdout')).toContainText(/not submitted to holdout/i);
   await expect(page.getByTestId('metrics')).toContainText('Coverage');
   await expect(page.getByTestId('r37')).toContainText('not run');
+  await expect(page.getByTestId('prompt-rationales')).toContainText('expert:fiscal');
+  await expect(page.getByTestId('prompt-rationales')).toContainText('quantify them');
   await page.getByRole('button', { name: 'Show prompt diffs' }).click();
   const diff = page.locator('[data-prompt-diff="expert:fiscal"]');
   await expect(diff).toContainText('+Quantify every cost you name.');

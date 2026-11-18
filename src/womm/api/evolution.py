@@ -26,6 +26,12 @@ from womm.evolve.diff_regression import (
 )
 
 PANEL_SPLITS = ("train", "val")
+# What a lineage node shows against its parent: coverage, and the citation rate so that a gain in
+# coverage bought with unsupported claims is visible on the tree.
+NODE_METRICS = ("coverage", "grounding")
+# The smallest band a node change must exceed to be called a gain or a loss: below it the change
+# does not show at the tree's two decimals.
+NOISE_FLOOR = 0.005
 NOT_SUBMITTED = "Not submitted to holdout."
 SEALED = (
     "No published holdout decision: not submitted to holdout, or the decision is recorded in "
@@ -73,6 +79,22 @@ class DecisionOut(BaseModel):
     cross_judge: CrossJudgeOut | None = None
 
 
+class NodeMetric(BaseModel):
+    mean: float | None
+    noise: float | None
+    parent_mean: float | None
+    delta: float | None
+    # True: the change exceeds the larger run-to-run noise band of the two versions; False:
+    # within it; None: no parent score under this judge, or no noise estimate.
+    beyond_noise: bool | None
+
+
+class NodeScore(BaseModel):
+    split: Literal["train", "val"]
+    judge_version: str
+    metrics: dict[str, NodeMetric]
+
+
 class LineageNode(BaseModel):
     version_id: str
     name: str
@@ -86,6 +108,7 @@ class LineageNode(BaseModel):
     label: str | None
     new_expert: str | None
     r37_regression: bool | None
+    score: NodeScore | None = None
 
 
 class Lineage(BaseModel):
@@ -148,6 +171,7 @@ class CandidateDetail(BaseModel):
     experts: list[ExpertOut]
     summary: dict[str, Any] | None
     rationale: str | None
+    prompt_rationales: dict[str, str]
     proposer: dict[str, Any] | None
     new_expert: NewExpert | None
     metrics: list[SplitMetrics]
@@ -185,6 +209,7 @@ class EvolutionView:
         metrics: list[dict],
         decisions: list[dict],
         publish_summary: bool | None,
+        scores: list[dict] | None = None,
     ) -> None:
         self.rows = {r["version_id"]: r for r in archive}
         self.order = [r["version_id"] for r in archive]
@@ -197,6 +222,9 @@ class EvolutionView:
             twin_of = self.rows[vid]["twin_of"]
             if twin_of in self.rows:
                 self.twins.setdefault(twin_of, []).append(vid)
+        self.scores: dict[str, list[dict]] = {}
+        for m in scores or []:
+            self.scores.setdefault(m["version_id"], []).append(m)
         self.decisions: dict[str, list[DecisionOut]] = {}
         for d in decisions:
             out = DecisionOut.model_validate(d | {"created_at": _iso(d["created_at"])})
@@ -270,6 +298,54 @@ class EvolutionView:
 
     # ------------------------------------------------------------ lineage
 
+    def split_scores(self, vid: str, split: str) -> dict[str, dict]:
+        """Judge version -> the node's ``NODE_METRICS`` on ``split`` as (mean, pooled noise),
+        the node's own else its api twin's, with when they were recorded."""
+        for v in (vid, *self.twins.get(vid, [])):
+            out: dict[str, dict] = {}
+            for m in self.scores.get(v, []):
+                if m["split"] != split:
+                    continue
+                entry = out.setdefault(m["judge_version"], {"recorded_at": "", "metrics": {}})
+                entry["metrics"][m["metric"]] = (m["mean"], m["noise"])
+                entry["recorded_at"] = max(entry["recorded_at"], _iso(m.get("updated_at")))
+            if out:
+                return out
+        return {}
+
+    def node_score(self, vid: str) -> NodeScore | None:
+        """The node's scores next to its parent's tree node (the parent, not the incumbent R37
+        compares with), only under a judge both were scored by: val first, else train, on the
+        first split with a shared judge; without one, the node's own newest scores, no delta."""
+        parent = self.rows[vid]["parent_id"]
+        parent = self.logical(parent) if parent in self.rows else None
+        sides = [(split, self.split_scores(vid, split),
+                  self.split_scores(parent, split) if parent else {})
+                 for split in ("val", "train")]  # fmt: skip
+        sides = [x for x in sides if x[1]]
+        if not sides:
+            return None
+        shared = [(split, own, theirs, shared_judge(own, theirs)) for split, own, theirs in sides]
+        split, own, theirs, jv = next((x for x in shared if x[3] is not None), shared[0])
+        if jv is None:
+            jv = max(own, key=lambda j: (own[j]["recorded_at"], j))
+        ref = theirs.get(jv, {}).get("metrics", {})
+        metrics = {}
+        for name in NODE_METRICS:
+            if name not in own[jv]["metrics"]:
+                continue
+            mean, noise = own[jv]["metrics"][name]
+            parent_mean, parent_noise = ref.get(name, (None, None))
+            delta = None if mean is None or parent_mean is None else mean - parent_mean
+            # Called a change only against both versions' noise bands, never one side's, and
+            # never below a floor: identical runs give a zero band.
+            beyond = None
+            if delta is not None and noise is not None and parent_noise is not None:
+                beyond = abs(delta) > max(noise, parent_noise, NOISE_FLOOR)
+            metrics[name] = NodeMetric(mean=mean, noise=noise, parent_mean=parent_mean,
+                                       delta=delta, beyond_noise=beyond)  # fmt: skip
+        return NodeScore(split=split, judge_version=jv, metrics=metrics)
+
     def node(self, vid: str) -> LineageNode:
         row = self.rows[vid]
         decisions = self.node_decisions(vid)
@@ -288,6 +364,7 @@ class EvolutionView:
             badges=badges, twins=self.twins.get(vid, []),
             decision=latest.decision if latest else None, label=latest.label if latest else None,
             new_expert=expert, r37_regression=self.r37(vid).regression,
+            score=self.node_score(vid),
         )  # fmt: skip
 
     def lineage(self) -> Lineage:
@@ -303,6 +380,7 @@ class EvolutionView:
         diff = row["diff"] or {}
         expert = _added_expert(row)
         spec = row["spec"] or {}
+        rationale, prompt_rationales = _rationales(diff.get("rationale"))
         decisions = self.node_decisions(vid)
         if decisions:
             holdout = HoldoutPanel(status="published", message="", decisions=decisions)
@@ -317,7 +395,8 @@ class EvolutionView:
                 for e in spec.get("experts", [])
             ],  # fmt: skip
             summary=(diff.get("rendered") or {}).get("summary"),
-            rationale=diff.get("rationale"),
+            rationale=rationale,
+            prompt_rationales=prompt_rationales,
             proposer=row["proposer"],
             new_expert=None
             if expert is None
@@ -327,7 +406,7 @@ class EvolutionView:
                 router_gloss=expert["router_gloss"],
                 prompt_text=expert["prompt_text"],
                 target_pattern=_pattern(diff.get("target_pattern")),
-                rationale=diff.get("rationale"),
+                rationale=rationale,
             ),  # fmt: skip
             metrics=split_metrics(metrics),
             holdout=holdout,
@@ -369,6 +448,16 @@ def split_metrics(rows: list[dict]) -> list[SplitMetrics]:
         if metrics:
             out.append(SplitMetrics(split=split, judge_version=jv, metrics=metrics))
     return out
+
+
+def _rationales(raw: Any) -> tuple[str | None, dict[str, str]]:
+    """The stored ``rationale`` split by stage: the topology stage writes one sentence, the
+    prompt stage one reason per edited role ({role: reason})."""
+    if isinstance(raw, str):
+        return raw, {}
+    if isinstance(raw, dict):
+        return None, {str(k): v for k, v in raw.items() if isinstance(v, str) and v}
+    return None, {}
 
 
 def _pattern(value: Any) -> dict[str, Any] | None:

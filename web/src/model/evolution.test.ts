@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { DIFF_LINE_CAP, badge, capLines, ciText, crossJudgeText, decisionBadge, defaultSelection, fmtDelta, lineDiffKind, patternText, r37Line, summaryLines, treeRows, withNoise } from './evolution';
+import { DIFF_LINE_CAP, badge, capLines, ciText, crossJudgeText, decisionBadge, defaultSelection, fmtDelta, lineDiffKind, patternText, r37Line, scoreLine, scoreTrend, shortDelta, summaryLines, treeRows, withNoise } from './evolution';
 import { PROMPT, REJECTED, SEED, TOPOLOGY, details, lineage, weakDecision } from '../test/evolution';
+
+const UNKNOWN = { mean: 0.7, noise: null, parent_mean: 0.6, delta: 0.1, beyond_noise: null };
 
 describe('evolution view models', () => {
   it('orders the lineage depth first with children under their parent', () => {
@@ -79,5 +81,29 @@ describe('evolution view models', () => {
     expect(capped.hidden).toBe(25);
     expect(capLines('a\nb', DIFF_LINE_CAP)).toEqual({ lines: ['a', 'b'], hidden: 0 });
     expect(capLines(long, Infinity).hidden).toBe(0);
+  });
+
+  it('reads a node score change as a gain or a loss only beyond the noise band', () => {
+    expect(scoreTrend(PROMPT.score!.metrics.coverage)).toBe('up');
+    expect(scoreTrend(REJECTED.score!.metrics.grounding)).toBe('down');
+    expect(scoreTrend(PROMPT.score!.metrics.grounding)).toBe('flat');
+    expect(scoreTrend(SEED.score!.metrics.coverage)).toBe('none');
+    // A change with no noise band to judge it by is neither a gain nor "within noise".
+    expect(scoreTrend(UNKNOWN)).toBe('unknown');
+  });
+
+  it('spells a node score out for screen readers', () => {
+    expect(scoreLine('coverage', PROMPT.score!.metrics.coverage)).toBe('Coverage 0.620, +0.070 vs parent, beyond noise');
+    expect(scoreLine('grounding', PROMPT.score!.metrics.grounding)).toBe('Citation check rate 0.907, −0.003 vs parent, within noise');
+    expect(scoreLine('coverage', SEED.score!.metrics.coverage)).toBe('Coverage 0.550');
+  });
+
+  it('writes the tree row change without a sign when it rounds to zero', () => {
+    expect(shortDelta(PROMPT.score!.metrics.coverage)).toBe('▲ +0.07');
+    expect(shortDelta(REJECTED.score!.metrics.grounding)).toBe('▼ −0.10');
+    expect(shortDelta(PROMPT.score!.metrics.grounding)).toBe('≈ 0.00');
+    expect(shortDelta(SEED.score!.metrics.coverage)).toBe('');
+    expect(shortDelta(UNKNOWN)).toBe('+0.10');
+    expect(scoreLine('coverage', UNKNOWN)).toBe('Coverage 0.700, +0.100 vs parent, noise unknown');
   });
 });

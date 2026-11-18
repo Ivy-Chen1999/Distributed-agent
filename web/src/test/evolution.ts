@@ -1,6 +1,11 @@
 // Evolution page fixtures: a seed, a prompt-stage child, a topology child (not rejected, weak
 // mode, via its api twin) and a dev candidate (not rejected, dev mode) with an R37 regression.
-import type { CandidateDetail, CandidateDiff, Lineage, LineageNode, PromotionDecision } from '../types';
+import type { CandidateDetail, CandidateDiff, Lineage, LineageNode, NodeMetric, NodeScore, PromotionDecision } from '../types';
+
+const m = (mean: number, noise: number | null, parent: number | null, beyond: boolean | null): NodeMetric => ({
+  mean, noise, parent_mean: parent, delta: parent === null ? null : mean - parent, beyond_noise: beyond,
+});
+const val = (metrics: Record<string, NodeMetric>): NodeScore => ({ split: 'val', judge_version: 'jv_1', metrics });
 
 const node = (over: Partial<LineageNode> & Pick<LineageNode, 'version_id'>): LineageNode => ({
   name: 'v1.0-unscoped',
@@ -14,11 +19,12 @@ const node = (over: Partial<LineageNode> & Pick<LineageNode, 'version_id'>): Lin
   label: null,
   new_expert: null,
   r37_regression: null,
+  score: null,
   ...over,
 });
 
-export const SEED = node({ version_id: 'sv_seed00000001', twins: ['sv_seedapi00001'] });
-export const PROMPT = node({ version_id: 'sv_prompt000001', name: 'v1.0-unscoped+e1', parent_id: SEED.version_id, origin: 'gepa', badges: ['gepa'], cycle_id: 'cycle_a' });
+export const SEED = node({ version_id: 'sv_seed00000001', twins: ['sv_seedapi00001'], score: val({ coverage: m(0.55, 0.05, null, null), grounding: m(0.91, 0.01, null, null) }) });
+export const PROMPT = node({ version_id: 'sv_prompt000001', name: 'v1.0-unscoped+e1', parent_id: SEED.version_id, origin: 'gepa', badges: ['gepa'], cycle_id: 'cycle_a', score: val({ coverage: m(0.62, 0.02, 0.55, true), grounding: m(0.907, 0.01, 0.91, false) }) });
 export const TOPOLOGY = node({
   version_id: 'sv_topology0001',
   name: 'v1.0-unscoped+e1+e2',
@@ -31,6 +37,7 @@ export const TOPOLOGY = node({
   new_expert: 'workforce',
   r37_regression: false,
   cycle_id: 'cycle_a',
+  score: val({ coverage: m(0.7, 0.02, 0.62, true), grounding: m(0.91, 0.01, 0.907, false) }),
 });
 export const REJECTED = node({
   version_id: 'sv_rejected0001',
@@ -42,6 +49,7 @@ export const REJECTED = node({
   label: 'not rejected (dev-only, not deployable; weak threshold: directional)',
   r37_regression: true,
   cycle_id: 'cycle_b',
+  score: val({ coverage: m(0.65, 0.01, 0.55, true), grounding: m(0.81, 0.01, 0.91, true) }),
 });
 
 export const lineage = (): Lineage => ({ nodes: [SEED, PROMPT, TOPOLOGY, REJECTED], publish_summary: false });
@@ -73,6 +81,7 @@ const base = (n: LineageNode): CandidateDetail => ({
   ],
   summary: { experts_added: [], added_experts: {}, prompts_changed: ['expert:fiscal'], router_gloss_changed: {}, retrieval: null },
   rationale: null,
+  prompt_rationales: { 'expert:fiscal': 'The Fiscal expert names costs without amounts; ask it to quantify them.' },
   proposer: null,
   new_expert: null,
   metrics: [{ split: 'val', judge_version: 'jv_1', metrics: { coverage: { mean: 0.62, sd: null, n: 1, noise_sd: 0.02 } } }],
@@ -81,11 +90,13 @@ const base = (n: LineageNode): CandidateDetail => ({
 });
 
 export const details: Record<string, CandidateDetail> = {
-  [SEED.version_id]: { ...base(SEED), summary: null },
+  [SEED.version_id]: { ...base(SEED), summary: null, prompt_rationales: {} },
   [PROMPT.version_id]: base(PROMPT),
   [TOPOLOGY.version_id]: {
     ...base(TOPOLOGY),
     summary: { experts_added: ['workforce'], added_experts: { workforce: { domain: 'workforce', router_gloss: 'effects on workers' } }, prompts_changed: [], router_gloss_changed: {}, retrieval: null },
+    rationale: 'Workforce impacts are missed in 2 proposals and no expert owns them.',
+    prompt_rationales: {},
     new_expert: {
       id: 'workforce',
       domain: 'workforce',

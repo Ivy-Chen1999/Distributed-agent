@@ -3,7 +3,7 @@
 // the R37 diff check. Desktop layout; every label and reason comes from the API.
 import { useState, type ReactNode } from 'react';
 import { api, getToken } from '../api';
-import { CARD, FONT, LABEL, RED, TABULAR, WARN_BG, WARN_INK } from '../design';
+import { CARD, FONT, GREEN, LABEL, RED, TABULAR, WARN_BG, WARN_INK } from '../design';
 import { useLoad } from '../hooks';
 import { Dot, EmptyCard, ErrorCard, LoadingCard, OUTLINE_BTN } from '../components/ui';
 import {
@@ -20,12 +20,15 @@ import {
   metricName,
   patternText,
   r37Line,
+  scoreLine,
+  scoreTrend,
+  shortDelta,
   shortId,
   summaryLines,
   treeRows,
   withNoise,
 } from '../model/evolution';
-import type { CandidateDetail, LineageNode, PromotionDecision } from '../types';
+import type { CandidateDetail, LineageNode, NodeMetric, NodeScore, PromotionDecision } from '../types';
 
 const MONO = "ui-monospace,'SFMono-Regular',Menlo,monospace";
 
@@ -45,6 +48,43 @@ function Section({ title, children, testId }: { title: string; children: ReactNo
       <h3 style={{ ...LABEL, margin: 0 }}>{title}</h3>
       {children}
     </section>
+  );
+}
+
+// A gain or a loss is dark text on an opaque light chip: AA contrast in both themes and on the
+// selected row's tint. The chip and the bar carry the colour.
+const TREND_CHIP = { up: '#CDEFE0', down: '#FAD4D5' } as const;
+const SHORT: Record<string, string> = { coverage: 'Coverage', grounding: 'Citations' };
+
+/** One metric on a tree node: a 0–1 track with the parent's value as a tick, the value and the change. */
+function ScoreBar({ name, m }: { name: string; m: NodeMetric }) {
+  const trend = scoreTrend(m);
+  const pct = (x: number | null) => `${Math.max(0, Math.min(1, x ?? 0)) * 100}%`;
+  return (
+    <span role="img" aria-label={scoreLine(name, m)} data-trend={trend} style={{ display: 'grid', gridTemplateColumns: '62px 1fr 38px 62px', alignItems: 'center', gap: 7, fontSize: 12 }}>
+      <span style={{ color: 'var(--n1)' }}>{SHORT[name] ?? name}</span>
+      <span aria-hidden style={{ position: 'relative', height: 6, borderRadius: 3, background: 'var(--soft)' }}>
+        <span style={{ position: 'absolute', inset: 0, width: pct(m.mean), borderRadius: 3, background: trend === 'down' ? RED : trend === 'up' ? GREEN : 'var(--accInk)' }} />
+        {m.parent_mean !== null && <span title="parent" style={{ position: 'absolute', top: -3, bottom: -3, left: pct(m.parent_mean), width: 2, marginLeft: -1, background: 'var(--ink)' }} />}
+      </span>
+      <span aria-hidden style={{ fontWeight: 700, textAlign: 'right', ...TABULAR }}>{m.mean === null ? '—' : m.mean.toFixed(2)}</span>
+      <span aria-hidden style={{ color: trend === 'up' || trend === 'down' ? '#0F0F0F' : 'var(--n1)', background: trend === 'up' || trend === 'down' ? TREND_CHIP[trend] : 'transparent', borderRadius: 4, padding: '0 4px', justifySelf: 'start', fontWeight: 700, whiteSpace: 'nowrap', ...TABULAR }}>
+        {shortDelta(m)}
+      </span>
+    </span>
+  );
+}
+
+function NodeScores({ score }: { score: NodeScore }) {
+  const names = ['coverage', 'grounding'].filter((n) => score.metrics[n]);
+  if (!names.length) return null;
+  return (
+    <span style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingTop: 2 }}>
+      <span style={{ font: `700 10px ${FONT}`, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--n2)' }}>{score.split}</span>
+      {names.map((n) => (
+        <ScoreBar key={n} name={n} m={score.metrics[n]} />
+      ))}
+    </span>
   );
 }
 
@@ -73,6 +113,7 @@ function LineageTree({ nodes, selected, onSelect }: { nodes: LineageNode[]; sele
                 ))}
                 {node.r37_regression && <Badge b="r37" />}
               </span>
+              {node.score && <NodeScores score={node.score} />}
             </button>
           </li>
         );
@@ -231,6 +272,17 @@ function CandidatePanel({ d }: { d: CandidateDetail }) {
           <div style={{ fontSize: 13, color: 'var(--n1)' }}>{n.origin === 'seed' ? 'The self-evolution base: no diff.' : 'No structural change recorded.'}</div>
         )}
         {d.rationale && !d.new_expert && <div style={{ fontSize: 13, color: 'var(--n1)' }}>Rationale: {d.rationale}</div>}
+        {Object.keys(d.prompt_rationales).length > 0 && (
+          <div data-testid="prompt-rationales" style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13 }}>
+            <div style={{ fontWeight: 600 }}>Why the prompts changed</div>
+            {Object.entries(d.prompt_rationales).map(([role, why]) => (
+              <div key={role}>
+                <span style={{ fontWeight: 600 }}>{role}</span>
+                <span style={{ color: 'var(--n1)' }}>: {why}</span>
+              </div>
+            ))}
+          </div>
+        )}
         {n.origin !== 'seed' && <PromptDiffs key={n.version_id} versionId={n.version_id} />}
       </Section>
 

@@ -396,6 +396,9 @@ def _split_rows(case_means: dict[str, list[float]], fixture: str = "ai_act") -> 
     return rows
 
 
+PROMPT_RATIONALE = "The Fiscal expert names costs without amounts; ask it to quantify them."
+
+
 async def seed_evolution(db: Any) -> dict[str, str]:
     """A scripted self-evolution story for the evolution page (U9): the v1.0-unscoped seed and
     its api twin, a prompt-stage child, a topology child adding a Workforce expert (not rejected
@@ -417,6 +420,7 @@ async def seed_evolution(db: Any) -> dict[str, str]:
         archive, seed, validate_diff(seed, fiscal_edit(seed, "\nQuantify every cost you name.")),
         origin="gepa", cycle_id=EVOLUTION_CYCLE,
         proposer={"model": "claude-opus-5-5", "prompt_hash": "ph_reflect"},
+        extra={"rationale": {"expert:fiscal": PROMPT_RATIONALE}},
     )  # fmt: skip
     add = [{"op": "add_expert", "id": "workforce", "domain": "workforce",
             "prompt_text": WORKFORCE_PROMPT, "router_gloss": WORKFORCE_GLOSS}]  # fmt: skip

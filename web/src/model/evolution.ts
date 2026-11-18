@@ -1,7 +1,7 @@
 // View models for the evolution page (R36 page 4). Pure presentation: decisions, labels,
 // reasons and the R37 message come from the API exactly as the promotion gate wrote them.
 import { AMBER, GREEN, RED } from '../design';
-import type { CandidateDetail, CrossJudge, DiffSummary, LineageNode, MetricDeltaOut, PromotionDecision } from '../types';
+import type { CandidateDetail, CrossJudge, DiffSummary, LineageNode, MetricDeltaOut, NodeMetric, PromotionDecision } from '../types';
 
 export interface TreeRow {
   node: LineageNode;
@@ -144,3 +144,31 @@ export function capLines(text: string, cap: number): { lines: string[]; hidden: 
   const all = text.split('\n');
   return all.length <= cap ? { lines: all, hidden: 0 } : { lines: all.slice(0, cap), hidden: all.length - cap };
 }
+
+/** up/down: beyond the noise band; flat: within it; unknown: a change with no band to judge it by; none: no parent score. */
+export type ScoreTrend = 'up' | 'down' | 'flat' | 'unknown' | 'none';
+
+export function scoreTrend(m: NodeMetric): ScoreTrend {
+  if (m.delta === null || !Number.isFinite(m.delta)) return 'none';
+  if (m.beyond_noise === null) return 'unknown';
+  if (!m.beyond_noise) return 'flat';
+  return m.delta > 0 ? 'up' : m.delta < 0 ? 'down' : 'flat';
+}
+
+/** "Coverage 0.620, +0.070 vs parent, beyond noise": the tree row's accessible name. */
+export function scoreLine(name: string, m: NodeMetric): string {
+  const head = `${metricName(name)} ${fmtNum(m.mean)}`;
+  if (m.delta === null) return head;
+  const band = m.beyond_noise === true ? 'beyond noise' : m.beyond_noise === false ? 'within noise' : 'noise unknown';
+  return `${head}, ${fmtDelta(m.delta)} vs parent, ${band}`;
+}
+
+/** The tree row's short change, "▲ +0.07"; a change that rounds to zero has no sign. */
+export function shortDelta(m: NodeMetric): string {
+  if (m.delta === null || !Number.isFinite(m.delta)) return '';
+  const mark = { up: '▲ ', down: '▼ ', flat: '≈ ', unknown: '', none: '' }[scoreTrend(m)];
+  const r = Math.abs(m.delta).toFixed(2);
+  if (Number(r) === 0) return `${mark}0.00`;
+  return `${mark}${m.delta > 0 ? '+' : '−'}${r}`;
+}
+

@@ -32,6 +32,7 @@ from womm.act_view import (
 from womm.api.db import Database
 from womm.api.eval_reports import PublishedReport, report_out
 from womm.api.evolution import (
+    NODE_METRICS,
     PANEL_SPLITS,
     CandidateDetail,
     CandidateDiff,
@@ -422,12 +423,14 @@ def create_app(
         return compared[(before, after)]
 
     async def evolution(request: Request) -> EvolutionView:
-        """The lineage index: ids, origins, diff-check metrics and published decisions; no
-        spec, diff or train/val bodies (those are read per candidate)."""
+        """The lineage index: ids, origins, diff-check metrics, published decisions and each
+        node's train/val coverage and citation rate; no spec, diff or other train/val metrics
+        (those are read per candidate)."""
         db: Database = request.app.state.db
         return EvolutionView(
             await db.evolution_archive(), await db.evolution_metrics(),
             await db.promotion_decisions(), read_publish_summary(promotion_policy_path),
+            scores=await db.evolution_node_scores(NODE_METRICS),
         )  # fmt: skip
 
     def unknown(version_id: str) -> HTTPException:
