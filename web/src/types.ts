@@ -391,6 +391,23 @@ export interface LineageNode {
   label: string | null;
   new_expert: string | null;
   r37_regression: boolean | null;
+  /** Val scores (train without a val batch) next to the parent's, under a shared judge. */
+  score?: NodeScore | null;
+}
+
+export interface NodeMetric {
+  mean: number | null;
+  noise: number | null;
+  parent_mean: number | null;
+  delta: number | null;
+  /** True beyond the larger noise band of the two versions, false within it, null unknown. */
+  beyond_noise: boolean | null;
+}
+
+export interface NodeScore {
+  split: 'train' | 'val';
+  judge_version: string;
+  metrics: Record<string, NodeMetric>;
 }
 
 export interface Lineage {
@@ -479,6 +496,7 @@ export interface CandidateDetail {
   experts: { id: string; domain: string; router_gloss: string | null }[];
   summary: DiffSummary | null;
   rationale: string | null;
+  prompt_rationales: Record<string, string>;
   proposer: Record<string, unknown> | null;
   new_expert: NewExpert | null;
   metrics: SplitMetrics[];

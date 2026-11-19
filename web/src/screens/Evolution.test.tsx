@@ -31,6 +31,19 @@ beforeEach(() => localStorage.setItem(TOKEN_KEY, 'test-token-1234567890'));
 afterEach(() => vi.unstubAllGlobals());
 
 describe('Evolution page', () => {
+  it('shows each node\'s val scores against its parent on the tree', async () => {
+    stub();
+    render(<Evolution />);
+    await screen.findByRole('list', { name: 'Lineage' });
+    const row = within(tree()).getByText(REJECTED.version_id.slice(0, 15)).closest('button')!;
+    // Coverage up, citations down: the trade the gate rejected is visible on the tree itself.
+    expect(within(row).getByLabelText('Coverage 0.650, +0.100 vs parent, beyond noise').getAttribute('data-trend')).toBe('up');
+    expect(within(row).getByLabelText('Citation check rate 0.810, −0.100 vs parent, beyond noise').getAttribute('data-trend')).toBe('down');
+    const prompt = within(tree()).getByText(PROMPT.version_id.slice(0, 15)).closest('button')!;
+    expect(within(prompt).getByLabelText(/Citation check rate 0.907, −0.003 vs parent, within noise/).getAttribute('data-trend')).toBe('flat');
+    expect(within(tree()).getAllByText('val').length).toBe(4);
+  });
+
   it('says decisions are unpublished only when no decision is shown', async () => {
     stub();
     const first = render(<Evolution />);
@@ -90,6 +103,9 @@ describe('Evolution page', () => {
     expect(within(holdout).queryByTestId('decision')).toBeNull();
     expect(within(screen.getByTestId('metrics')).getByText('0.620 ± 0.020')).toBeTruthy();
     expect(screen.queryByTestId('new-expert')).toBeNull();
+    const why = screen.getByTestId('prompt-rationales');
+    expect(within(why).getByText('expert:fiscal')).toBeTruthy();
+    expect(why.textContent).toContain('names costs without amounts');
   });
 
   it('an R37 regression shows a warning and leaves the decision badge unchanged', async () => {

@@ -595,6 +595,36 @@ class Database:
                 {"splits": list(splits), "ids": version_ids},
             )).fetchall()  # fmt: skip
 
+    async def evolution_node_scores(
+        self, metric_names: list[str] | tuple[str, ...] = ("coverage", "grounding")
+    ) -> list[dict]:
+        """What the lineage tree shows per node: for each version, split (train, val), judge and
+        metric of the latest full-split batch, the split mean and the within-case run-to-run noise
+        pooled over cases (``noise``; None without repeated runs). One row per metric, never the
+        case rows."""
+        async with self.pool.connection() as conn:
+            return await (await conn.execute(
+                "WITH latest AS ("
+                "  SELECT DISTINCT ON (version_id, split, judge_version) version_id, split,"
+                "   judge_version, batch_id FROM sv_metrics"
+                "  WHERE full_split AND split = ANY(%(splits)s)"
+                "  ORDER BY version_id, split, judge_version, updated_at DESC, batch_id DESC"
+                "), rows AS ("
+                "  SELECT m.* FROM sv_metrics m JOIN latest l USING (version_id, split,"
+                "   judge_version, batch_id) WHERE m.metric = ANY(%(metrics)s)"
+                ") SELECT s.version_id, s.split, s.judge_version, s.metric, s.mean, s.updated_at,"
+                " CASE WHEN c.dof > 0 THEN sqrt(c.ss / c.dof) END AS noise"
+                " FROM rows s LEFT JOIN ("
+                "  SELECT version_id, split, judge_version, metric,"
+                "   sum(sd * sd * (n - 1)) AS ss, sum(n - 1) AS dof FROM rows"
+                "  WHERE level = 'case' AND sd IS NOT NULL AND n > 1"
+                "  GROUP BY version_id, split, judge_version, metric"
+                " ) c USING (version_id, split, judge_version, metric)"
+                " WHERE s.level = 'split'"
+                " ORDER BY s.version_id, s.split, s.judge_version, s.metric",
+                {"splits": ["train", "val"], "metrics": list(metric_names)},
+            )).fetchall()  # fmt: skip
+
     async def promotion_decisions(self) -> list[dict]:
         """Published decision summaries (aggregates only), oldest first."""
         async with self.pool.connection() as conn:

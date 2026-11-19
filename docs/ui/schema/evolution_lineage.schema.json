@@ -108,6 +108,17 @@
             }
           ],
           "title": "R37 Regression"
+        },
+        "score": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NodeScore"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -125,6 +136,104 @@
         "r37_regression"
       ],
       "title": "LineageNode",
+      "type": "object"
+    },
+    "NodeMetric": {
+      "properties": {
+        "mean": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Mean"
+        },
+        "noise": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Noise"
+        },
+        "parent_mean": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Parent Mean"
+        },
+        "delta": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Delta"
+        },
+        "beyond_noise": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Beyond Noise"
+        }
+      },
+      "required": [
+        "mean",
+        "noise",
+        "parent_mean",
+        "delta",
+        "beyond_noise"
+      ],
+      "title": "NodeMetric",
+      "type": "object"
+    },
+    "NodeScore": {
+      "properties": {
+        "split": {
+          "enum": [
+            "train",
+            "val"
+          ],
+          "title": "Split",
+          "type": "string"
+        },
+        "judge_version": {
+          "title": "Judge Version",
+          "type": "string"
+        },
+        "metrics": {
+          "additionalProperties": {
+            "$ref": "#/$defs/NodeMetric"
+          },
+          "title": "Metrics",
+          "type": "object"
+        }
+      },
+      "required": [
+        "split",
+        "judge_version",
+        "metrics"
+      ],
+      "title": "NodeScore",
       "type": "object"
     }
   },
