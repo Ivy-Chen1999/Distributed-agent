@@ -425,6 +425,49 @@ async def cmd_evolve_twin(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+async def cmd_evolve_publish(args: argparse.Namespace) -> int:
+    """Publish this database's evolution archive (versions, train/val metrics, prompt texts),
+    or one cycle's with --cycle, to a hosted console, so its Evolution page shows it."""
+    from womm.eval.publish import PublishError
+    from womm.evolve.publish import EvolutionBundle, export_bundle, post, summarize
+
+    source = _masked_db(load_settings().database_url)
+    async with _evolve_db("womm evolve publish") as db:
+        try:
+            bundle = await export_bundle(db, args.cycle)
+        except PublishError as exc:
+            raise UsageError(str(exc)) from None
+    summary = summarize(EvolutionBundle.model_validate(bundle))
+    if args.dry_run:
+        lines = [f"from {source}" + (f", cycle {args.cycle}" if args.cycle else ", every cycle"),
+                 *(f"  {v['version_id']}  {v['origin']:<8} {v['cycle_id'] or '-':<24} {v['name']}"
+                   for v in summary["version_list"]),
+                 f"{summary['versions']} versions, {summary['metrics']} metric rows,"
+                 f" {summary['prompts']} prompts (not posted: --dry-run)"]  # fmt: skip
+        emit(args, {"source": source, **summary}, "\n".join(lines))
+        return EXIT_OK
+    try:
+        out = post(bundle, args.url, timeout=args.timeout)
+    except PublishError as exc:
+        raise UsageError(str(exc)) from None
+    lines = [f"{table}: {c['inserted']} inserted, {c['identical']} already there (identical),"
+             f" {c['different']} already there and different (kept)"
+             + (f": {', '.join(c['differing'][:10])}" if c["differing"] else "")
+             for table, c in out.items()]  # fmt: skip
+    emit(args, out, "\n".join(lines))
+    return EXIT_OK
+
+
+def _masked_db(url: str | None) -> str:
+    """host/database of a Postgres URL, without the user or password."""
+    from urllib.parse import urlsplit
+
+    if not url:
+        return "(no DATABASE_URL)"
+    parts = urlsplit(url)
+    return f"{parts.hostname or '?'}:{parts.port or 5432}{parts.path or ''}"
+
+
 async def cmd_evolve_materialize(args: argparse.Namespace) -> int:
     """Write an archived candidate as a SystemVersion YAML plus its prompt files (U2/U3)."""
     from womm.evolve.archive import Archive
@@ -1498,6 +1541,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="judge calibration, R34 and MDD records (default: %(default)s)",
     )  # fmt: skip
     p_promote.add_argument("--skip-self-check", action="store_true", help="dev only")
+    p_evo_pub = evolve.add_parser(
+        "publish", parents=[common],
+        help="publish this database's evolution archive to a hosted console (train/val only)",
+    )  # fmt: skip
+    p_evo_pub.add_argument("--url", default=None, help="console base URL (default: $WOMM_API_URL)")
+    p_evo_pub.add_argument("--dry-run", action="store_true",
+                           help="list what would be sent, do not post")  # fmt: skip
+    p_evo_pub.add_argument("--cycle", default=None,
+                           help="only this cycle, its ancestors and twins")  # fmt: skip
+    p_evo_pub.add_argument("--timeout", type=float, default=300.0, help="seconds (default 300)")
     p_show = evolve.add_parser(
         "show", parents=[common],
         help="gate decisions from the sealed holdout audit (local; needs HOLDOUT_DATABASE_URL)",
@@ -1627,6 +1680,7 @@ EVOLVE_HANDLERS = {
     "promote": cmd_evolve_promote,
     "show": cmd_evolve_show,
     "rescore": cmd_evolve_rescore,
+    "publish": cmd_evolve_publish,
 }
 
 
