@@ -13,7 +13,11 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Annotated, Literal
 
+import psycopg
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
+from fastapi.encoders import jsonable_encoder
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -51,6 +55,7 @@ from womm.data.fixtures import Fixture, FixtureError, load_fixture
 from womm.decisions.factory import make_decision_service
 from womm.diff import diff_versions
 from womm.eval.publish import PublishError, check_payload, summarize
+from womm.evolve.publish import EvolutionBundle, import_bundle
 from womm.identity import code_identity
 from womm.llm.base import LLMBackend
 from womm.models.system_version import (
@@ -164,6 +169,20 @@ def create_app(
     app = FastAPI(title="WOMM", version="0.1.0", lifespan=lifespan)
     # Whole-act comparisons and finished runs are hundreds of KB of JSON; gzip cuts them ~10x.
     app.add_middleware(GZipMiddleware, minimum_size=1024)
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:
+        """FastAPI's 422, unless an offending input cannot be echoed as JSON (NaN, Infinity):
+        then the same errors without their inputs, never a 500."""
+        try:
+            return await request_validation_exception_handler(request, exc)
+        except ValueError:
+            errors = [{k: v for k, v in e.items() if k not in ("input", "ctx")}
+                      for e in exc.errors()]  # fmt: skip
+            return JSONResponse(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                content={"detail": jsonable_encoder(errors)},
+            )
 
     def require_token(
         creds: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
@@ -457,6 +476,21 @@ def create_app(
         if row is None:
             raise unknown(version_id)
         return EvolutionView.diff(row)
+
+    @app.post("/evolution/archive", dependencies=auth)
+    async def publish_evolution_archive(body: EvolutionBundle, request: Request) -> dict:
+        """A local evolution archive from `womm evolve publish`: versions, train/val metrics and
+        prompt texts, checked as a whole and inserted in one transaction. Rows already stored
+        stay unchanged (counted as identical or different), so publishing again inserts
+        nothing."""
+        try:
+            return await import_bundle(request.app.state.db, body)
+        except PublishError as exc:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from None
+        except psycopg.DataError as exc:  # e.g. a NUL byte in a text field; rolled back
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_CONTENT, f"refused by the database: {exc}"
+            ) from None
 
     @app.get("/runs", dependencies=auth)
     async def list_runs(request: Request, limit: Annotated[int, Query(ge=1, le=200)] = 20) -> dict:
