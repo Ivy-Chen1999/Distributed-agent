@@ -23,7 +23,7 @@ test.describe('auth', () => {
     await dialog.getByRole('button', { name: 'Connect' }).click();
     await rejected;
     await expect(dialog).toContainText('Token rejected');
-    await expect(dialog).toContainText('The API answered 401');
+    await expect(dialog).toContainText('That code was not accepted');
     expect(await page.evaluate(() => localStorage.getItem('womm.token'))).toBeNull();
   });
 

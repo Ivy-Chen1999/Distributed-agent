@@ -99,6 +99,11 @@ start. The `Dockerfile` / `railway.json` build the same app; deployed versions m
 backend (`system_versions/v0.1-api.yaml`, needs `OPENAI_API_KEY`), since the Claude Code
 subscription is local only.
 
+**Read-only access code.** `WOMM_VIEW_TOKEN` (at least 6 characters, different from
+`WOMM_API_TOKEN`) is a public code for visitors, e.g. printed on a poster: it opens every read
+endpoint, so the whole console can be browsed, and every write (`POST /runs`, publishing) answers
+it 403. Unset, only `WOMM_API_TOKEN` is accepted. Change the variable to revoke the code.
+
 ## LLM backends
 
 Configured per role in `system_versions/*.yaml` (a SystemVersion; its id is a content hash of the
