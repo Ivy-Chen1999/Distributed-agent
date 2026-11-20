@@ -1,8 +1,10 @@
 """HTTP API (U11): submit runs, poll status, read live node events.
 
 Every endpoint except /health requires `Authorization: Bearer <WOMM_API_TOKEN>`; the app refuses
-to start without a token. The hosted labelling pages under /label (``womm.api.labels``) have
-their own sign-in and exist only when WOMM_LABEL_ADMIN_TOKEN is set.
+to start without a token. With WOMM_VIEW_TOKEN set, that code also opens every read endpoint
+(a public access code, e.g. printed on a poster); writes answer it 403. The hosted labelling
+pages under /label (``womm.api.labels``) have their own sign-in and exist only when
+WOMM_LABEL_ADMIN_TOKEN is set.
 Run with: `uvicorn --factory womm.api.app:create_app`.
 """
 
@@ -66,6 +68,9 @@ from womm.models.system_version import (
 )
 
 MIN_TOKEN_LENGTH = 16
+# The view code is public by design (it only reads), so it may be short enough to type.
+MIN_VIEW_TOKEN_LENGTH = 6
+VIEW_ONLY = "This access code can only view. Ask the WOMM team to start an analysis."
 WEB_DIST = REPO_ROOT / "web" / "dist"
 # Read only for its publish_summary flag; absent in the API image (no evals/), which is fine.
 PROMOTION_POLICY = REPO_ROOT / "evals" / "promotion_policy.yaml"
@@ -120,6 +125,13 @@ def create_app(
         raise ConfigError(
             f"WOMM_API_TOKEN must be set to a random value of at least {MIN_TOKEN_LENGTH} chars"
         )
+    view_token = settings.view_token
+    if view_token is not None and len(view_token) < MIN_VIEW_TOKEN_LENGTH:
+        raise ConfigError(f"WOMM_VIEW_TOKEN must be at least {MIN_VIEW_TOKEN_LENGTH} chars")
+    if view_token is not None and hmac.compare_digest(
+        view_token.encode(), settings.api_token.encode()
+    ):
+        raise ConfigError("WOMM_VIEW_TOKEN must differ from WOMM_API_TOKEN")
     if not settings.database_url:
         raise ConfigError("DATABASE_URL must be set to run the API")
     sv = sv or load_system_version(settings.system_version_path, REPO_ROOT)
@@ -184,18 +196,39 @@ def create_app(
                 content={"detail": jsonable_encoder(errors)},
             )
 
+    def _is(creds: HTTPAuthorizationCredentials | None, token: str | None) -> bool:
+        return (
+            creds is not None
+            and token is not None
+            and hmac.compare_digest(creds.credentials.encode(), token.encode())
+        )
+
+    def _unauthorized() -> HTTPException:
+        return HTTPException(
+            status.HTTP_401_UNAUTHORIZED, "invalid or missing bearer token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )  # fmt: skip
+
     def require_token(
         creds: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
     ) -> None:
-        if creds is None or not hmac.compare_digest(
-            creds.credentials.encode(), settings.api_token.encode()
-        ):
-            raise HTTPException(
-                status.HTTP_401_UNAUTHORIZED, "invalid or missing bearer token",
-                headers={"WWW-Authenticate": "Bearer"},
-            )  # fmt: skip
+        """Writes: the team's token only. The view code is known but refused (403, not 401, so
+        the console keeps it and shows why)."""
+        if _is(creds, settings.api_token):
+            return
+        if _is(creds, view_token):
+            raise HTTPException(status.HTTP_403_FORBIDDEN, VIEW_ONLY)
+        raise _unauthorized()
+
+    def require_reader(
+        creds: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
+    ) -> None:
+        """Reads: the team's token or the view code."""
+        if not (_is(creds, settings.api_token) or _is(creds, view_token)):
+            raise _unauthorized()
 
     auth = [Depends(require_token)]
+    read = [Depends(require_reader)]
 
     @app.get("/livez")
     async def livez() -> dict:
@@ -212,7 +245,7 @@ def create_app(
                 "backend_ready": ready}  # fmt: skip
         return JSONResponse(body, status_code=200 if ready else 503)
 
-    @app.get("/scenarios", dependencies=auth)
+    @app.get("/scenarios", dependencies=read)
     async def scenarios() -> list[dict]:
         # Every scenario, with its mode. The console names a whole-act (explore) run from it, but
         # its run picker lists preset scenarios only: explore scenarios have no fixed provision
@@ -248,7 +281,7 @@ def create_app(
             raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, str(exc)) from None
         return RunAccepted(run_id=run_id, status="queued", system_version=run_sv.version_id)
 
-    @app.get("/runs/{run_id}", dependencies=auth)
+    @app.get("/runs/{run_id}", dependencies=read)
     async def get_run(run_id: str, request: Request) -> dict:
         db: Database = request.app.state.db
         row = await db.get_run(run_id)
@@ -294,7 +327,7 @@ def create_app(
         report_id = await request.app.state.db.insert_eval_report(data, summary)
         return {"report_id": report_id, "summary": summary}
 
-    @app.get("/eval-reports/latest", dependencies=auth)
+    @app.get("/eval-reports/latest", dependencies=read)
     async def latest_eval_report(
         request: Request, system_version: Annotated[str, Query(max_length=40)]
     ) -> dict:
@@ -303,7 +336,7 @@ def create_app(
             raise HTTPException(status.HTTP_404_NOT_FOUND, "no evaluation published")
         return report_out(row)
 
-    @app.get("/runs/{run_id}/events", dependencies=auth)
+    @app.get("/runs/{run_id}/events", dependencies=read)
     async def run_events(
         run_id: str, request: Request,
         after: Annotated[int, Query(ge=0)] = 0,
@@ -316,7 +349,7 @@ def create_app(
         return {"run_id": run_id, "events": events, "next_after": events[-1]["seq"] if events
                 else after}  # fmt: skip
 
-    @app.get("/system", dependencies=auth)
+    @app.get("/system", dependencies=read)
     async def system(request: Request) -> dict:
         state = request.app.state
         report = getattr(state, "self_check", None)
@@ -352,7 +385,7 @@ def create_app(
             ),
         }
 
-    @app.get("/scenarios/{scenario_id}/sources", dependencies=auth)
+    @app.get("/scenarios/{scenario_id}/sources", dependencies=read)
     async def scenario_sources(scenario_id: str) -> dict:
         try:
             scenario = fixture.scenario(scenario_id)
@@ -409,7 +442,7 @@ def create_app(
             ]
         return pairs
 
-    @app.get("/regulations", dependencies=auth)
+    @app.get("/regulations", dependencies=read)
     async def regulations() -> list[RegulationEntry]:
         """Regulations with a whole-act corpus (not the evaluation fixtures; see act_view)."""
         entry = regulation_entry(corpus or load_default_corpus())
@@ -427,11 +460,11 @@ def create_app(
         ]
         return [entry]
 
-    @app.get("/corpus/{regulation_id}/comparisons", dependencies=auth)
+    @app.get("/corpus/{regulation_id}/comparisons", dependencies=read)
     async def corpus_comparisons(regulation_id: str) -> list[ComparisonRef]:
         return with_scenarios(comparisons(act_corpus(regulation_id)))
 
-    @app.get("/corpus/{regulation_id}/compare/{before}/{after}", dependencies=auth)
+    @app.get("/corpus/{regulation_id}/compare/{before}/{after}", dependencies=read)
     async def corpus_compare(regulation_id: str, before: str, after: str) -> ActComparison:
         c = act_corpus(regulation_id)
         if (before, after) not in compared:
@@ -455,11 +488,11 @@ def create_app(
     def unknown(version_id: str) -> HTTPException:
         return HTTPException(status.HTTP_404_NOT_FOUND, f"unknown version {version_id}")
 
-    @app.get("/evolution/lineage", dependencies=auth)
+    @app.get("/evolution/lineage", dependencies=read)
     async def evolution_lineage(request: Request) -> Lineage:
         return (await evolution(request)).lineage()
 
-    @app.get("/evolution/candidates/{version_id}", dependencies=auth)
+    @app.get("/evolution/candidates/{version_id}", dependencies=read)
     async def evolution_candidate(version_id: str, request: Request) -> CandidateDetail:
         db: Database = request.app.state.db
         view = await evolution(request)
@@ -470,7 +503,7 @@ def create_app(
         metrics = await db.evolution_metrics(version_ids=[vid], splits=PANEL_SPLITS)
         return view.detail(vid, row, metrics)
 
-    @app.get("/evolution/candidates/{version_id}/diff", dependencies=auth)
+    @app.get("/evolution/candidates/{version_id}/diff", dependencies=read)
     async def evolution_diff(version_id: str, request: Request) -> CandidateDiff:
         row = await request.app.state.db.evolution_candidate(version_id)
         if row is None:
@@ -492,7 +525,7 @@ def create_app(
                 status.HTTP_422_UNPROCESSABLE_CONTENT, f"refused by the database: {exc}"
             ) from None
 
-    @app.get("/runs", dependencies=auth)
+    @app.get("/runs", dependencies=read)
     async def list_runs(request: Request, limit: Annotated[int, Query(ge=1, le=200)] = 20) -> dict:
         return {"runs": await request.app.state.db.list_runs(limit)}
 

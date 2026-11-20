@@ -101,7 +101,7 @@ export function TokenModal({ onSave, expired }: { onSave: (token: string) => voi
       <div style={{ font: `700 12px/1.4 ${FONT}`, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--accInk)' }}>WOMM API</div>
       <div style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.3 }}>{expired ? 'Token rejected' : 'Connect to the API'}</div>
       <div style={{ fontSize: 13, color: 'var(--n1)', lineHeight: 1.5 }}>
-        {expired ? 'The API answered 401. Paste a valid token to continue.' : 'Paste the bearer token (WOMM_API_TOKEN). It stays in this browser only.'}
+        {expired ? 'That code was not accepted. Enter a valid access code or API token to continue.' : 'Enter your access code, or the team’s API token (WOMM_API_TOKEN). It stays in this browser only.'}
       </div>
       <div style={{ display: 'flex', gap: 8 }}>
         <HInput
@@ -111,7 +111,7 @@ export function TokenModal({ onSave, expired }: { onSave: (token: string) => voi
           value={v}
           onChange={(e) => setV(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && save()}
-          placeholder="Bearer token"
+          placeholder="Access code"
           style={INPUT}
           focusStyle={{ border: `2px solid ${ACC}` }}
         />
