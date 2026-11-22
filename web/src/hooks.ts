@@ -145,8 +145,9 @@ export function entryScript(doc: Document): string | null {
 
 /**
  * True once the server's index.html names a different entry script than the one this tab is
- * running, i.e. a deploy happened while the tab was open. Checks when the tab becomes visible and
- * every VERSION_CHECK_MS. Does nothing in dev, where there is no built entry script.
+ * running, i.e. a deploy happened while the tab was open. Checks when the tab becomes visible, when
+ * the browser comes back online, and every VERSION_CHECK_MS. Does nothing in dev, where there is
+ * no built entry script.
  */
 export function useNewVersion(): boolean {
   const [stale, setStale] = useState(false);
@@ -168,10 +169,12 @@ export function useNewVersion(): boolean {
       if (document.visibilityState === 'visible') void check();
     };
     document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('online', check);
     const iv = setInterval(check, VERSION_CHECK_MS);
     return () => {
       live = false;
       document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('online', check);
       clearInterval(iv);
     };
   }, [stale]);
