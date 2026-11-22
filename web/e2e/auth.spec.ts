@@ -11,7 +11,8 @@ test.describe('auth', () => {
     await expect(dialog).toContainText('Connect to the API');
     await expect(dialog).toContainText('WOMM_API_TOKEN');
     await expect(dialog.getByLabel('API token')).toBeFocused();
-    await expect(page.locator('header button', { hasText: /^Run$/ })).toBeDisabled();
+    // Run appears only once /system confirms a token that may start runs.
+    await expect(page.locator('header button', { hasText: /^Run$/ })).toHaveCount(0);
     expect(calls).toEqual([]);
   });
 
