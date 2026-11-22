@@ -355,6 +355,8 @@ export interface SystemInfo {
   experts: { id: string; domain: string; backend: string; model: string }[];
   router: { mode: RouterMode; decider: string };
   max_parallel_llm_calls?: number;
+  /** False when the console is signed in with the read-only access code. Run is offered only when true. */
+  can_run?: boolean;
   available_backends: string[];
   backend_ready: boolean;
   backend_error?: string | null;

@@ -158,6 +158,10 @@ export function App() {
   useEffect(() => () => clearTimeout(toastTimer.current), []);
 
   const [system, reloadSystem] = useLoad(authed ? `system:${token}` : null, api.system);
+  // The read-only access code browses everything but cannot start runs, so no screen offers one.
+  // Hidden until /system says so, so a visitor never sees it flash while the page loads.
+  const canRun = role.canRun && system.data?.can_run === true;
+  const shownRole = useMemo(() => (canRun === role.canRun ? role : { ...role, canRun }), [role, canRun]);
   const [scenarios] = useLoad(authed ? `scenarios:${token}` : null, api.scenarios);
   const [runLimit, setRunLimit] = useState(RUN_PAGE);
   const showMoreRuns = useCallback(() => setRunLimit(nextRunLimit), []);
@@ -358,11 +362,11 @@ export function App() {
     openSource: (sourceId, quote) => setSrc({ sourceId, quote }),
     staged,
     setStaged,
-    openPicker: () => role.canRun && setPicker(true),
+    openPicker: () => canRun && setPicker(true),
     flash,
     actContext,
     setActContext,
-    role,
+    role: shownRole,
     setRole,
     can: (s) => canSee(role, s),
     openAct: (target) => {
@@ -557,7 +561,7 @@ export function App() {
                   <path d={theme === 'light' ? MOON : SUN} />
                 </svg>
               </HButton>
-              {role.runMachinery && role.canRun && (
+              {role.runMachinery && canRun && (
               <HButton
                 onClick={() => setPicker(true)}
                 disabled={active || submitting || !authed}
@@ -587,7 +591,7 @@ export function App() {
         </div>
 
         {src && <SourcePanel sourceId={src.sourceId} quote={src.quote} sources={sources} runSources={run?.citable_sources} onClose={() => setSrc(null)} />}
-        {picker && authed && <RunPicker scenarios={scenarios} initial={scenarioId} staged={stagedText} busy={submitting} onRun={startRun} onClose={() => setPicker(false)} />}
+        {picker && authed && canRun && <RunPicker scenarios={scenarios} initial={scenarioId} staged={stagedText} busy={submitting} onRun={startRun} onClose={() => setPicker(false)} />}
         {!authed && (
           <TokenModal
             expired={expired}

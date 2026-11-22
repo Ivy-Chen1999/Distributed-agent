@@ -168,9 +168,11 @@ export function Settings() {
           <button type="button" onClick={() => C.setStaged({ backends: {}, routerMode: null })} style={OUTLINE_BTN}>
             Reset
           </button>
-          <button type="button" onClick={C.openPicker} style={{ ...OUTLINE_BTN, background: 'var(--ink)', color: 'var(--card)' }}>
-            Run with these settings
-          </button>
+          {C.role.canRun && (
+            <button type="button" onClick={C.openPicker} style={{ ...OUTLINE_BTN, background: 'var(--ink)', color: 'var(--card)' }}>
+              Run with these settings
+            </button>
+          )}
         </div>
       )}
     </div>

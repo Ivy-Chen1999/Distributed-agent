@@ -48,6 +48,12 @@ def test_the_view_code_cannot_write(database_url):
         assert team.status_code == 202, "the team's token still writes"
 
 
+def test_the_system_tells_the_console_who_can_run(database_url):
+    with TestClient(_app(database_url)) as c:
+        assert c.get("/system", headers=VIEW).json()["can_run"] is False
+        assert c.get("/system", headers=AUTH).json()["can_run"] is True
+
+
 def test_other_codes_are_still_refused(database_url):
     with TestClient(_app(database_url)) as c:
         assert c.get("/scenarios").status_code == 401
@@ -64,7 +70,7 @@ def test_every_route_is_either_a_read_or_a_team_only_write(database_url):
     for route in app.routes:
         if not isinstance(route, APIRoute) or route.path in PUBLIC:
             continue
-        gates = {d.call.__name__ for d in route.dependant.dependencies}
+        gates = {getattr(d.call, "__name__", None) for d in route.dependant.dependencies}
         want = "require_reader" if route.methods <= {"GET", "HEAD"} else "require_token"
         assert want in gates, (route.path, route.methods, gates)
         seen += 1
