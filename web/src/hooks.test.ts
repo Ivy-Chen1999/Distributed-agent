@@ -45,6 +45,14 @@ describe('useNewVersion', () => {
     expect(result.current).toBe(true);
   });
 
+  it('checks again when the browser comes back online', async () => {
+    running('/assets/index-OLD.js');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(served('/assets/index-NEW.js'))));
+    const { result } = renderHook(() => useNewVersion());
+    await act(async () => { window.dispatchEvent(new Event('online')); });
+    expect(result.current).toBe(true);
+  });
+
   it('ignores a failed or unreadable check', async () => {
     running('/assets/index-OLD.js');
     vi.stubGlobal('fetch', vi.fn().mockRejectedValueOnce(new TypeError('offline')).mockResolvedValueOnce(new Response('down', { status: 503 })).mockResolvedValue(new Response('<html></html>')));
