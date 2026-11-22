@@ -350,7 +350,10 @@ def create_app(
                 else after}  # fmt: skip
 
     @app.get("/system", dependencies=read)
-    async def system(request: Request) -> dict:
+    async def system(
+        request: Request,
+        creds: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
+    ) -> dict:
         state = request.app.state
         report = getattr(state, "self_check", None)
         problem = await backend_problem(state)
@@ -374,6 +377,8 @@ def create_app(
             ],
             "router": {"mode": sv.spec.router.mode, "decider": sv.spec.router.decider},
             "max_parallel_llm_calls": sv.spec.max_parallel_llm_calls,
+            # False for the view code, so the console hides Run instead of failing with 403.
+            "can_run": _is(creds, settings.api_token),
             "available_backends": sorted(state.runner.backends),
             "backend_ready": problem is None,
             "backend_error": problem,

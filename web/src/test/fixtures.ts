@@ -128,6 +128,7 @@ export const system: SystemInfo = {
   name: 'v0-baseline',
   source_path: 'system_versions/v0-baseline.yaml',
   description: 'Friday smoke baseline.',
+  can_run: true,
   roles: {
     planner: role('prompts/planner.md', '3f1c9a02be7d4410'),
     synthesis: role('prompts/synthesis.md', 'c4e19f7a0b2d6358'),

@@ -6,13 +6,14 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { App } from './App';
 import { TOKEN_KEY } from './api';
 import { ROLE_KEY } from './model/roles';
-import { mockApi } from './test/fixtures';
+import { mockApi, system } from './test/fixtures';
 import { COMPARISONS, OMNIBUS } from './test/act';
 import { REGULATIONS } from './test/regulations';
 import { goTo } from './test/nav';
 
-function boot(role?: string) {
+function boot(role?: string, extra: Parameters<typeof mockApi>[0] = {}) {
   const mock = mockApi({
+    ...extra,
     '/corpus/ai_act/comparisons': () => ({ status: 200, body: COMPARISONS }),
     '/corpus/ai_act/compare/': () => ({ status: 200, body: OMNIBUS }),
     '/regulations': () => ({ status: 200, body: REGULATIONS }),
@@ -42,6 +43,14 @@ describe('interfaces in the console', () => {
     expect(title()).toBe('Overview');
     expect(screen.getByTitle('Copy system version')).toBeTruthy();
     await waitFor(() => expect(within(header()).getByRole('button', { name: /^(Run|Re-run)$/ })).toBeTruthy());
+  });
+
+  it('signed in with the read-only access code, no screen offers to start a run', async () => {
+    boot(undefined, { '/system': () => ({ status: 200, body: { ...system, can_run: false } }) });
+    await waitFor(() => expect(screen.getByTitle('Copy system version')).toBeTruthy());
+    await waitFor(() => expect(within(header()).queryByRole('button', { name: /^(Run|Re-run)$/ })).toBeNull());
+    switchTo('The law');
+    expect(within(header()).queryByRole('button', { name: /^(Run|Re-run)$/ })).toBeNull();
   });
 
   it('the law lists Regulations, Act and Analysis, starts at Regulations, and hides run machinery', async () => {
