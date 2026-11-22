@@ -105,6 +105,20 @@ async def backend_problem(state) -> str | None:
     return await check.error() if check else None
 
 
+class ConsoleFiles(StaticFiles):
+    """The built console. Vite names every file under assets/ by its content hash, so those are
+    cached for a year; index.html (and anything else) is revalidated on each load, so the next
+    page load after a deploy gets the new console without a forced refresh."""
+
+    def file_response(self, full_path, stat_result, scope, status_code=200):
+        response = super().file_response(full_path, stat_result, scope, status_code)
+        hashed = scope["path"].startswith("/assets/")
+        response.headers["Cache-Control"] = (
+            "public, max-age=31536000, immutable" if hashed else "no-cache"
+        )
+        return response
+
+
 def create_app(
     settings: Settings | None = None,
     *,
@@ -543,7 +557,7 @@ def create_app(
 
     if web_dist is not None and (web_dist / "index.html").is_file():
         # The console is a single-page app served from the same origin as the API.
-        app.mount("/", StaticFiles(directory=web_dist, html=True), name="console")
+        app.mount("/", ConsoleFiles(directory=web_dist, html=True), name="console")
     else:
 
         @app.get("/", include_in_schema=False)

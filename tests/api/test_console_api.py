@@ -92,6 +92,21 @@ def test_console_served_when_built(database_url, tmp_path):
         assert c.get("/", follow_redirects=False).headers["location"] == "/docs"
 
 
+def test_console_page_is_revalidated_and_hashed_assets_are_cached(database_url, tmp_path):
+    (tmp_path / "index.html").write_text("<!doctype html><title>WOMM Console</title>")
+    (tmp_path / "assets").mkdir()
+    (tmp_path / "assets" / "index-AbC123.js").write_text("console.log(1)")
+    with _client(database_url, {}, web_dist=tmp_path) as c:
+        for path in ("/", "/index.html"):
+            assert c.get(path).headers["cache-control"] == "no-cache", path
+        page = c.get("/")
+        again = c.get("/", headers={"If-None-Match": page.headers["etag"]})
+        assert again.status_code == 304 and again.headers["cache-control"] == "no-cache"
+        asset = c.get("/assets/index-AbC123.js")
+        assert asset.status_code == 200
+        assert asset.headers["cache-control"] == "public, max-age=31536000, immutable"
+
+
 EXPLORE_SCENARIOS = {"eval_whole_proposal", "consolidated_whole_act", "omnibus_2026"}
 
 
