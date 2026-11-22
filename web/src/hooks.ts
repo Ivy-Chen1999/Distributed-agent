@@ -133,6 +133,51 @@ export function useNow(on: boolean, ms = 200): number {
   return now;
 }
 
+/** How often an open console asks whether a newer build has been deployed. */
+export const VERSION_CHECK_MS = 5 * 60_000;
+
+const ENTRY = 'script[type="module"][src*="/assets/"]';
+
+/** The built entry script named in `doc` (content-hashed by Vite), or null in dev and tests. */
+export function entryScript(doc: Document): string | null {
+  return doc.querySelector(ENTRY)?.getAttribute('src') ?? null;
+}
+
+/**
+ * True once the server's index.html names a different entry script than the one this tab is
+ * running, i.e. a deploy happened while the tab was open. Checks when the tab becomes visible and
+ * every VERSION_CHECK_MS. Does nothing in dev, where there is no built entry script.
+ */
+export function useNewVersion(): boolean {
+  const [stale, setStale] = useState(false);
+  useEffect(() => {
+    const running = entryScript(document);
+    if (!running || stale) return;
+    let live = true;
+    const check = async () => {
+      try {
+        const res = await fetch('/', { cache: 'no-store' });
+        if (!res.ok) return;
+        const served = entryScript(new DOMParser().parseFromString(await res.text(), 'text/html'));
+        if (live && served && served !== running) setStale(true);
+      } catch {
+        // Offline or mid-deploy: try again on the next tick.
+      }
+    };
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void check();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    const iv = setInterval(check, VERSION_CHECK_MS);
+    return () => {
+      live = false;
+      document.removeEventListener('visibilitychange', onVisible);
+      clearInterval(iv);
+    };
+  }, [stale]);
+  return stale;
+}
+
 /** Below this width the sidebar becomes a drawer and multi-column layouts stack. */
 export const NARROW_PX = 760;
 

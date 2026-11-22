@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import { api, describeError, getToken, onUnauthorized, setToken } from './api';
 import { Ctx, type ActContext, type ConsoleCtx, type DetailTab, type Staged } from './ctx';
 import { ACC, ACC_HOVER, BLUE, FONT, ICON, LABEL, MOON, PULSE, SUN, TH, fmtS, type ScreenId } from './design';
-import { useLoad, useNarrow, useNow, useRunData } from './hooks';
+import { useLoad, useNarrow, useNewVersion, useNow, useRunData } from './hooks';
 import { findingIndex } from './model/dossier';
 import { shortRunId } from './model/overview';
 import { RUN_PAGE, nextRunLimit, type RunFilter } from './model/runFilter';
@@ -13,7 +13,7 @@ import { buildTrace, isFinished, liveClock } from './model/trace';
 import type { GroupMode } from './model/dossier';
 import type { RunDetail, RunEvent } from './types';
 import { HButton, PRIMARY_BTN } from './components/ui';
-import { RunPicker, SourcePanel, Toast, TokenModal } from './components/overlays';
+import { RunPicker, SourcePanel, Toast, TokenModal, UpdateBanner } from './components/overlays';
 import { Overview } from './screens/Overview';
 import { Pipeline } from './screens/Pipeline';
 import { Detail } from './screens/Detail';
@@ -156,6 +156,7 @@ export function App() {
     toastTimer.current = setTimeout(() => setToast(null), ms);
   }, []);
   useEffect(() => () => clearTimeout(toastTimer.current), []);
+  const newVersion = useNewVersion();
 
   const [system, reloadSystem] = useLoad(authed ? `system:${token}` : null, api.system);
   // The read-only access code browses everything but cannot start runs, so no screen offers one.
@@ -603,6 +604,7 @@ export function App() {
           />
         )}
         {toast && <Toast text={toast} />}
+        {newVersion && <UpdateBanner />}
       </div>
     </Ctx.Provider>
   );
