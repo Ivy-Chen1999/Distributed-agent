@@ -1,8 +1,67 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, api } from './api';
-import { RETRY_MAX_MS, retryDelay, useMedia, useRunData } from './hooks';
+import { RETRY_MAX_MS, VERSION_CHECK_MS, retryDelay, useMedia, useNewVersion, useRunData } from './hooks';
 import type { EventsPage, RunDetail } from './types';
+
+describe('useNewVersion', () => {
+  const served = (src: string) => `<!doctype html><html><head><script type="module" crossorigin src="${src}"></script></head><body><div id="root"></div></body></html>`;
+  let entry: HTMLScriptElement | null = null;
+  const running = (src: string) => {
+    entry = document.createElement('script');
+    entry.type = 'module';
+    entry.setAttribute('src', src);
+    document.head.appendChild(entry);
+  };
+
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => {
+    entry?.remove();
+    entry = null;
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it('says so once the server names a different build', async () => {
+    running('/assets/index-OLD.js');
+    const fetchIndex = vi.fn().mockResolvedValueOnce(new Response(served('/assets/index-OLD.js'))).mockResolvedValue(new Response(served('/assets/index-NEW.js')));
+    vi.stubGlobal('fetch', fetchIndex);
+    const { result } = renderHook(() => useNewVersion());
+    await act(async () => { await vi.advanceTimersByTimeAsync(VERSION_CHECK_MS); });
+    expect(result.current).toBe(false);
+    await act(async () => { await vi.advanceTimersByTimeAsync(VERSION_CHECK_MS); });
+    expect(result.current).toBe(true);
+    expect(fetchIndex).toHaveBeenCalledWith('/', { cache: 'no-store' });
+    // Found once is enough: no more polling.
+    await act(async () => { await vi.advanceTimersByTimeAsync(3 * VERSION_CHECK_MS); });
+    expect(fetchIndex).toHaveBeenCalledTimes(2);
+  });
+
+  it('checks again when the tab comes back into view', async () => {
+    running('/assets/index-OLD.js');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(served('/assets/index-NEW.js'))));
+    const { result } = renderHook(() => useNewVersion());
+    await act(async () => { document.dispatchEvent(new Event('visibilitychange')); });
+    expect(result.current).toBe(true);
+  });
+
+  it('ignores a failed or unreadable check', async () => {
+    running('/assets/index-OLD.js');
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValueOnce(new TypeError('offline')).mockResolvedValueOnce(new Response('down', { status: 503 })).mockResolvedValue(new Response('<html></html>')));
+    const { result } = renderHook(() => useNewVersion());
+    await act(async () => { await vi.advanceTimersByTimeAsync(3 * VERSION_CHECK_MS); });
+    expect(result.current).toBe(false);
+  });
+
+  it('does nothing in dev, where there is no built entry script', async () => {
+    const fetchIndex = vi.fn();
+    vi.stubGlobal('fetch', fetchIndex);
+    const { result } = renderHook(() => useNewVersion());
+    await act(async () => { await vi.advanceTimersByTimeAsync(2 * VERSION_CHECK_MS); });
+    expect(result.current).toBe(false);
+    expect(fetchIndex).not.toHaveBeenCalled();
+  });
+});
 
 const run = (status: string) => ({ run_id: 'run_1', status }) as unknown as RunDetail;
 const page = (seqs: number[], next_after: number | null): EventsPage =>

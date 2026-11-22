@@ -72,6 +72,18 @@ export function SourcePanel({ sourceId, quote, sources, runSources, onClose }: {
   );
 }
 
+/** Shown when a newer console has been deployed since this tab loaded. Never reloads by itself. */
+export function UpdateBanner() {
+  return (
+    <div role="status" style={{ position: 'fixed', bottom: 20, right: 20, display: 'flex', alignItems: 'center', gap: 12, background: '#0F0F0F', color: '#FDFCFD', borderRadius: 6, padding: '9px 10px 9px 14px', font: `600 13px ${FONT}`, boxShadow: '0 4px 12px rgba(0,0,0,.18)', zIndex: 50, maxWidth: 'calc(100vw - 40px)' }}>
+      A newer version of the console is available.
+      <button type="button" onClick={() => window.location.reload()} style={{ border: 0, borderRadius: 4, background: ACC, color: '#0F0F0F', font: `700 13px ${FONT}`, padding: '6px 12px', cursor: 'pointer' }}>
+        Reload
+      </button>
+    </div>
+  );
+}
+
 export function Toast({ text }: { text: string }) {
   return (
     <div role="status" style={{ position: 'fixed', bottom: 20, left: '50%', transform: 'translateX(-50%)', background: '#0F0F0F', color: '#FDFCFD', borderRadius: 6, padding: '9px 14px', font: `600 13px ${FONT}`, boxShadow: '0 4px 12px rgba(0,0,0,.18)', zIndex: 50, maxWidth: '90vw' }}>
